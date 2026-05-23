@@ -43,6 +43,12 @@ public static class GlobalSettings
     /// </summary>
     public static bool RequireSwimmingSkill => false;
 
+    /// <summary>
+    ///     Maximum number of effect animations that can play on a single entity at once. When a new effect
+    ///     would exceed this cap, the oldest still-playing effect on that entity is evicted to make room.
+    /// </summary>
+    public const int MAX_EFFECTS_PER_ENTITY = 2;
+
     static GlobalSettings() => InitializeOthers();
 
     private static void InitializeOthers()

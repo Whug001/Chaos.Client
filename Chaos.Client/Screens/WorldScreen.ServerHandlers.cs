@@ -1080,9 +1080,26 @@ public sealed partial class WorldScreen
                 ? animationSpeed
                 : 50;
 
-        //cancel any existing effect on the same entity — only one effect per entity at a time
+        //limit the number of effect animations playing on a single entity at once
         if (targetEntityId.HasValue)
-            WorldState.ActiveEffects.RemoveAll(e => e.TargetEntityId == targetEntityId);
+        {
+            //re-casting an effect that's still playing restarts it rather than stacking an
+            //identical, pixel-for-pixel overlapping copy that would waste a slot.
+            WorldState.ActiveEffects.RemoveAll(e => (e.TargetEntityId == targetEntityId) && (e.EffectId == effectId));
+
+            //evict the oldest entity-attached effect(s) until there's room for the incoming one.
+            //ActiveEffects is append-ordered (completed effects are removed in place), so the
+            //lowest matching index is the oldest still-living effect — FIFO eviction.
+            while (WorldState.ActiveEffects.Count(e => e.TargetEntityId == targetEntityId) >= GlobalSettings.MAX_EFFECTS_PER_ENTITY)
+            {
+                var oldestIndex = WorldState.ActiveEffects.FindIndex(e => e.TargetEntityId == targetEntityId);
+
+                if (oldestIndex < 0)
+                    break;
+
+                WorldState.ActiveEffects.RemoveAt(oldestIndex);
+            }
+        }
 
         WorldState.ActiveEffects.Add(
             new Animation
