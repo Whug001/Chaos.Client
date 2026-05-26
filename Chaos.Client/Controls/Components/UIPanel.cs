@@ -47,7 +47,7 @@ public class UIPanel : UIElement
         Background?.Dispose();
         Background = null;
 
-        foreach (var child in Children)
+        foreach (var child in Children.ToList())
             child.Dispose();
 
         Children.Clear();

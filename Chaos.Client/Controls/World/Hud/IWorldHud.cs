@@ -68,7 +68,7 @@ public interface IWorldHud
     /// <summary>
     ///     Shared activation logic for HUD tab hotkeys (A/S/D/F/G/H) and the matching tab buttons. Mirrors the keyboard
     ///     handler exactly: applies shift modifiers (alt panels, expand inventory, message history, extended stats) and
-    ///     the click-while-active behavior gated on <c>UseShiftKeyForAltPanels</c>.
+    ///     the click-while-active behavior gated on <c>DoubleTapForAltPanels</c>.
     /// </summary>
     void HandleTabActivation(HudTab tab, bool shift);
 

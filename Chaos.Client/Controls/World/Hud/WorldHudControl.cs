@@ -638,7 +638,7 @@ public sealed class WorldHudControl : PrefabPanel, IWorldHud
             case HudTab.Skills:
             case HudTab.SkillsAlt:
             {
-                var alt = shift || (!ClientSettings.DoubleTapForAltPanels && (ActiveTab == HudTab.Skills));
+                var alt = shift || (ClientSettings.DoubleTapForAltPanels && (ActiveTab == HudTab.Skills));
                 ShowTab(alt ? HudTab.SkillsAlt : HudTab.Skills);
 
                 break;
@@ -647,7 +647,7 @@ public sealed class WorldHudControl : PrefabPanel, IWorldHud
             case HudTab.Spells:
             case HudTab.SpellsAlt:
             {
-                var alt = shift || (!ClientSettings.DoubleTapForAltPanels && (ActiveTab == HudTab.Spells));
+                var alt = shift || (ClientSettings.DoubleTapForAltPanels && (ActiveTab == HudTab.Spells));
                 ShowTab(alt ? HudTab.SpellsAlt : HudTab.Spells);
 
                 break;

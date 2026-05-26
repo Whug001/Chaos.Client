@@ -44,6 +44,7 @@ public sealed class SettingsControl : FramedDialogPanelBase
     private const int SCROLL_STEP = ROW_HEIGHT;
 
     private readonly Dictionary<SettingKey, UICheckBox> Checkboxes = [];
+    private readonly Dictionary<SettingKey, UIComboBox> Combos = [];
     private readonly UserOptions Options;
 
     //clip window (fixed) holding the scrolled content surface.
@@ -257,6 +258,9 @@ public sealed class SettingsControl : FramedDialogPanelBase
     //checkbox — a future slider/dropdown/keybinding becomes a new branch here and nowhere else.
     private (UIPanel cell, int height) BuildSettingCell(SettingDefinition def, int width)
     {
+        if (def.Choices is not null)
+            return BuildDropdownCell(def, width);
+
         var cell = new UIPanel
         {
             Name = $"cell_{def.Key}",
@@ -296,6 +300,56 @@ public sealed class SettingsControl : FramedDialogPanelBase
         return (cell, ROW_HEIGHT);
     }
 
+    //Builds a label + dropdown row for a multi-choice setting. The combobox is tracked in Combos so
+    //RefreshAll can re-sync its selection from the model when the panel reopens. The combobox's open
+    //list root-mounts to the screen (escaping the scroll-clip) and is modal by construction.
+    private (UIPanel cell, int height) BuildDropdownCell(SettingDefinition def, int width)
+    {
+        //place the dropdown just to the right of the (text-width) label and size it to its widest
+        //option (clamped to the row), rather than filling the whole row width.
+        var labelW = TextRenderer.MeasureWidth(def.Label) + 2;
+        var comboX = labelW + LABEL_GAP;
+        var comboW = Math.Min(UIComboBox.MeasureRequiredWidth(def.Choices!), width - comboX);
+        var combo = new UIComboBox(comboW)
+        {
+            Name = $"combo_{def.Key}"
+        };
+
+        var rowH = Math.Max(ROW_HEIGHT, combo.Height);
+        combo.X = comboX;
+        combo.Y = (rowH - combo.Height) / 2;
+        combo.SetItems(def.Choices!, def.GetChoice?.Invoke() ?? 0);
+        combo.SelectionChanged += i => def.SetChoice?.Invoke(i);
+        Combos[def.Key] = combo;
+
+        var cell = new UIPanel
+        {
+            Name = $"cell_{def.Key}",
+            Width = width,
+            Height = rowH,
+            IsPassThrough = true
+        };
+
+        cell.AddChild(
+            new UILabel
+            {
+                Name = $"lbl_{def.Key}",
+                X = 0,
+                Y = 0,
+                Width = labelW,
+                Height = rowH,
+                PaddingLeft = 0,
+                PaddingRight = 0,
+                PaddingTop = 0,
+                ForegroundColor = TextColors.Default,
+                Text = def.Label
+            });
+
+        cell.AddChild(combo);
+
+        return (cell, rowH);
+    }
+
     private void ApplyScrollOffset(int value) => Content.Y = -Math.Min(value * SCROLL_STEP, MaxScrollOffset);
 
     private void OnValueChanged(SettingKey key, bool value)
@@ -308,6 +362,14 @@ public sealed class SettingsControl : FramedDialogPanelBase
     {
         foreach ((var key, var checkbox) in Checkboxes)
             checkbox.Checked = Options.Value(key);
+
+        foreach ((var key, var combo) in Combos)
+        {
+            var def = SettingDefinitions.ByKey(key);
+
+            if (def.GetChoice is not null)
+                combo.SelectedIndex = def.GetChoice();
+        }
     }
 
     private void Close()

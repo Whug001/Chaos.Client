@@ -14,6 +14,7 @@ public static class ClientSettings
     public static int MusicVolume { get; set; } = 5;
     public static bool NpcRecordChat { get; set; } = true;
     public static int ScrollLevel { get; set; }
+    public static ScreenMode ScreenMode { get; set; } = ScreenMode.Windowed1x;
 
     //defaults match the original client
     public static int SoundVolume { get; set; } = 5;
@@ -60,7 +61,7 @@ public static class ClientSettings
                         break;
 
                     case "SkillSpellSelectByToggle":
-                        DoubleTapForAltPanels = value != "1";
+                        DoubleTapForAltPanels = value == "1";
 
                         break;
 
@@ -89,6 +90,12 @@ public static class ClientSettings
                         AutoAcceptGroupInvites = value == "1";
 
                         break;
+
+                    case "ScreenMode":
+                        if (int.TryParse(value, out var sm) && Enum.IsDefined((ScreenMode)sm))
+                            ScreenMode = (ScreenMode)sm;
+
+                        break;
                 }
             }
         } catch
@@ -107,12 +114,13 @@ public static class ClientSettings
             using var writer = new StreamWriter(FilePath, false);
             writer.WriteLine($"Sound Volume : {SoundVolume}");
             writer.WriteLine($"Music Volume : {MusicVolume}");
-            writer.WriteLine($"SkillSpellSelectByToggle : {(DoubleTapForAltPanels ? 0 : 1)}");
+            writer.WriteLine($"SkillSpellSelectByToggle : {(DoubleTapForAltPanels ? 1 : 0)}");
             writer.WriteLine($"GroupAnswer : {(AllowGroupInvites ? 1 : 0)}");
             writer.WriteLine($"ScrollLevel : {ScrollLevel}");
             writer.WriteLine($"UserClickMode : {(ClickToOpenProfile ? 0 : 1)}");
             writer.WriteLine($"MonsterSayRecordMode : {(NpcRecordChat ? 1 : 0)}");
             writer.WriteLine($"GroupObjectOption : {(AutoAcceptGroupInvites ? 1 : 0)}");
+            writer.WriteLine($"ScreenMode : {(int)ScreenMode}");
         } catch
         {
             //best effort — don't crash on save failure

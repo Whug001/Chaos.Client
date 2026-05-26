@@ -34,6 +34,8 @@ public static class InputBuffer
     private static int RawMouseY;
     private static float VirtualScaleX = 1f;
     private static float VirtualScaleY = 1f;
+    private static int VirtualOffsetX;
+    private static int VirtualOffsetY;
 
     //─────────────────────────────────────────────────────────────────────────────
     //  accumulation buffer (filled by the watcher between Update() calls)
@@ -90,8 +92,8 @@ public static class InputBuffer
     //watcher — must always use the same transform so polled and event positions agree.
     //scale is per-axis because the backbuffer can be non-4:3 when the window is maximized
     //(the render target is stretch-drawn to fill in that case, not letterboxed).
-    private static int ToVirtualX(int raw) => (int)(raw / VirtualScaleX);
-    private static int ToVirtualY(int raw) => (int)(raw / VirtualScaleY);
+    private static int ToVirtualX(int raw) => (int)((raw - VirtualOffsetX) / VirtualScaleX);
+    private static int ToVirtualY(int raw) => (int)((raw - VirtualOffsetY) / VirtualScaleY);
 
     /// <summary>
     ///     True while the left mouse button is held down. Flipped per-event by the SDL
@@ -153,16 +155,22 @@ public static class InputBuffer
     {
         VirtualScaleX = scale;
         VirtualScaleY = scale;
+        VirtualOffsetX = 0;
+        VirtualOffsetY = 0;
     }
 
     /// <summary>
-    ///     Sets the per-axis raw→virtual scale. Used when the window is non-4:3 (maximized) and
-    ///     the 640×480 render target is stretched to fill the backbuffer.
+    ///     Sets the per-axis raw→virtual scale plus an optional pixel offset (the top-left of the
+    ///     presented render target within the backbuffer) that raw coordinates are measured from.
+    ///     The offset is non-zero only in borderless-letterbox mode, where the 640×480 target is
+    ///     centered with black bars; in stretched/windowed modes it fills the backbuffer (offset 0).
     /// </summary>
-    public static void SetVirtualScale(float scaleX, float scaleY)
+    public static void SetVirtualScale(float scaleX, float scaleY, int offsetX = 0, int offsetY = 0)
     {
         VirtualScaleX = scaleX;
         VirtualScaleY = scaleY;
+        VirtualOffsetX = offsetX;
+        VirtualOffsetY = offsetY;
     }
 
     //─────────────────────────────────────────────────────────────────────────────

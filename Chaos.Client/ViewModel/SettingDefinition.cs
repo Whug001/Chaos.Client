@@ -53,7 +53,8 @@ public enum SettingKey
     AllowGroupInvites,
     ClickCharacterProfile,
     DoubleTapForAltPanels,
-    NpcRecordChat
+    NpcRecordChat,
+    Resolution
 }
 
 /// <summary>
@@ -72,7 +73,10 @@ public sealed record SettingDefinition(
     Func<bool>? Get = null,
     Action<bool>? Set = null,
     Action<ConnectionManager>? OnServerToggle = null,
-    SettingSpan Span = SettingSpan.Half);
+    SettingSpan Span = SettingSpan.Half,
+    IReadOnlyList<string>? Choices = null, //non-null ⇒ rendered as a dropdown instead of a checkbox
+    Func<int>? GetChoice = null,           //current selected index (dropdown only)
+    Action<int>? SetChoice = null);        //called with the new index on selection (dropdown only)
 
 /// <summary>
 ///     The single ordered source of truth for the F4 settings, replacing the old fixed 20-slot magic-index model.
@@ -82,6 +86,15 @@ public static class SettingDefinitions
     public static IReadOnlyList<SettingDefinition> All { get; } =
     [
         //── Display ──
+        new(
+            SettingKey.Resolution,
+            "Resolution",
+            SettingSection.Display,
+            SettingCategory.ClientLocal,
+            Span: SettingSpan.Full,
+            Choices: DisplaySettings.OptionLabels,
+            GetChoice: () => (int)ClientSettings.ScreenMode,
+            SetChoice: DisplaySettings.Apply),
         new(SettingKey.ShowBodyAnimations, "Show body animations", SettingSection.Display, SettingCategory.ServerOption, UserOption.Option1),
         new(SettingKey.PriorityAnimations, "Priority animations", SettingSection.Display, SettingCategory.ServerOption, UserOption.Option3),
         new(SettingKey.HideEnemyHealthBars, "Hide enemy health bars", SettingSection.Display, SettingCategory.ServerOption, UserOption.Option8),

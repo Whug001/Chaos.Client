@@ -42,7 +42,7 @@ public sealed class ChaosGame : Game
     private bool MetaSyncStarted;
     private RenderTarget2D RenderTarget = null!;
     private bool ResizingInProgress;
-    private int WindowSizeMultiplier = 1;
+    private ScreenMode CurrentScreenMode = ScreenMode.Windowed1x;
     private SpriteBatch SpriteBatch = null!;
 
     /// <summary>
@@ -190,12 +190,10 @@ public sealed class ChaosGame : Game
             SaveScreenshot();
         }
 
-        //stretch the virtual 640×480 render target to fill the window. when 4:3 is locked this
-        //fills perfectly; when the user has maximized to a non-4:3 window the image stretches
-        //to cover the full backbuffer (by design — "maximize covers the whole screen").
         GraphicsDevice.SetRenderTarget(null);
+        GraphicsDevice.Clear(Color.Black); //paint letterbox bars (and any unfilled backbuffer) black
         SpriteBatch.Begin(samplerState: GlobalSettings.Sampler);
-        SpriteBatch.Draw(RenderTarget, GraphicsDevice.Viewport.Bounds, Color.White);
+        SpriteBatch.Draw(RenderTarget, GetPresentRect(), Color.White);
         SpriteBatch.End();
 
         base.Draw(gameTime);
@@ -382,6 +380,9 @@ public sealed class ChaosGame : Game
         base.Initialize();
 
         Window.ClientSizeChanged += OnClientSizeChanged;
+
+        DisplaySettings.Applier = ApplyScreenMode;
+        ApplyScreenMode(ClientSettings.ScreenMode);
     }
 
     protected override void LoadContent()
@@ -427,51 +428,119 @@ public sealed class ChaosGame : Game
 
     #region Window Sizing
     /// <summary>
-    ///     Cycles the window through integer multipliers of the virtual resolution (640x480).
-    ///     Advances to the next multiplier if it fits on the current monitor, otherwise wraps to 1x.
+    ///     Applies a <see cref="ScreenMode" /> to the window: windowed integer multiples of 640x480
+    ///     (clamped to the current monitor), or borderless fullscreen at the desktop resolution. The
+    ///     letterbox-vs-stretch difference is applied later in the Draw present-rect, not here.
     /// </summary>
-    internal void CycleWindowSize()
+    internal void ApplyScreenMode(ScreenMode mode)
     {
-        var displayIndex = Sdl.SDL_GetWindowDisplayIndex(Window.Handle);
-
-        if ((displayIndex < 0) || (Sdl.SDL_GetDisplayBounds(displayIndex, out var bounds) < 0))
-            return;
-
-        var nextMultiplier = WindowSizeMultiplier + 1;
-        var nextWidth = VIRTUAL_WIDTH * nextMultiplier;
-        var nextHeight = VIRTUAL_HEIGHT * nextMultiplier;
-
-        if ((nextWidth > bounds.W) || (nextHeight > bounds.H))
-        {
-            nextMultiplier = 1;
-            nextWidth = VIRTUAL_WIDTH;
-            nextHeight = VIRTUAL_HEIGHT;
-        }
-
-        WindowSizeMultiplier = nextMultiplier;
-
+        CurrentScreenMode = mode;
         ResizingInProgress = true;
 
-        //leave maximized state so the backbuffer resize actually shrinks the OS window
-        if ((Sdl.SDL_GetWindowFlags(Window.Handle) & Sdl.SDL_WINDOW_MAXIMIZED) != 0)
-            Sdl.SDL_RestoreWindow(Window.Handle);
+        if (mode is ScreenMode.BorderlessLetterbox or ScreenMode.BorderlessStretch)
+        {
+            (var w, var h) = GetCurrentDisplaySize();
+            Graphics.HardwareModeSwitch = false; //MonoGame idiom: borderless windowed fullscreen
+            Graphics.IsFullScreen = true;
+            Graphics.PreferredBackBufferWidth = w;
+            Graphics.PreferredBackBufferHeight = h;
+        } else
+        {
+            var multiplier = ClampMultiplierToDisplay(ModeToMultiplier(mode));
 
-        Graphics.PreferredBackBufferWidth = nextWidth;
-        Graphics.PreferredBackBufferHeight = nextHeight;
+            if (Graphics.IsFullScreen)
+            {
+                Graphics.IsFullScreen = false;
+                Graphics.HardwareModeSwitch = true;
+            }
+
+            //leave maximized state so the backbuffer resize actually shrinks the OS window
+            if ((Sdl.SDL_GetWindowFlags(Window.Handle) & Sdl.SDL_WINDOW_MAXIMIZED) != 0)
+                Sdl.SDL_RestoreWindow(Window.Handle);
+
+            Graphics.PreferredBackBufferWidth = VIRTUAL_WIDTH * multiplier;
+            Graphics.PreferredBackBufferHeight = VIRTUAL_HEIGHT * multiplier;
+        }
+
         Graphics.ApplyChanges();
         ResizingInProgress = false;
     }
 
+    private static int ModeToMultiplier(ScreenMode mode)
+        => mode switch
+        {
+            ScreenMode.Windowed2x => 2,
+            ScreenMode.Windowed3x => 3,
+            ScreenMode.Windowed4x => 4,
+            _                     => 1
+        };
+
+    //Bounds of the monitor the window currently sits on; falls back to the current backbuffer.
+    private (int W, int H) GetCurrentDisplaySize()
+    {
+        var displayIndex = Sdl.SDL_GetWindowDisplayIndex(Window.Handle);
+
+        if ((displayIndex >= 0) && (Sdl.SDL_GetDisplayBounds(displayIndex, out var bounds) >= 0))
+            return (bounds.W, bounds.H);
+
+        return (Graphics.PreferredBackBufferWidth, Graphics.PreferredBackBufferHeight);
+    }
+
+    //Largest integer multiple <= the requested one that still fits the current monitor (never below 1x).
+    private int ClampMultiplierToDisplay(int multiplier)
+    {
+        (var w, var h) = GetCurrentDisplaySize();
+
+        while ((multiplier > 1) && (((VIRTUAL_WIDTH * multiplier) > w) || ((VIRTUAL_HEIGHT * multiplier) > h)))
+            multiplier--;
+
+        return multiplier;
+    }
+
+    //The rectangle the 640x480 render target is presented into on the backbuffer. Borderless-letterbox
+    //centers an aspect-fit (4:3) rect with black bars; every other mode fills the whole backbuffer
+    //(windowed modes use an exact integer multiple, so "fill" is already pixel-perfect).
+    private Rectangle GetPresentRect()
+    {
+        var ppt = GraphicsDevice.PresentationParameters;
+        var bbW = ppt.BackBufferWidth;
+        var bbH = ppt.BackBufferHeight;
+
+        if (CurrentScreenMode != ScreenMode.BorderlessLetterbox)
+            return new Rectangle(0, 0, bbW, bbH);
+
+        var scale = Math.Min((float)bbW / VIRTUAL_WIDTH, (float)bbH / VIRTUAL_HEIGHT);
+        var w = (int)MathF.Round(VIRTUAL_WIDTH * scale);
+        var h = (int)MathF.Round(VIRTUAL_HEIGHT * scale);
+
+        return new Rectangle((bbW - w) / 2, (bbH - h) / 2, w, h);
+    }
+
     /// <summary>
-    ///     Corrects the window size after a resize to enforce 4:3 aspect ratio.
-    ///     Uses the larger dimension as the reference and adjusts the other.
+    ///     Resize hotkey: advances through the windowed sizes (1x → 2x → 3x → 4x), skipping any that
+    ///     don't fit the current monitor and wrapping back to 1x. Routes through
+    ///     <see cref="DisplaySettings.Apply" /> so the F4 Resolution dropdown and the hotkey stay in
+    ///     sync (and the choice persists). Borderless modes are dropdown-only.
     /// </summary>
-/// <summary>
-    ///     Returns the centered, integer-rounded rectangle of virtual 4:3 content inside a
-    ///     backbuffer of the given size. Equal to the full backbuffer when it's already 4:3;
-    ///     pillarboxes (wider windows) or letterboxes (taller windows) otherwise.
-    /// </summary>
-    
+    internal void CycleWindowSize()
+    {
+        var next = CurrentScreenMode switch
+        {
+            ScreenMode.Windowed1x => ScreenMode.Windowed2x,
+            ScreenMode.Windowed2x => ScreenMode.Windowed3x,
+            ScreenMode.Windowed3x => ScreenMode.Windowed4x,
+            _                     => ScreenMode.Windowed1x //from 4x or either borderless → back to 1x
+        };
+
+        //if the next multiple doesn't fit this monitor, wrap to 1x.
+        var multiplier = ModeToMultiplier(next);
+
+        if (ClampMultiplierToDisplay(multiplier) != multiplier)
+            next = ScreenMode.Windowed1x;
+
+        DisplaySettings.Apply((int)next);
+    }
+
 
     private void OnClientSizeChanged(object? sender, EventArgs e)
     {
@@ -489,6 +558,10 @@ public sealed class ChaosGame : Game
         var flags = Sdl.SDL_GetWindowFlags(Window.Handle);
 
         if ((flags & Sdl.SDL_WINDOW_MAXIMIZED) != 0)
+            return;
+
+        //borderless fullscreen owns the whole monitor — skip 4:3 correction (it would fight fullscreen).
+        if (CurrentScreenMode is ScreenMode.BorderlessLetterbox or ScreenMode.BorderlessStretch)
             return;
 
         //determine corrected dimensions preserving 4:3
@@ -539,6 +612,7 @@ public sealed class ChaosGame : Game
     protected override void UnloadContent()
     {
         Window.ClientSizeChanged -= OnClientSizeChanged;
+        DisplaySettings.Applier = null;
         CursorTexture?.Dispose();
         RenderTarget.Dispose();
         Screens.Dispose();
@@ -558,13 +632,13 @@ public sealed class ChaosGame : Game
     {
         DebugOverlay.BeginFrame();
 
-        //compute mouse coordinate transform. the render target is stretched to fill the
-        //backbuffer, so the raw→virtual scale is per-axis — equal on both axes when 4:3 is
-        //locked, unequal when the user has maximized to a non-4:3 window.
-        var ppt = GraphicsDevice.PresentationParameters;
-        var scaleX = (float)ppt.BackBufferWidth / VIRTUAL_WIDTH;
-        var scaleY = (float)ppt.BackBufferHeight / VIRTUAL_HEIGHT;
-        InputBuffer.SetVirtualScale(scaleX, scaleY);
+        //compute mouse coordinate transform from the same present-rect the render target draws into,
+        //so cursor→virtual mapping is correct in every mode — including borderless letterbox, where the
+        //rect is centered with black bars (non-zero offset) rather than filling the backbuffer.
+        var present = GetPresentRect();
+        var scaleX = (float)present.Width / VIRTUAL_WIDTH;
+        var scaleY = (float)present.Height / VIRTUAL_HEIGHT;
+        InputBuffer.SetVirtualScale(scaleX, scaleY, present.X, present.Y);
 
         //freeze buffered input for this frame before anything reads it
         InputBuffer.Update(IsActive);
