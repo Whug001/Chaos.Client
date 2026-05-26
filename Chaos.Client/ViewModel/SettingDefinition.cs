@@ -9,6 +9,7 @@ namespace Chaos.Client.ViewModel;
 public enum SettingSection
 {
     Display,
+    DamageNumbers,
     Sound,
     Interaction
 }
@@ -54,7 +55,12 @@ public enum SettingKey
     ClickCharacterProfile,
     DoubleTapForAltPanels,
     NpcRecordChat,
-    Resolution
+    Resolution,
+    DamageNumbersEnabled,
+    DamageNumbersOnAislings,
+    HealNumbersOnAislings,
+    DamageNumbersOnNpcs,
+    HealNumbersOnNpcs
 }
 
 /// <summary>
@@ -76,7 +82,8 @@ public sealed record SettingDefinition(
     SettingSpan Span = SettingSpan.Half,
     IReadOnlyList<string>? Choices = null, //non-null ⇒ rendered as a dropdown instead of a checkbox
     Func<int>? GetChoice = null,           //current selected index (dropdown only)
-    Action<int>? SetChoice = null);        //called with the new index on selection (dropdown only)
+    Action<int>? SetChoice = null,         //called with the new index on selection (dropdown only)
+    SettingKey? GatedBy = null);           //non-null ⇒ this setting is enabled only while GatedBy's value is true
 
 /// <summary>
 ///     The single ordered source of truth for the F4 settings, replacing the old fixed 20-slot magic-index model.
@@ -106,6 +113,48 @@ public static class SettingDefinitions
             SettingCategory.ClientLocal,
             Get: () => ClientSettings.ScrollLevel > 0,
             Set: v => ClientSettings.ScrollLevel = v ? 1 : 0),
+
+        //── Damage Numbers ──
+        new(
+            SettingKey.DamageNumbersEnabled,
+            "Enable damage numbers",
+            SettingSection.DamageNumbers,
+            SettingCategory.ClientLocal,
+            Get: () => ClientSettings.DamageNumbersEnabled,
+            Set: v => ClientSettings.DamageNumbersEnabled = v,
+            Span: SettingSpan.Full),
+        new(
+            SettingKey.DamageNumbersOnAislings,
+            "Show Damage on Aislings",
+            SettingSection.DamageNumbers,
+            SettingCategory.ClientLocal,
+            Get: () => ClientSettings.ShowDamageNumbersOnAislings,
+            Set: v => ClientSettings.ShowDamageNumbersOnAislings = v,
+            GatedBy: SettingKey.DamageNumbersEnabled),
+        new(
+            SettingKey.HealNumbersOnAislings,
+            "Show Heals on Aislings",
+            SettingSection.DamageNumbers,
+            SettingCategory.ClientLocal,
+            Get: () => ClientSettings.ShowHealNumbersOnAislings,
+            Set: v => ClientSettings.ShowHealNumbersOnAislings = v,
+            GatedBy: SettingKey.DamageNumbersEnabled),
+        new(
+            SettingKey.DamageNumbersOnNpcs,
+            "Show Damage on NPCs",
+            SettingSection.DamageNumbers,
+            SettingCategory.ClientLocal,
+            Get: () => ClientSettings.ShowDamageNumbersOnNpcs,
+            Set: v => ClientSettings.ShowDamageNumbersOnNpcs = v,
+            GatedBy: SettingKey.DamageNumbersEnabled),
+        new(
+            SettingKey.HealNumbersOnNpcs,
+            "Show Heals on NPCs",
+            SettingSection.DamageNumbers,
+            SettingCategory.ClientLocal,
+            Get: () => ClientSettings.ShowHealNumbersOnNpcs,
+            Set: v => ClientSettings.ShowHealNumbersOnNpcs = v,
+            GatedBy: SettingKey.DamageNumbersEnabled),
 
         //── Sound ──
         new(SettingKey.ListenToHitSounds, "Listen to hit sounds", SettingSection.Sound, SettingCategory.ServerOption, UserOption.Option2),

@@ -20,6 +20,13 @@ public static class ClientSettings
     public static int SoundVolume { get; set; } = 5;
     public static bool DoubleTapForAltPanels { get; set; } = true;
 
+    // --- Floating damage / heal numbers (client-local; gated in EntityOverlayManager) ---
+    public static bool DamageNumbersEnabled { get; set; } = true;
+    public static bool ShowDamageNumbersOnAislings { get; set; } = true;
+    public static bool ShowHealNumbersOnAislings { get; set; } = true;
+    public static bool ShowDamageNumbersOnNpcs { get; set; } = true;
+    public static bool ShowHealNumbersOnNpcs { get; set; } = true;
+
     private static string FilePath => Path.Combine(GlobalSettings.DataPath, FILE_NAME);
 
     /// <summary>
@@ -96,6 +103,31 @@ public static class ClientSettings
                             ScreenMode = (ScreenMode)sm;
 
                         break;
+
+                    case "DamageNumbersEnabled":
+                        DamageNumbersEnabled = value == "1";
+
+                        break;
+
+                    case "ShowDamageNumbersOnAislings":
+                        ShowDamageNumbersOnAislings = value == "1";
+
+                        break;
+
+                    case "ShowHealNumbersOnAislings":
+                        ShowHealNumbersOnAislings = value == "1";
+
+                        break;
+
+                    case "ShowDamageNumbersOnNpcs":
+                        ShowDamageNumbersOnNpcs = value == "1";
+
+                        break;
+
+                    case "ShowHealNumbersOnNpcs":
+                        ShowHealNumbersOnNpcs = value == "1";
+
+                        break;
                 }
             }
         } catch
@@ -121,6 +153,11 @@ public static class ClientSettings
             writer.WriteLine($"MonsterSayRecordMode : {(NpcRecordChat ? 1 : 0)}");
             writer.WriteLine($"GroupObjectOption : {(AutoAcceptGroupInvites ? 1 : 0)}");
             writer.WriteLine($"ScreenMode : {(int)ScreenMode}");
+            writer.WriteLine($"DamageNumbersEnabled : {(DamageNumbersEnabled ? 1 : 0)}");
+            writer.WriteLine($"ShowDamageNumbersOnAislings : {(ShowDamageNumbersOnAislings ? 1 : 0)}");
+            writer.WriteLine($"ShowHealNumbersOnAislings : {(ShowHealNumbersOnAislings ? 1 : 0)}");
+            writer.WriteLine($"ShowDamageNumbersOnNpcs : {(ShowDamageNumbersOnNpcs ? 1 : 0)}");
+            writer.WriteLine($"ShowHealNumbersOnNpcs : {(ShowHealNumbersOnNpcs ? 1 : 0)}");
         } catch
         {
             //best effort — don't crash on save failure

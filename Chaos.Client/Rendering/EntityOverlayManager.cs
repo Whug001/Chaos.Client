@@ -3,6 +3,7 @@ using Chaos.Client.Collections;
 using Chaos.Client.Controls.Components;
 using Chaos.Client.Controls.World.ViewPort;
 using Chaos.Client.Models;
+using Chaos.Client.Systems;
 using Chaos.DarkAges.Definitions;
 using Microsoft.Xna.Framework;
 using Microsoft.Xna.Framework.Graphics;
@@ -88,7 +89,7 @@ public sealed class EntityOverlayManager
 
     /// <summary>
     ///     Spawns a floating damage (negative) or heal (positive) number over the given entity, subject to the
-    ///     per-creature-type GlobalSettings toggles. No-op for amount 0, unknown entities, or disabled categories. The number
+    ///     per-category ClientSettings toggles. No-op for amount 0, unknown entities, or disabled categories. The number
     ///     is anchored to a fixed world position right here, while the entity is still alive — a killing blow removes the
     ///     entity in this same packet batch, so deferring the anchor would drop the number before it ever draws.
     /// </summary>
@@ -140,19 +141,18 @@ public sealed class EntityOverlayManager
                 spawnWorld));
     }
 
-    //categorize using the same merchant heuristic the name-tag code uses (Creature + NeutralHover = merchant)
+    //gate by the master switch, then by client entity type. merchants and monsters are both
+    //Creature and share the NPC toggles (no merchant/monster split for damage numbers).
     private static bool ShouldShowDamageNumber(WorldEntity entity, bool isHeal)
     {
+        if (!ClientSettings.DamageNumbersEnabled)
+            return false;
+
         if (entity.Type == ClientEntityType.Aisling)
-            return isHeal ? GlobalSettings.ShowHealNumbersOnAislings : GlobalSettings.ShowDamageNumbersOnAislings;
+            return isHeal ? ClientSettings.ShowHealNumbersOnAislings : ClientSettings.ShowDamageNumbersOnAislings;
 
         if (entity.Type == ClientEntityType.Creature)
-        {
-            if (entity.NameTagStyle == NameTagStyle.NeutralHover)
-                return isHeal ? GlobalSettings.ShowHealNumbersOnMerchants : GlobalSettings.ShowDamageNumbersOnMerchants;
-
-            return isHeal ? GlobalSettings.ShowHealNumbersOnMonsters : GlobalSettings.ShowDamageNumbersOnMonsters;
-        }
+            return isHeal ? ClientSettings.ShowHealNumbersOnNpcs : ClientSettings.ShowDamageNumbersOnNpcs;
 
         return false; //ground items etc. never show numbers
     }

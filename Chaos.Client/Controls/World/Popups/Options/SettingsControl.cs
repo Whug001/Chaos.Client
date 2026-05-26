@@ -117,10 +117,11 @@ public sealed class SettingsControl : FramedDialogPanelBase
     private static string SectionTitle(SettingSection section)
         => section switch
         {
-            SettingSection.Display     => "Display",
-            SettingSection.Sound       => "Sound",
-            SettingSection.Interaction => "Interaction",
-            _                          => string.Empty
+            SettingSection.Display       => "Display",
+            SettingSection.DamageNumbers => "Damage Numbers",
+            SettingSection.Sound         => "Sound",
+            SettingSection.Interaction   => "Interaction",
+            _                            => string.Empty
         };
 
     private void BuildRows()
@@ -130,7 +131,7 @@ public sealed class SettingsControl : FramedDialogPanelBase
         var columnW = contentW / 2;
         var y = 0;
 
-        foreach (var section in (ReadOnlySpan<SettingSection>)[SettingSection.Display, SettingSection.Sound, SettingSection.Interaction])
+        foreach (var section in (ReadOnlySpan<SettingSection>)[SettingSection.Display, SettingSection.DamageNumbers, SettingSection.Sound, SettingSection.Interaction])
         {
             Content.AddChild(
                 new UILabel
@@ -246,7 +247,7 @@ public sealed class SettingsControl : FramedDialogPanelBase
         if (def.Span == SettingSpan.Full)
             return SettingSpan.Full;
 
-        var halfLabelWidth = columnW - UICheckBox.CHECKBOX_SIZE - LABEL_GAP;
+        var halfLabelWidth = columnW - UICheckBox.CHECKBOX_SIZE - UICheckBox.CAPTION_GAP;
 
         return TextRenderer.MeasureWidth(def.Label) > halfLabelWidth
             ? SettingSpan.Full
@@ -261,43 +262,22 @@ public sealed class SettingsControl : FramedDialogPanelBase
         if (def.Choices is not null)
             return BuildDropdownCell(def, width);
 
-        var cell = new UIPanel
-        {
-            Name = $"cell_{def.Key}",
-            Width = width,
-            Height = ROW_HEIGHT,
-            IsPassThrough = true
-        };
-
         var key = def.Key;
 
         var checkbox = new UICheckBox
         {
             Name = $"cb_{def.Key}",
             X = 0,
-            Y = (ROW_HEIGHT - UICheckBox.CHECKBOX_SIZE) / 2
+            Y = 0,
+            Width = width,
+            Height = ROW_HEIGHT,
+            Text = def.Label
         };
         checkbox.Clicked += () => Options.Toggle(key);
 
         Checkboxes[def.Key] = checkbox;
-        cell.AddChild(checkbox);
 
-        cell.AddChild(
-            new UILabel
-            {
-                Name = $"lbl_{def.Key}",
-                X = UICheckBox.CHECKBOX_SIZE + LABEL_GAP,
-                Y = 0,
-                Width = width - UICheckBox.CHECKBOX_SIZE - LABEL_GAP,
-                Height = ROW_HEIGHT,
-                PaddingLeft = 0,
-                PaddingRight = 0,
-                PaddingTop = 0,
-                ForegroundColor = TextColors.Default,
-                Text = def.Label
-            });
-
-        return (cell, ROW_HEIGHT);
+        return (checkbox, ROW_HEIGHT);
     }
 
     //Builds a label + dropdown row for a multi-choice setting. The combobox is tracked in Combos so
@@ -356,6 +336,8 @@ public sealed class SettingsControl : FramedDialogPanelBase
     {
         if (Checkboxes.TryGetValue(key, out var checkbox))
             checkbox.Checked = value;
+
+        RefreshGatedStates();
     }
 
     private void RefreshAll()
@@ -369,6 +351,22 @@ public sealed class SettingsControl : FramedDialogPanelBase
 
             if (def.GetChoice is not null)
                 combo.SelectedIndex = def.GetChoice();
+        }
+
+        RefreshGatedStates();
+    }
+
+    //grey out + lock any setting whose GatedBy master is off. The UICheckBox dims its own box + caption
+    //when Enabled is false; the input system already skips !Enabled elements, so it also becomes non-interactive.
+    private void RefreshGatedStates()
+    {
+        foreach (var def in SettingDefinitions.All)
+        {
+            if (def.GatedBy is not { } master)
+                continue;
+
+            if (Checkboxes.TryGetValue(def.Key, out var checkbox))
+                checkbox.Enabled = Options.Value(master);
         }
     }
 
