@@ -41,7 +41,7 @@ public sealed partial class WorldScreen
             //entities through TRANSPARENT_SILHOUETTE_ALPHA so they compound correctly with the overlay.
             SilhouetteRenderer.PreRenderSilhouettes(batch =>
             {
-                batch.Begin(SpriteSortMode.Immediate, BlendState.AlphaBlend, GlobalSettings.Sampler);
+                batch.Begin(SpriteSortMode.Deferred, BlendState.AlphaBlend, GlobalSettings.Sampler);
                 DrawingForSilhouette = true;
 
                 try
@@ -80,18 +80,23 @@ public sealed partial class WorldScreen
             DrawTileCursor(spriteBatch);
             spriteBatch.End();
 
-            //foreground, entities, effects: immediate mode (per-stripe ordering, blend switches for additive effects)
-            spriteBatch.Begin(
-                SpriteSortMode.Immediate,
-                BlendState.AlphaBlend,
-                GlobalSettings.Sampler,
-                null,
-                ScissorRasterizerState,
-                null,
-                transform);
-            DrawForegroundAndEntities(spriteBatch, sortedEntities);
-            SilhouetteRenderer.DrawSilhouettes(spriteBatch);
-            spriteBatch.End();
+            //foreground, entities, effects: batched (Deferred) by default; BatchBlendScope breaks the batch only for the
+            //non-AlphaBlend draws (additive/screen effects, screen-blend foreground tiles). try/finally guarantees the
+            //batch is always closed — leaving it open would make next frame's Begin throw and cascade every frame.
+            BlendScope.Begin(spriteBatch, BlendState.AlphaBlend, GlobalSettings.Sampler, ScissorRasterizerState, transform);
+
+            try
+            {
+                DrawForegroundAndEntities(BlendScope, sortedEntities);
+
+                //effects/foreground tiles each restore AlphaBlend, but make the contract explicit before the silhouette
+                //overlay so it always composites at AlphaBlend regardless of which blend the last stripe draw left.
+                BlendScope.Require(BlendState.AlphaBlend);
+                SilhouetteRenderer.DrawSilhouettes(BlendScope.Batch);
+            } finally
+            {
+                BlendScope.End();
+            }
 
             //darkness overlay — drawn over the world in screen space (no camera transform)
             if (DarknessRenderer.IsActive)
@@ -135,7 +140,7 @@ public sealed partial class WorldScreen
                 if (player is not null)
                 {
                     spriteBatch.Begin(
-                        SpriteSortMode.Immediate,
+                        SpriteSortMode.Deferred,
                         BlendState.AlphaBlend,
                         GlobalSettings.Sampler,
                         null,
@@ -150,7 +155,7 @@ public sealed partial class WorldScreen
             //entity overlays (chat bubbles, health bars, name tags, chant text) — drawn after darkness
             //so light level doesn't tint them, and after blind so they remain visible while blinded
             spriteBatch.Begin(
-                SpriteSortMode.Immediate,
+                SpriteSortMode.Deferred,
                 BlendState.AlphaBlend,
                 GlobalSettings.Sampler,
                 null,
@@ -300,7 +305,7 @@ public sealed partial class WorldScreen
     ///     order: ground items → aislings → creatures → ground effects → entity effects → foreground tiles. Within each
     ///     category, entities draw in list order (arrival order — later arrivals on top).
     /// </summary>
-    private void DrawForegroundAndEntities(SpriteBatch spriteBatch, IReadOnlyList<WorldEntity> sortedEntities)
+    private void DrawForegroundAndEntities(BatchBlendScope scope, IReadOnlyList<WorldEntity> sortedEntities)
     {
         if (MapFile is null)
             return;
@@ -334,30 +339,30 @@ public sealed partial class WorldScreen
             //1. ground items
             for (var i = stripeStart; i < stripeEnd; i++)
                 if (sortedEntities[i].Type == ClientEntityType.GroundItem)
-                    DrawEntity(spriteBatch, sortedEntities[i]);
+                    DrawEntity(scope.Batch, sortedEntities[i]);
 
             //2. aislings
             for (var i = stripeStart; i < stripeEnd; i++)
                 if (sortedEntities[i].Type == ClientEntityType.Aisling)
-                    DrawEntity(spriteBatch, sortedEntities[i]);
+                    DrawEntity(scope.Batch, sortedEntities[i]);
 
             //3. creatures
             for (var i = stripeStart; i < stripeEnd; i++)
                 if (sortedEntities[i].Type == ClientEntityType.Creature)
-                    DrawEntity(spriteBatch, sortedEntities[i]);
+                    DrawEntity(scope.Batch, sortedEntities[i]);
 
             //4. dying creature dissolves
-            DrawDyingEffectsAtDepth(spriteBatch, depth);
+            DrawDyingEffectsAtDepth(scope.Batch, depth);
 
             //5. ground-targeted effects
-            DrawGroundEffectsAtDepth(spriteBatch, depth);
+            DrawGroundEffectsAtDepth(scope, depth);
 
             //6. projectiles in flight
-            DrawProjectilesAtDepth(spriteBatch, depth);
+            DrawProjectilesAtDepth(scope.Batch, depth);
 
             //7. entity-attached effects
             for (var i = stripeStart; i < stripeEnd; i++)
-                DrawEntityEffects(spriteBatch, sortedEntities[i]);
+                DrawEntityEffects(scope, sortedEntities[i]);
 
             //8. foreground tiles (on top — trees, buildings occlude entities behind them)
             var tileXStart = Math.Max(fgMinX, depth - fgMaxY);
@@ -365,8 +370,7 @@ public sealed partial class WorldScreen
 
             for (var tileX = tileXStart; tileX <= tileXEnd; tileX++)
                 MapRenderer.DrawForegroundTile(
-                    spriteBatch,
-                    Device,
+                    scope,
                     MapFile,
                     Camera,
                     tileX,
@@ -416,7 +420,7 @@ public sealed partial class WorldScreen
         }
     }
 
-    private void DrawGroundEffectsAtDepth(SpriteBatch spriteBatch, int depth)
+    private void DrawGroundEffectsAtDepth(BatchBlendScope scope, int depth)
     {
         foreach (var effect in WorldState.ActiveEffects)
         {
@@ -432,7 +436,7 @@ public sealed partial class WorldScreen
             var tileWorld = Camera.TileToWorld(effect.TileX.Value, effect.TileY.Value, MapFile!.Height);
 
             DrawSingleEffect(
-                spriteBatch,
+                scope,
                 effect,
                 tileWorld.X + DaLibConstants.HALF_TILE_WIDTH,
                 tileWorld.Y + DaLibConstants.HALF_TILE_HEIGHT,
@@ -486,14 +490,13 @@ public sealed partial class WorldScreen
     }
 
     private void DrawSingleEffect(
-        SpriteBatch spriteBatch,
+        BatchBlendScope scope,
         Animation effect,
         float tileCenterX,
         float tileCenterY,
         Vector2 visualOffset)
         => Game.EffectRenderer.Draw(
-            spriteBatch,
-            Device,
+            scope,
             Camera,
             effect.EffectId,
             effect.CurrentFrame,
@@ -726,7 +729,7 @@ public sealed partial class WorldScreen
         return Game.AislingRenderer.Draw(spriteBatch, Camera, in drawParams);
     }
 
-    private void DrawEntityEffects(SpriteBatch spriteBatch, WorldEntity entity)
+    private void DrawEntityEffects(BatchBlendScope scope, WorldEntity entity)
     {
         if (MapFile is null)
             return;
@@ -741,7 +744,7 @@ public sealed partial class WorldScreen
                 continue;
 
             DrawSingleEffect(
-                spriteBatch,
+                scope,
                 effect,
                 tileCenterX,
                 tileCenterY,

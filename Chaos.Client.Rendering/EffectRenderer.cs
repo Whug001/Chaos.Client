@@ -40,12 +40,11 @@ public sealed class EffectRenderer : IDisposable
     }
 
     /// <summary>
-    ///     Draws a single effect frame at the given tile center. Switches blend state for non-normal blend modes and restores
-    ///     AlphaBlend afterward. Requires the SpriteBatch to be in Immediate mode.
+    ///     Draws a single effect frame at the given tile center. For non-normal blend modes it asks the
+    ///     <see cref="BatchBlendScope" /> to switch blend (breaking the Deferred batch) and restores AlphaBlend afterward.
     /// </summary>
     public void Draw(
-        SpriteBatch batch,
-        GraphicsDevice device,
+        BatchBlendScope scope,
         Camera camera,
         int effectId,
         int currentFrame,
@@ -65,17 +64,17 @@ public sealed class EffectRenderer : IDisposable
         var screenPos = camera.WorldToScreen(new Vector2(drawX, drawY));
 
         if (blendMode != EffectBlendMode.Normal)
-            device.BlendState = blendMode switch
+            scope.Require(blendMode switch
             {
                 EffectBlendMode.Additive  => BlendState.Additive,
                 EffectBlendMode.SelfAlpha => BlendStates.Screen,
                 _                         => BlendState.AlphaBlend
-            };
+            });
 
-        batch.Draw(frame.Texture, screenPos, Color.White);
+        scope.Batch.Draw(frame.Texture, screenPos, Color.White);
 
         if (blendMode != EffectBlendMode.Normal)
-            device.BlendState = BlendState.AlphaBlend;
+            scope.Require(BlendState.AlphaBlend);
     }
 
     /// <summary>

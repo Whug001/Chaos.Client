@@ -131,6 +131,10 @@ public sealed partial class WorldScreen : IScreen
     private TileClickTracker LeftClickTracker;
     private readonly LightingSystem Lighting = new();
 
+    //reused per frame — owns the stripe pass's fixed Begin params + current blend, breaking the batch only when an
+    //effect or foreground tile needs a non-AlphaBlend state (replaces the old Immediate-mode device.BlendState switching).
+    private readonly BatchBlendScope BlendScope = new();
+
     //true while awaiting a paginated board response (append instead of replace)
     private bool LoadingMoreBoardPosts;
     private MacrosListControl MacrosList = null!;

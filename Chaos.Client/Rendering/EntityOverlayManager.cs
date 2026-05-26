@@ -31,6 +31,10 @@ public sealed class EntityOverlayManager
 
     //group box y offset — sits 2px above name tags
     private const int GROUP_BOX_Y_OFFSET = 74;
+
+    //the damage-number's bottom sits this many px above the health bar's top edge (0 = flush on the bar top).
+    //applied after the sprite-height resolution that positions the bar, so the gap is uniform across sprite types.
+    private const int DAMAGE_NUMBER_GAP_ABOVE_BAR = -3;
     private static readonly Color NAME_TAG_SHADOW_COLOR = new(20, 20, 20);
     private readonly Dictionary<uint, ChantText> ChantOverlays = [];
 
@@ -38,6 +42,7 @@ public sealed class EntityOverlayManager
     private readonly Dictionary<uint, GroupBox> GroupBoxes = [];
     private readonly Dictionary<uint, HealthBar> HealthBars = [];
     private readonly Dictionary<uint, TextElement> NameTagCache = [];
+    private readonly List<DamageNumber> DamageNumbers = [];
 
     /// <summary>
     ///     Adds a chant overlay for the given entity, replacing any existing chant or chat bubble. A null/empty message clears
@@ -82,6 +87,77 @@ public sealed class EntityOverlayManager
     }
 
     /// <summary>
+    ///     Spawns a floating damage (negative) or heal (positive) number over the given entity, subject to the
+    ///     per-creature-type GlobalSettings toggles. No-op for amount 0, unknown entities, or disabled categories. The number
+    ///     is anchored to a fixed world position right here, while the entity is still alive — a killing blow removes the
+    ///     entity in this same packet batch, so deferring the anchor would drop the number before it ever draws.
+    /// </summary>
+    public void AddDamageNumber(
+        uint entityId,
+        int amount,
+        int mapHeight,
+        CreatureRenderer creatureRenderer)
+    {
+        if (amount == 0)
+            return;
+
+        var entity = WorldState.GetEntity(entityId);
+
+        if (entity is null)
+            return;
+
+        var isHeal = amount > 0;
+
+        if (!ShouldShowDamageNumber(entity, isHeal))
+            return;
+
+        //bare magnitude digits — color (green heal / red damage) signals the kind, no '+' prefix
+        var digits = Math.Abs(amount)
+                         .ToString();
+
+        var dir = Random.Shared.Next(2) == 0 ? -1f : 1f;
+        var peak = GlobalSettings.DamageNumberPeakHeight * (0.85f + (Random.Shared.NextSingle() * 0.4f));
+        var travel = GlobalSettings.DamageNumberTravel * (0.8f + (Random.Shared.NextSingle() * 0.5f));
+
+        //bottom-center anchor: a fixed gap above the health bar's top edge (resolved identically to the bar)
+        var offset = ResolveOverlayOffset(HEALTH_BAR_Y_OFFSET, entity, creatureRenderer) + DAMAGE_NUMBER_GAP_ABOVE_BAR;
+        var tileWorld = Camera.TileToWorld(entity.TileX, entity.TileY, mapHeight);
+        var spawnWorld = new Vector2(
+            tileWorld.X + DaLibConstants.HALF_TILE_WIDTH + entity.VisualOffset.X,
+            tileWorld.Y + DaLibConstants.HALF_TILE_HEIGHT + entity.VisualOffset.Y - offset);
+
+        if (DamageNumbers.Count >= GlobalSettings.MaxConcurrentDamageNumbers)
+            DamageNumbers.RemoveAt(0);
+
+        DamageNumbers.Add(
+            new DamageNumber(
+                entityId,
+                digits,
+                isHeal,
+                dir,
+                peak,
+                travel,
+                spawnWorld));
+    }
+
+    //categorize using the same merchant heuristic the name-tag code uses (Creature + NeutralHover = merchant)
+    private static bool ShouldShowDamageNumber(WorldEntity entity, bool isHeal)
+    {
+        if (entity.Type == ClientEntityType.Aisling)
+            return isHeal ? GlobalSettings.ShowHealNumbersOnAislings : GlobalSettings.ShowDamageNumbersOnAislings;
+
+        if (entity.Type == ClientEntityType.Creature)
+        {
+            if (entity.NameTagStyle == NameTagStyle.NeutralHover)
+                return isHeal ? GlobalSettings.ShowHealNumbersOnMerchants : GlobalSettings.ShowDamageNumbersOnMerchants;
+
+            return isHeal ? GlobalSettings.ShowHealNumbersOnMonsters : GlobalSettings.ShowDamageNumbersOnMonsters;
+        }
+
+        return false; //ground items etc. never show numbers
+    }
+
+    /// <summary>
     ///     Disposes and clears all overlay caches. Call on map change or unload.
     /// </summary>
     public void Clear()
@@ -100,11 +176,12 @@ public sealed class EntityOverlayManager
 
         NameTagCache.Clear();
         GroupBoxes.Clear();
+        DamageNumbers.Clear();
     }
 
     /// <summary>
     ///     Draws all overlays. Call within a SpriteBatch Begin/End block with camera transform applied. Draw order: chant
-    ///     overlays → health bars → name tags → group box texts → chat bubbles (top-most last).
+    ///     overlays → health bars → name tags → group box texts → damage numbers → chat bubbles (top-most last).
     /// </summary>
     public void Draw(SpriteBatch spriteBatch, Camera camera, int mapHeight)
     {
@@ -128,6 +205,9 @@ public sealed class EntityOverlayManager
             camera,
             mapHeight,
             sortedEntities);
+
+        foreach (var dn in DamageNumbers)
+            dn.Draw(spriteBatch);
 
         foreach (var bubble in ChatBubbles.Values)
             bubble.Draw(spriteBatch);
@@ -290,7 +370,7 @@ public sealed class EntityOverlayManager
 
     /// <summary>
     ///     Removes all overlays for a given entity (name tag, group box, chat bubble, health bar, chant). Call when an entity
-    ///     is removed from the world.
+    ///     is removed from the world. World-anchored damage numbers are intentionally NOT removed — they finish their arc.
     /// </summary>
     public void RemoveEntity(uint entityId)
     {
@@ -334,6 +414,8 @@ public sealed class EntityOverlayManager
             mapHeight,
             creatureRenderer,
             gameTime);
+
+        UpdateDamageNumbers(camera, gameTime);
     }
 
     //for creature sprites, the overlay offset is the average of the baseline offset and the sprite's average top offset.
@@ -503,5 +585,26 @@ public sealed class EntityOverlayManager
                     .Dispose();
                 HealthBars.Remove(id);
             }
+    }
+
+    private void UpdateDamageNumbers(Camera camera, GameTime gameTime)
+    {
+        for (var i = DamageNumbers.Count - 1; i >= 0; i--)
+        {
+            var dn = DamageNumbers[i];
+            dn.Update(gameTime);
+
+            if (dn.IsExpired)
+            {
+                DamageNumbers.RemoveAt(i);
+
+                continue;
+            }
+
+            //already anchored at spawn — just project the fixed world position (plus the arc) to screen
+            var screenPos = camera.WorldToScreen(dn.SpawnWorld + dn.WorldOffset);
+            dn.X = (int)MathF.Round(screenPos.X - (dn.Width / 2f));
+            dn.Y = (int)MathF.Round(screenPos.Y - dn.Height);
+        }
     }
 }

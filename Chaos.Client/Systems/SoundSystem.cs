@@ -18,11 +18,14 @@ namespace Chaos.Client.Systems;
 /// </summary>
 public sealed class SoundSystem : IDisposable
 {
-    //the original client opens its Miles driver at 22050 Hz / stereo; we match that rate and let Windows do
-    //the single resample to the output device rate rather than stacking our own
-    private const int MIX_FREQUENCY = 22050;
+    //open the mixer at 48 kHz, the native rate of essentially every modern output device, so the OS/device/Bluetooth
+    //layer doesn't have to resample an unusual rate. (the original client opened its Miles driver at 22050 Hz and we
+    //used to match it, but that made this the only app on the system using a non-standard rate — so it was the lone
+    //victim of device-side resampler glitches, e.g. a flaky Bluetooth headset DSP that crackled only on this stream.)
+    //SDL_mixer resamples the source MP3s up to this rate once at load, on the CPU, instead.
+    private const int MIX_FREQUENCY = 48000;
     private const int MIX_CHANNELS = 2;
-    //sample chunk size fed to the audio callback; ~93ms at 22050Hz, good balance of latency vs callback overhead
+    //sample chunk size fed to the audio callback; ~43ms at 48000Hz, good balance of latency vs callback overhead
     private const int MIX_CHUNK_SIZE = 2048;
     //default Mix_AllocateChannels is 8; we bump to 32 so overlap-heavy situations (AOE effects, crowds of mobs)
     //don't run out of voices and return -1 from Mix_PlayChannel

@@ -49,6 +49,23 @@ public static class GlobalSettings
     /// </summary>
     public const int MAX_EFFECTS_PER_ENTITY = 2;
 
+    // --- Floating damage / heal numbers ---
+
+    //per-creature-type toggles (creature type x number kind). flip any to false to disable.
+    public const bool ShowDamageNumbersOnAislings  = true;
+    public const bool ShowHealNumbersOnAislings    = true;
+    public const bool ShowDamageNumbersOnMonsters  = true;
+    public const bool ShowHealNumbersOnMonsters    = true;
+    public const bool ShowDamageNumbersOnMerchants = true;
+    public const bool ShowHealNumbersOnMerchants   = true;
+
+    //animation tunables — virtual pixels / milliseconds. snapped to the 640x480 grid at draw time.
+    public const float DamageNumberLifetimeMs     = 500f;  //total time before the number disappears
+    public const float DamageNumberPeakHeight     = 10f;   //arc apex above the spawn point
+    public const float DamageNumberTravel         = 14f;   //sideways drift over the lifetime
+    public const float DamageNumberFadeStart      = 0.66f; //fraction of life where the fade begins
+    public const int   MaxConcurrentDamageNumbers = 128;    //soft cap; oldest dropped when exceeded
+
     static GlobalSettings() => InitializeOthers();
 
     private static void InitializeOthers()

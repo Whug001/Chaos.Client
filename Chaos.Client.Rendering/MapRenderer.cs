@@ -105,40 +105,6 @@ public sealed class MapRenderer : IDisposable
     }
 
     /// <summary>
-    ///     Convenience method that draws background + foreground without entity interleaving. Foreground uses simple y-major
-    ///     order (correct for maps without entities).
-    /// </summary>
-    public void Draw(
-        SpriteBatch spriteBatch,
-        GraphicsDevice device,
-        MapFile mapFile,
-        Camera camera,
-        int animationTick)
-    {
-        DrawBackground(
-            spriteBatch,
-            mapFile,
-            camera,
-            animationTick);
-
-        (var fgMinX, var fgMinY, var fgMaxX, var fgMaxY)
-            = camera.GetVisibleTileBounds(mapFile.Width, mapFile.Height, ForegroundExtraMargin);
-
-        for (var y = fgMinY; y <= fgMaxY; y++)
-        {
-            for (var x = fgMinX; x <= fgMaxX; x++)
-                DrawForegroundTile(
-                    spriteBatch,
-                    device,
-                    mapFile,
-                    camera,
-                    x,
-                    y,
-                    animationTick);
-        }
-    }
-
-    /// <summary>
     ///     Draws background tiles in y-major order (floor tiles, no overlap concerns).
     ///     Uses the background tile atlas when available for single-draw-call batching.
     /// </summary>
@@ -207,8 +173,7 @@ public sealed class MapRenderer : IDisposable
     ///     stripe iteration for correct draw ordering.
     /// </summary>
     public void DrawForegroundTile(
-        SpriteBatch spriteBatch,
-        GraphicsDevice device,
+        BatchBlendScope scope,
         MapFile mapFile,
         Camera camera,
         int x,
@@ -227,8 +192,7 @@ public sealed class MapRenderer : IDisposable
                 animationTick);
 
             DrawSingleFgTile(
-                spriteBatch,
-                device,
+                scope,
                 camera,
                 lfgTileId,
                 worldPos.X,
@@ -244,8 +208,7 @@ public sealed class MapRenderer : IDisposable
                 animationTick);
 
             DrawSingleFgTile(
-                spriteBatch,
-                device,
+                scope,
                 camera,
                 rfgTileId,
                 worldPos.X + CONSTANTS.HALF_TILE_WIDTH,
@@ -254,8 +217,7 @@ public sealed class MapRenderer : IDisposable
     }
 
     private void DrawSingleFgTile(
-        SpriteBatch spriteBatch,
-        GraphicsDevice device,
+        BatchBlendScope scope,
         Camera camera,
         int tileId,
         float worldX,
@@ -284,16 +246,16 @@ public sealed class MapRenderer : IDisposable
                 var screenBlend = IsTileScreenBlend(tileId);
 
                 if (screenBlend)
-                    device.BlendState = BlendStates.Screen;
+                    scope.Require(BlendStates.Screen);
 
-                spriteBatch.Draw(
+                scope.Batch.Draw(
                     region.Value.Atlas,
                     screenPos,
                     rect,
                     Color.White);
 
                 if (screenBlend)
-                    device.BlendState = BlendState.AlphaBlend;
+                    scope.Require(BlendState.AlphaBlend);
             }
 
             return;
@@ -317,12 +279,12 @@ public sealed class MapRenderer : IDisposable
             var screenBlend = IsTileScreenBlend(tileId);
 
             if (screenBlend)
-                device.BlendState = BlendStates.Screen;
+                scope.Require(BlendStates.Screen);
 
-            spriteBatch.Draw(texture, fallbackScreenPos, Color.White);
+            scope.Batch.Draw(texture, fallbackScreenPos, Color.White);
 
             if (screenBlend)
-                device.BlendState = BlendState.AlphaBlend;
+                scope.Require(BlendState.AlphaBlend);
         }
     }
 

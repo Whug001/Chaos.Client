@@ -1200,6 +1200,14 @@ public sealed partial class WorldScreen
     {
         Overlays.AddOrResetHealthBar(args.SourceId, args.HealthPercent);
 
+        //anchor needs the map height + creature renderer; MapFile is always set while in-world (HealthBar is a world packet)
+        if ((args.Amount != 0) && (MapFile is not null))
+            Overlays.AddDamageNumber(
+                args.SourceId,
+                args.Amount,
+                MapFile.Height,
+                Game.CreatureRenderer);
+
         if (args.Sound.HasValue)
             Game.SoundSystem.PlaySound(args.Sound.Value);
     }
