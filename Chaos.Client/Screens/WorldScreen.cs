@@ -21,6 +21,7 @@ using Chaos.Client.ViewModel;
 using Chaos.DarkAges.Definitions;
 using Chaos.Geometry.Abstractions;
 using Chaos.Geometry.Abstractions.Definitions;
+using Chaos.Networking.Entities;
 using DALib.Data;
 using Microsoft.Xna.Framework;
 using Microsoft.Xna.Framework.Graphics;
@@ -275,15 +276,15 @@ public sealed partial class WorldScreen : IScreen
         var userOptions = WorldState.UserOptions;
         userOptions.SeedLocalDefaults();
 
-        //route user-initiated toggles for server-controlled settings to the network
-        userOptions.UserToggled += (key, _) =>
+        //route user-initiated toggles for server-controlled settings to the network (sent as an explicit Set)
+        userOptions.UserToggled += (key, newValue) =>
         {
             var def = SettingDefinitions.ByKey(key);
 
             switch (def.Category)
             {
                 case SettingCategory.ServerOption:
-                    Game.Connection.SendOptionToggle(def.UserOption!.Value);
+                    Game.Connection.SendSetUserOption(def.UserOption!.Value, newValue);
 
                     break;
                 case SettingCategory.ServerAuthoritativeLocal:
@@ -302,7 +303,7 @@ public sealed partial class WorldScreen : IScreen
         SettingsDialog.VisibilityChanged += visible =>
         {
             if (visible)
-                Game.Connection.SendOptionToggle(UserOption.Request);
+                Game.Connection.SendRequestUserOptions();
         };
 
         MacrosList = new MacrosListControl
@@ -691,6 +692,7 @@ public sealed partial class WorldScreen : IScreen
         Game.Connection.OnAttributes -= HandleAttributes;
         Game.Connection.OnDisplayPublicMessage -= HandleDisplayPublicMessage;
         Game.Connection.OnServerMessage -= HandleServerMessage;
+        Game.Connection.OnUserOptions -= HandleUserOptions;
         WorldState.NpcInteraction.DialogChanged -= HandleDialogChanged;
         WorldState.NpcInteraction.MenuChanged -= HandleMenuChanged;
         Game.Connection.OnRefreshResponse -= HandleRefreshResponse;

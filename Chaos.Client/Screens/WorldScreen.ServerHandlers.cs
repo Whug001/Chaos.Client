@@ -303,11 +303,6 @@ public sealed partial class WorldScreen
 
                 break;
 
-            case ServerMessageType.UserOptions:
-                ParseUserOptions(args.Message);
-
-                break;
-
             case ServerMessageType.ClosePopup:
                 TextPopup.Hide();
 
@@ -320,72 +315,23 @@ public sealed partial class WorldScreen
         }
     }
 
-    /// <summary>
-    ///     Parses the server's UserOptions response. Two formats:
-    ///     Full request: "0{desc}:{state}\t{desc}:{state}\t..." — '0' prefix, then up to 20 positional entries (digits
-    ///     stripped server-side), ordered by display slot.
-    ///     Single toggle: "{number}{desc}:{state}" — leading number (1-based, may be multiple digits) identifies the option.
-    /// </summary>
-    private void ParseUserOptions(string message)
-    {
-        if (message.Length < 2)
-            return;
-
-        //single option toggle response: "{number}{description,-25}:{on/off,-3}"
-        if (message[0] != '0')
-        {
-            if (!char.IsDigit(message[0]))
-                return;
-
-            //read the (possibly multi-digit) leading option number
-            var digitCount = 0;
-
-            while ((digitCount < message.Length) && char.IsDigit(message[digitCount]))
-                digitCount++;
-
-            if (!int.TryParse(message.AsSpan(0, digitCount), out var optionNumber))
-                return;
-
-            var optionIndex = optionNumber - 1;
-
-            if (optionIndex < 0)
-                return;
-
-            ParseOptionEntry(optionIndex, message[digitCount..]);
-
-            return;
-        }
-
-        //full request response: "0{opt1_desc}:{state}\t{opt2_desc}:{state}\t..."
-        //leading '0' prefix, then the tab-delimited option entries in UserOption order with digits stripped
-        var entries = message[1..]
-            .Split('\t', StringSplitOptions.RemoveEmptyEntries);
-
-        for (var i = 0; i < entries.Length; i++)
-            ParseOptionEntry(i, entries[i]);
-    }
+    //--- user options ---
 
     /// <summary>
-    ///     Parses a single 0x1B option entry in the format "{description,-25}:{ON/OFF,-3}". Entry index i corresponds to
-    ///     UserOption(i+1); only entries matching a server-controlled SettingDefinition are applied (others are blank).
+    ///     Applies the server's user options. Each option is read explicitly and pushed into the F4 model.
     /// </summary>
-    private void ParseOptionEntry(int optionIndex, string entry)
+    private void HandleUserOptions(UserOptionsArgs args)
     {
-        var def = SettingDefinitions.ByUserOption((UserOption)(optionIndex + 1));
+        var userOptions = WorldState.UserOptions;
 
-        if (def is null)
-            return;
-
-        var colonIdx = entry.LastIndexOf(':');
-
-        if (colonIdx < 1)
-            return;
-
-        var isOn = entry[(colonIdx + 1)..]
-                   .Trim()
-                   .StartsWithI("ON");
-
-        WorldState.UserOptions.Apply(def.Key, isOn);
+        userOptions.Apply(SettingKey.ShowBodyAnimations, args.ShowBodyAnimations);
+        userOptions.Apply(SettingKey.ListenToHitSounds, args.ListenToHitSounds);
+        userOptions.Apply(SettingKey.PriorityAnimations, args.PriorityAnimations);
+        userOptions.Apply(SettingKey.LockHands, args.LockHands);
+        userOptions.Apply(SettingKey.WhisperSound, args.WhisperSound);
+        userOptions.Apply(SettingKey.AllowExchanges, args.AllowExchange);
+        userOptions.Apply(SettingKey.HideEnemyHealthBars, args.HideEnemyHealthBars);
+        userOptions.Apply(SettingKey.ShowFriendlyNametags, args.AlwaysShowFriendlyNametags);
     }
 
     //--- npc dialog / menu ---
@@ -501,8 +447,6 @@ public sealed partial class WorldScreen
 
         return TextureConverter.ToTexture2D(image);
     }
-
-    
 
     private SpriteFrame? RenderCreaturePortrait(ushort spriteId)
     {

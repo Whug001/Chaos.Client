@@ -102,10 +102,10 @@ public static class SettingDefinitions
             Choices: DisplaySettings.OptionLabels,
             GetChoice: () => (int)ClientSettings.ScreenMode,
             SetChoice: DisplaySettings.Apply),
-        new(SettingKey.ShowBodyAnimations, "Show body animations", SettingSection.Display, SettingCategory.ServerOption, UserOption.Option1),
-        new(SettingKey.PriorityAnimations, "Priority animations", SettingSection.Display, SettingCategory.ServerOption, UserOption.Option3),
-        new(SettingKey.HideEnemyHealthBars, "Hide enemy health bars", SettingSection.Display, SettingCategory.ServerOption, UserOption.Option8),
-        new(SettingKey.ShowFriendlyNametags, "Always show friendly nametags", SettingSection.Display, SettingCategory.ServerOption, UserOption.Option14),
+        new(SettingKey.ShowBodyAnimations, "Show body animations", SettingSection.Display, SettingCategory.ServerOption, UserOption.ShowBodyAnimations),
+        new(SettingKey.PriorityAnimations, "Priority animations", SettingSection.Display, SettingCategory.ServerOption, UserOption.PriorityAnimations),
+        new(SettingKey.HideEnemyHealthBars, "Hide enemy health bars", SettingSection.Display, SettingCategory.ServerOption, UserOption.HideEnemyHealthBars),
+        new(SettingKey.ShowFriendlyNametags, "Always show friendly nametags", SettingSection.Display, SettingCategory.ServerOption, UserOption.AlwaysShowFriendlyNametags),
         new(
             SettingKey.SmoothScrolling,
             "Smooth screen scrolling",
@@ -157,12 +157,12 @@ public static class SettingDefinitions
             GatedBy: SettingKey.DamageNumbersEnabled),
 
         //── Sound ──
-        new(SettingKey.ListenToHitSounds, "Listen to hit sounds", SettingSection.Sound, SettingCategory.ServerOption, UserOption.Option2),
-        new(SettingKey.WhisperSound, "Sound on whisper", SettingSection.Sound, SettingCategory.ServerOption, UserOption.Option5),
+        new(SettingKey.ListenToHitSounds, "Listen to hit sounds", SettingSection.Sound, SettingCategory.ServerOption, UserOption.ListenToHitSounds),
+        new(SettingKey.WhisperSound, "Sound on whisper", SettingSection.Sound, SettingCategory.ServerOption, UserOption.WhisperSound),
 
         //── Interaction ──
-        new(SettingKey.LockHands, "Lock hands", SettingSection.Interaction, SettingCategory.ServerOption, UserOption.Option4),
-        new(SettingKey.AllowExchanges, "Allow exchanges", SettingSection.Interaction, SettingCategory.ServerOption, UserOption.Option6),
+        new(SettingKey.LockHands, "Lock hands", SettingSection.Interaction, SettingCategory.ServerOption, UserOption.LockHands),
+        new(SettingKey.AllowExchanges, "Allow exchanges", SettingSection.Interaction, SettingCategory.ServerOption, UserOption.AllowExchange),
         new(
             SettingKey.AutoAcceptGroupInvites,
             "Auto accept group invites",

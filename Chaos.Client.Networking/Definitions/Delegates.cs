@@ -196,6 +196,11 @@ public delegate void DisplayVisibleEntitiesHandler(DisplayVisibleEntitiesArgs ar
 public delegate void SetEntityTintHandler(SetEntityTintArgs args);
 
 /// <summary>
+///     Fired when the server sends the player's user options.
+/// </summary>
+public delegate void UserOptionsHandler(UserOptionsArgs args);
+
+/// <summary>
 ///     Fired when door states are updated.
 /// </summary>
 public delegate void DoorHandler(DoorArgs args);

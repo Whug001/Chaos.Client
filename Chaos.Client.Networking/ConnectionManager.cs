@@ -6,6 +6,7 @@ using Chaos.DarkAges.Definitions;
 using Chaos.Geometry;
 using Chaos.Geometry.Abstractions.Definitions;
 using Chaos.Networking.Abstractions.Definitions;
+using Chaos.Networking.Entities;
 using Chaos.Networking.Entities.Client;
 using Chaos.Networking.Entities.Server;
 using Chaos.Packets;
@@ -486,6 +487,11 @@ public sealed class ConnectionManager : IDisposable
     ///     Fired when an entity's tint color is set.
     /// </summary>
     public event SetEntityTintHandler? OnSetEntityTint;
+
+    /// <summary>
+    ///     Fired when the server sends the player's user options.
+    /// </summary>
+    public event UserOptionsHandler? OnUserOptions;
 
     /// <summary>
     ///     Fired when door states are updated.
@@ -1045,15 +1051,19 @@ public sealed class ConnectionManager : IDisposable
             });
 
     /// <summary>
-    ///     Toggles a user option (e.g. group allow, exchange allow, whisper settings).
+    ///     Asks the server to send the full current user-option list. The server responds with the
+    ///     <see cref="OnUserOptions" /> event.
     /// </summary>
-    /// <param name="option">The user option to toggle.</param>
-    public void SendOptionToggle(UserOption option)
-        => SendIfWorld(
-            new OptionToggleArgs
-            {
-                UserOption = option
-            });
+    public void SendRequestUserOptions()
+        => SendIfWorld(new OptionToggleArgs { Action = UserOptionAction.RequestAll });
+
+    /// <summary>
+    ///     Asks the server to set a user option to a specific value. This is the single mutation verb for user options.
+    /// </summary>
+    /// <param name="option">The user option to set.</param>
+    /// <param name="value">The value to assign.</param>
+    public void SendSetUserOption(UserOption option, bool value)
+        => SendIfWorld(new OptionToggleArgs { Action = UserOptionAction.Set, Option = option, Value = value });
 
     /// <summary>
     ///     Sends a public (normal) chat message visible to nearby players.
@@ -1287,6 +1297,7 @@ public sealed class ConnectionManager : IDisposable
         PacketHandlers[(byte)ServerOpCode.Attributes] = HandleAttributes;
         PacketHandlers[(byte)ServerOpCode.DisplayVisibleEntities] = HandleDisplayVisibleEntities;
         PacketHandlers[(byte)ServerOpCode.SetEntityTint] = HandleSetEntityTint;
+        PacketHandlers[(byte)ServerOpCode.UserOptions] = HandleUserOptions;
         PacketHandlers[(byte)ServerOpCode.DisplayAisling] = HandleDisplayAisling;
 
         //world entities
@@ -1586,6 +1597,12 @@ public sealed class ConnectionManager : IDisposable
     {
         var args = Client.Deserialize<SetEntityTintArgs>(in pkt);
         OnSetEntityTint?.Invoke(args);
+    }
+
+    private void HandleUserOptions(ServerPacket pkt)
+    {
+        var args = Client.Deserialize<UserOptionsArgs>(in pkt);
+        OnUserOptions?.Invoke(args);
     }
 
     private void HandleDisplayAisling(ServerPacket pkt)

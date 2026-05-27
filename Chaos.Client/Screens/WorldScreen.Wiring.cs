@@ -42,6 +42,7 @@ public sealed partial class WorldScreen
         //chat events
         Game.Connection.OnDisplayPublicMessage += HandleDisplayPublicMessage;
         Game.Connection.OnServerMessage += HandleServerMessage;
+        Game.Connection.OnUserOptions += HandleUserOptions;
 
         //npc dialog/menu
         WorldState.NpcInteraction.DialogChanged += HandleDialogChanged;

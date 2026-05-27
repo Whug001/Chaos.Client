@@ -143,7 +143,7 @@ public sealed class SettingsControl : FramedDialogPanelBase
                     Height = HEADER_HEIGHT,
                     PaddingLeft = 0,
                     PaddingTop = 0,
-                    ForegroundColor = TextColors.Default,
+                    ForegroundColor = LegendColors.White,
                     Text = SectionTitle(section)
                 });
 
