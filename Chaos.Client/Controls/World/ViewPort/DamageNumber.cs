@@ -1,5 +1,6 @@
 #region
 using Chaos.Client.Rendering;
+using Chaos.Client.Systems;
 using Microsoft.Xna.Framework;
 using Microsoft.Xna.Framework.Graphics;
 #endregion
@@ -21,7 +22,8 @@ public sealed class DamageNumber(
     float dir,
     float peak,
     float travel,
-    Vector2 spawnWorld)
+    Vector2 spawnWorld,
+    DamageNumberSize size)
 {
     public uint EntityId { get; } = entityId;
     public bool IsHeal { get; } = isHeal;
@@ -29,6 +31,7 @@ public sealed class DamageNumber(
 
     //the world-space point the number's bottom-center arcs from; fixed at spawn so removal of the entity can't drop it
     public Vector2 SpawnWorld { get; } = spawnWorld;
+    public DamageNumberSize Size { get; } = size;
 
     private readonly float Dir = dir;
     private readonly float Peak = peak;
@@ -39,8 +42,8 @@ public sealed class DamageNumber(
     public int X { get; set; }
     public int Y { get; set; }
 
-    public int Width => DamageNumberFont.MeasureWidth(Digits.Length);
-    public int Height => DamageNumberFont.GlyphHeight;
+    public int Width => DamageNumberFont.MeasureWidth(Digits, Size);
+    public int Height => DamageNumberFont.GlyphHeight(Size);
 
     private float T
     {
@@ -89,5 +92,6 @@ public sealed class DamageNumber(
         IsHeal,
         X,
         Y,
-        Alpha);
+        Alpha,
+        Size);
 }

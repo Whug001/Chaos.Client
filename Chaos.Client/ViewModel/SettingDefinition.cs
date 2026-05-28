@@ -60,7 +60,8 @@ public enum SettingKey
     DamageNumbersOnAislings,
     HealNumbersOnAislings,
     DamageNumbersOnNpcs,
-    HealNumbersOnNpcs
+    HealNumbersOnNpcs,
+    DamageNumberSize
 }
 
 /// <summary>
@@ -123,6 +124,20 @@ public static class SettingDefinitions
             Get: () => ClientSettings.DamageNumbersEnabled,
             Set: v => ClientSettings.DamageNumbersEnabled = v,
             Span: SettingSpan.Full),
+        new(
+            SettingKey.DamageNumberSize,
+            "Damage number size",
+            SettingSection.DamageNumbers,
+            SettingCategory.ClientLocal,
+            Span: SettingSpan.Full,
+            Choices: ["Compact", "Normal", "Large"],
+            GetChoice: () => (int)ClientSettings.DamageNumberSize,
+            SetChoice: i =>
+            {
+                ClientSettings.DamageNumberSize = (DamageNumberSize)i;
+                ClientSettings.Save();
+            },
+            GatedBy: SettingKey.DamageNumbersEnabled),
         new(
             SettingKey.DamageNumbersOnAislings,
             "Show Damage on Aislings",

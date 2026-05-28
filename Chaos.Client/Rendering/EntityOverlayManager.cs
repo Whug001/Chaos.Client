@@ -138,7 +138,8 @@ public sealed class EntityOverlayManager
                 dir,
                 peak,
                 travel,
-                spawnWorld));
+                spawnWorld,
+                ClientSettings.DamageNumberSize));
     }
 
     //gate by the master switch, then by client entity type. merchants and monsters are both

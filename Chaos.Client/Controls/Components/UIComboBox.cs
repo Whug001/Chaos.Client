@@ -37,6 +37,7 @@ public sealed class UIComboBox : UIPanel
 
     private Texture2D? HeaderClosedTex;
     private Texture2D? HeaderOpenTex;
+    private Texture2D? HeaderClosedDisabledTex;
     private UIPanel? ListPanel;
     private UIElement? Catcher;
     private UIPanel? Host;
@@ -118,6 +119,9 @@ public sealed class UIComboBox : UIPanel
 
     public void Show()
     {
+        if (!Enabled)
+            return;
+
         if (Open || (ItemList.Count == 0))
             return;
 
@@ -159,6 +163,45 @@ public sealed class UIComboBox : UIPanel
         Background = HeaderClosedTex;
     }
 
+    public override void Draw(SpriteBatch spriteBatch)
+    {
+        if (!Visible)
+            return;
+
+        if (!Enabled)
+        {
+            if (Open)
+                Close();
+
+            if (Background != HeaderClosedDisabledTex)
+                Background = HeaderClosedDisabledTex;
+
+            var dimColor = Dim(TextColor);
+
+            if (HeaderLabel.ForegroundColor != dimColor)
+                HeaderLabel.ForegroundColor = dimColor;
+        }
+        else
+        {
+            var normal = Open ? HeaderOpenTex : HeaderClosedTex;
+
+            if (Background != normal)
+                Background = normal;
+
+            if (HeaderLabel.ForegroundColor != TextColor)
+                HeaderLabel.ForegroundColor = TextColor;
+        }
+
+        base.Draw(spriteBatch);
+    }
+
+    private static Color Dim(Color c)
+        => new(
+            (byte)(c.R / 2),
+            (byte)(c.G / 2),
+            (byte)(c.B / 2),
+            c.A);
+
     public override void OnClick(ClickEvent e)
     {
         if (e.Button == MouseButton.Left)
@@ -185,6 +228,7 @@ public sealed class UIComboBox : UIPanel
         Catcher?.Dispose();
         HeaderClosedTex?.Dispose();
         HeaderOpenTex?.Dispose();
+        HeaderClosedDisabledTex?.Dispose();
         Background = null; // detach so base doesn't double-dispose a header texture
         base.Dispose();
     }
@@ -295,16 +339,22 @@ public sealed class UIComboBox : UIPanel
     {
         HeaderClosedTex?.Dispose();
         HeaderOpenTex?.Dispose();
-        HeaderClosedTex = BuildHeader(false);
-        HeaderOpenTex = BuildHeader(true);
+        HeaderClosedDisabledTex?.Dispose();
+        HeaderClosedTex = BuildHeader(false, false);
+        HeaderOpenTex = BuildHeader(true, false);
+        HeaderClosedDisabledTex = BuildHeader(false, true);
     }
 
-    private Texture2D BuildHeader(bool open)
-        => BuildFramedTexture(Width, Height, canvas => DrawArrow(canvas, Width - ARROW_BOX - 2, 0, ARROW_BOX, Height, open));
+    private Texture2D BuildHeader(bool open, bool dim)
+        => BuildFramedTexture(
+            Width,
+            Height,
+            canvas => DrawArrow(canvas, Width - ARROW_BOX - 2, 0, ARROW_BOX, Height, open),
+            dim);
 
     private static Texture2D BuildListTexture(int w, int h) => BuildFramedTexture(w, h);
 
-    private static Texture2D BuildFramedTexture(int w, int h, Action<SKCanvas>? afterFrame = null)
+    private static Texture2D BuildFramedTexture(int w, int h, Action<SKCanvas>? afterFrame = null, bool dim = false)
     {
         using var frame = DialogFrame.Composite(FillColor, w, h);
 
@@ -321,7 +371,31 @@ public sealed class UIComboBox : UIPanel
 
         using var snapshot = surface.Snapshot();
 
-        return TextureConverter.ToTexture2D(snapshot);
+        if (!dim)
+            return TextureConverter.ToTexture2D(snapshot);
+
+        //50%-brightness variant: redraw the snapshot through an RGB-scaling color matrix (alpha row left at 1).
+        using var dimSurface = SKSurface.Create(info);
+        using var dimPaint = new SKPaint();
+
+        //@formatter:off
+        dimPaint.ColorFilter = SKColorFilter.CreateColorMatrix([
+                                                                   0.5f, 0f, 0f, 0f, 0f,
+                                                                   0f, 0.5f, 0f, 0f, 0f,
+                                                                   0f, 0f, 0.5f, 0f, 0f,
+                                                                   0f, 0f, 0f, 1f, 0f
+                                                               ]);
+        //@formatter:on
+
+        dimSurface.Canvas.DrawImage(
+            snapshot,
+            0,
+            0,
+            dimPaint);
+
+        using var dimSnapshot = dimSurface.Snapshot();
+
+        return TextureConverter.ToTexture2D(dimSnapshot);
     }
 
     private static void DrawArrow(SKCanvas canvas, int x, int y, int w, int h, bool up)

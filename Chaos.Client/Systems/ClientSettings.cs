@@ -26,6 +26,7 @@ public static class ClientSettings
     public static bool ShowHealNumbersOnAislings { get; set; } = true;
     public static bool ShowDamageNumbersOnNpcs { get; set; } = true;
     public static bool ShowHealNumbersOnNpcs { get; set; } = true;
+    public static DamageNumberSize DamageNumberSize { get; set; } = DamageNumberSize.Compact;
 
     private static string FilePath => Path.Combine(GlobalSettings.DataPath, FILE_NAME);
 
@@ -128,6 +129,12 @@ public static class ClientSettings
                         ShowHealNumbersOnNpcs = value == "1";
 
                         break;
+
+                    case "DamageNumberSize":
+                        if (int.TryParse(value, out var dnsz) && Enum.IsDefined((DamageNumberSize)dnsz))
+                            DamageNumberSize = (DamageNumberSize)dnsz;
+
+                        break;
                 }
             }
         } catch
@@ -158,6 +165,7 @@ public static class ClientSettings
             writer.WriteLine($"ShowHealNumbersOnAislings : {(ShowHealNumbersOnAislings ? 1 : 0)}");
             writer.WriteLine($"ShowDamageNumbersOnNpcs : {(ShowDamageNumbersOnNpcs ? 1 : 0)}");
             writer.WriteLine($"ShowHealNumbersOnNpcs : {(ShowHealNumbersOnNpcs ? 1 : 0)}");
+            writer.WriteLine($"DamageNumberSize : {(int)DamageNumberSize}");
         } catch
         {
             //best effort — don't crash on save failure

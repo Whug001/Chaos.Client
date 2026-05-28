@@ -367,6 +367,9 @@ public sealed class SettingsControl : FramedDialogPanelBase
 
             if (Checkboxes.TryGetValue(def.Key, out var checkbox))
                 checkbox.Enabled = Options.Value(master);
+
+            if (Combos.TryGetValue(def.Key, out var combo))
+                combo.Enabled = Options.Value(master);
         }
     }
 
