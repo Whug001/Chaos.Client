@@ -221,6 +221,14 @@ public sealed class LobbyLoginScreen : IScreen
 
     private void OnCharCreateOkClicked()
     {
+        //guard against re-entry: the OK button stays live (and Enter triggers it) for the whole
+        //single-screen create flow, so a second activation before the first round-trip completes
+        //would send CreateCharInitial twice — the second send sees the dir the first just wrote
+        //and fails with "Username is taken". Connecting stays true until the final Confirm, and is
+        //reset on failure (HandleCharCreateMessage), so a legit retry after an error still works.
+        if (Connecting)
+            return;
+
         var name = CharCreateControl.NameField?.Text;
         var password = CharCreateControl.PasswordField?.Text;
         var passwordConfirm = CharCreateControl.PasswordConfirmField?.Text;
