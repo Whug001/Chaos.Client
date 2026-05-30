@@ -52,6 +52,7 @@ public sealed class LoginNoticeControl : PrefabPanel
                 PaddingLeft = 0,
                 PaddingTop = 0,
                 WordWrap = true,
+                VerticalAlignment = VerticalAlignment.Top,
                 Visible = false
             };
 
@@ -133,7 +134,7 @@ public sealed class LoginNoticeControl : PrefabPanel
 
     public override void OnMouseScroll(MouseScrollEvent e)
     {
-        if ((AgreementTextLabel is null) || (ScrollBar is null))
+        if (AgreementTextLabel is null || ScrollBar is null)
             return;
 
         if (AgreementTextLabel.ContentHeight <= TextAreaHeight)

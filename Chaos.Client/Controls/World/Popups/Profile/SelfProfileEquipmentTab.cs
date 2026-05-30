@@ -159,6 +159,7 @@ public sealed class SelfProfileEquipmentTab : PrefabPanel
         if (PortraitTextLabel is not null)
         {
             PortraitTextLabel.WordWrap = true;
+            PortraitTextLabel.VerticalAlignment = VerticalAlignment.Top;
             PortraitTextLabel.ForegroundColor = Color.White;
         }
 
@@ -176,7 +177,7 @@ public sealed class SelfProfileEquipmentTab : PrefabPanel
         EmoticonLabel = CreateLabel("HumanState");
         EmoticonLabel?.ForegroundColor = LegendColors.White;
 
-        if ((EmoticonLabel is not null) && (humanIconRect != Rectangle.Empty))
+        if (EmoticonLabel is not null && (humanIconRect != Rectangle.Empty))
             EmoticonLabel.X += humanIconRect.Width + 2;
 
         //emoticon icon — drawn as a uiimage child so it participates in the regular child render
@@ -299,7 +300,7 @@ public sealed class SelfProfileEquipmentTab : PrefabPanel
     {
         EmoticonLabel?.Text = statusText;
 
-        if ((EmoticonImage is not null) && (state < EmoticonIcons.Length))
+        if (EmoticonImage is not null && (state < EmoticonIcons.Length))
             EmoticonImage.Texture = EmoticonIcons[state];
     }
 
@@ -422,7 +423,7 @@ public sealed class SelfProfileEquipmentTab : PrefabPanel
         string? foundName = null;
 
         foreach ((var slot, var visual) in SlotVisuals)
-            if (visual.Image.ContainsPoint(e.ScreenX, e.ScreenY) && (visual.ItemTexture is not null))
+            if (visual.Image.ContainsPoint(e.ScreenX, e.ScreenY) && visual.ItemTexture is not null)
             {
                 foundSlot = slot;
                 foundName = visual.ItemName;
@@ -453,7 +454,7 @@ public sealed class SelfProfileEquipmentTab : PrefabPanel
             return;
 
         foreach ((var slot, var visual) in SlotVisuals)
-            if (visual.Image.ContainsPoint(e.ScreenX, e.ScreenY) && (visual.ItemTexture is not null))
+            if (visual.Image.ContainsPoint(e.ScreenX, e.ScreenY) && visual.ItemTexture is not null)
             {
                 OnUnequip?.Invoke(slot);
                 e.Handled = true;

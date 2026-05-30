@@ -222,7 +222,7 @@ public sealed class HotkeyHelpControl : PrefabPanel
         {
             SetKeyGroupHighlighted(HoveredIndex, true);
 
-            if ((DetailDisplay is not null) && DetailImages[HoveredIndex] is { } detailTex)
+            if (DetailDisplay is not null && DetailImages[HoveredIndex] is { } detailTex)
             {
                 DetailDisplay.Texture = detailTex;
                 DetailDisplay.Visible = true;

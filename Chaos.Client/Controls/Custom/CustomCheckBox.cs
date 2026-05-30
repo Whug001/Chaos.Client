@@ -1,11 +1,12 @@
 #region
+using Chaos.Client.Controls.Components;
 using Chaos.Client.Utilities;
 using Microsoft.Xna.Framework;
 using Microsoft.Xna.Framework.Graphics;
 using SkiaSharp;
 #endregion
 
-namespace Chaos.Client.Controls.Components;
+namespace Chaos.Client.Controls.Custom;
 
 /// <summary>
 ///     A labeled checkbox: a small framed box (dlgframe border over a dark fill, with a drawn X when checked) followed by a
@@ -13,7 +14,7 @@ namespace Chaos.Client.Controls.Components;
 ///     disabled it renders at 50% brightness (box texture and caption color) and is non-interactive. The four box textures
 ///     (checked/unchecked × normal/dim) are built once and shared across all instances.
 /// </summary>
-public sealed class UICheckBox : UIPanel
+public sealed class CustomCheckBox : UIPanel
 {
     /// <summary>Box edge length in pixels.</summary>
     public const int CHECKBOX_SIZE = 18;
@@ -30,7 +31,7 @@ public sealed class UICheckBox : UIPanel
     private readonly UILabel Caption;
     private Color NormalForeground = TextColors.Default;
 
-    public UICheckBox()
+    public CustomCheckBox()
     {
         EnsureTextures();
 

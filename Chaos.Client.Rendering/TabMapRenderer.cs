@@ -248,7 +248,7 @@ public sealed class TabMapRenderer : IDisposable
             return;
 
         //defensive: if scratch wasn't allocated (Generate not yet called), force off
-        var effectiveFullBlackDark = isFullBlackDark && (VisibilityScratch is not null);
+        var effectiveFullBlackDark = isFullBlackDark && VisibilityScratch is not null;
 
         if (effectiveFullBlackDark)
             ComputeVisibility(playerTileX, playerTileY, lightSources, baselineOffsets);

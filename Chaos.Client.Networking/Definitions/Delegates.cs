@@ -309,4 +309,9 @@ public delegate void WorldListHandler(WorldListArgs args);
 ///     Fired when the world map should be displayed.
 /// </summary>
 public delegate void WorldMapHandler(WorldMapArgs args);
+
+/// <summary>
+///     Fired when a market display packet is received.
+/// </summary>
+public delegate void MarketDisplayHandler(MarketDisplayArgs args);
 #endregion

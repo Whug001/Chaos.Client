@@ -272,7 +272,7 @@ public sealed class InputDispatcher
                         var dx = mouseX - MouseDownPosition.X;
                         var dy = mouseY - MouseDownPosition.Y;
 
-                        if (((dx * dx) + (dy * dy)) >= DRAG_THRESHOLD_SQ)
+                        if ((dx * dx + dy * dy) >= DRAG_THRESHOLD_SQ)
                         {
                             DragStart.Reset();
                             DragStart.ScreenX = mouseX;
@@ -313,12 +313,11 @@ public sealed class InputDispatcher
                 }
 
                 //hover tracking — reuse cached hit-test result
-                var newHover = hitUnderCursor;
 
-                if (newHover != HoveredElement)
+                if (hitUnderCursor != HoveredElement)
                 {
                     HoveredElement?.OnMouseLeave();
-                    HoveredElement = newHover;
+                    HoveredElement = hitUnderCursor;
                     HoveredElement?.OnMouseEnter();
                 }
             }
@@ -399,7 +398,7 @@ public sealed class InputDispatcher
                     KeyDown.Modifiers = evt.Modifiers;
                     DispatchKeyboardEvent(root, KeyDown);
 
-                    if ((focusBefore is null) && (ExplicitFocusElement is not null))
+                    if (focusBefore is null && ExplicitFocusElement is not null)
                         suppressNextTextInput = true;
 
                     break;
@@ -496,7 +495,7 @@ public sealed class InputDispatcher
             DispatchBubble(upTarget, MouseUp);
 
             //click synthesis — cursor must still be within captured element's bounds, and no drag occurred
-            if ((CapturedElement is not null) && !wasDragging && CapturedElement.ContainsPoint(mouseX, mouseY))
+            if (CapturedElement is not null && !wasDragging && CapturedElement.ContainsPoint(mouseX, mouseY))
             {
                 Click.Reset();
                 Click.ScreenX = mouseX;

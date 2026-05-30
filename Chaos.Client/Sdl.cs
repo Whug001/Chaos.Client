@@ -157,7 +157,7 @@ internal static partial class Sdl
     {
         var ptr = SDL_GetError();
 
-        return ptr == nint.Zero ? string.Empty : (Marshal.PtrToStringUTF8(ptr) ?? string.Empty);
+        return ptr == nint.Zero ? string.Empty : Marshal.PtrToStringUTF8(ptr) ?? string.Empty;
     }
 
     [StructLayout(LayoutKind.Sequential)]

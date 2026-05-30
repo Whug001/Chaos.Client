@@ -133,7 +133,7 @@ public abstract class PanelBase : ExpandablePanel
         //their own, so the auto-detect returns 0 — the parent composite must then pass an explicit
         //compactGridPadding when the parent's background is compact, so the children's initial y is bumped
         //by 4 AND the same 4px is reversed on expand (see SetExpanded below).
-        CompactGridPadding = compactGridPadding ?? ((Background is not null) && (normalVisibleSlots < DEFAULT_VISIBLE_SLOTS) ? 4 : 0);
+        CompactGridPadding = compactGridPadding ?? (Background is not null && (normalVisibleSlots < DEFAULT_VISIBLE_SLOTS) ? 4 : 0);
         GridOffsetY = gridOffsetY + CompactGridPadding;
 
         SlotNumberOverlay ??= UiRenderer.Instance!.GetSpfTexture("_ninvn.spf");

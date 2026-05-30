@@ -139,8 +139,7 @@ public sealed class StatsPanel : ExpandablePanel
 
                 btn.SetFrames(blinkFrameA, blinkFrameB);
 
-                var capturedStat = stat;
-                btn.Clicked += () => OnRaiseStat?.Invoke(capturedStat);
+                btn.Clicked += () => OnRaiseStat?.Invoke(stat);
 
                 AddChild(btn);
                 StatButtons[i] = btn;

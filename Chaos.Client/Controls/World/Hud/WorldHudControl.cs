@@ -425,47 +425,46 @@ public sealed class WorldHudControl : PrefabPanel, IWorldHud
     private void CreateTabPanels(Texture2D? invBgTexture, Texture2D? invBgExpandedTexture, Texture2D? livingBgTexture)
     {
         //tab panels are placed at inventorybounds (absolute screen position from inventoryrect control).
-        var tabRect = InventoryBounds;
 
         //inventory (a)
         Inventory = new InventoryPanel(PrefabSet, invBgTexture, invBgExpandedTexture);
-        RegisterTab(HudTab.Inventory, Inventory, tabRect);
+        RegisterTab(HudTab.Inventory, Inventory, InventoryBounds);
 
         //skills (s) / skills alt (shift+s)
         SkillBook = new SkillBookPanel(PrefabSet, background: invBgTexture);
 
         SkillBookAlt = new SkillBookPanel(PrefabSet, SkillBookPage.Page2, invBgTexture);
-        RegisterTab(HudTab.Skills, SkillBook, tabRect);
-        RegisterTab(HudTab.SkillsAlt, SkillBookAlt, tabRect);
+        RegisterTab(HudTab.Skills, SkillBook, InventoryBounds);
+        RegisterTab(HudTab.SkillsAlt, SkillBookAlt, InventoryBounds);
 
         //spells (d) / spells alt (shift+d)
         SpellBook = new SpellBookPanel(PrefabSet, background: invBgTexture);
 
         SpellBookAlt = new SpellBookPanel(PrefabSet, SkillBookPage.Page2, invBgTexture);
-        RegisterTab(HudTab.Spells, SpellBook, tabRect);
-        RegisterTab(HudTab.SpellsAlt, SpellBookAlt, tabRect);
+        RegisterTab(HudTab.Spells, SpellBook, InventoryBounds);
+        RegisterTab(HudTab.SpellsAlt, SpellBookAlt, InventoryBounds);
 
         //chat (f)
         var chatDisplayBounds = GetRect("ChattingRect");
-        ChatDisplay = new ChatPanel(chatDisplayBounds, tabRect);
-        RegisterTab(HudTab.Chat, ChatDisplay, tabRect);
+        ChatDisplay = new ChatPanel(chatDisplayBounds, InventoryBounds);
+        RegisterTab(HudTab.Chat, ChatDisplay, InventoryBounds);
 
         //stats (g) / extended stats (shift+g) — both load from _nstatus prefab
         var statusPrefabSet = DataContext.UserControls.Get("_nstatus")!;
         StatsPanel = new StatsPanel(statusPrefabSet);
         ExtendedStatsPanel = new ExtendedStatsPanel(statusPrefabSet);
-        RegisterTab(HudTab.Stats, StatsPanel, tabRect);
-        RegisterTab(HudTab.ExtendedStats, ExtendedStatsPanel, tabRect);
+        RegisterTab(HudTab.Stats, StatsPanel, InventoryBounds);
+        RegisterTab(HudTab.ExtendedStats, ExtendedStatsPanel, InventoryBounds);
 
         //tools (h) — composite with skill page-3 left half + spell page-3 right half
         Tools = new ToolsPanel(PrefabSet, livingBgTexture);
-        RegisterTab(HudTab.Tools, Tools, tabRect);
+        RegisterTab(HudTab.Tools, Tools, InventoryBounds);
 
         //message history (shift+f) — displays orange bar messages in a tab panel
         var msgHistoryBounds = GetRect("ChattingRect");
 
-        MessageHistory = new SystemMessagePanel(msgHistoryBounds, tabRect, WorldState.Chat.GetOrangeBarHistory());
-        RegisterTab(HudTab.MessageHistory, MessageHistory, tabRect);
+        MessageHistory = new SystemMessagePanel(msgHistoryBounds, InventoryBounds, WorldState.Chat.GetOrangeBarHistory());
+        RegisterTab(HudTab.MessageHistory, MessageHistory, InventoryBounds);
 
         //wire tab button clicks: btn_inv0=a, btn_inv1=s, btn_inv2=d, btn_inv3=f, btn_inv4=g, btn_inv5=h
         HudTab[] tabMapping =

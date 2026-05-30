@@ -1,6 +1,5 @@
 #region
 using Chaos.Client.Data;
-using Chaos.Client.Data.Definitions;
 using Microsoft.Xna.Framework;
 #endregion
 

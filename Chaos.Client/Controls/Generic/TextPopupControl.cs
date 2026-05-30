@@ -55,6 +55,7 @@ public sealed class TextPopupControl : UIPanel
         TextLabel = new UILabel
         {
             WordWrap = true,
+            VerticalAlignment = VerticalAlignment.Top,
             ForegroundColor = Color.White
         };
         AddChild(TextLabel);

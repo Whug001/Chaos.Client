@@ -8,6 +8,7 @@ using Chaos.Client.Controls.World.Popups;
 using Chaos.Client.Controls.World.Popups.Boards;
 using Chaos.Client.Controls.World.Popups.Dialog;
 using Chaos.Client.Controls.World.Popups.Exchange;
+using Chaos.Client.Controls.World.Popups.Market;
 using Chaos.Client.Controls.World.Popups.Options;
 using Chaos.Client.Controls.World.Popups.Profile;
 using Chaos.Client.Controls.World.Popups.WorldList;
@@ -21,7 +22,7 @@ using Chaos.Client.ViewModel;
 using Chaos.DarkAges.Definitions;
 using Chaos.Geometry.Abstractions;
 using Chaos.Geometry.Abstractions.Definitions;
-using Chaos.Networking.Entities;
+using Chaos.Networking.Entities.Client;
 using DALib.Data;
 using Microsoft.Xna.Framework;
 using Microsoft.Xna.Framework.Graphics;
@@ -114,6 +115,11 @@ public sealed partial class WorldScreen : IScreen
     private OkPopupMessageControl ExchangeResultPopup = null!;
     private ItemAmountControl ItemAmount = null!;
 
+    //what the shared ItemAmountControl is currently prompting for — its OnConfirm routes on this.
+    private enum ItemAmountPurpose { Exchange, MarketListing }
+
+    private ItemAmountPurpose AmountPurpose = ItemAmountPurpose.Exchange;
+
     private FriendsListControl FriendsList = null!;
 
     private ChaosGame Game = null!;
@@ -129,6 +135,13 @@ public sealed partial class WorldScreen : IScreen
     private bool IsGameMaster;
     private ItemTooltipControl ItemTooltip = null!;
     private LargeWorldHudControl LargeHud = null!;
+
+    //temp debug: market window, toggled via F12 until the NPC entry point is wired (Task 2+)
+    private MarketControl Market = null!;
+    private OkPopupMessageControl MarketBuyConfirm = null!;
+    private MarketSearchCriteria LastMarketCriteria = new();
+    private ulong PendingBuyListingId;
+    private int PendingBuyQuantity;
     private TileClickTracker LeftClickTracker;
     private readonly LightingSystem Lighting = new();
 
@@ -431,11 +444,22 @@ public sealed partial class WorldScreen : IScreen
 
         ItemAmount.OnConfirm += amount =>
         {
-            Game.Connection.SendExchangeInteraction(
-                ExchangeRequestType.AddStackableItem,
-                Exchange.OtherUserId,
-                ItemAmount.ItemSlot,
-                (byte)Math.Min(amount, byte.MaxValue));
+            switch (AmountPurpose)
+            {
+                case ItemAmountPurpose.Exchange:
+                    Game.Connection.SendExchangeInteraction(
+                        ExchangeRequestType.AddStackableItem,
+                        Exchange.OtherUserId,
+                        ItemAmount.ItemSlot,
+                        (byte)Math.Min(amount, byte.MaxValue));
+
+                    break;
+
+                case ItemAmountPurpose.MarketListing:
+                    Market.AddSellDraft(ItemAmount.ItemSlot, (int)Math.Min(amount, int.MaxValue));
+
+                    break;
+            }
         };
 
         ItemAmount.Closed += () => WorldHud.SetDescription(null);
@@ -618,6 +642,63 @@ public sealed partial class WorldScreen : IScreen
             ZIndex = 3
         };
 
+        Market = new MarketControl
+        {
+            ZIndex = 2
+        };
+
+        //buy-confirm popup for the market: lives on Root (it centers on-screen and must not be clipped inside the Market
+        //panel) and draws above the Market window (ZIndex 3 > 2). Shown when the Results tab raises BuyRequested.
+        MarketBuyConfirm = new OkPopupMessageControl(true)
+        {
+            ZIndex = 3,
+            Name = "MarketBuyConfirm"
+        };
+
+        Market.SearchRequested += criteria =>
+        {
+            LastMarketCriteria = criteria;
+            Game.Connection.SendMarketSearch(criteria);
+        };
+
+        Market.PageRequested += page =>
+        {
+            LastMarketCriteria = LastMarketCriteria with { Page = (byte)page };
+            Game.Connection.SendMarketSearch(LastMarketCriteria);
+        };
+
+        Market.ListItemRequested += (slot, amount) => Game.Connection.SendMarketCreateListing(slot, amount);
+        Market.SetPriceRequested += (listingId, price) => Game.Connection.SendMarketSetPrice(listingId, price);
+        Market.DelistRequested += (listingId, amount) => Game.Connection.SendMarketDelist(listingId, amount);
+        Market.CollectGoldRequested += () => Game.Connection.SendMarketCollectGold();
+
+        Market.BuyRequested += (listing, quantity) =>
+        {
+            PendingBuyListingId = listing.ListingId;
+            PendingBuyQuantity = quantity;
+
+            var total = (long)listing.Price * quantity;
+
+            var message = quantity > 1
+                ? $"Buy {quantity}x {listing.Name} for {total:N0} gold?"
+                : $"Buy {listing.Name} for {total:N0} gold?";
+
+            MarketBuyConfirm.Show(message);
+        };
+
+        //if the market closes (F12 / Close / Escape / NPC dismissal) while the confirm is open, dismiss the confirm
+        //too — it lives on Root, not as a child of Market, so Market.Hide won't cascade to it.
+        Market.Closed += () => MarketBuyConfirm.Hide();
+
+        MarketBuyConfirm.OnOk += () =>
+        {
+            Game.Connection.SendMarketBuy(PendingBuyListingId, PendingBuyQuantity);
+            Game.Connection.SendMarketSearch(LastMarketCriteria); // refresh current page availability
+            MarketBuyConfirm.Hide();
+        };
+
+        MarketBuyConfirm.OnCancel += () => MarketBuyConfirm.Hide();
+
         Root = new WorldRootPanel(this)
         {
             Name = "WorldRoot",
@@ -629,6 +710,8 @@ public sealed partial class WorldScreen : IScreen
         Root.AddChild(SystemMessagePane);
         Root.AddChild(NpcSession);
         Root.AddChild(ItemTooltip);
+        Root.AddChild(Market);
+        Root.AddChild(MarketBuyConfirm);
         Root.AddChild(MainOptions);
         Root.AddChild(SettingsDialog);
         Root.AddChild(MacrosList);
@@ -725,6 +808,7 @@ public sealed partial class WorldScreen : IScreen
         Game.Connection.OnDisplayEditableNotepad -= HandleDisplayEditableNotepad;
         Game.Connection.OnWorldMap -= HandleWorldMap;
         Game.Connection.OnDoor -= HandleDoor;
+        Game.Connection.OnMarketDisplay -= HandleMarketDisplay;
 
         //unwire panel click-to-use events
         WorldHud.Inventory.OnSlotClicked -= HandleInventorySlotClicked;

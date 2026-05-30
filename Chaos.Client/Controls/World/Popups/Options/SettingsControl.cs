@@ -1,10 +1,9 @@
 #region
 using Chaos.Client.Controls.Components;
+using Chaos.Client.Controls.Custom;
 using Chaos.Client.Controls.Generic;
 using Chaos.Client.Controls.World.Popups.Dialog;
-using Chaos.Client.Definitions;
 using Chaos.Client.Extensions;
-using Chaos.Client.Rendering;
 using Chaos.Client.Utilities;
 using Chaos.Client.ViewModel;
 using Microsoft.Xna.Framework;
@@ -43,8 +42,8 @@ public sealed class SettingsControl : FramedDialogPanelBase
     //pixels scrolled per wheel notch / arrow click.
     private const int SCROLL_STEP = ROW_HEIGHT;
 
-    private readonly Dictionary<SettingKey, UICheckBox> Checkboxes = [];
-    private readonly Dictionary<SettingKey, UIComboBox> Combos = [];
+    private readonly Dictionary<SettingKey, CustomCheckBox> Checkboxes = [];
+    private readonly Dictionary<SettingKey, CustomComboBox> Combos = [];
     private readonly UserOptions Options;
 
     //clip window (fixed) holding the scrolled content surface.
@@ -247,7 +246,7 @@ public sealed class SettingsControl : FramedDialogPanelBase
         if (def.Span == SettingSpan.Full)
             return SettingSpan.Full;
 
-        var halfLabelWidth = columnW - UICheckBox.CHECKBOX_SIZE - UICheckBox.CAPTION_GAP;
+        var halfLabelWidth = columnW - CustomCheckBox.CHECKBOX_SIZE - CustomCheckBox.CAPTION_GAP;
 
         return TextRenderer.MeasureWidth(def.Label) > halfLabelWidth
             ? SettingSpan.Full
@@ -264,7 +263,7 @@ public sealed class SettingsControl : FramedDialogPanelBase
 
         var key = def.Key;
 
-        var checkbox = new UICheckBox
+        var checkbox = new CustomCheckBox
         {
             Name = $"cb_{def.Key}",
             X = 0,
@@ -289,8 +288,8 @@ public sealed class SettingsControl : FramedDialogPanelBase
         //option (clamped to the row), rather than filling the whole row width.
         var labelW = TextRenderer.MeasureWidth(def.Label) + 2;
         var comboX = labelW + LABEL_GAP;
-        var comboW = Math.Min(UIComboBox.MeasureRequiredWidth(def.Choices!), width - comboX);
-        var combo = new UIComboBox(comboW)
+        var comboW = Math.Min(CustomComboBox.MeasureRequiredWidth(def.Choices!), width - comboX);
+        var combo = new CustomComboBox(comboW)
         {
             Name = $"combo_{def.Key}"
         };

@@ -474,15 +474,13 @@ public sealed class LargeWorldHudControl : PrefabPanel, IWorldHud
         Texture2D? skillSpellExpandedTexture,
         Texture2D? chatExpandedTexture)
     {
-        var tabRect = InventoryBounds;
-
         //large hud: 1 row normal (12 slots), 5 rows expanded (60 slots) for inventory
         Inventory = new InventoryPanel(
             PrefabSet,
             invBgTexture,
             invBgExpandedTexture,
             LARGE_NORMAL_SLOTS);
-        RegisterTab(HudTab.Inventory, Inventory, tabRect);
+        RegisterTab(HudTab.Inventory, Inventory, InventoryBounds);
 
         //large hud: 1 row normal, 3 rows expanded for skills/spells
         SkillBook = new SkillBookPanel(PrefabSet, background: invBgTexture, normalVisibleSlots: LARGE_NORMAL_SLOTS);
@@ -495,8 +493,8 @@ public sealed class LargeWorldHudControl : PrefabPanel, IWorldHud
             LARGE_NORMAL_SLOTS);
         SkillBookAlt.ConfigureExpand(skillSpellExpandedTexture, LARGE_EXPANDED_SKILL_SPELL_SLOTS);
 
-        RegisterTab(HudTab.Skills, SkillBook, tabRect);
-        RegisterTab(HudTab.SkillsAlt, SkillBookAlt, tabRect);
+        RegisterTab(HudTab.Skills, SkillBook, InventoryBounds);
+        RegisterTab(HudTab.SkillsAlt, SkillBookAlt, InventoryBounds);
 
         SpellBook = new SpellBookPanel(PrefabSet, background: invBgTexture, normalVisibleSlots: LARGE_NORMAL_SLOTS);
         SpellBook.ConfigureExpand(skillSpellExpandedTexture, LARGE_EXPANDED_SKILL_SPELL_SLOTS);
@@ -508,14 +506,14 @@ public sealed class LargeWorldHudControl : PrefabPanel, IWorldHud
             LARGE_NORMAL_SLOTS);
         SpellBookAlt.ConfigureExpand(skillSpellExpandedTexture, LARGE_EXPANDED_SKILL_SPELL_SLOTS);
 
-        RegisterTab(HudTab.Spells, SpellBook, tabRect);
-        RegisterTab(HudTab.SpellsAlt, SpellBookAlt, tabRect);
+        RegisterTab(HudTab.Spells, SpellBook, InventoryBounds);
+        RegisterTab(HudTab.SpellsAlt, SpellBookAlt, InventoryBounds);
 
         //chat — stores both normal and expanded bounds for expand toggle
         NormalChatBounds = GetRect("ChattingRect");
-        ChatDisplay = new ChatPanel(NormalChatBounds, tabRect);
-        ChatDisplay.ConfigureExpand(chatExpandedTexture, ExpandedChatBounds, tabRect);
-        RegisterTab(HudTab.Chat, ChatDisplay, tabRect);
+        ChatDisplay = new ChatPanel(NormalChatBounds, InventoryBounds);
+        ChatDisplay.ConfigureExpand(chatExpandedTexture, ExpandedChatBounds, InventoryBounds);
+        RegisterTab(HudTab.Chat, ChatDisplay, InventoryBounds);
 
         //large hud uses compact stats (_nstatur), expanding to full stats (_nstatus)
         var compactStatusPrefabSet = DataContext.UserControls.Get("_nstatur")!;
@@ -524,8 +522,8 @@ public sealed class LargeWorldHudControl : PrefabPanel, IWorldHud
         StatsPanel.ConfigureExpand(fullStatusPrefabSet);
         ExtendedStatsPanel = new ExtendedStatsPanel(compactStatusPrefabSet);
         ExtendedStatsPanel.ConfigureExpand(fullStatusPrefabSet);
-        RegisterTab(HudTab.Stats, StatsPanel, tabRect);
-        RegisterTab(HudTab.ExtendedStats, ExtendedStatsPanel, tabRect);
+        RegisterTab(HudTab.Stats, StatsPanel, InventoryBounds);
+        RegisterTab(HudTab.ExtendedStats, ExtendedStatsPanel, InventoryBounds);
 
         //tools (h tab): 1 row normal (6 cells per half), expanded to 3 rows (18 cells per half)
         //uses the small-hud's _nbk_s LivingInventoryBackground as the expanded variant
@@ -538,12 +536,12 @@ public sealed class LargeWorldHudControl : PrefabPanel, IWorldHud
 
         Tools = new ToolsPanel(PrefabSet, livingBgTexture, COMPACT_VISIBLE_SLOTS_PER_HALF);
         Tools.ConfigureExpandPerHalf(toolsExpandedTexture, EXPANDED_VISIBLE_SLOTS_PER_HALF);
-        RegisterTab(HudTab.Tools, Tools, tabRect);
+        RegisterTab(HudTab.Tools, Tools, InventoryBounds);
 
         var msgHistoryBounds = GetRect("ChattingRect");
-        MessageHistory = new SystemMessagePanel(msgHistoryBounds, tabRect, WorldState.Chat.GetOrangeBarHistory());
-        MessageHistory.ConfigureExpand(chatExpandedTexture, ExpandedChatBounds, tabRect);
-        RegisterTab(HudTab.MessageHistory, MessageHistory, tabRect);
+        MessageHistory = new SystemMessagePanel(msgHistoryBounds, InventoryBounds, WorldState.Chat.GetOrangeBarHistory());
+        MessageHistory.ConfigureExpand(chatExpandedTexture, ExpandedChatBounds, InventoryBounds);
+        RegisterTab(HudTab.MessageHistory, MessageHistory, InventoryBounds);
 
         HudTab[] tabMapping =
         [

@@ -105,21 +105,27 @@ public class UILabel : UIElement
         if (HasSelection)
         {
             if (TextElement.WrappedLines is not null)
-                DrawWrappedWithSelection(spriteBatch, innerX, innerY, innerH);
+                DrawWrappedWithSelection(spriteBatch, innerX, innerY, innerW, innerH);
             else
                 DrawSingleLineWithSelection(spriteBatch, innerX, innerY, innerW, innerH);
         } else if (TextElement.WrappedLines is not null)
         {
+            var lines = TextElement.WrappedLines;
             var firstLine = ScrollOffset / TextRenderer.CHAR_HEIGHT;
             var maxLines = (innerH + TextRenderer.CHAR_HEIGHT - 1) / TextRenderer.CHAR_HEIGHT;
-            var endLine = Math.Min(TextElement.WrappedLines.Count, firstLine + maxLines);
+            var endLine = Math.Min(lines.Count, firstLine + maxLines);
+            var vOffset = WrappedVerticalOffset(lines.Count, innerH);
 
             for (var lineIdx = firstLine; lineIdx < endLine; lineIdx++)
             {
-                var lineY = innerY + (lineIdx - firstLine) * TextRenderer.CHAR_HEIGHT;
+                var line = lines[lineIdx];
 
-                if (TextElement.WrappedLines[lineIdx].Length > 0)
-                    TextElement.Draw(spriteBatch, new Vector2(innerX, lineY), ClipRect, TextElement.WrappedLines[lineIdx], Opacity);
+                if (line.Length == 0)
+                    continue;
+
+                var lineY = innerY + vOffset + (lineIdx - firstLine) * TextRenderer.CHAR_HEIGHT;
+                var lineX = WrappedLineX(line, innerX, innerW);
+                TextElement.Draw(spriteBatch, new Vector2(lineX, lineY), ClipRect, line, Opacity);
             }
         } else if (TruncateWithEllipsis && (TextElement.Width > innerW))
         {
@@ -172,7 +178,7 @@ public class UILabel : UIElement
             _                                                           => innerX
         };
 
-        var drawY = innerY + (((VerticalAlignment == VerticalAlignment.Top ? TextElement.Height : innerH) - TextElement.Height) / 2);
+        var drawY = innerY + ((VerticalAlignment == VerticalAlignment.Top ? TextElement.Height : innerH) - TextElement.Height) / 2;
 
         //pre-selection segment
         if (selStart > 0)
@@ -194,12 +200,13 @@ public class UILabel : UIElement
         }
     }
 
-    private void DrawWrappedWithSelection(SpriteBatch spriteBatch, int innerX, int innerY, int innerH)
+    private void DrawWrappedWithSelection(SpriteBatch spriteBatch, int innerX, int innerY, int innerW, int innerH)
     {
         var lines = TextElement.WrappedLines!;
         var firstLine = ScrollOffset / TextRenderer.CHAR_HEIGHT;
         var maxLines = (innerH + TextRenderer.CHAR_HEIGHT - 1) / TextRenderer.CHAR_HEIGHT;
         var endLine = Math.Min(lines.Count, firstLine + maxLines);
+        var vOffset = WrappedVerticalOffset(lines.Count, innerH);
         var selStart = SnapSelectionBoundary(SelectionStart);
         var selEnd = SelectionEnd;
         var charOffset = 0;
@@ -211,7 +218,8 @@ public class UILabel : UIElement
         for (var i = firstLine; i < endLine; i++)
         {
             var lineText = lines[i];
-            var lineY = innerY + (i - firstLine) * TextRenderer.CHAR_HEIGHT;
+            var lineY = innerY + vOffset + (i - firstLine) * TextRenderer.CHAR_HEIGHT;
+            var lineBaseX = WrappedLineX(lineText, innerX, innerW); //per-line horizontal alignment
             var lineStartIdx = charOffset;
             var lineEndIdx = charOffset + lineText.Length;
 
@@ -222,10 +230,10 @@ public class UILabel : UIElement
 
                 //pre-selection segment
                 if (hlStart > 0)
-                    DrawTextClipped(spriteBatch, new Vector2(innerX, lineY), lineText[..hlStart], TextElement.Color, ColorCodesEnabled);
+                    DrawTextClipped(spriteBatch, new Vector2(lineBaseX, lineY), lineText[..hlStart], TextElement.Color, ColorCodesEnabled);
 
                 //selection segment: white rect + black text
-                var hlX = innerX + (hlStart > 0 ? TextRenderer.MeasureWidth(lineText[..hlStart]) : 0);
+                var hlX = lineBaseX + (hlStart > 0 ? TextRenderer.MeasureWidth(lineText[..hlStart]) : 0);
                 var hlText = lineText[hlStart..hlEnd];
                 var hlWidth = TextRenderer.MeasureWidth(hlText);
 
@@ -239,10 +247,42 @@ public class UILabel : UIElement
                     DrawTextClipped(spriteBatch, new Vector2(postX, lineY), lineText[hlEnd..], TextElement.Color, ColorCodesEnabled);
                 }
             } else if (lineText.Length > 0)
-                DrawTextClipped(spriteBatch, new Vector2(innerX, lineY), lineText, TextElement.Color, ColorCodesEnabled);
+                DrawTextClipped(spriteBatch, new Vector2(lineBaseX, lineY), lineText, TextElement.Color, ColorCodesEnabled);
 
             charOffset = lineEndIdx;
         }
+    }
+
+    //── wrapped-text alignment helpers (mirror the single-line branch so WordWrap honors Horizontal/VerticalAlignment) ──
+
+    /// <summary>
+    ///     Vertical offset to align a wrapped block of <paramref name="lineCount" /> lines within <paramref name="innerH" />
+    ///     per <see cref="VerticalAlignment" />. Centering/bottom-align apply only when the block fits; when it overflows
+    ///     (scrolling content) it stays top-aligned so <see cref="ScrollOffset" /> governs the visible window.
+    /// </summary>
+    private int WrappedVerticalOffset(int lineCount, int innerH)
+    {
+        var contentHeight = lineCount * TextRenderer.CHAR_HEIGHT;
+
+        if ((VerticalAlignment == VerticalAlignment.Top) || (contentHeight >= innerH))
+            return 0;
+
+        return VerticalAlignment == VerticalAlignment.Bottom
+            ? innerH - contentHeight
+            : (innerH - contentHeight) / 2; //Center (the enum default)
+    }
+
+    /// <summary>The X at which a single wrapped <paramref name="line" /> starts, per <see cref="HorizontalAlignment" />.</summary>
+    private int WrappedLineX(string line, int innerX, int innerW)
+    {
+        var lineWidth = TextRenderer.MeasureWidth(line);
+
+        return HorizontalAlignment switch
+        {
+            HorizontalAlignment.Center when lineWidth <= innerW => innerX + (innerW - lineWidth) / 2,
+            HorizontalAlignment.Right                           => innerX + innerW - lineWidth,
+            _                                                   => innerX
+        };
     }
 
     private string PlainText => TextElement.Text;
@@ -461,9 +501,13 @@ public class UILabel : UIElement
         if (lines is null || (lines.Count == 0))
             return 0;
 
+        //mirror the render-time alignment so clicks map to where the text is actually drawn.
+        var innerX = ScreenX + PaddingLeft;
         var innerY = ScreenY + PaddingTop;
+        var innerW = Width - PaddingLeft - PaddingRight;
+        var innerH = Height - PaddingTop - PaddingBottom;
         var firstLine = ScrollOffset / TextRenderer.CHAR_HEIGHT;
-        var localY = mouseY - innerY;
+        var localY = mouseY - innerY - WrappedVerticalOffset(lines.Count, innerH);
         var clickLine = firstLine + localY / TextRenderer.CHAR_HEIGHT;
         clickLine = Math.Clamp(clickLine, 0, lines.Count - 1);
 
@@ -473,7 +517,7 @@ public class UILabel : UIElement
             charOffset += lines[i].Length;
 
         var lineText = lines[clickLine];
-        var localX = mouseX - ScreenX - PaddingLeft;
+        var localX = mouseX - WrappedLineX(lineText, innerX, innerW);
 
         if ((lineText.Length == 0) || (localX <= 0))
             return charOffset;

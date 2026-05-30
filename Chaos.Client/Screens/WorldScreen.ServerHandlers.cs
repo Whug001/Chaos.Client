@@ -1,6 +1,7 @@
 #region
 using Chaos.Client.Collections;
 using Chaos.Client.Controls.Generic;
+using Chaos.Client.Controls.World.Popups.Market;
 using Chaos.Client.Data;
 using Chaos.Client.Data.Repositories;
 using Chaos.Client.Data.Utilities;
@@ -470,6 +471,7 @@ public sealed partial class WorldScreen
 
     private void HandleExchangeAmountRequested(byte fromSlot)
     {
+        AmountPurpose = ItemAmountPurpose.Exchange;
         ItemAmount.X = Exchange.X + (Exchange.Width - ItemAmount.Width) / 2;
         ItemAmount.Y = Exchange.Y + (Exchange.Height - ItemAmount.Height) / 2;
         ItemAmount.ShowForSlot(fromSlot);
@@ -1146,7 +1148,7 @@ public sealed partial class WorldScreen
         Overlays.AddOrResetHealthBar(args.SourceId, args.HealthPercent);
 
         //anchor needs the map height + creature renderer; MapFile is always set while in-world (HealthBar is a world packet)
-        if ((args.Amount != 0) && (MapFile is not null))
+        if ((args.Amount != 0) && MapFile is not null)
             Overlays.AddDamageNumber(
                 args.SourceId,
                 args.Amount,
@@ -1226,6 +1228,90 @@ public sealed partial class WorldScreen
 
         return LegendColors.Get((int)color);
     }
+
+    //--- market ---
+
+    private void HandleMarketDisplay(MarketDisplayArgs args)
+    {
+        switch (args.Type)
+        {
+            case MarketDisplayType.Open:
+                Market.Show();
+
+                break;
+
+            case MarketDisplayType.SearchResults:
+            {
+                var listings = new List<MarketListing>(args.Results?.Count ?? 0);
+
+                foreach (var entry in args.Results ?? [])
+                    listings.Add(MapResultEntry(entry));
+
+                Market.SetResults(args.Page, args.TotalResults, listings);
+
+                break;
+            }
+
+            case MarketDisplayType.SellSnapshot:
+            {
+                var sell = new List<MarketSellListing>(args.SellListings?.Count ?? 0);
+
+                foreach (var entry in args.SellListings ?? [])
+                    sell.Add(
+                        new MarketSellListing
+                        {
+                            ListingId = entry.ListingId,
+                            Sprite = entry.Sprite,
+                            Color = entry.Color,
+                            Name = entry.Name,
+                            Quantity = entry.Quantity,
+                            UnitPrice = entry.IsPriced ? entry.UnitPrice : null
+                        });
+
+                Market.SetSellListings(sell);
+                Market.SetSellPendingPayout(args.PendingPayout);
+
+                break;
+            }
+        }
+    }
+
+    private static MarketListing MapResultEntry(MarketResultEntry e)
+        => new(
+            e.ListingId,
+            e.Sprite,
+            e.Color,
+            e.Name,
+            e.Price,
+            e.LevelReq,
+            e.ClassReq,
+            e.Weight,
+            e.CurrentDurability,
+            e.MaxDurability,
+            e.Description,
+            new MarketItemStats(
+                e.Hp,
+                e.Mp,
+                e.Str,
+                e.Int,
+                e.Wis,
+                e.Con,
+                e.Dex,
+                e.Ac,
+                e.Hit,
+                e.Dmg,
+                e.AtkSpeed,
+                e.FlatSkillDmg,
+                e.FlatSpellDmg,
+                e.SkillDmgPct,
+                e.SpellDmgPct,
+                e.Cdr,
+                e.HealBonus,
+                e.HealBonusPct,
+                e.MagicResist))
+        {
+            AvailableCount = e.AvailableCount
+        };
     #endregion
 
     //Up=0, Right=1, Down=2, Left=3 — matches server DirectionalRelationTo in tile space

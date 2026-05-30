@@ -294,8 +294,8 @@ public sealed class WeatherRenderer : IDisposable
             ? viewport.Top - SnowRandom.Next(0, 30)
             : SnowRandom.Next(viewport.Top, viewport.Bottom);
 
-        var vy = SNOW_MIN_VELOCITY_Y + ((float)SnowRandom.NextDouble() * (SNOW_MAX_VELOCITY_Y - SNOW_MIN_VELOCITY_Y));
-        var vx = (((float)SnowRandom.NextDouble() * 2f) - 1f) * SNOW_DRIFT_X;
+        var vy = SNOW_MIN_VELOCITY_Y + (float)SnowRandom.NextDouble() * (SNOW_MAX_VELOCITY_Y - SNOW_MIN_VELOCITY_Y);
+        var vx = ((float)SnowRandom.NextDouble() * 2f - 1f) * SNOW_DRIFT_X;
 
         var typeIndex = SnowRandom.Next(0, SnowTypeFrames!.Length);
         var frameCount = SnowTypeFrames[typeIndex].Length;
@@ -431,7 +431,7 @@ public sealed class WeatherRenderer : IDisposable
         var texW = RainTexture.Width;
         var texH = RainTexture.Height;
         var colW = texW / RAIN_COLUMN_COUNT;
-        var tilesX = ((viewport.Width + texW) - 1) / texW;
+        var tilesX = (viewport.Width + texW - 1) / texW;
 
         //each row is a full texture copy falling at its own Y with its own column permutation
         for (var r = 0; r < RainRows.Count; r++)
@@ -442,12 +442,12 @@ public sealed class WeatherRenderer : IDisposable
 
             for (var tx = 0; tx < tilesX; tx++)
             {
-                var baseX = viewport.X + (tx * texW);
+                var baseX = viewport.X + tx * texW;
 
                 for (var c = 0; c < RAIN_COLUMN_COUNT; c++)
                 {
                     var srcX = perm[c] * colW;
-                    var destX = baseX + (c * colW);
+                    var destX = baseX + c * colW;
                     var srcRect = new Rectangle(srcX, 0, colW, texH);
                     var destRect = new Rectangle(destX, y, colW, texH);
 

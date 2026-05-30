@@ -1,5 +1,4 @@
 #region
-using Chaos.Client.Data.Definitions;
 using DALib.Drawing;
 using SkiaSharp;
 #endregion

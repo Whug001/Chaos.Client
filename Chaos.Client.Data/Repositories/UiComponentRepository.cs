@@ -5,7 +5,6 @@ using Chaos.DarkAges.Definitions;
 using Chaos.Client.Data.Models;
 using Chaos.Extensions.Common;
 using DALib.Data;
-using DALib.Definitions;
 using DALib.Drawing;
 using DALib.Drawing.Virtualized;
 using DALib.Extensions;

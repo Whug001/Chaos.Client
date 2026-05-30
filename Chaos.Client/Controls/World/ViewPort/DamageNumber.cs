@@ -1,5 +1,4 @@
 #region
-using Chaos.Client.Rendering;
 using Chaos.Client.Systems;
 using Microsoft.Xna.Framework;
 using Microsoft.Xna.Framework.Graphics;
@@ -80,7 +79,7 @@ public sealed class DamageNumber(
 
             var fadeSpan = 1f - fadeStart;
 
-            return fadeSpan <= 0f ? 0f : 1f - ((t - fadeStart) / fadeSpan);
+            return fadeSpan <= 0f ? 0f : 1f - (t - fadeStart) / fadeSpan;
         }
     }
 

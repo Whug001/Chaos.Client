@@ -97,8 +97,7 @@ public sealed class SelfProfileTabControl : PrefabPanel
             tabBtn.NormalTexture = cache.GetSpfTexture("_nui_tb1.spf", frameIndex);
 
             //wire click → switch tab
-            var capturedTab = tab;
-            tabBtn.Clicked += () => SwitchTab(capturedTab);
+            tabBtn.Clicked += () => SwitchTab(tab);
 
             //set initial selection state
             tabBtn.IsSelected = tab == ActiveTab;

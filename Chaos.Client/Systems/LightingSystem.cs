@@ -101,13 +101,13 @@ public sealed class LightingSystem
     //stackalloc size and the inclusion test.
     private static (int Dx, int Dy)[] ComputeEuclidean(int radius)
     {
-        var diameterSquared = ((2 * radius) + 1) * ((2 * radius) + 1);
+        var diameterSquared = (2 * radius + 1) * (2 * radius + 1);
         Span<(int Dx, int Dy)> buffer = stackalloc (int, int)[diameterSquared];
         var count = 0;
 
         for (var dy = -radius; dy <= radius; dy++)
             for (var dx = -radius; dx <= radius; dx++)
-                if ((4 * ((dx * dx) + (dy * dy))) < diameterSquared)
+                if ((4 * (dx * dx + dy * dy)) < diameterSquared)
                     buffer[count++] = (dx, dy);
 
         return buffer[..count].ToArray();

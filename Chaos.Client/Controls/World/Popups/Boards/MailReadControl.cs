@@ -92,6 +92,7 @@ public sealed class MailReadControl : PrefabPanel
             PaddingRight = 2,
             PaddingTop = 0,
             WordWrap = true,
+            VerticalAlignment = VerticalAlignment.Top,
             ForegroundColor = TextColors.Default,
             IsSelectable = true
         };

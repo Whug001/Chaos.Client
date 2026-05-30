@@ -117,8 +117,8 @@ public sealed class EntityOverlayManager
                          .ToString();
 
         var dir = Random.Shared.Next(2) == 0 ? -1f : 1f;
-        var peak = GlobalSettings.DamageNumberPeakHeight * (0.85f + (Random.Shared.NextSingle() * 0.4f));
-        var travel = GlobalSettings.DamageNumberTravel * (0.8f + (Random.Shared.NextSingle() * 0.5f));
+        var peak = GlobalSettings.DamageNumberPeakHeight * (0.85f + Random.Shared.NextSingle() * 0.4f);
+        var travel = GlobalSettings.DamageNumberTravel * (0.8f + Random.Shared.NextSingle() * 0.5f);
 
         //bottom-center anchor: a fixed gap above the health bar's top edge (resolved identically to the bar)
         var offset = ResolveOverlayOffset(HEALTH_BAR_Y_OFFSET, entity, creatureRenderer) + DAMAGE_NUMBER_GAP_ABOVE_BAR;
@@ -604,7 +604,7 @@ public sealed class EntityOverlayManager
 
             //already anchored at spawn — just project the fixed world position (plus the arc) to screen
             var screenPos = camera.WorldToScreen(dn.SpawnWorld + dn.WorldOffset);
-            dn.X = (int)MathF.Round(screenPos.X - (dn.Width / 2f));
+            dn.X = (int)MathF.Round(screenPos.X - dn.Width / 2f);
             dn.Y = (int)MathF.Round(screenPos.Y - dn.Height);
         }
     }

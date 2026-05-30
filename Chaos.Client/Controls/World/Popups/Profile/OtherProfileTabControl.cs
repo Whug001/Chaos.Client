@@ -78,8 +78,7 @@ public sealed class OtherProfileTabControl : PrefabPanel
 
             tabBtn.NormalTexture = cache.GetSpfTexture("_nui_tb1.spf", frameIndex);
 
-            var capturedTab = tab;
-            tabBtn.Clicked += () => SwitchTab(capturedTab);
+            tabBtn.Clicked += () => SwitchTab(tab);
 
             tabBtn.IsSelected = tab == ActiveTab;
             tabBtn.ZIndex = 1;

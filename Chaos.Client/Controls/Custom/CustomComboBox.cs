@@ -1,6 +1,5 @@
 #region
-using Chaos.Client.Definitions;
-using Chaos.Client.Rendering;
+using Chaos.Client.Controls.Components;
 using Chaos.Client.Utilities;
 using Microsoft.Xna.Framework;
 using Microsoft.Xna.Framework.Graphics;
@@ -8,7 +7,7 @@ using Microsoft.Xna.Framework.Input;
 using SkiaSharp;
 #endregion
 
-namespace Chaos.Client.Controls.Components;
+namespace Chaos.Client.Controls.Custom;
 
 /// <summary>
 ///     A dropdown selector built from the dlgframe.epf border (same source as the item tooltip and
@@ -21,12 +20,16 @@ namespace Chaos.Client.Controls.Components;
 ///     a different width, create a new instance (there is intentionally no Resize method). The option list
 ///     is rebuilt automatically whenever <see cref="SetItems" /> is called.
 /// </remarks>
-public sealed class UIComboBox : UIPanel
+public sealed class CustomComboBox : UIPanel
 {
     private const int INNER_PAD = 5;                              // text inset from the frame
     private const int ARROW_BOX = 12;                             // right-side arrow column width
     private const int LIST_Z = 100_000;                           // draw list/catcher above HUD when mounted in root
     private const int RowHeight = TextRenderer.CHAR_HEIGHT + 2;   // per-option row height
+    private const int MAX_VISIBLE_ROWS = 8;                       // open list caps at this many rows; longer lists scroll
+    private const int ARROW_ZONE = 9;                            // reserved px at the list's top & bottom for scroll arrows
+    private const int ARROW_TEX_W = 9;                           // scroll-affordance arrow indicator texture size
+    private const int ARROW_TEX_H = 6;
 
     private static readonly SKColor FillColor = new(10, 8, 5, 255);
     private static Color TextColor => TextColors.Default;          // standard UI text (LegendColors.Silver)
@@ -44,10 +47,10 @@ public sealed class UIComboBox : UIPanel
     private int Selected = -1;
     private bool Open;
 
-    public UIComboBox(int width)
+    public CustomComboBox(int width)
     {
         Width = width;
-        Height = TextRenderer.CHAR_HEIGHT + (INNER_PAD * 2);
+        Height = TextRenderer.CHAR_HEIGHT + INNER_PAD * 2;
 
         HeaderLabel = new UILabel
         {
@@ -127,7 +130,7 @@ public sealed class UIComboBox : UIPanel
 
         EnsureListBuilt();
 
-        if ((Host is null) || (ListPanel is null))
+        if (Host is null || ListPanel is null)
             return;
 
         ListPanel.X = ScreenX - Host.ScreenX;
@@ -139,6 +142,7 @@ public sealed class UIComboBox : UIPanel
             Catcher.Visible = true;
 
         ListPanel.Visible = true;
+        (ListPanel as ListPopup)?.ScrollToIndex(Selected); //open scrolled so the current selection is in the visible window
         Open = true;
         Background = HeaderOpenTex;
         InputDispatcher.Instance?.PushControl(ListPanel);
@@ -212,7 +216,7 @@ public sealed class UIComboBox : UIPanel
 
     public override void Dispose()
     {
-        if (Open && (ListPanel is not null))
+        if (Open && ListPanel is not null)
             InputDispatcher.Instance?.RemoveControl(ListPanel);
 
         if (Host is not null)
@@ -263,9 +267,14 @@ public sealed class UIComboBox : UIPanel
         if (Host is null)
             return;
 
-        var listH = (INNER_PAD * 2) + (ItemList.Count * RowHeight);
+        //cap the visible window at MAX_VISIBLE_ROWS; a longer list scrolls via the wheel and reserves a thin
+        //zone above the first row and below the last for the up/down scroll-affordance arrows.
+        var scrolling = ItemList.Count > MAX_VISIBLE_ROWS;
+        var visibleRows = scrolling ? MAX_VISIBLE_ROWS : ItemList.Count;
+        var interiorTop = INNER_PAD + (scrolling ? ARROW_ZONE : 0);
+        var listH = interiorTop + visibleRows * RowHeight + (scrolling ? ARROW_ZONE : 0) + INNER_PAD;
 
-        ListPanel = new ListPopup(Close)
+        var listPanel = new ListPopup(Close)
         {
             Width = Width,
             Height = listH,
@@ -275,13 +284,24 @@ public sealed class UIComboBox : UIPanel
             UsesControlStack = true
         };
 
+        //add every row; ListPopup.LayoutRows positions/hides them based on the scroll offset.
         for (var i = 0; i < ItemList.Count; i++)
-            ListPanel.AddChild(
-                new ComboBoxRow(i, ItemList[i], Width - (INNER_PAD * 2), RowHeight, OnRowSelected, TextColor, TextHover)
+            listPanel.AddRow(
+                new ComboBoxRow(i, ItemList[i], Width - INNER_PAD * 2, RowHeight, OnRowSelected, TextColor, TextHover)
                 {
-                    X = INNER_PAD,
-                    Y = INNER_PAD + (i * RowHeight)
+                    X = INNER_PAD
                 });
+
+        listPanel.Configure(
+            RowHeight,
+            interiorTop,
+            visibleRows,
+            ARROW_ZONE,
+            scrolling,
+            scrolling ? BuildScrollArrow(true) : null,
+            scrolling ? BuildScrollArrow(false) : null);
+
+        ListPanel = listPanel;
 
         Catcher = new ClickCatcher(Close)
         {
@@ -409,8 +429,8 @@ public sealed class UIComboBox : UIPanel
             Style = SKPaintStyle.Fill
         };
 
-        var cx = x + (w / 2f);
-        var cy = y + (h / 2f);
+        var cx = x + w / 2f;
+        var cy = y + h / 2f;
         const float R = 3f;
 
         using var path = new SKPath();
@@ -429,6 +449,19 @@ public sealed class UIComboBox : UIPanel
 
         path.Close();
         canvas.DrawPath(path, paint);
+    }
+
+    /// <summary>Bakes a small up/down triangle indicator on a transparent background for the scroll affordance.</summary>
+    private static Texture2D BuildScrollArrow(bool up)
+    {
+        var info = new SKImageInfo(ARROW_TEX_W, ARROW_TEX_H, SKColorType.Rgba8888, SKAlphaType.Premul);
+        using var surface = SKSurface.Create(info);
+        surface.Canvas.Clear(SKColors.Transparent);
+        DrawArrow(surface.Canvas, 0, 0, ARROW_TEX_W, ARROW_TEX_H, up);
+
+        using var snapshot = surface.Snapshot();
+
+        return TextureConverter.ToTexture2D(snapshot);
     }
 }
 
@@ -475,9 +508,108 @@ file sealed class ComboBoxRow : UILabel
     }
 }
 
-/// <summary>The framed dropdown list panel. Closes on Escape while it is the control-stack top.</summary>
+/// <summary>
+///     The framed dropdown list panel. Shows at most <c>MAX_VISIBLE_ROWS</c> rows at once; a longer list scrolls with
+///     the mouse wheel, and small up/down triangles in the reserved top/bottom zones signal more content above/below.
+///     Closes on Escape while it is the control-stack top.
+/// </summary>
 file sealed class ListPopup(Action onClose) : UIPanel
 {
+    private readonly List<ComboBoxRow> Rows = [];
+
+    private Texture2D? UpArrow;
+    private Texture2D? DownArrow;
+    private int RowH;
+    private int InteriorTop;  //local Y of the first row (below the top arrow zone)
+    private int VisibleCount; //rows shown at once
+    private int ArrowZone;    //reserved px above the first row / below the last
+    private int ScrollOffset; //index of the first visible row
+    private bool Scrolling;   //true only when the item count exceeds the window
+
+    private int MaxOffset => Math.Max(0, Rows.Count - VisibleCount);
+
+    public void AddRow(ComboBoxRow row)
+    {
+        Rows.Add(row);
+        AddChild(row);
+    }
+
+    /// <summary>Stores the scroll metrics + arrow textures and lays the rows out for the first time.</summary>
+    public void Configure(
+        int rowHeight,
+        int interiorTop,
+        int visibleCount,
+        int arrowZone,
+        bool scrolling,
+        Texture2D? upArrow,
+        Texture2D? downArrow)
+    {
+        RowH = rowHeight;
+        InteriorTop = interiorTop;
+        VisibleCount = visibleCount;
+        ArrowZone = arrowZone;
+        Scrolling = scrolling;
+        UpArrow = upArrow;
+        DownArrow = downArrow;
+        ScrollOffset = 0;
+        LayoutRows();
+    }
+
+    /// <summary>Scrolls so <paramref name="index" /> falls within the visible window (no-op when not scrolling).</summary>
+    public void ScrollToIndex(int index)
+    {
+        if (!Scrolling || (index < 0))
+            return;
+
+        var off = ScrollOffset;
+
+        if (index < off)
+            off = index;
+        else if (index >= off + VisibleCount)
+            off = index - VisibleCount + 1;
+
+        off = Math.Clamp(off, 0, MaxOffset);
+
+        if (off != ScrollOffset)
+        {
+            ScrollOffset = off;
+            LayoutRows();
+        }
+    }
+
+    //position the rows in the window [ScrollOffset, ScrollOffset+VisibleCount); hide the rest. Hidden rows are
+    //skipped by both Draw and hit-testing, so whole-row scrolling needs no partial-row clipping.
+    private void LayoutRows()
+    {
+        for (var i = 0; i < Rows.Count; i++)
+        {
+            var slot = i - ScrollOffset;
+            var visible = (slot >= 0) && (slot < VisibleCount);
+
+            Rows[i].Visible = visible;
+
+            if (visible)
+                Rows[i].Y = InteriorTop + slot * RowH;
+        }
+    }
+
+    public override void OnMouseScroll(MouseScrollEvent e)
+    {
+        if (Scrolling)
+        {
+            //wheel-up (positive delta) reveals earlier rows — matches ScrollBarControl's convention.
+            var next = Math.Clamp(ScrollOffset - e.Delta, 0, MaxOffset);
+
+            if (next != ScrollOffset)
+            {
+                ScrollOffset = next;
+                LayoutRows();
+            }
+        }
+
+        e.Handled = true;
+    }
+
     //Modal: consume EVERY key while the list is open so nothing leaks to the world hotkeys (several
     //of which — q/w/e/r — run above the dispatcher's control-stack guard and would otherwise fire on
     //the bubble up from this popup). Escape also closes the list.
@@ -487,6 +619,40 @@ file sealed class ListPopup(Action onClose) : UIPanel
             onClose();
 
         e.Handled = true;
+    }
+
+    public override void Draw(SpriteBatch spriteBatch)
+    {
+        base.Draw(spriteBatch); //frame + the visible rows
+
+        if (!Visible || !Scrolling)
+            return;
+
+        //up arrow when rows are scrolled off the top
+        if ((ScrollOffset > 0) && (UpArrow is not null))
+        {
+            var x = ScreenX + (Width - UpArrow.Width) / 2;
+            var y = ScreenY + (InteriorTop - ArrowZone) + (ArrowZone - UpArrow.Height) / 2;
+            DrawTexture(spriteBatch, UpArrow, new Vector2(x, y), Color.White);
+        }
+
+        //down arrow when rows remain below the window
+        if ((ScrollOffset < MaxOffset) && (DownArrow is not null))
+        {
+            var x = ScreenX + (Width - DownArrow.Width) / 2;
+            var downZoneTop = InteriorTop + VisibleCount * RowH;
+            var y = ScreenY + downZoneTop + (ArrowZone - DownArrow.Height) / 2;
+            DrawTexture(spriteBatch, DownArrow, new Vector2(x, y), Color.White);
+        }
+    }
+
+    public override void Dispose()
+    {
+        UpArrow?.Dispose();
+        DownArrow?.Dispose();
+        UpArrow = null;
+        DownArrow = null;
+        base.Dispose();
     }
 }
 

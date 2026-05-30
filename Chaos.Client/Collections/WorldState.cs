@@ -1,6 +1,5 @@
 #region
 using Chaos.Client.Data;
-using Chaos.Client.Data.Definitions;
 using Chaos.Client.Data.Models;
 using Chaos.Client.Extensions;
 using Chaos.Client.Models;

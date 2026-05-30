@@ -1,6 +1,5 @@
 #region
 using Chaos.Client.Collections;
-using Chaos.Client.Data.Definitions;
 using Chaos.Client.Systems;
 using Chaos.DarkAges.Definitions;
 using Chaos.Geometry.Abstractions.Definitions;

@@ -250,7 +250,7 @@ public static class DamageNumberFont
             for (var y = -1; y <= GlyphH; y++)
                 for (var x = -1; x <= glyphW; x++)
                 {
-                    var dst = ((y + 1) * cellW) + (x + 1);
+                    var dst = (y + 1) * cellW + x + 1;
 
                     if (Lit(y, x))
                         px[dst] = GradientColor(y, GlyphH, top, mid, bot);

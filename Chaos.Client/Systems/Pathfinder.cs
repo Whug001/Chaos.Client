@@ -101,7 +101,7 @@ public static class Pathfinder
 
             //external A* accepts any end tile even if it's a wall or blocked, so filter candidate adjacents
             //here. without this, an adjacent wall tile becomes the shortest "path" and the player walks into it.
-            if ((isTileWalkable is not null) && !isTileWalkable(adjX, adjY))
+            if (isTileWalkable is not null && !isTileWalkable(adjX, adjY))
                 continue;
 
             var path = pathfinder.FindPath(

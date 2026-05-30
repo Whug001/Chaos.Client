@@ -4,6 +4,7 @@ using Chaos.Client.Controls.Components;
 using Chaos.Client.Controls.World.Hud;
 using Chaos.Client.Controls.World.Hud.Panel;
 using Chaos.Client.Controls.World.Hud.Panel.Slots;
+using Chaos.Client.Controls.World.Popups.Market;
 using Chaos.Client.Data;
 using Chaos.Client.Data.Models;
 using Chaos.Client.Extensions;
@@ -82,6 +83,14 @@ public sealed partial class WorldScreen
             return;
         }
 
+        //dropped onto the Market Sell tab's listings — list the item
+        if ((slot != 0) && Market.Visible && Market.IsOnSellTab && Market.SellDropZoneContains(mouseX, mouseY))
+        {
+            BeginMarketListing(slot);
+
+            return;
+        }
+
         //dropped onto an equipment slot — equip the item
         if ((slot != 0) && StatusBook.Visible && StatusBook.ContainsEquipmentSlotPoint(mouseX, mouseY))
         {
@@ -153,6 +162,33 @@ public sealed partial class WorldScreen
         }
 
         Game.Connection.DropItem(slot, tileX, tileY);
+    }
+
+    //list an inventory item on the Market Sell tab: cap-check, then list immediately (non-stackable) or prompt for an
+    //amount (stackable) reusing the shared ItemAmountControl. The bag is server-authoritative, so the placeholder Sell
+    //control only appends a local listing for now (real removal/listing arrives with the market backend).
+    private void BeginMarketListing(byte slot)
+    {
+        if (Market.SellTabFull)
+        {
+            WorldState.Chat.AddOrangeBarMessage($"You can have at most {MarketSellControl.MAX_LISTINGS} market listings.");
+
+            return;
+        }
+
+        ref readonly var data = ref WorldState.Inventory.GetSlot(slot);
+
+        if (!data.IsOccupied)
+            return;
+
+        if (data.Stackable && (data.Count > 1))
+        {
+            AmountPurpose = ItemAmountPurpose.MarketListing;
+            ItemAmount.X = Market.X + (Market.Width - ItemAmount.Width) / 2;
+            ItemAmount.Y = Market.Y + (Market.Height - ItemAmount.Height) / 2;
+            ItemAmount.ShowForSlot(slot);
+        } else
+            Market.AddSellDraft(slot, 1);
     }
 
     //--- skills / spells ---
@@ -682,6 +718,21 @@ public sealed partial class WorldScreen
         {
             ForceCloseOtherTogglePanels(Keys.R);
             ToggleSocialStatusPicker();
+
+            e.Handled = true;
+
+            return;
+        }
+
+        //TEMP DEBUG: F12 is a visual-only dev toggle for the market window. Real/data-driven open is via the
+        //Starbargain NPC (scriptKey MarketStall) or the /market command. Must sit above the stack guard — the open
+        //panel pushes the control stack, so the close key would otherwise be suppressed.
+        if (e.Key == Keys.F12)
+        {
+            if (Market.Visible)
+                Market.Hide();
+            else
+                Market.Show();
 
             e.Handled = true;
 

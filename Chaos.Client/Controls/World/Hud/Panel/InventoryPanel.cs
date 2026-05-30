@@ -132,8 +132,8 @@ public sealed class InventoryPanel : PanelBase
         {
             //beyond the last real slot (e.g. 60th cell in 5-row expanded with 59 slots)
             var lastIndex = Slots.Count - 1;
-            var colDelta = (gridIndex % Columns) - (lastIndex % Columns);
-            var rowDelta = (gridIndex / Columns) - (lastIndex / Columns);
+            var colDelta = gridIndex % Columns - lastIndex % Columns;
+            var rowDelta = gridIndex / Columns - lastIndex / Columns;
 
             GoldSlot.X = Slots[lastIndex].X + colDelta * CELL_WIDTH;
             GoldSlot.Y = Slots[lastIndex].Y + rowDelta * CELL_HEIGHT;

@@ -324,15 +324,15 @@ public sealed class TownMapControl : UIPanel
         if (totalTiles == 0)
             return;
 
-        var pivotX = (imgW * tileH) / totalTiles + imgX;
+        var pivotX = imgW * tileH / totalTiles + imgX;
 
-        var pixelX = ((imgX - 1 + imgW - pivotX) * playerTileX) / tileW
+        var pixelX = (imgX - 1 + imgW - pivotX) * playerTileX / tileW
                      + pivotX
-                     + ((imgX - pivotX) * playerTileY) / tileH;
+                     + (imgX - pivotX) * playerTileY / tileH;
 
-        var pixelY = (((imgH * tileW) / totalTiles) * playerTileX) / tileW
+        var pixelY = imgH * tileW / totalTiles * playerTileX / tileW
                      + imgY
-                     + (((imgH * tileH) / totalTiles) * playerTileY) / tileH;
+                     + imgH * tileH / totalTiles * playerTileY / tileH;
 
         MarkerImage.X = pixelX - 6;
         MarkerImage.Y = pixelY - 19;

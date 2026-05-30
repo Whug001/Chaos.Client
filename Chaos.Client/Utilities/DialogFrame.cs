@@ -75,6 +75,57 @@ public static class DialogFrame
     }
 
     /// <summary>
+    ///     Builds a horizontal separator strip — the top (or bottom) edge piece tiled across <paramref name="width" />.
+    ///     The strip is <see cref="BORDER_SIZE" />px tall. Returns null if the dlgframe frames failed to load.
+    /// </summary>
+    public static SKImage? BuildHorizontalSeparator(int width, bool useBottom = false)
+    {
+        var frames = GetFrames();
+
+        if (frames is null)
+            return null;
+
+        var piece = frames[useBottom ? FRAME_BOTTOM : FRAME_TOP];
+
+        return TileStrip(piece, width, piece.Height);
+    }
+
+    /// <summary>
+    ///     Builds a vertical separator strip — the left (or right) edge piece tiled down <paramref name="height" />.
+    ///     The strip is <see cref="BORDER_SIZE" />px wide. Returns null if the dlgframe frames failed to load.
+    /// </summary>
+    public static SKImage? BuildVerticalSeparator(int height, bool useRight = false)
+    {
+        var frames = GetFrames();
+
+        if (frames is null)
+            return null;
+
+        var piece = frames[useRight ? FRAME_RIGHT : FRAME_LEFT];
+
+        return TileStrip(piece, piece.Width, height);
+    }
+
+    private static SKImage TileStrip(SKImage piece, int totalWidth, int totalHeight)
+    {
+        var info = new SKImageInfo(
+            totalWidth,
+            totalHeight,
+            SKColorType.Rgba8888,
+            SKAlphaType.Premul);
+        using var surface = SKSurface.Create(info);
+
+        var canvas = surface.Canvas;
+        canvas.Clear(SKColors.Transparent);
+
+        for (var x = 0; x < totalWidth; x += piece.Width)
+            for (var y = 0; y < totalHeight; y += piece.Height)
+                canvas.DrawImage(piece, x, y);
+
+        return surface.Snapshot();
+    }
+
+    /// <summary>
     ///     Draws the 8-piece border onto an existing canvas. Tiles edges between corners.
     /// </summary>
     public static void DrawBorder(SKCanvas canvas, int totalWidth, int totalHeight)

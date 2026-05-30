@@ -6,7 +6,6 @@ using Chaos.DarkAges.Definitions;
 using Chaos.Geometry;
 using Chaos.Geometry.Abstractions.Definitions;
 using Chaos.Networking.Abstractions.Definitions;
-using Chaos.Networking.Entities;
 using Chaos.Networking.Entities.Client;
 using Chaos.Networking.Entities.Server;
 using Chaos.Packets;
@@ -492,6 +491,11 @@ public sealed class ConnectionManager : IDisposable
     ///     Fired when the server sends the player's user options.
     /// </summary>
     public event UserOptionsHandler? OnUserOptions;
+
+    /// <summary>
+    ///     Fired when a market display packet is received from the server.
+    /// </summary>
+    public event MarketDisplayHandler? OnMarketDisplay;
 
     /// <summary>
     ///     Fired when door states are updated.
@@ -1066,6 +1070,51 @@ public sealed class ConnectionManager : IDisposable
         => SendIfWorld(new OptionToggleArgs { Action = UserOptionAction.Set, Option = option, Value = value });
 
     /// <summary>
+    ///     Sends a market search request with the specified criteria.
+    /// </summary>
+    /// <param name="criteria">The search criteria.</param>
+    public void SendMarketSearch(MarketSearchCriteria criteria)
+        => SendIfWorld(new MarketInteractionArgs { Type = MarketInteractionType.Search, Criteria = criteria });
+
+    /// <summary>
+    ///     Sends a market buy request for a specific listing.
+    /// </summary>
+    /// <param name="listingId">The listing ID to buy.</param>
+    /// <param name="quantity">The quantity to purchase.</param>
+    public void SendMarketBuy(ulong listingId, int quantity)
+        => SendIfWorld(new MarketInteractionArgs { Type = MarketInteractionType.Buy, ListingId = listingId, Amount = quantity });
+
+    /// <summary>
+    ///     Sends a market create listing request from an inventory slot.
+    /// </summary>
+    /// <param name="slot">The inventory slot of the item to list.</param>
+    /// <param name="amount">The quantity to list.</param>
+    public void SendMarketCreateListing(byte slot, int amount)
+        => SendIfWorld(new MarketInteractionArgs { Type = MarketInteractionType.CreateListing, Slot = slot, Amount = amount });
+
+    /// <summary>
+    ///     Sends a market set price request for an existing listing.
+    /// </summary>
+    /// <param name="listingId">The listing ID to update.</param>
+    /// <param name="unitPrice">The new per-unit price.</param>
+    public void SendMarketSetPrice(ulong listingId, int unitPrice)
+        => SendIfWorld(new MarketInteractionArgs { Type = MarketInteractionType.SetPrice, ListingId = listingId, UnitPrice = unitPrice });
+
+    /// <summary>
+    ///     Sends a market delist request to remove items from a listing.
+    /// </summary>
+    /// <param name="listingId">The listing ID to delist from.</param>
+    /// <param name="amount">The quantity to delist.</param>
+    public void SendMarketDelist(ulong listingId, int amount)
+        => SendIfWorld(new MarketInteractionArgs { Type = MarketInteractionType.Delist, ListingId = listingId, Amount = amount });
+
+    /// <summary>
+    ///     Sends a market collect gold request to claim pending payout.
+    /// </summary>
+    public void SendMarketCollectGold()
+        => SendIfWorld(new MarketInteractionArgs { Type = MarketInteractionType.CollectGold });
+
+    /// <summary>
     ///     Sends a public (normal) chat message visible to nearby players.
     /// </summary>
     /// <param name="message">The chat message text.</param>
@@ -1298,6 +1347,7 @@ public sealed class ConnectionManager : IDisposable
         PacketHandlers[(byte)ServerOpCode.DisplayVisibleEntities] = HandleDisplayVisibleEntities;
         PacketHandlers[(byte)ServerOpCode.SetEntityTint] = HandleSetEntityTint;
         PacketHandlers[(byte)ServerOpCode.UserOptions] = HandleUserOptions;
+        PacketHandlers[(byte)ServerOpCode.MarketDisplay] = HandleMarketDisplay;
         PacketHandlers[(byte)ServerOpCode.DisplayAisling] = HandleDisplayAisling;
 
         //world entities
@@ -1603,6 +1653,12 @@ public sealed class ConnectionManager : IDisposable
     {
         var args = Client.Deserialize<UserOptionsArgs>(in pkt);
         OnUserOptions?.Invoke(args);
+    }
+
+    private void HandleMarketDisplay(ServerPacket pkt)
+    {
+        var args = Client.Deserialize<MarketDisplayArgs>(in pkt);
+        OnMarketDisplay?.Invoke(args);
     }
 
     private void HandleDisplayAisling(ServerPacket pkt)

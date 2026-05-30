@@ -103,6 +103,9 @@ public sealed partial class WorldScreen
 
         //doors
         Game.Connection.OnDoor += HandleDoor;
+
+        //market display
+        Game.Connection.OnMarketDisplay += HandleMarketDisplay;
     }
     #endregion
 

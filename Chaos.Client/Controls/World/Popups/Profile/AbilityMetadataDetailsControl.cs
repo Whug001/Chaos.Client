@@ -75,6 +75,7 @@ public sealed class AbilityMetadataDetailsControl : PrefabPanel
         DescLabel = CreateLabel("DESC");
         DescLabel?.ForegroundColor = LegendColors.White;
         DescLabel?.WordWrap = true;
+        DescLabel?.VerticalAlignment = VerticalAlignment.Top;
     }
 
     private static string FormatPreReq(string? name, byte level)

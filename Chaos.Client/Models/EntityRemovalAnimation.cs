@@ -70,7 +70,7 @@ public sealed class EntityRemovalAnimation : IDisposable
             adjusted = TextureHeight / 5;
 
         var rawStep = adjusted / FRAME_COUNT;
-        Step = rawStep < 3 ? 2 : (rawStep / 2) * 2;
+        Step = rawStep < 3 ? 2 : rawStep / 2 * 2;
 
         //allocate wider buffer to accommodate rightward shift of odd rows
         MaxWidth = TextureWidth + FRAME_COUNT * Step;

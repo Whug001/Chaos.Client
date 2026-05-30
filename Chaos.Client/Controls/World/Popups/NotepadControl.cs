@@ -221,17 +221,16 @@ public sealed class NotepadControl : UIPanel
         ComposeBackground(notepadType);
 
         //text area: left=16, top=26, right=w-16, bottom=height*16+36
-        var contentX = TILE_SIZE;
         var contentY = 26;
         var contentWidth = pixelWidth - TILE_SIZE * 2;
         var contentHeight = height * TILE_SIZE + 36 - contentY;
 
-        ContentBox.X = contentX;
+        ContentBox.X = TILE_SIZE;
         ContentBox.Y = contentY;
         ContentBox.Width = contentWidth;
         ContentBox.Height = contentHeight;
 
-        ReadonlyLabel.X = contentX;
+        ReadonlyLabel.X = TILE_SIZE;
         ReadonlyLabel.Y = contentY;
         ReadonlyLabel.Width = contentWidth;
         ReadonlyLabel.Height = contentHeight;
