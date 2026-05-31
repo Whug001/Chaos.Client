@@ -15,6 +15,7 @@ public sealed class Animation
     public float ElapsedMs { get; set; }
     public int FrameCount { get; init; }
     public float FrameIntervalMs { get; init; }
+    public bool IsBackground { get; init; }
     public uint? TargetEntityId { get; init; }
     public int? TileX { get; init; }
     public int? TileY { get; init; }

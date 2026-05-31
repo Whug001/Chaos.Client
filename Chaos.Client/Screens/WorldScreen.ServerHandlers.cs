@@ -950,7 +950,8 @@ public sealed partial class WorldScreen
                 args.TargetAnimation,
                 args.AnimationSpeed,
                 targetTileX: args.TargetPoint.Value.X,
-                targetTileY: args.TargetPoint.Value.Y);
+                targetTileY: args.TargetPoint.Value.Y,
+                isBackground: args.IsBackground);
 
         //entity-targeted effect on target
         if (args is { TargetId: > 0, TargetAnimation: > 0 })
@@ -1021,7 +1022,8 @@ public sealed partial class WorldScreen
         ushort animationSpeed,
         uint? targetEntityId = null,
         int? targetTileX = null,
-        int? targetTileY = null)
+        int? targetTileY = null,
+        bool isBackground = false)
     {
         var info = Game.EffectRenderer.GetEffectInfo(effectId);
 
@@ -1067,7 +1069,8 @@ public sealed partial class WorldScreen
                 TileY = targetTileY,
                 FrameCount = frameCount,
                 FrameIntervalMs = frameIntervalMs,
-                BlendMode = blendMode
+                BlendMode = blendMode,
+                IsBackground = isBackground
             });
     }
 

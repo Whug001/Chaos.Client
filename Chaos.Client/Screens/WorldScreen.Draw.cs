@@ -78,6 +78,18 @@ public sealed partial class WorldScreen
             DrawTileCursor(spriteBatch);
             spriteBatch.End();
 
+            //background animations: drawn above the background tiles, beneath all entities/foreground.
+            //use a BatchBlendScope (not a plain batch) so additive/screen effects can switch blend via Require.
+            BlendScope.Begin(spriteBatch, BlendState.AlphaBlend, GlobalSettings.Sampler, ScissorRasterizerState, transform);
+
+            try
+            {
+                DrawBackgroundEffects(BlendScope);
+            } finally
+            {
+                BlendScope.End();
+            }
+
             //foreground, entities, effects: batched (Deferred) by default; BatchBlendScope breaks the batch only for the
             //non-AlphaBlend draws (additive/screen effects, screen-blend foreground tiles). try/finally guarantees the
             //batch is always closed — leaving it open would make next frame's Begin throw and cascade every frame.
@@ -478,11 +490,35 @@ public sealed partial class WorldScreen
         }
     }
 
+    private void DrawBackgroundEffects(BatchBlendScope scope)
+    {
+        if (MapFile is null)
+            return;
+
+        foreach (var effect in WorldState.ActiveEffects)
+        {
+            if (!effect.IsBackground || effect.IsComplete)
+                continue;
+
+            if (!effect.TileX.HasValue || !effect.TileY.HasValue)
+                continue;
+
+            var tileWorld = Camera.TileToWorld(effect.TileX.Value, effect.TileY.Value, MapFile.Height);
+
+            DrawSingleEffect(
+                scope,
+                effect,
+                tileWorld.X + DaLibConstants.HALF_TILE_WIDTH,
+                tileWorld.Y + DaLibConstants.HALF_TILE_HEIGHT,
+                Vector2.Zero);
+        }
+    }
+
     private void DrawGroundEffectsAtDepth(BatchBlendScope scope, int depth)
     {
         foreach (var effect in WorldState.ActiveEffects)
         {
-            if (effect.TargetEntityId.HasValue || effect.IsComplete)
+            if (effect.TargetEntityId.HasValue || effect.IsComplete || effect.IsBackground)
                 continue;
 
             if (!effect.TileX.HasValue || !effect.TileY.HasValue)
