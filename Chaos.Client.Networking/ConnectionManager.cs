@@ -1115,6 +1115,12 @@ public sealed class ConnectionManager : IDisposable
         => SendIfWorld(new MarketInteractionArgs { Type = MarketInteractionType.CollectGold });
 
     /// <summary>
+    ///     Sends a market view-logs request to fetch the player's own completed-sale history.
+    /// </summary>
+    public void SendMarketViewLogs()
+        => SendIfWorld(new MarketInteractionArgs { Type = MarketInteractionType.ViewLogs });
+
+    /// <summary>
     ///     Sends a public (normal) chat message visible to nearby players.
     /// </summary>
     /// <param name="message">The chat message text.</param>

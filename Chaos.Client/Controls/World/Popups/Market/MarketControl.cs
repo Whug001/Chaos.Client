@@ -52,13 +52,15 @@ public sealed class MarketControl : FramedDialogPanelBase
     [
         (MarketTab.Search, "Search"),
         (MarketTab.Results, "Results"),
-        (MarketTab.Sell, "Sell")
+        (MarketTab.Sell, "Sell"),
+        (MarketTab.Logs, "Logs")
     ];
 
     private readonly TabButton[] Tabs;
     private readonly UIElement[] TabPages; //one page per tab, built in BuildPage
 
     private MarketTab Current = MarketTab.Search;
+    private MarketLogsControl? LogsPage;
     private MarketResultsControl? ResultsPage;
     private MarketSellControl? SellPage;
 
@@ -167,6 +169,9 @@ public sealed class MarketControl : FramedDialogPanelBase
     public event Action<ulong, int>? DelistRequested;
     public event Action? CollectGoldRequested;
 
+    /// <summary>Raised when the Logs tab becomes active, so the screen can lazily request the sales-log snapshot.</summary>
+    public event Action? LogsRequested;
+
     /// <summary>
     ///     Feeds a server-paged result set into the Results tab. Does not change the active tab — the search flow
     ///     handles tab switching (and post-buy refreshes arrive while the user is already on Results).
@@ -176,6 +181,9 @@ public sealed class MarketControl : FramedDialogPanelBase
 
     /// <summary>Replaces the Sell tab's listing set with the server's authoritative snapshot.</summary>
     public void SetSellListings(IReadOnlyList<MarketSellListing> listings) => SellPage?.SetListings(listings);
+
+    /// <summary>Replaces the Logs tab's contents with the server's sales-log snapshot (newest first).</summary>
+    public void SetSalesLog(IReadOnlyList<MarketSaleLog> entries) => LogsPage?.SetEntries(entries);
 
     /// <summary>Updates the pending gold payout shown on the Sell tab.</summary>
     public void SetSellPendingPayout(int gold) => SellPage?.SetPendingPayout(gold);
@@ -229,6 +237,12 @@ public sealed class MarketControl : FramedDialogPanelBase
 
                 return sellPage;
 
+            case MarketTab.Logs:
+                var logsPage = new MarketLogsControl(pageRect) { Name = "MarketPage_Logs" };
+                LogsPage = logsPage;
+
+                return logsPage;
+
             default:
                 throw new ArgumentOutOfRangeException(nameof(tab), tab, "Unknown market tab");
         }
@@ -254,6 +268,12 @@ public sealed class MarketControl : FramedDialogPanelBase
 
         for (var i = 0; i < Tabs.Length; i++)
             Tabs[i].IsSelected = TabDefs[i].Tab == tab;
+
+        if (tab == MarketTab.Logs)
+        {
+            LogsPage?.ShowLoading();
+            LogsRequested?.Invoke();
+        }
     }
 
     public override void Show()
@@ -352,5 +372,6 @@ public enum MarketTab
 {
     Search = 0,
     Results = 1,
-    Sell = 2
+    Sell = 2,
+    Logs = 3
 }
