@@ -1634,12 +1634,6 @@ public sealed class ConnectionManager : IDisposable
                 IsAdmin = incoming.IsAdmin
             };
 
-        if (flags.HasFlag(StatUpdateType.GameMasterB))
-            merged = merged with
-            {
-                IsSwimming = incoming.IsSwimming
-            };
-
         return merged;
     }
 
