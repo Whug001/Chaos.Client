@@ -8,7 +8,7 @@ namespace Chaos.Client.Controls.World.Popups.Market;
 /// <summary>
 ///     The right-hand detail pane of the Market Results tab. Populated on row <b>hover</b> via <see cref="Show" />: it
 ///     shows the item icon + name (a fixed header), a compact "label: value" base-field block (level / class / weight /
-///     durability), then a mouse-wheel-scrollable region where the listing's stat modifiers are
+///     durability / seller), then a mouse-wheel-scrollable region where the listing's stat modifiers are
 ///     laid out as inline blocks ("+10 HP", "-50 MP") that wrap like text, each block kept whole. The price is shown in
 ///     the results footer (next to the OK button), not here.
 /// </summary>
@@ -32,7 +32,7 @@ public sealed class MarketItemDetailControl : UIPanel
     private const int MAX_STAT_LINES = 48;
 
     private const int BASE_TOP = PAD + ICON + 4; //first base-field line, just under the icon/name header
-    private const int DIVIDER_TOP = BASE_TOP + (LINE + 1) * 3 + 2; //separator sits just below the 3 base lines
+    private const int DIVIDER_TOP = BASE_TOP + (LINE + 1) * 4 + 2; //separator sits just below the 4 base lines (seller is last)
 
     private static readonly Color NameColor = LegendColors.White;
     private static readonly Color InfoColor = LegendColors.PaleSilver;
@@ -46,6 +46,7 @@ public sealed class MarketItemDetailControl : UIPanel
     private readonly UILabel BaseLine1; //level + class
     private readonly UILabel BaseLine2; //weight
     private readonly UILabel BaseLine3; //durability
+    private readonly UILabel SellerLine; //seller name — last info line, just above the separator
     private readonly UIPanel HeaderDivider;
 
     private readonly UIPanel StatViewport;
@@ -118,9 +119,11 @@ public sealed class MarketItemDetailControl : UIPanel
         BaseLine1 = MakeInfoLabel(PAD, BASE_TOP, innerWidth, InfoColor);
         BaseLine2 = MakeInfoLabel(PAD, BASE_TOP + LINE + 1, innerWidth, InfoColor);
         BaseLine3 = MakeInfoLabel(PAD, BASE_TOP + (LINE + 1) * 2, innerWidth, InfoColor);
+        SellerLine = MakeInfoLabel(PAD, BASE_TOP + (LINE + 1) * 3, innerWidth, InfoColor);
         AddChild(BaseLine1);
         AddChild(BaseLine2);
         AddChild(BaseLine3);
+        AddChild(SellerLine);
 
         //── separator between item info and stats, fixed just below the base-field block ──
         HeaderDivider = new UIPanel
@@ -227,6 +230,9 @@ public sealed class MarketItemDetailControl : UIPanel
         } else
             BaseLine3.Visible = false;
 
+        SellerLine.Text = $"Seller: {listing.SellerName}";
+        SellerLine.Visible = true;
+
         HeaderDivider.Visible = true;
 
         BindStats(listing.Stats.ToBlocks());
@@ -247,6 +253,7 @@ public sealed class MarketItemDetailControl : UIPanel
         BaseLine1.Visible = false;
         BaseLine2.Visible = false;
         BaseLine3.Visible = false;
+        SellerLine.Visible = false;
         HeaderDivider.Visible = false;
 
         for (var i = 0; i < MAX_STAT_LINES; i++)

@@ -1276,6 +1276,25 @@ public sealed partial class WorldScreen
 
                 break;
             }
+
+            case MarketDisplayType.SalesLog:
+            {
+                var log = new List<MarketSaleLog>(args.SalesLog?.Count ?? 0);
+
+                foreach (var entry in args.SalesLog ?? [])
+                    log.Add(
+                        new MarketSaleLog(
+                            entry.ItemName,
+                            entry.BuyerName,
+                            entry.Quantity,
+                            entry.UnitPrice,
+                            entry.TotalPrice,
+                            new DateTime((long)entry.SoldAtTicks, DateTimeKind.Utc).ToLocalTime()));
+
+                Market.SetSalesLog(log);
+
+                break;
+            }
         }
     }
 
@@ -1313,7 +1332,8 @@ public sealed partial class WorldScreen
                 e.HealBonusPct,
                 e.MagicResist))
         {
-            AvailableCount = e.AvailableCount
+            AvailableCount = e.AvailableCount,
+            SellerName = e.SellerName
         };
     #endregion
 

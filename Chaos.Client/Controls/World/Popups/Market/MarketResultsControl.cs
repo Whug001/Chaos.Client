@@ -388,6 +388,9 @@ public readonly record struct MarketListing(
 {
     /// <summary>How many of this item the listing has for sale (the stack size). 1 = non-stackable; caps the buy quantity.</summary>
     public int AvailableCount { get; init; } = 1;
+
+    /// <summary>The character name of the player who listed this item.</summary>
+    public string SellerName { get; init; } = string.Empty;
 }
 
 /// <summary>

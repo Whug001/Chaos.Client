@@ -671,6 +671,7 @@ public sealed partial class WorldScreen : IScreen
         Market.SetPriceRequested += (listingId, price) => Game.Connection.SendMarketSetPrice(listingId, price);
         Market.DelistRequested += (listingId, amount) => Game.Connection.SendMarketDelist(listingId, amount);
         Market.CollectGoldRequested += () => Game.Connection.SendMarketCollectGold();
+        Market.LogsRequested += () => Game.Connection.SendMarketViewLogs();
 
         Market.BuyRequested += (listing, quantity) =>
         {
