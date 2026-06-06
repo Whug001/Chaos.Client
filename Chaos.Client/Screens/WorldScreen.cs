@@ -147,6 +147,12 @@ public sealed partial class WorldScreen : IScreen
     private MarketSearchCriteria LastMarketCriteria = new();
     private ulong PendingBuyListingId;
     private int PendingBuyQuantity;
+
+    //drop-point captured at drag-release time; carried into BeginMarketListing (both the immediate single-unit path
+    //and the deferred stackable path via the ItemAmount popup) so TryAddToExistingListing gets the original row coords.
+    //written for every accepting drop target in HandleInventoryDropInViewport, but read only by the Market path.
+    private int PendingMarketDropX;
+    private int PendingMarketDropY;
     private TileClickTracker LeftClickTracker;
     private readonly LightingSystem Lighting = new();
 
@@ -461,7 +467,7 @@ public sealed partial class WorldScreen : IScreen
                     break;
 
                 case ItemAmountPurpose.MarketListing:
-                    Market.AddSellDraft(ItemAmount.ItemSlot, (int)Math.Min(amount, int.MaxValue));
+                    Market.DropSellItem(ItemAmount.ItemSlot, (int)Math.Min(amount, int.MaxValue), PendingMarketDropX, PendingMarketDropY);
 
                     break;
             }
@@ -677,6 +683,7 @@ public sealed partial class WorldScreen : IScreen
         Market.DelistRequested += (listingId, amount) => Game.Connection.SendMarketDelist(listingId, amount);
         Market.CollectGoldRequested += () => Game.Connection.SendMarketCollectGold();
         Market.LogsRequested += () => Game.Connection.SendMarketViewLogs();
+        Market.AddToListingRequested += (listingId, slot, amount) => Game.Connection.SendMarketAddToListing(listingId, slot, amount);
 
         Market.BuyRequested += (listing, quantity) =>
         {

@@ -170,6 +170,12 @@ public sealed class MarketControl : FramedDialogPanelBase, IInventoryDropTarget
     public event Action<ulong, int>? DelistRequested;
     public event Action? CollectGoldRequested;
 
+    /// <summary>
+    ///     Raised when the user drops an inventory item onto a matching Sell-tab listing row. Re-raised from
+    ///     <see cref="MarketSellControl.AddToListingRequested" />. Arguments: (listingId, inventorySlot, quantity).
+    /// </summary>
+    public event Action<ulong, byte, int>? AddToListingRequested;
+
     /// <summary>Raised when the Logs tab becomes active, so the screen can lazily request the sales-log snapshot.</summary>
     public event Action? LogsRequested;
 
@@ -192,9 +198,6 @@ public sealed class MarketControl : FramedDialogPanelBase, IInventoryDropTarget
     /// <summary>True while the Sell tab is the active tab.</summary>
     public bool IsOnSellTab => Current == MarketTab.Sell;
 
-    /// <summary>True if the Sell tab is at the listing cap (drops should be rejected).</summary>
-    public bool SellTabFull => SellPage?.IsFull ?? false;
-
     /// <summary>True if the point is over the Sell tab's listings drop zone.</summary>
     public bool SellDropZoneContains(int screenX, int screenY) => SellPage?.DropZoneContains(screenX, screenY) ?? false;
 
@@ -203,6 +206,21 @@ public sealed class MarketControl : FramedDialogPanelBase, IInventoryDropTarget
 
     /// <summary>Adds an unpriced draft listing from inventory <paramref name="slot" /> (quantity <paramref name="amount" />).</summary>
     public void AddSellDraft(byte slot, int amount) => SellPage?.AddDraftListing(slot, amount);
+
+    /// <summary>
+    ///     Routes an inventory drop from <paramref name="slot" /> at screen point (<paramref name="screenX" />,
+    ///     <paramref name="screenY" />) with the given <paramref name="amount" />. If the drop lands on a visible listing row
+    ///     whose Sprite+Color match the item, raises <see cref="AddToListingRequested" /> via
+    ///     <see cref="MarketSellControl.TryAddToExistingListing" />; otherwise falls through to <see cref="AddSellDraft" />
+    ///     to create a new draft. The cap check for new drafts is inside <see cref="MarketSellControl.AddDraftListing" />.
+    /// </summary>
+    public void DropSellItem(byte slot, int amount, int screenX, int screenY)
+    {
+        if (SellPage is not null && SellPage.TryAddToExistingListing(slot, screenX, screenY, amount))
+            return;
+
+        AddSellDraft(slot, amount);
+    }
 
     /// <summary>
     ///     Builds the real page control for a tab, sized to the shared content rect. The Search page additionally raises
@@ -237,6 +255,7 @@ public sealed class MarketControl : FramedDialogPanelBase, IInventoryDropTarget
                 sellPage.SetPriceRequested += (id, price) => SetPriceRequested?.Invoke(id, price);
                 sellPage.DelistRequested += (id, amount) => DelistRequested?.Invoke(id, amount);
                 sellPage.CollectGoldRequested += () => CollectGoldRequested?.Invoke();
+                sellPage.AddToListingRequested += (id, slot, amount) => AddToListingRequested?.Invoke(id, slot, amount);
                 SellPage = sellPage;
 
                 return sellPage;

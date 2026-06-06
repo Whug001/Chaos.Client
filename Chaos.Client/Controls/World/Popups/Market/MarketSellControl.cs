@@ -4,6 +4,7 @@ using Chaos.Client.Controls.Components;
 using Chaos.Client.Controls.Custom;
 using Chaos.Client.Models;
 using Chaos.Client.Utilities;
+using Chaos.Client.ViewModel;
 using Microsoft.Xna.Framework;
 #endregion
 
@@ -157,6 +158,12 @@ public sealed class MarketSellControl : UIPanel
     public event Action<ulong, int>? DelistRequested;
     public event Action? CollectGoldRequested;
 
+    /// <summary>
+    ///     Raised when the user drops an inventory item onto a visible listing row whose Sprite+Color match the dropped item.
+    ///     Arguments: (listingId, inventorySlot, quantity). The server re-validates true item identity.
+    /// </summary>
+    public event Action<ulong, byte, int>? AddToListingRequested;
+
     public bool IsFull => Listings.Count >= MAX_LISTINGS;
 
     /// <summary>
@@ -209,7 +216,13 @@ public sealed class MarketSellControl : UIPanel
     public void AddDraftListing(byte slot, int amount)
     {
         if (IsFull)
+        {
+            //only the new-draft path reaches here (add-to-existing routes via TryAddToExistingListing) — give the
+            //seller orange-bar feedback so a drop at the cap isn't a silent no-op.
+            WorldState.Chat.AddOrangeBarMessage($"You can have at most {MAX_LISTINGS} market listings.");
+
             return;
+        }
 
         ref readonly var data = ref WorldState.Inventory.GetSlot(slot);
 
@@ -217,11 +230,68 @@ public sealed class MarketSellControl : UIPanel
             return;
 
         //can't list more units than the stack holds; non-stackables are always a single unit.
-        var maxQuantity = data.Stackable ? Math.Max(1, (int)data.Count) : 1;
-        var quantity = Math.Clamp(amount, 1, maxQuantity);
-
-        ListItemRequested?.Invoke(slot, quantity);
+        ListItemRequested?.Invoke(slot, ClampToSlot(in data, amount));
     }
+
+    /// <summary>
+    ///     Returns the <see cref="MarketSellListing" /> whose row contains the given screen point, or <see langword="null" />
+    ///     if the point is on an empty row or outside the list area.
+    /// </summary>
+    private MarketSellListing? ListingAt(int screenX, int screenY)
+    {
+        for (var i = 0; i < Rows.Length; i++)
+        {
+            var row = Rows[i];
+
+            if (!row.Visible)
+                continue;
+
+            if ((screenX >= row.ScreenX)
+                && (screenX < row.ScreenX + row.Width)
+                && (screenY >= row.ScreenY)
+                && (screenY < row.ScreenY + row.Height))
+            {
+                var index = PageStart + i;
+
+                return index < Listings.Count ? Listings[index] : null;
+            }
+        }
+
+        return null;
+    }
+
+    /// <summary>
+    ///     If <paramref name="screenX" />/<paramref name="screenY" /> hits a visible listing row whose Sprite and Color match
+    ///     the dropped inventory slot, raises <see cref="AddToListingRequested" /> and returns <see langword="true" />.
+    ///     Name is intentionally excluded from the match because stackable items append a "[ N ]" count suffix that
+    ///     diverges from the bare server-side listing name — the server performs the authoritative identity check.
+    ///     Returns <see langword="false" /> if the point misses, the row is empty, or the Sprite/Color differ.
+    /// </summary>
+    public bool TryAddToExistingListing(byte slot, int screenX, int screenY, int amount)
+    {
+        var listing = ListingAt(screenX, screenY);
+
+        if (listing is null)
+            return false;
+
+        ref readonly var data = ref WorldState.Inventory.GetSlot(slot);
+
+        if (!data.IsOccupied)
+            return false;
+
+        // sprite + color is a cheap intent check; name excluded (stackables suffix "[ N ]"). server re-validates.
+        if ((data.Sprite != listing.Sprite) || (data.Color != listing.Color))
+            return false;
+
+        AddToListingRequested?.Invoke(listing.ListingId, slot, ClampToSlot(in data, amount));
+
+        return true;
+    }
+
+    //clamp a requested quantity to what the inventory slot can supply: non-stackables are always a single unit;
+    //stackables clamp to the actual stack count.
+    private static int ClampToSlot(in Inventory.InventorySlotData data, int amount)
+        => Math.Clamp(amount, 1, data.Stackable ? Math.Max(1, (int)data.Count) : 1);
 
     private void Select(int rowIndex) => SelectIndex(PageStart + rowIndex);
 

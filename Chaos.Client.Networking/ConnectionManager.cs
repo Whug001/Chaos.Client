@@ -1109,6 +1109,15 @@ public sealed class ConnectionManager : IDisposable
         => SendIfWorld(new MarketInteractionArgs { Type = MarketInteractionType.Delist, ListingId = listingId, Amount = amount });
 
     /// <summary>
+    ///     Sends a request to add inventory items to an existing market listing of the player's (adopts its price).
+    /// </summary>
+    /// <param name="listingId">The target listing to add to.</param>
+    /// <param name="slot">The inventory slot of the item to add.</param>
+    /// <param name="amount">The quantity to add.</param>
+    public void SendMarketAddToListing(ulong listingId, byte slot, int amount)
+        => SendIfWorld(new MarketInteractionArgs { Type = MarketInteractionType.AddToListing, ListingId = listingId, Slot = slot, Amount = amount });
+
+    /// <summary>
     ///     Sends a market collect gold request to claim pending payout.
     /// </summary>
     public void SendMarketCollectGold()

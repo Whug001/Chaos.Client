@@ -76,10 +76,13 @@ public sealed partial class WorldScreen
     private void HandleInventoryDropInViewport(byte slot, int mouseX, int mouseY)
     {
         //registered popup/HUD drop targets get first refusal; each owns its eligibility + drop-zone test, and
-        //WorldScreen owns the paired networking action.
+        //WorldScreen owns the paired networking action. Drop coords are stored before the call so targets that
+        //defer their action (e.g. Market's stackable ItemAmount popup) can still access the original drop point.
         foreach (var (target, onDrop) in InventoryDropTargets)
             if (target.AcceptsInventoryDrop(slot, mouseX, mouseY))
             {
+                PendingMarketDropX = mouseX;
+                PendingMarketDropY = mouseY;
                 onDrop(slot);
 
                 return;
@@ -150,18 +153,13 @@ public sealed partial class WorldScreen
         Game.Connection.DropItem(slot, tileX, tileY);
     }
 
-    //list an inventory item on the Market Sell tab: cap-check, then list immediately (non-stackable) or prompt for an
-    //amount (stackable) reusing the shared ItemAmountControl. The bag is server-authoritative, so the placeholder Sell
-    //control only appends a local listing for now (real removal/listing arrives with the market backend).
+    //list an inventory item on the Market Sell tab: if the drop is on a matching row route to AddToListing; otherwise
+    //create a draft (non-stackable immediately, stackable via the shared ItemAmountControl).
+    //The cap check for new drafts is inside MarketSellControl.AddDraftListing so it does not block add-to-existing.
+    //PendingMarketDropX/PendingMarketDropY are written by HandleInventoryDropInViewport before this call, and are
+    //forwarded to the deferred ItemAmount confirm so Market.DropSellItem can still resolve the original row coords.
     private void BeginMarketListing(byte slot)
     {
-        if (Market.SellTabFull)
-        {
-            WorldState.Chat.AddOrangeBarMessage($"You can have at most {MarketSellControl.MAX_LISTINGS} market listings.");
-
-            return;
-        }
-
         ref readonly var data = ref WorldState.Inventory.GetSlot(slot);
 
         if (!data.IsOccupied)
@@ -174,7 +172,7 @@ public sealed partial class WorldScreen
             ItemAmount.Y = Market.Y + (Market.Height - ItemAmount.Height) / 2;
             ItemAmount.ShowForSlot(slot);
         } else
-            Market.AddSellDraft(slot, 1);
+            Market.DropSellItem(slot, 1, PendingMarketDropX, PendingMarketDropY);
     }
 
     //--- skills / spells ---
