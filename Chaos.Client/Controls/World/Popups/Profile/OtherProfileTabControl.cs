@@ -235,7 +235,9 @@ public sealed class OtherProfileTabControl : PrefabPanel
 
     public override void OnKeyDown(KeyDownEvent e)
     {
-        if (e.Key == Keys.Escape)
+        //escape always closes; spacebar closes too, but not while typing in a textbox
+        if ((e.Key == Keys.Escape)
+            || ((e.Key == Keys.Space) && InputDispatcher.Instance?.ExplicitFocus is not UITextBox))
         {
             Hide();
             e.Handled = true;

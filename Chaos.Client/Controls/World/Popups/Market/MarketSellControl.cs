@@ -22,7 +22,7 @@ namespace Chaos.Client.Controls.World.Popups.Market;
 /// </summary>
 public sealed class MarketSellControl : UIPanel
 {
-    public const int MAX_LISTINGS = 20; //mirrors server MarketOptions.MaxListingsPerPlayer
+    public const int MAX_LISTINGS = 50; //mirrors server MarketOptions.MaxListingsPerPlayer
 
     private const int ROW_HEIGHT = MarketSellListingRow.ROW_HEIGHT;
     private const int PAGE_SIZE = 6; //fit 6 listings like the Results page
