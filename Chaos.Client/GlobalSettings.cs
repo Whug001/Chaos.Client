@@ -22,9 +22,9 @@ public static class GlobalSettings
 
     public static string DataPath
         => Environment.GetEnvironmentVariable("DA_PATH") ??
-            @"C:\Users\Despe\Desktop\Unora\Unora";
+            //@"C:\Users\Despe\Desktop\Unora\Unora";
             //Path.GetFullPath(Path.Combine(AppContext.BaseDirectory, ".."));
-            //@"C:\Users\Despe\Desktop\Dark Ages";
+            @"C:\Users\Despe\Desktop\Dark Ages";
 
     public static string LobbyHost
         => Environment.GetEnvironmentVariable("DA_LOBBY_HOST") ??

@@ -1,5 +1,7 @@
 #region
 using Chaos.Client.Controls.Components;
+using Chaos.Client.Controls.Generic;
+using Chaos.Client.Controls.Scrolling;
 using Microsoft.Xna.Framework;
 using Microsoft.Xna.Framework.Input;
 #endregion
@@ -14,6 +16,7 @@ public sealed class ArticleSendControl : PrefabPanel
 {
     private readonly UILabel? AuthorLabel;
     private readonly UITextBox BodyBox;
+    private readonly ScrollViewerControl Viewer;
     private readonly UITextBox? TitleBox;
     private int TargetX;
 
@@ -46,14 +49,16 @@ public sealed class ArticleSendControl : PrefabPanel
         TitleBox?.ForegroundColor = LegendColors.White;
         TitleBox?.IsTabStop = true;
 
-        //content rect for multi-line body text entry
+        //content rect for multi-line body text entry. the compose prefabs (_nmails/_nartin) inset the editable Content
+        //2px further right than the read prefabs (_nmailr/_narti), so the scrollbar gutter would otherwise land 2px past
+        //the read panels' bar column. trimming the viewer width by that overshoot keeps the body width and the bar
+        //column identical to the pre-binding layout (and aligned with the read views).
         var contentRect = GetRect("Content");
+        const int COMPOSE_CONTENT_RIGHT_OVERSHOOT = 2;
 
         BodyBox = new UITextBox
         {
-            X = contentRect.X,
-            Y = contentRect.Y,
-            Width = contentRect.Width - 2,
+            Width = contentRect.Width - ScrollBarControl.DEFAULT_WIDTH - COMPOSE_CONTENT_RIGHT_OVERSHOOT,
             Height = contentRect.Height,
             IsMultiLine = true,
             IsSelectable = true,
@@ -66,7 +71,17 @@ public sealed class ArticleSendControl : PrefabPanel
             IsTabStop = true
         };
 
-        AddChild(BodyBox);
+        //the viewer owns the bar + wheel routing and sizes the body each frame (UITextBox is IVerticalScrollable in
+        //line units). width is trimmed by the overshoot so the gutter lands exactly on the read panels' bar column.
+        Viewer = new ScrollViewerControl(BodyBox)
+        {
+            X = contentRect.X,
+            Y = contentRect.Y,
+            Width = contentRect.Width - COMPOSE_CONTENT_RIGHT_OVERSHOOT,
+            Height = contentRect.Height
+        };
+
+        AddChild(Viewer);
     }
 
     private void HandleSend()
@@ -74,6 +89,10 @@ public sealed class ArticleSendControl : PrefabPanel
         var subject = TitleBox?.Text ?? string.Empty;
         OnSend?.Invoke(subject, BodyBox.Text);
     }
+
+    //a wheel anywhere over the compose panel scrolls the body, even when focus is on a header field — restoring the
+    //pre-migration panel-wide wheel. Wheel directly over the body/bar is handled deeper and never bubbles here.
+    public override void OnMouseScroll(MouseScrollEvent e) => Viewer.OnMouseScroll(e);
 
     public override void Hide()
     {

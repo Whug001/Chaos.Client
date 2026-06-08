@@ -2,6 +2,7 @@
 using Chaos.Client.Controls.Components;
 using Chaos.Client.Controls.Custom;
 using Chaos.Client.Controls.Generic;
+using Chaos.Client.Controls.Scrolling;
 using Chaos.Client.Controls.World.Popups.Dialog;
 using Chaos.Client.Extensions;
 using Chaos.Client.Utilities;
@@ -46,17 +47,14 @@ public sealed class SettingsControl : FramedDialogPanelBase
     private readonly Dictionary<SettingKey, CustomComboBox> Combos = [];
     private readonly UserOptions Options;
 
-    //clip window (fixed) holding the scrolled content surface.
-    private readonly UIPanel Viewport;
-
     //scrolled surface; its Y is offset negatively to scroll. Rows are children of this.
     private readonly UIPanel Content;
 
-    //always-visible right-edge scrollbar; dormant while content fits.
-    private readonly ScrollBarControl ScrollBar;
+    //clip + scroll host wrapping Content; implements IVerticalScrollable in SCROLL_STEP units.
+    private readonly SettingsViewport Viewport;
 
-    //max pixel offset (content height - viewport height); clamps ApplyScrollOffset.
-    private int MaxScrollOffset;
+    //owns the always-visible scrollbar (dormant while content fits) + the mouse wheel; clips/sizes Viewport per frame.
+    private readonly ScrollViewerControl Viewer;
 
     private SlideAnimator Slide;
     private int SlideAnchorY;
@@ -75,28 +73,24 @@ public sealed class SettingsControl : FramedDialogPanelBase
         if (OkButton is not null)
             OkButton.Clicked += Close;
 
-        Viewport = new UIPanel
-        {
-            Name = "SettingsViewport",
-            IsPassThrough = true
-        };
-
         Content = new UIPanel
         {
             Name = "SettingsContent",
             IsPassThrough = true
         };
 
-        Viewport.AddChild(Content);
-        AddChild(Viewport);
-
-        ScrollBar = new ScrollBarControl
+        Viewport = new SettingsViewport(Content, SCROLL_STEP)
         {
-            Name = "SettingsScrollBar"
+            Name = "SettingsViewport",
+            IsPassThrough = true
         };
+        Viewport.AddChild(Content);
 
-        ScrollBar.OnValueChanged += ApplyScrollOffset;
-        AddChild(ScrollBar);
+        //the viewer clips Viewport to its bounds, owns the always-visible scrollbar (dormant while content fits) and
+        //the wheel, and drives scrolling via IVerticalScrollable. ContentRightPadding reproduces the original
+        //GUTTER_GAP between the rows and the scrollbar.
+        Viewer = new ScrollViewerControl(Viewport) { ContentRightPadding = GUTTER_GAP };
+        AddChild(Viewer);
 
         BuildRows();
         RefreshAll();
@@ -202,33 +196,22 @@ public sealed class SettingsControl : FramedDialogPanelBase
         //bottom of the last row (drop the trailing section gap).
         var contentHeight = Math.Max(0, y - SECTION_GAP);
 
-        Viewport.X = CONTENT_LEFT;
-        Viewport.Y = CONTENT_TOP;
-        Viewport.Width = contentW;
+        //the viewer spans from the left content edge to the right frame margin; it reserves the scrollbar gutter
+        //(DEFAULT_WIDTH) + GUTTER_GAP on the right, so its resolved content width equals contentW (matching the rows),
+        //and the bar lands at the same X as the pre-migration scrollbar.
+        Viewer.X = CONTENT_LEFT;
+        Viewer.Y = CONTENT_TOP;
+        Viewer.Width = Width - CONTENT_LEFT - CONTENT_RIGHT;
+        Viewer.Height = viewportH;
+
+        //Viewport's X/Y/Width/Height are set by the viewer each frame; seed Height now so the host reports a correct
+        //viewport on the first frame (the wheel handler runs before the viewer's first Update sizes it).
         Viewport.Height = viewportH;
 
         Content.X = 0;
         Content.Y = 0;
         Content.Width = contentW;
         Content.Height = contentHeight;
-
-        ScrollBar.X = Width - CONTENT_RIGHT - ScrollBarControl.DEFAULT_WIDTH;
-        ScrollBar.Y = CONTENT_TOP;
-        ScrollBar.Height = viewportH;
-        ScrollBar.Visible = true;
-
-        MaxScrollOffset = Math.Max(0, contentHeight - viewportH);
-
-        //ceil(maxOffset / step) so the final step reaches the exact bottom (ApplyScrollOffset clamps the overshoot).
-        var maxValue = (MaxScrollOffset + SCROLL_STEP - 1) / SCROLL_STEP;
-        var visibleItems = viewportH / SCROLL_STEP;
-
-        //TotalItems > VisibleItems exactly when maxValue > 0 → the scrollbar self-activates; otherwise it draws dormant.
-        ScrollBar.VisibleItems = visibleItems;
-        ScrollBar.MaxValue = maxValue;
-        ScrollBar.TotalItems = visibleItems + maxValue;
-        ScrollBar.Value = 0;
-        ApplyScrollOffset(0);
 
         if (OkButton is not null)
         {
@@ -328,8 +311,6 @@ public sealed class SettingsControl : FramedDialogPanelBase
 
         return (cell, rowH);
     }
-
-    private void ApplyScrollOffset(int value) => Content.Y = -Math.Min(value * SCROLL_STEP, MaxScrollOffset);
 
     private void OnValueChanged(SettingKey key, bool value)
     {
@@ -440,23 +421,6 @@ public sealed class SettingsControl : FramedDialogPanelBase
         base.Update(gameTime);
     }
 
-    public override void OnMouseScroll(MouseScrollEvent e)
-    {
-        //dormant scrollbar: nothing to scroll.
-        if (ScrollBar.TotalItems <= ScrollBar.VisibleItems)
-            return;
-
-        var newValue = Math.Clamp(ScrollBar.Value - e.Delta, 0, ScrollBar.MaxValue);
-
-        if (newValue != ScrollBar.Value)
-        {
-            ScrollBar.Value = newValue;
-            ApplyScrollOffset(newValue);
-        }
-
-        e.Handled = true;
-    }
-
     public override void OnKeyDown(KeyDownEvent e)
     {
         if (Slide.Sliding)
@@ -466,6 +430,34 @@ public sealed class SettingsControl : FramedDialogPanelBase
         {
             Close();
             e.Handled = true;
+        }
+    }
+
+    //── scroll host ─────────────────────────────────────────────────────────────────────────────────────────────
+    //The clip + scroll surface the ScrollViewerControl hosts. The viewer forces this element's X/Y to 0 and sizes it
+    //to the viewport each frame, then drives scrolling through IVerticalScrollable; we translate the unit offset into
+    //the inner Content surface's pixel Y (one unit = SCROLL_STEP px), preserving the pre-migration wheel/scrollbar
+    //feel. Units mirror the old scrollbar exactly: VerticalViewport = Height/STEP visible units; the hidden remainder
+    //is ceil(overflow / STEP); the extent is their sum (so extent − viewport = the old MaxValue).
+    private sealed class SettingsViewport(UIPanel content, int step) : UIPanel, IVerticalScrollable
+    {
+        private int OffsetUnits;
+
+        private int MaxScrollPx => Math.Max(0, content.Height - Height);
+
+        int IVerticalScrollable.VerticalViewport => step > 0 ? Height / step : 0;
+
+        int IVerticalScrollable.VerticalExtent
+            => ((IVerticalScrollable)this).VerticalViewport + (step > 0 ? (MaxScrollPx + step - 1) / step : 0);
+
+        int IVerticalScrollable.VerticalOffset
+        {
+            get => OffsetUnits;
+            set
+            {
+                OffsetUnits = value;
+                content.Y = -Math.Min(value * step, MaxScrollPx);
+            }
         }
     }
 }

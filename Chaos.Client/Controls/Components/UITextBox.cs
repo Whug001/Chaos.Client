@@ -1,4 +1,5 @@
 #region
+using Chaos.Client.Controls.Scrolling;
 using Chaos.Client.Utilities;
 using Microsoft.Xna.Framework;
 using Microsoft.Xna.Framework.Graphics;
@@ -8,7 +9,7 @@ using Microsoft.Xna.Framework.Input;
 namespace Chaos.Client.Controls.Components;
 
 // ReSharper disable once ClassCanBeSealed.Global
-public class UITextBox : UIElement
+public class UITextBox : UIElement, IVerticalScrollable
 {
     private const int CURSOR_BLINK_MS = 530;
     private const int CURSOR_WIDTH = 1;
@@ -151,7 +152,30 @@ public class UITextBox : UIElement
 
     public int SelectionStart => Math.Min(SelectionAnchor, CursorPosition);
 
-    private int VisibleLineCount => (Height - PaddingTop + PaddingBottom) / TextRenderer.CHAR_HEIGHT;
+    /// <summary>
+    ///     Total number of laid-out display lines (hard newlines plus soft-wrapped continuations). Only meaningful for
+    ///     multiline boxes once layout has been computed in <see cref="Update" />. Surfaced via
+    ///     <see cref="IVerticalScrollable.VerticalExtent" /> so a hosting <see cref="ScrollViewerControl" /> can size its bar.
+    /// </summary>
+    internal int LineCount => LineStarts.Count;
+
+    /// <summary>
+    ///     Number of display lines that fit within the box height. Surfaced via
+    ///     <see cref="IVerticalScrollable.VerticalViewport" /> so a hosting <see cref="ScrollViewerControl" /> can size its bar.
+    /// </summary>
+    internal int VisibleLineCount => (Height - PaddingTop + PaddingBottom) / TextRenderer.CHAR_HEIGHT;
+
+    // IVerticalScrollable — line units. ScrollOffset is stored in pixels but is always a whole number of CHAR_HEIGHT
+    // lines (set only to line multiples by EnsureCursorVisible / the wheel / this setter), so the conversion is lossless.
+    // A hosting ScrollViewerControl owns the bar and is the clamp authority, replacing the old TextBoxScrollBinding.
+    int IVerticalScrollable.VerticalExtent => LineCount;
+    int IVerticalScrollable.VerticalViewport => VisibleLineCount;
+
+    int IVerticalScrollable.VerticalOffset
+    {
+        get => ScrollOffset / TextRenderer.CHAR_HEIGHT;
+        set => ScrollOffset = value * TextRenderer.CHAR_HEIGHT;
+    }
 
     public UITextBox()
     {
@@ -426,6 +450,12 @@ public class UITextBox : UIElement
 
     private void EnsureCursorVisible()
     {
+        //the mutation paths (typing, newline, paste, delete) defer the line-layout recompute to Update, so refresh it
+        //here before reading the cursor's line. Otherwise a just-inserted newline isn't in LineStarts yet, so the view
+        //doesn't scroll to follow the cursor onto the new line until the next keystroke. Cache-guarded: a no-op when the
+        //text and width are unchanged.
+        ComputeLineLayout();
+
         var cursorLine = GetLineForPosition(CursorPosition);
         var firstVisible = FirstVisibleLine;
         var visibleCount = VisibleLineCount;
@@ -818,6 +848,39 @@ public class UITextBox : UIElement
         }
     }
 
+    /// <summary>
+    ///     Inserts a newline at the cursor for multiline boxes. Driven by <see cref="OnKeyDown" /> (Keys.Enter) rather
+    ///     than text input because SDL never delivers a text-input event for the Return key. Honors <see cref="MaxLength" />
+    ///     and reverts the insertion when <see cref="ClampToVisibleArea" /> would be exceeded.
+    /// </summary>
+    private void InsertNewLine()
+    {
+        //snapshot state before additive mutation for potential overflow revert
+        var savedText = Text;
+        var savedCursor = CursorPosition;
+        var savedAnchor = SelectionAnchor;
+
+        if (HasSelection)
+            DeleteSelection();
+
+        if (Text.Length < MaxLength)
+        {
+            var nlInsertPos = CursorPosition;
+            Text = Text.Insert(nlInsertPos, "\n");
+            CursorPosition = nlInsertPos + 1;
+            SelectionAnchor = CursorPosition;
+            ResetCursor();
+        }
+
+        if (ClampToVisibleArea && ExceedsVisibleArea())
+        {
+            Text = savedText;
+            CursorPosition = savedCursor;
+            SelectionAnchor = savedAnchor;
+            CachedLayoutText = string.Empty;
+        }
+    }
+
     private void ResetCursor()
     {
         CursorVisible = true;
@@ -1152,6 +1215,16 @@ public class UITextBox : UIElement
 
                 break;
 
+            //── newline (multiline only) ──
+            //SDL never delivers a text-input event for Return, so newline insertion is driven
+            //here rather than in OnTextInput. single-line boxes fall through to default and let
+            //Enter bubble so parent panels (chat send, field cycling) can act on it.
+            case Keys.Enter when IsMultiLine && !IsReadOnly:
+                InsertNewLine();
+                e.Handled = true;
+
+                break;
+
             default:
                 //consume all other key presses while focused so they don't bubble
                 //to hotkey handlers. actual character insertion happens via ontextinput.
@@ -1187,43 +1260,11 @@ public class UITextBox : UIElement
         if ((c == '\t') && IsTabStop)
             return;
 
+        //newline insertion is driven by OnKeyDown (Keys.Enter); SDL never delivers Return as
+        //text input. drop any newline that does arrive this way (e.g. via an IME) so it can't
+        //double-insert on top of the key-driven path.
         if ((c == '\r') || (c == '\n'))
-        {
-            if (!IsMultiLine)
-                return;
-
-            //snapshot state before additive mutation for potential overflow revert
-            var savedText = Text;
-            var savedCursor = CursorPosition;
-            var savedAnchor = SelectionAnchor;
-
-            if (HasSelection)
-                DeleteSelection();
-
-            if (Text.Length < MaxLength)
-            {
-                var nlInsertPos = CursorPosition;
-                Text = Text.Insert(nlInsertPos, "\n");
-                CursorPosition = nlInsertPos + 1;
-                SelectionAnchor = CursorPosition;
-                ResetCursor();
-            }
-
-            if (ClampToVisibleArea && IsMultiLine && ExceedsVisibleArea())
-            {
-                Text = savedText;
-                CursorPosition = savedCursor;
-                SelectionAnchor = savedAnchor;
-                CachedLayoutText = string.Empty;
-            }
-
-            e.Handled = true;
-
-            if (IsMultiLine)
-                EnsureCursorVisible();
-
             return;
-        }
 
         if (char.IsControl(c))
             return;

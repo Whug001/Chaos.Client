@@ -1,5 +1,7 @@
 #region
 using Chaos.Client.Controls.Components;
+using Chaos.Client.Controls.Scrolling;
+using Chaos.Client.Definitions;
 using Microsoft.Xna.Framework;
 #endregion
 
@@ -49,13 +51,11 @@ public sealed class MarketItemDetailControl : UIPanel
     private readonly UILabel SellerLine; //seller name — last info line, just above the separator
     private readonly UIPanel HeaderDivider;
 
-    private readonly UIPanel StatViewport;
-    private readonly UIPanel StatContent;
     private readonly UILabel[] StatLineLabels = new UILabel[MAX_STAT_LINES];
+    private readonly UIPanel StatContent;
+    private readonly StatScrollHost StatHost;
+    private readonly ScrollViewerControl StatViewer;
 
-    private bool HasItem;
-    private int ScrollOffsetPx;
-    private int ContentHeightPx;
     private int ViewportHeightPx;
 
     public MarketItemDetailControl(int width, int height)
@@ -138,17 +138,11 @@ public sealed class MarketItemDetailControl : UIPanel
         };
         AddChild(HeaderDivider);
 
-        //── scrollable stat region (Y/Height set per item below the separator) ──
-        StatViewport = new UIPanel
-        {
-            X = PAD,
-            Y = DIVIDER_TOP,
-            Width = innerWidth,
-            Height = 0,
-            IsHitTestVisible = false
-        };
-        AddChild(StatViewport);
-
+        //── scrollable stat region (viewer Y/Height set per item below the separator) ──
+        //StatContent (the scrolled surface) lives in StatHost (an IVerticalScrollable clip host), wrapped in a
+        //bar-less (Hidden) ScrollViewerControl that owns the wheel. Bar-less keeps the narrow pane's full width; the
+        //host translates the viewer's unit offset into StatContent.Y (one unit = one wheel notch). The pane's own
+        //OnMouseScroll still consumes the wheel unconditionally so it never falls through to the Results list's paging.
         StatContent = new UIPanel
         {
             X = 0,
@@ -157,7 +151,19 @@ public sealed class MarketItemDetailControl : UIPanel
             Height = 0,
             IsHitTestVisible = false
         };
-        StatViewport.AddChild(StatContent);
+
+        StatHost = new StatScrollHost(StatContent, STAT_SCROLL_STEP) { IsPassThrough = true };
+        StatHost.AddChild(StatContent);
+
+        StatViewer = new ScrollViewerControl(StatHost)
+        {
+            X = PAD,
+            Y = DIVIDER_TOP,
+            Width = innerWidth,
+            Height = 0,
+            VerticalScrollBarVisibility = ScrollBarVisibility.Hidden
+        };
+        AddChild(StatViewer);
 
         for (var i = 0; i < MAX_STAT_LINES; i++)
         {
@@ -177,7 +183,7 @@ public sealed class MarketItemDetailControl : UIPanel
             StatContent.AddChild(line);
         }
 
-        LayoutDividerAndStats(); //separator + stat viewport geometry is fixed (no variable-height description)
+        LayoutDividerAndStats(); //separator + stat viewer geometry is fixed (no variable-height description)
     }
 
     /// <summary>Positions the separator just below the base-field block, then the stat viewport below it.</summary>
@@ -186,9 +192,15 @@ public sealed class MarketItemDetailControl : UIPanel
         HeaderDivider.Y = DIVIDER_TOP;
 
         var viewportTop = DIVIDER_TOP + 4;
-        StatViewport.Y = viewportTop;
         ViewportHeightPx = Math.Max(0, Height - viewportTop - PAD);
-        StatViewport.Height = ViewportHeightPx;
+
+        //the viewer is the clip window; with a Hidden bar it reserves no gutter, so StatContent keeps the full innerWidth.
+        StatViewer.Y = viewportTop;
+        StatViewer.Height = ViewportHeightPx;
+
+        //seed the host's Height now so it reports a correct viewport on the first frame (the wheel handler runs before
+        //the viewer's first Update sizes it); the viewer overwrites this each frame thereafter.
+        StatHost.Height = ViewportHeightPx;
     }
 
     private static UILabel MakeInfoLabel(int x, int y, int width, Color color)
@@ -206,7 +218,6 @@ public sealed class MarketItemDetailControl : UIPanel
     /// <summary>Binds the pane to a listing (called on row hover) and resets the stat scroll to the top.</summary>
     public void Show(MarketListing listing)
     {
-        HasItem = true;
         HintLabel.Visible = false;
 
         IconImage.Texture = UiRenderer.Instance!.GetItemIcon(listing.Sprite);
@@ -237,14 +248,12 @@ public sealed class MarketItemDetailControl : UIPanel
 
         BindStats(listing.Stats.ToBlocks());
 
-        ScrollOffsetPx = 0;
-        StatContent.Y = 0;
+        StatHost.ResetScroll(); //each hovered item opens at the top of its stat block
     }
 
     /// <summary>Resets the pane to its idle "hover a listing" hint (e.g. when the result set is replaced).</summary>
     public void Clear()
     {
-        HasItem = false;
         HintLabel.Visible = true;
 
         IconImage.Texture = null;
@@ -259,9 +268,8 @@ public sealed class MarketItemDetailControl : UIPanel
         for (var i = 0; i < MAX_STAT_LINES; i++)
             StatLineLabels[i].Visible = false;
 
-        ScrollOffsetPx = 0;
-        ContentHeightPx = 0;
-        StatContent.Y = 0;
+        StatContent.Height = 0; //no scrollable content while idle
+        StatHost.ResetScroll();
     }
 
     private void BindStats(IReadOnlyList<string> blocks)
@@ -281,7 +289,6 @@ public sealed class MarketItemDetailControl : UIPanel
         }
 
         var contentHeight = count * LINE;
-        ContentHeightPx = contentHeight;
         StatContent.Height = Math.Max(contentHeight, ViewportHeightPx);
     }
 
@@ -321,21 +328,40 @@ public sealed class MarketItemDetailControl : UIPanel
         return lines;
     }
 
-    public override void OnMouseScroll(MouseScrollEvent e)
+    //the StatViewer (a bar-less ScrollViewerControl) owns the actual wheel scrolling of the stat block; this override
+    //only guarantees the wheel is always consumed over the detail pane — including the fixed header region above the
+    //viewer — so it never falls through to the Results list's paging.
+    public override void OnMouseScroll(MouseScrollEvent e) => e.Handled = true;
+
+    //── scroll host ─────────────────────────────────────────────────────────────────────────────────────────────
+    //Clip + scroll surface the (bar-less) ScrollViewerControl hosts. The viewer forces this element's X/Y to 0 and
+    //sizes it to the viewport each frame, then drives scrolling through IVerticalScrollable; we translate the unit
+    //offset into the inner StatContent surface's pixel Y (one unit = STAT_SCROLL_STEP px, i.e. one wheel notch).
+    private sealed class StatScrollHost(UIPanel content, int step) : UIPanel, IVerticalScrollable
     {
-        //always consume the wheel over the detail pane so it never falls through to the list's paging.
-        e.Handled = true;
+        private int OffsetUnits;
 
-        if (!HasItem)
-            return;
+        private int MaxScrollPx => Math.Max(0, content.Height - Height);
 
-        var maxScroll = Math.Max(0, ContentHeightPx - ViewportHeightPx);
+        public void ResetScroll()
+        {
+            OffsetUnits = 0;
+            content.Y = 0;
+        }
 
-        if (maxScroll <= 0)
-            return;
+        int IVerticalScrollable.VerticalViewport => step > 0 ? Height / step : 0;
 
-        //wheel up (positive delta) scrolls toward the top of the stat block.
-        ScrollOffsetPx = Math.Clamp(ScrollOffsetPx - Math.Sign(e.Delta) * STAT_SCROLL_STEP, 0, maxScroll);
-        StatContent.Y = -ScrollOffsetPx;
+        int IVerticalScrollable.VerticalExtent
+            => ((IVerticalScrollable)this).VerticalViewport + (step > 0 ? (MaxScrollPx + step - 1) / step : 0);
+
+        int IVerticalScrollable.VerticalOffset
+        {
+            get => OffsetUnits;
+            set
+            {
+                OffsetUnits = value;
+                content.Y = -Math.Min(value * step, MaxScrollPx);
+            }
+        }
     }
 }
