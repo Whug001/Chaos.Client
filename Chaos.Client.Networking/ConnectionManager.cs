@@ -666,6 +666,13 @@ public sealed class ConnectionManager : IDisposable
     /// </summary>
     public event WorldMapHandler? OnWorldMap;
 
+    //--- arena ---
+
+    /// <summary>
+    ///     Fired when an arena match-voting poll packet is received.
+    /// </summary>
+    public event Action<Networking.Arena.ArenaPollArgs>? OnArenaPoll;
+
     /// <summary>
     ///     Sends a pickup request from a tile.
     /// </summary>
@@ -802,6 +809,14 @@ public sealed class ConnectionManager : IDisposable
                 ServerId = serverId
             });
     }
+
+    /// <summary>
+    ///     Sends an arena poll vote to the server.
+    /// </summary>
+    /// <param name="pollId">The poll ID being voted on.</param>
+    /// <param name="optionIndex">The zero-based index of the chosen option.</param>
+    public void SendArenaVote(byte pollId, byte optionIndex)
+        => SendIfWorld(new Networking.Arena.ArenaVoteArgs { PollId = pollId, OptionIndex = optionIndex });
 
     /// <summary>
     ///     Adds a player to the ignore list.
@@ -1426,6 +1441,9 @@ public sealed class ConnectionManager : IDisposable
         PacketHandlers[(byte)ServerOpCode.ForceClientPacket] = HandleForceClientPacket;
         PacketHandlers[(byte)ServerOpCode.CancelCasting] = HandleCancelCasting;
         PacketHandlers[(byte)ServerOpCode.MetaData] = HandleMetaData;
+
+        //arena
+        PacketHandlers[Networking.Arena.ArenaOpCodes.ArenaPoll] = HandleArenaPoll;
     }
 
     private void HandlePacket(ServerPacket pkt)
@@ -1948,6 +1966,14 @@ public sealed class ConnectionManager : IDisposable
     {
         var args = Client.Deserialize<MetaDataArgs>(in pkt);
         OnMetaData?.Invoke(args);
+    }
+
+    //--- arena ---
+
+    private void HandleArenaPoll(ServerPacket pkt)
+    {
+        var args = Client.Deserialize<Networking.Arena.ArenaPollArgs>(in pkt);
+        OnArenaPoll?.Invoke(args);
     }
 
     private void HandleDisconnected()

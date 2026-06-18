@@ -62,6 +62,11 @@ public static class WorldState
     public static PlayerAttributes Attributes { get; } = new();
 
     /// <summary>
+    ///     Authoritative arena match-voting poll state.
+    /// </summary>
+    public static ArenaPoll ArenaPoll { get; } = new();
+
+    /// <summary>
     ///     Authoritative bulletin board / mail state.
     /// </summary>
     public static Board Board { get; } = new();
@@ -815,6 +820,9 @@ public static class WorldState
 
             WorldList.Update(entries, args.WorldMemberCount);
         };
+
+        //arena poll
+        connection.OnArenaPoll += args => ArenaPoll.Apply(args);
     }
 
     /// <summary>
