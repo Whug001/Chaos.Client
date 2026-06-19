@@ -674,6 +674,11 @@ public sealed class ConnectionManager : IDisposable
     public event Action<PollArgs>? OnPoll;
 
     /// <summary>
+    ///     Fired when the server sends the player's owned title list (for the profile title dropdown).
+    /// </summary>
+    public event Action<Networking.Titles.TitleListArgs>? OnTitleList;
+
+    /// <summary>
     ///     Sends a pickup request from a tile.
     /// </summary>
     /// <param name="x">The source tile X coordinate.</param>
@@ -817,6 +822,16 @@ public sealed class ConnectionManager : IDisposable
     /// <param name="optionIndex">The zero-based index of the chosen option.</param>
     public void SendVote(byte pollId, byte optionIndex)
         => SendIfWorld(new VoteArgs { PollId = pollId, OptionIndex = optionIndex });
+
+    /// <summary>
+    ///     Asks the server for the full list of titles the player owns.
+    /// </summary>
+    public void SendTitleListRequest() => SendIfWorld(new Networking.Titles.TitleListRequestArgs());
+
+    /// <summary>
+    ///     Tells the server which owned title to make active.
+    /// </summary>
+    public void SendTitleSelect(string title) => SendIfWorld(new Networking.Titles.TitleSelectArgs { Title = title });
 
     /// <summary>
     ///     Adds a player to the ignore list.
@@ -1444,6 +1459,9 @@ public sealed class ConnectionManager : IDisposable
 
         //poll
         PacketHandlers[(byte)ServerOpCode.Poll] = HandlePoll;
+
+        //titles
+        PacketHandlers[Networking.Titles.TitleOpCodes.TitleList] = HandleTitleList;
     }
 
     private void HandlePacket(ServerPacket pkt)
@@ -1974,6 +1992,14 @@ public sealed class ConnectionManager : IDisposable
     {
         var args = Client.Deserialize<PollArgs>(in pkt);
         OnPoll?.Invoke(args);
+    }
+
+    //--- titles ---
+
+    private void HandleTitleList(ServerPacket pkt)
+    {
+        var args = Client.Deserialize<Networking.Titles.TitleListArgs>(in pkt);
+        OnTitleList?.Invoke(args);
     }
 
     private void HandleDisconnected()

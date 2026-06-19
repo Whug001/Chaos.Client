@@ -161,6 +161,8 @@ public sealed class SelfProfileTabControl : PrefabPanel, IInventoryDropTarget
             equipTab.OnGroupToggled += () => OnGroupToggled?.Invoke();
             equipTab.OnProfileTextClicked += () => OnProfileTextClicked?.Invoke();
             equipTab.OnToggleHidden += (option, hidden) => OnToggleHidden?.Invoke(option, hidden);
+            equipTab.OnTitleSelected += title => OnTitleSelected?.Invoke(title);
+            equipTab.OnTitleListRequested += () => OnTitleListRequested?.Invoke();
         }
 
         if (page is SelfProfileAbilityMetadataTab skillsTab)
@@ -211,6 +213,8 @@ public sealed class SelfProfileTabControl : PrefabPanel, IInventoryDropTarget
     public event Action<UserOption, bool>? OnToggleHidden;
 
     public event UnequipHandler? OnUnequip;
+    public event Action<string>? OnTitleSelected;
+    public event Action? OnTitleListRequested;
 
     /// <summary>
     ///     Pushes the server's hidden-equipment flags (echoed in SelfProfile) onto the Equipment tab's visibility dots.
@@ -435,6 +439,16 @@ public sealed class SelfProfileTabControl : PrefabPanel, IInventoryDropTarget
             clanName,
             clanTitle,
             title);
+    }
+
+    /// <summary>
+    ///     Populates the Equipment tab's title dropdown with the player's titles and active title.
+    /// </summary>
+    public void SetTitles(string activeTitle, IEnumerable<string> titles)
+    {
+        var equipPage = GetOrCreateEquipmentPage();
+
+        equipPage?.SetTitles(activeTitle, titles);
     }
 
     /// <summary>

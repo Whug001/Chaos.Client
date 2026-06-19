@@ -83,6 +83,8 @@ public sealed class SelfProfileEquipmentTab : PrefabPanel
     //tooltip for hovered equipment slot
     private readonly UILabel TooltipLabel;
     private readonly UILabel? WisLabel;
+    private readonly TitleDropdownControl TitleDropdown;
+    private bool HasTitles;
     private Texture2D? NationIconTexture;
     private Texture2D? PaperdollTexture;
 
@@ -263,6 +265,16 @@ public sealed class SelfProfileEquipmentTab : PrefabPanel
         };
 
         AddChild(TooltipLabel);
+
+        //title selection dropdown — child of this tab, hidden until the title field is clicked
+        TitleDropdown = new TitleDropdownControl();
+        AddChild(TitleDropdown);
+
+        TitleDropdown.TitleSelected += title =>
+        {
+            OnTitleSelected?.Invoke(title);
+            TitleDropdown.Visible = false;
+        };
     }
 
     /// <summary>
@@ -343,6 +355,8 @@ public sealed class SelfProfileEquipmentTab : PrefabPanel
     public event Action<UserOption, bool>? OnToggleHidden;
 
     public event UnequipHandler? OnUnequip;
+    public event Action<string>? OnTitleSelected;
+    public event Action? OnTitleListRequested;
 
     /// <summary>
     ///     Applies the server's hidden-equipment flags (echoed in SelfProfile) to the dots so each reflects the authoritative
@@ -442,6 +456,34 @@ public sealed class SelfProfileEquipmentTab : PrefabPanel
     }
 
     /// <summary>
+    ///     Populates the title dropdown with the player's titles and active title, and positions it just
+    ///     beneath the title field. Enables the title-field affordance only when the player owns titles.
+    /// </summary>
+    public void SetTitles(string activeTitle, IEnumerable<string> titles)
+    {
+        var list = titles.Where(t => !string.IsNullOrWhiteSpace(t)).ToList();
+        HasTitles = list.Count > 0;
+
+        TitleDropdown.SetTitles(activeTitle, list);
+
+        if (TitleLabel is not null)
+        {
+            TitleDropdown.X = TitleLabel.X;
+            TitleDropdown.Y = TitleLabel.Y + TextRenderer.CHAR_HEIGHT + 2;
+            TitleDropdown.Width = TitleLabel.Width;
+        }
+
+        if (!HasTitles)
+            TitleDropdown.Visible = false;
+    }
+
+    private void CloseTitleDropdown()
+    {
+        if (TitleDropdown.Visible)
+            TitleDropdown.Visible = false;
+    }
+
+    /// <summary>
     ///     Sets the item icon for a specific equipment slot.
     /// </summary>
     public void SetSlot(EquipmentSlot slot, ushort sprite, DisplayColor color, string? itemName = null)
@@ -518,11 +560,34 @@ public sealed class SelfProfileEquipmentTab : PrefabPanel
         if (e.Button != MouseButton.Left)
             return;
 
+        //title field OR the prefab dropdown-arrow box (drawn into the _nui_eq background art, just right
+        //of the title field) → toggle the dropdown, only when the player owns titles
+        if ((TitleLabel is not null) && HasTitles)
+        {
+            var arrowBox = new Rectangle(TitleLabel.ScreenX + TitleLabel.Width, TitleLabel.ScreenY - 2, 24, 16);
+
+            if (TitleLabel.ContainsPoint(e.ScreenX, e.ScreenY) || arrowBox.Contains(e.ScreenX, e.ScreenY))
+            {
+                if (TitleDropdown.Visible)
+                    TitleDropdown.Visible = false;
+                else
+                {
+                    TitleDropdown.Visible = true;
+                    OnTitleListRequested?.Invoke();
+                }
+
+                e.Handled = true;
+
+                return;
+            }
+        }
+
         //note: clicking a visibility dot is handled by the dot itself (higher ZIndex child, sets
         //e.Handled), so the dispatcher never bubbles that click here — no dot guard needed.
         foreach ((var slot, var visual) in SlotVisuals)
             if (visual.Image.ContainsPoint(e.ScreenX, e.ScreenY) && visual.ItemTexture is not null)
             {
+                CloseTitleDropdown();
                 OnUnequip?.Invoke(slot);
                 e.Handled = true;
 
@@ -532,9 +597,15 @@ public sealed class SelfProfileEquipmentTab : PrefabPanel
         //check if portrait text area was clicked
         if (PortraitTextLabel is not null && PortraitTextLabel.ContainsPoint(e.ScreenX, e.ScreenY))
         {
+            CloseTitleDropdown();
             OnProfileTextClicked?.Invoke();
             e.Handled = true;
+
+            return;
         }
+
+        //any other click inside the tab closes an open dropdown
+        CloseTitleDropdown();
     }
 
     private sealed class EquipmentSlotVisual
