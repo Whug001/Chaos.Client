@@ -13,17 +13,26 @@ public static class AvatarCapture
     private const int FrontIdleFrame = 5;
     private const string IdleAnim = "04";
 
+    // MUST match the launcher's AvatarPathResolver.MaxLength (cross-repo contract).
+    private const int MaxLength = 64;
+
     public static bool IsEnabled =>
         !string.IsNullOrEmpty(GlobalSettings.CardAvatarDir) &&
         !string.IsNullOrEmpty(GlobalSettings.AutoUsername);
 
-    /// <summary>Mirrors the launcher's AvatarPathResolver.Sanitize: any char outside [A-Za-z0-9_-] -> '_'.</summary>
+    /// <summary>Mirrors the launcher's AvatarPathResolver.Sanitize BYTE-FOR-BYTE: any char outside
+    /// [A-Za-z0-9_-] -> '_', length capped at MaxLength, empty -> "_" (so an empty username can't
+    /// produce a hidden ".png" dotfile). Keep identical to the launcher side.</summary>
     public static string Sanitize(string username)
     {
         var sb = new StringBuilder(username.Length);
         foreach (var ch in username)
+        {
+            if (sb.Length >= MaxLength)
+                break;
             sb.Append(char.IsAsciiLetterOrDigit(ch) || ch is '_' or '-' ? ch : '_');
-        return sb.ToString();
+        }
+        return sb.Length == 0 ? "_" : sb.ToString();
     }
 
     public static string BuildPath(string dir, string username) =>
