@@ -145,6 +145,8 @@ public sealed class NpcSessionControl : PrefabPanel
 
         //layout rects
         NpcNameLabel = CreateLabel("Name");
+        NpcNameLabel?.Y -= 2;
+        
         PortraitRect = GetRect("NPCTile");
 
         //dialog text label — word-wrapped, shifted up 10px from prefab rect
@@ -153,9 +155,9 @@ public sealed class NpcSessionControl : PrefabPanel
         DialogTextLabel = new UILabel
         {
             X = textRect.X,
-            Y = textRect.Y + 1,
+            Y = textRect.Y - 3,
             Width = textRect.Width,
-            Height = 3 * TextRenderer.CHAR_HEIGHT + 2,
+            Height = 4 * TextRenderer.CHAR_HEIGHT + 2,
             WordWrap = true,
             VerticalAlignment = VerticalAlignment.Top,
             ForegroundColor = TextColors.Default
@@ -450,6 +452,18 @@ public sealed class NpcSessionControl : PrefabPanel
         DialogTextLabel.ScrollOffset = ScrollLine * TextRenderer.CHAR_HEIGHT;
 
         UpdateScrollButtons();
+    }
+
+    public override void OnMouseScroll(MouseScrollEvent e)
+    {
+        //wheel scrolls overflowing dialog text, same as the up/down arrow buttons.
+        //ScrollText clamps, so this no-ops (and stays unhandled, falling through to the world)
+        //when the text fits. positive Delta = wheel up = scroll toward the top.
+        var before = ScrollLine;
+        ScrollText(-e.Delta);
+
+        if (ScrollLine != before)
+            e.Handled = true;
     }
 
     private void SetDialogText(string? text)

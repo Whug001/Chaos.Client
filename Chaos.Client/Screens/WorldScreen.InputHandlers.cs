@@ -13,6 +13,7 @@ using Chaos.Client.Systems;
 using Chaos.Client.ViewModel;
 using Chaos.DarkAges.Definitions;
 using Chaos.Geometry.Abstractions.Definitions;
+using Chaos.Networking.Entities.Server;
 using Microsoft.Xna.Framework;
 using Microsoft.Xna.Framework.Input;
 using Pathfinder = Chaos.Client.Systems.Pathfinder;
@@ -891,6 +892,28 @@ public sealed partial class WorldScreen
         {
             if (CanShowOptionsPanel(MacrosList, SettingsDialog))
                 FriendsList.Show();
+
+            e.Handled = true;
+
+            return;
+        }
+
+        //f12 — DEV TEST: summon a fake 4-line NPC dialog for tuning the bottom-bar text layout.
+        //ponytail: throwaway harness — delete when the 4-line layout is dialed in. SourceId stays null so
+        //closing it never sends a dialog-response packet to the server.
+        if (e.Key == Keys.F12)
+        {
+            NpcSession.ShowDialog(
+                new DisplayDialogArgs
+                {
+                    DialogType = DialogType.Normal,
+                    Name = "Test NPC",
+                    Text = "Line 1: testing the dialog box.\nLine 2: four lines of NPC text.\nLine 3: tuning the layout now.\nLine 4: making room for me here.",
+                    SourceId = null,
+                    Sprite = 0,
+                    HasNextButton = false,
+                    HasPreviousButton = false
+                });
 
             e.Handled = true;
 
