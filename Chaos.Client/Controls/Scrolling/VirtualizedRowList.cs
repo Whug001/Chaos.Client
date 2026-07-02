@@ -36,23 +36,32 @@ internal sealed class VirtualizedRowList<T> : UIPanel, IVerticalScrollable
     public bool HasSelection => Selectable && (SelectedIndex >= 0) && (SelectedIndex < Items.Count);
     public T? SelectedItem => HasSelection ? Items[SelectedIndex] : default;
 
-    //optional trailing row not backed by an item (e.g. a "Load More" footer). When ShowSentinel is set it counts as
-    //one extra unit of vertical extent, renders via SentinelBinder, and routes its click to SentinelActivated.
-    public Action<UIElement>? SentinelBinder { get; set; }
-    public Action? SentinelActivated { get; set; }
-    public bool ShowSentinel { get; set; }
+    //infinite-scroll paging: when CanLoadMore is set the list fires LoadMoreRequested exactly once as soon as the view
+    //reaches the bottom, so a paged host (e.g. a board list) fetches the next page on scroll instead of via a footer
+    //button. LoadMorePending latches that one-shot (the viewer writes VerticalOffset every frame, so without the latch
+    //sitting at the bottom would retrigger every frame). It clears only when a fresh page is declared (the CanLoadMore
+    //setter) or the whole list is replaced (SetItems) — deliberately NOT on Invalidate, so an in-place row edit
+    //(delete/highlight) while the view sits at the bottom of a full page never issues an unsolicited page request.
+    public bool CanLoadMore
+    {
+        get;
+        set
+        {
+            field = value;
+            LoadMorePending = false;
+        }
+    }
 
-    //the sentinel participates (extent, render, click) only when it is both enabled and has a binder, so the scroll
-    //extent can never reserve a row the refresh would leave blank.
-    private bool HasSentinel => ShowSentinel && (SentinelBinder is not null);
+    public event Action? LoadMoreRequested;
+    private bool LoadMorePending;
 
     //fully-visible row count for the current height, clamped to the recycled pool. A property (not a ctor-frozen
     //field) so a host whose viewport grows at runtime (e.g. an expandable chat panel) shows more rows once the pool
     //is grown via EnsureViewportCapacity. Fixed-height hosts keep height/rowHeight unchanged (pool always covers it).
     private int VisibleRows => RowHeight > 0 ? Math.Min(Height / RowHeight, RowPool.Length) : 0;
 
-    //largest valid top-anchored scroll offset (the last unit pinned to the viewport bottom), including the sentinel.
-    private int MaxOffset => Math.Max(0, Items.Count + (HasSentinel ? 1 : 0) - VisibleRows);
+    //largest valid top-anchored scroll offset (the last unit pinned to the viewport bottom).
+    private int MaxOffset => Math.Max(0, Items.Count - VisibleRows);
 
     //fired when the selected row changes (selectable lists). Hosts use it to refresh dependent button states.
     public event Action? SelectionChanged;
@@ -60,8 +69,8 @@ internal sealed class VirtualizedRowList<T> : UIPanel, IVerticalScrollable
     //fired on double-click of a data row (selectable lists). Non-selectable lists raise activation from their own rows.
     public event Action<T>? RowActivated;
 
-    // IVerticalScrollable — row-index units (one unit = one row); the trailing sentinel counts as a unit when shown
-    int IVerticalScrollable.VerticalExtent => Items.Count + (HasSentinel ? 1 : 0);
+    // IVerticalScrollable — row-index units (one unit = one row)
+    int IVerticalScrollable.VerticalExtent => Items.Count;
     int IVerticalScrollable.VerticalViewport => VisibleRows;
 
     int IVerticalScrollable.VerticalOffset
@@ -79,6 +88,15 @@ internal sealed class VirtualizedRowList<T> : UIPanel, IVerticalScrollable
             //drives this each frame), so a later content append knows whether to follow the growth down to the bottom.
             if (PinToBottom)
                 Pinned = ScrollOffset >= MaxOffset;
+
+            //infinite scroll: the instant the view reaches the bottom with more possibly available, request the next
+            //page. Latched so the viewer's per-frame offset writes don't spam requests; cleared when new items arrive.
+            //MaxOffset > 0 gates out the fits-in-viewport case so a short page never auto-fetches without a real scroll.
+            if (CanLoadMore && !LoadMorePending && (MaxOffset > 0) && (ScrollOffset >= MaxOffset))
+            {
+                LoadMorePending = true;
+                LoadMoreRequested?.Invoke();
+            }
         }
     }
 
@@ -141,6 +159,7 @@ internal sealed class VirtualizedRowList<T> : UIPanel, IVerticalScrollable
     public void SetItems(IReadOnlyList<T> items)
     {
         Items = items;
+        LoadMorePending = false;
         SelectedIndex = Selectable && AutoSelectFirst && (items.Count > 0) ? 0 : -1;
 
         //pin-to-bottom hosts open on the newest row; everyone else opens at the top.
@@ -289,10 +308,6 @@ internal sealed class VirtualizedRowList<T> : UIPanel, IVerticalScrollable
             {
                 row.Visible = true;
                 BindRow(row, Items[entryIndex], Selectable && (entryIndex == SelectedIndex));
-            } else if (HasSentinel && (entryIndex == Items.Count))
-            {
-                row.Visible = true;
-                SentinelBinder!(row);
             } else
                 row.Visible = false;
         }
@@ -307,17 +322,7 @@ internal sealed class VirtualizedRowList<T> : UIPanel, IVerticalScrollable
 
         var entryIndex = RowAt(e.ScreenY);
 
-        if (entryIndex < 0)
-            return;
-
-        if (HasSentinel && (entryIndex == Items.Count))
-        {
-            SentinelActivated?.Invoke();
-
-            return;
-        }
-
-        if (entryIndex >= Items.Count)
+        if ((entryIndex < 0) || (entryIndex >= Items.Count))
             return;
 
         SelectedIndex = entryIndex;
