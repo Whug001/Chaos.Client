@@ -454,6 +454,12 @@ public sealed class AislingRenderer : IDisposable
         var height = COMPOSITE_HEIGHT;
         contentBottomY = 0;
 
+        //grow the canvas to fit oversized layers (mounts extend below the body). layers are top-anchored
+        //at Y=0 so this only adds rows downward; width stays fixed since the flip pivot is left-measured.
+        foreach (var slot in order)
+            if (layers[(int)slot] is { } sized && (sized.Image.Height > height))
+                height = sized.Image.Height;
+
         using var bitmap = new SKBitmap(width, height);
 
         using (var canvas = new SKCanvas(bitmap))
