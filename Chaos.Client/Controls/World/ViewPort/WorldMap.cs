@@ -4,7 +4,6 @@ using Chaos.Client.Networking;
 using Chaos.Networking.Entities.Server;
 using Microsoft.Xna.Framework;
 using Microsoft.Xna.Framework.Graphics;
-using Microsoft.Xna.Framework.Input;
 #endregion
 
 namespace Chaos.Client.Controls.World.ViewPort;
@@ -121,7 +120,7 @@ public sealed class WorldMap : UIPanel
 
     public override void OnKeyDown(KeyDownEvent e)
     {
-        if (e.Key == Keys.Escape)
+        if (e.Keycode == Keycode.Escape)
         {
             HideMap();
             e.Handled = true;

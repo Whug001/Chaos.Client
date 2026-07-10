@@ -3,7 +3,6 @@ using Chaos.Client.Controls.Components;
 using Chaos.Client.Data.Models;
 using Chaos.Extensions.Common;
 using Microsoft.Xna.Framework;
-using Microsoft.Xna.Framework.Input;
 #endregion
 
 namespace Chaos.Client.Controls.World.Hud;
@@ -246,7 +245,7 @@ public sealed class ChatInputControl : UIPanel
 
     public override void OnKeyDown(KeyDownEvent e)
     {
-        if (e.Key == Keys.Enter)
+        if (e.Keycode == Keycode.Enter)
         {
             HandleEnter();
             e.Handled = true;
@@ -254,7 +253,7 @@ public sealed class ChatInputControl : UIPanel
             return;
         }
 
-        if (e.Key == Keys.Escape)
+        if (e.Keycode == Keycode.Escape)
         {
             HandleEscape();
             e.Handled = true;
@@ -389,9 +388,9 @@ public sealed class ChatInputControl : UIPanel
         if ((Mode != ChatMode.WhisperName) || !IsFocused)
             return;
 
-        if (InputBuffer.WasKeyPressed(Keys.Up))
+        if (InputBuffer.WasScancodePressed(Scancode.Up))
             CycleWhisperTarget(1);
-        else if (InputBuffer.WasKeyPressed(Keys.Down))
+        else if (InputBuffer.WasScancodePressed(Scancode.Down))
             CycleWhisperTarget(-1);
     }
 }

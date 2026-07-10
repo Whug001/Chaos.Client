@@ -13,7 +13,6 @@ using Chaos.Client.ViewModel;
 using Chaos.DarkAges.Definitions;
 using Chaos.Geometry.Abstractions.Definitions;
 using Microsoft.Xna.Framework;
-using Microsoft.Xna.Framework.Input;
 using Pathfinder = Chaos.Client.Systems.Pathfinder;
 #endregion
 
@@ -178,10 +177,10 @@ public sealed partial class WorldScreen
         //determine which panel the slot came from
         var spellSlot = WorldHud.ActiveTab switch
         {
-            HudTab.Spells    => WorldHud.SpellBook.GetSpellSlot(slot),
+            HudTab.Spells => WorldHud.SpellBook.GetSpellSlot(slot),
             HudTab.SpellsAlt => WorldHud.SpellBookAlt.GetSpellSlot(slot),
-            HudTab.Tools     => WorldHud.Tools.WorldSpells.GetSpellSlot(slot),
-            _                => WorldHud.SpellBook.GetSpellSlot(slot)
+            HudTab.Tools => WorldHud.Tools.WorldSpells.GetSpellSlot(slot),
+            _ => WorldHud.SpellBook.GetSpellSlot(slot)
                                 ?? WorldHud.SpellBookAlt.GetSpellSlot(slot)
                                 ?? WorldHud.Tools.WorldSpells.GetSpellSlot(slot)
         };
@@ -240,19 +239,19 @@ public sealed partial class WorldScreen
 
     //--- hotkeys ---
 
-    private static readonly Keys[] EmoteKeys =
+    private static readonly Scancode[] EmoteKeys =
     [
-        Keys.D1,
-        Keys.D2,
-        Keys.D3,
-        Keys.D4,
-        Keys.D5,
-        Keys.D6,
-        Keys.D7,
-        Keys.D8,
-        Keys.D9,
-        Keys.D0,
-        Keys.OemMinus
+        Scancode.D1,
+        Scancode.D2,
+        Scancode.D3,
+        Scancode.D4,
+        Scancode.D5,
+        Scancode.D6,
+        Scancode.D7,
+        Scancode.D8,
+        Scancode.D9,
+        Scancode.D0,
+        Scancode.OemMinus
     ];
 
     //ctrl+key emotes: 9-17 then 21-22 (skips 18-20 which don't exist in bodyanimation)
@@ -295,7 +294,7 @@ public sealed partial class WorldScreen
         if (e is { Ctrl: false, Alt: false })
             return false;
 
-        var keyIndex = Array.IndexOf(EmoteKeys, e.Key);
+        var keyIndex = Array.IndexOf(EmoteKeys, e.Scancode);
 
         if (keyIndex < 0)
             return false;
@@ -329,21 +328,21 @@ public sealed partial class WorldScreen
 
     private bool HandleSlotHotkey(KeyDownEvent e)
     {
-        var slot = e.Key switch
+        var slot = e.Scancode switch
         {
-            Keys.D1       => 1,
-            Keys.D2       => 2,
-            Keys.D3       => 3,
-            Keys.D4       => 4,
-            Keys.D5       => 5,
-            Keys.D6       => 6,
-            Keys.D7       => 7,
-            Keys.D8       => 8,
-            Keys.D9       => 9,
-            Keys.D0       => 10,
-            Keys.OemMinus => 11,
-            Keys.OemPlus  => 12,
-            _             => -1
+            Scancode.D1 => 1,
+            Scancode.D2 => 2,
+            Scancode.D3 => 3,
+            Scancode.D4 => 4,
+            Scancode.D5 => 5,
+            Scancode.D6 => 6,
+            Scancode.D7 => 7,
+            Scancode.D8 => 8,
+            Scancode.D9 => 9,
+            Scancode.D0 => 10,
+            Scancode.OemMinus => 11,
+            Scancode.OemPlus => 12,
+            _ => -1
         };
 
         if (slot < 0)
@@ -390,19 +389,19 @@ public sealed partial class WorldScreen
             case HudTab.MessageHistory:
             case HudTab.Stats:
             case HudTab.ExtendedStats:
-            {
-                var macroText = MacrosList.GetMacroValue(slot - 1);
+                {
+                    var macroText = MacrosList.GetMacroValue(slot - 1);
 
-                //focus regardless of whether the slot is bound — pressing a macro key
-                //is also the user's "start typing in chat" shortcut, so an empty slot
-                //should just open the input without prefilling text
-                WorldHud.ChatInput.Focus($"{WorldHud.PlayerName}: ", Color.White);
+                    //focus regardless of whether the slot is bound — pressing a macro key
+                    //is also the user's "start typing in chat" shortcut, so an empty slot
+                    //should just open the input without prefilling text
+                    WorldHud.ChatInput.Focus($"{WorldHud.PlayerName}: ", Color.White);
 
-                if (macroText.Length > 0)
-                    WorldHud.ChatInput.SetText(macroText, macroText.Length);
+                    if (macroText.Length > 0)
+                        WorldHud.ChatInput.SetText(macroText, macroText.Length);
 
-                break;
-            }
+                    break;
+                }
 
             default:
                 return false;
@@ -595,7 +594,7 @@ public sealed partial class WorldScreen
     private void OnRootKeyDown(KeyDownEvent e)
     {
         //alt+enter — cycle window size
-        if ((e.Key == Keys.Enter) && e.Modifiers.HasFlag(KeyModifiers.Alt))
+        if ((e.Scancode == Scancode.Enter) && e.Modifiers.HasFlag(KeyModifiers.Alt))
         {
             Game.CycleWindowSize();
             e.Handled = true;
@@ -604,7 +603,7 @@ public sealed partial class WorldScreen
         }
 
         //enter — toggle chat focus
-        if (e.Key == Keys.Enter)
+        if (e.Scancode == Scancode.Enter)
         {
             if (!WorldHud.ChatInput.IsFocused)
                 WorldHud.ChatInput.Focus($"{WorldHud.PlayerName}: ", Color.White);
@@ -616,9 +615,9 @@ public sealed partial class WorldScreen
 
         //q/w/e/r toggle group — must be above the stack guard because these panels
         //use the control stack themselves and need to toggle while open
-        if (e.Key == Keys.Q)
+        if (e.Scancode == Scancode.Q)
         {
-            ForceCloseOtherTogglePanels(Keys.Q);
+            ForceCloseOtherTogglePanels(Scancode.Q);
 
             if (MainOptions.Visible)
             {
@@ -638,9 +637,9 @@ public sealed partial class WorldScreen
             return;
         }
 
-        if (e.Key == Keys.W)
+        if (e.Scancode == Scancode.W)
         {
-            ForceCloseOtherTogglePanels(Keys.W);
+            ForceCloseOtherTogglePanels(Scancode.W);
 
             if (IsAnyBoardPanelVisible())
             {
@@ -660,9 +659,9 @@ public sealed partial class WorldScreen
             return;
         }
 
-        if (e.Key == Keys.E)
+        if (e.Scancode == Scancode.E)
         {
-            ForceCloseOtherTogglePanels(Keys.E);
+            ForceCloseOtherTogglePanels(Scancode.E);
 
             if (WorldList.Visible)
                 WorldList.SlideClose();
@@ -678,9 +677,9 @@ public sealed partial class WorldScreen
             return;
         }
 
-        if (e.Key == Keys.R)
+        if (e.Scancode == Scancode.R)
         {
-            ForceCloseOtherTogglePanels(Keys.R);
+            ForceCloseOtherTogglePanels(Scancode.R);
             ToggleSocialStatusPicker();
 
             e.Handled = true;
@@ -694,7 +693,7 @@ public sealed partial class WorldScreen
 
         //escape — collapse any expanded HUD panel back to normal size. only consume
         //the key when something was actually collapsed so it stays a no-op otherwise.
-        if (e.Key == Keys.Escape)
+        if (e.Scancode == Scancode.Escape)
         {
             if (WorldHud.CollapseExpanded())
                 e.Handled = true;
@@ -706,7 +705,7 @@ public sealed partial class WorldScreen
         //while held. sits after the stack guard so dialogs/menus block it; sits inside
         //the root handler so any ui element above can mark e.handled first and suppress it.
         //rate-limited to SPACEBAR_INTERVAL_MS since os key-repeat rates vary wildly.
-        if (e.Key == Keys.Space)
+        if (e.Scancode == Scancode.Space)
         {
             var now = Environment.TickCount64;
 
@@ -722,7 +721,7 @@ public sealed partial class WorldScreen
             return;
         }
 
-        if ((e.Key == Keys.T) && TownMapControl.Visible)
+        if ((e.Scancode == Scancode.T) && TownMapControl.Visible)
         {
             TownMapControl.Hide();
             e.Handled = true;
@@ -731,7 +730,7 @@ public sealed partial class WorldScreen
         }
 
         //shout hotkey (shift+1)
-        if (e is { Key: Keys.D1, Shift: true })
+        if (e is { Scancode: Scancode.D1, Shift: true })
         {
             WorldHud.ChatInput.Focus($"{WorldHud.PlayerName}! ", Color.Yellow);
             e.Handled = true;
@@ -739,8 +738,17 @@ public sealed partial class WorldScreen
             return;
         }
 
-        //whisper hotkey (shift+")
-        if (e is { Key: Keys.OemQuotes, Shift: true })
+        //whisper hotkey — Shift + the key immediately left of Enter. that key differs by
+        //board, so it is identified here from the raw scancode/keycode the event carries
+        //rather than by a boundary translation:
+        //  ANSI (US)  : the apostrophe key — scancode OemQuotes.
+        //  ISO QWERTZ : the '#' key        — scancode OemPipe + keycode '#'.
+        //  ISO AZERTY : the '*'/'µ' key    — scancode OemPipe + keycode '*'.
+        //the keycode guard on OemPipe keeps the ANSI backslash key (same scancode, but it
+        //types '|' under Shift) from being mistaken for the ISO whisper key.
+        if (e is { Shift: true }
+            && ((e.Scancode == Scancode.OemQuotes)
+                || ((e.Scancode == Scancode.OemPipe) && e.Keycode is Keycode.Hash or Keycode.Asterisk)))
         {
             WorldHud.ChatInput.FocusWhisper();
             e.Handled = true;
@@ -751,15 +759,15 @@ public sealed partial class WorldScreen
         //tab panel switching — blocked while dragging the orange bar
         if (!WorldHud.IsOrangeBarDragging)
         {
-            HudTab? tab = e.Key switch
+            HudTab? tab = e.Scancode switch
             {
-                Keys.A => HudTab.Inventory,
-                Keys.S => HudTab.Skills,
-                Keys.D => HudTab.Spells,
-                Keys.F => HudTab.Chat,
-                Keys.G => HudTab.Stats,
-                Keys.H => HudTab.Tools,
-                _      => null
+                Scancode.A => HudTab.Inventory,
+                Scancode.S => HudTab.Skills,
+                Scancode.D => HudTab.Spells,
+                Scancode.F => HudTab.Chat,
+                Scancode.G => HudTab.Stats,
+                Scancode.H => HudTab.Tools,
+                _ => null
             };
 
             if (tab is not null)
@@ -772,7 +780,7 @@ public sealed partial class WorldScreen
         }
 
         //tab — toggle tab map overlay (suppressed by NoTabMap map flag)
-        if (e.Key == Keys.Tab)
+        if (e.Scancode == Scancode.Tab)
         {
             if (!CurrentMapFlags.HasFlag(MapFlags.NoTabMap))
                 TabMapVisible = !TabMapVisible;
@@ -785,7 +793,7 @@ public sealed partial class WorldScreen
         //pageup/pagedown — tab map zoom
         if (TabMapVisible)
         {
-            if (e.Key == Keys.PageUp)
+            if (e.Scancode == Scancode.PageUp)
             {
                 TabMapRenderer.ZoomIn();
                 e.Handled = true;
@@ -793,7 +801,7 @@ public sealed partial class WorldScreen
                 return;
             }
 
-            if (e.Key == Keys.PageDown)
+            if (e.Scancode == Scancode.PageDown)
             {
                 TabMapRenderer.ZoomOut();
                 e.Handled = true;
@@ -803,7 +811,7 @@ public sealed partial class WorldScreen
         }
 
         //f1 — help merchant (server-side)
-        if (e.Key == Keys.F1)
+        if (e.Scancode == Scancode.F1)
         {
             Game.Connection.ClickEntity(uint.MaxValue);
             e.Handled = true;
@@ -812,7 +820,7 @@ public sealed partial class WorldScreen
         }
 
         //f3 — macro menu
-        if (e.Key == Keys.F3)
+        if (e.Scancode == Scancode.F3)
         {
             if (CanShowOptionsPanel(SettingsDialog, FriendsList))
                 MacrosList.Show();
@@ -823,7 +831,7 @@ public sealed partial class WorldScreen
         }
 
         //f4 — settings
-        if (e.Key == Keys.F4)
+        if (e.Scancode == Scancode.F4)
         {
             if (CanShowOptionsPanel(MacrosList, FriendsList))
                 SettingsDialog.Show();
@@ -834,7 +842,7 @@ public sealed partial class WorldScreen
         }
 
         //f5 — refresh
-        if (e.Key == Keys.F5)
+        if (e.Scancode == Scancode.F5)
         {
             Game.Connection.RequestRefresh();
             e.Handled = true;
@@ -843,7 +851,7 @@ public sealed partial class WorldScreen
         }
 
         //f7 — board list
-        if (e.Key == Keys.F7)
+        if (e.Scancode == Scancode.F7)
         {
             Game.Connection.SendBoardInteraction(BoardRequestType.BoardList);
             e.Handled = true;
@@ -854,7 +862,7 @@ public sealed partial class WorldScreen
         //f8 — unused (group panel moved to y key)
 
         //f9 — ignore list management (toggle)
-        if (e.Key == Keys.F9)
+        if (e.Scancode == Scancode.F9)
         {
             if (WorldHud.ChatInput.Mode != ChatMode.None)
                 WorldHud.ChatInput.Unfocus();
@@ -867,7 +875,7 @@ public sealed partial class WorldScreen
         }
 
         //f10 — friends list
-        if (e.Key == Keys.F10)
+        if (e.Scancode == Scancode.F10)
         {
             if (CanShowOptionsPanel(MacrosList, SettingsDialog))
                 FriendsList.Show();
@@ -878,7 +886,7 @@ public sealed partial class WorldScreen
         }
 
         // — swap hud layout (small <-> large)
-        if (e is { Key: Keys.OemQuestion, Shift: false })
+        if (e is { Scancode: Scancode.OemQuestion, Shift: false })
         {
             SwapHudLayout();
             e.Handled = true;
@@ -887,7 +895,7 @@ public sealed partial class WorldScreen
         }
 
         //` — unequip weapon and shield
-        if (e.Key == Keys.OemTilde)
+        if (e.Scancode == Scancode.OemTilde)
         {
             if (WorldState.Equipment.GetSlot(EquipmentSlot.Weapon) is not null)
                 Game.Connection.Unequip(EquipmentSlot.Weapon);
@@ -901,7 +909,7 @@ public sealed partial class WorldScreen
         }
 
         //j — flash group member highlighting (1000ms, gated while pending or active)
-        if ((e.Key == Keys.J) && !GroupHighlightRequested && (GroupHighlightedIds.Count == 0))
+        if ((e.Scancode == Scancode.J) && !GroupHighlightRequested && (GroupHighlightedIds.Count == 0))
         {
             GroupHighlightRequested = true;
             Game.Connection.RequestSelfProfile();
@@ -911,7 +919,7 @@ public sealed partial class WorldScreen
         }
 
         //b — pick up item from under player, or from the tile in front
-        if (e.Key == Keys.B)
+        if (e.Scancode == Scancode.B)
         {
             TryPickupItem();
             e.Handled = true;
@@ -920,7 +928,7 @@ public sealed partial class WorldScreen
         }
 
         //t — town map toggle
-        if (e.Key == Keys.T)
+        if (e.Scancode == Scancode.T)
         {
             if (TownMapControl.Visible)
                 TownMapControl.Hide();
@@ -938,7 +946,7 @@ public sealed partial class WorldScreen
         }
 
         //y — group panel (members tab)
-        if (e.Key == Keys.Y)
+        if (e.Scancode == Scancode.Y)
         {
             Game.Connection.RequestSelfProfile();
             GroupPanel.ShowMembers();
@@ -956,9 +964,9 @@ public sealed partial class WorldScreen
             return;
 
         //shift+up/down scrolls the active chat-style panel (F = chat, shift+F = message history)
-        if (e.Shift && e.Key is Keys.Up or Keys.Down)
+        if (e.Shift && e.Scancode is Scancode.Up or Scancode.Down)
         {
-            var scrollDelta = e.Key == Keys.Up ? 1 : -1;
+            var scrollDelta = e.Scancode == Scancode.Up ? 1 : -1;
 
             if (WorldHud.ChatDisplay.Visible)
             {
@@ -978,17 +986,17 @@ public sealed partial class WorldScreen
         }
 
         //player movement — arrow keys and zxcv
-        Direction? direction = e.Key switch
+        Direction? direction = e.Scancode switch
         {
-            Keys.Up    => Direction.Up,
-            Keys.Right => Direction.Right,
-            Keys.Down  => Direction.Down,
-            Keys.Left  => Direction.Left,
-            Keys.C     => Direction.Up,
-            Keys.V     => Direction.Right,
-            Keys.X     => Direction.Down,
-            Keys.Z     => Direction.Left,
-            _          => null
+            Scancode.Up => Direction.Up,
+            Scancode.Right => Direction.Right,
+            Scancode.Down => Direction.Down,
+            Scancode.Left => Direction.Left,
+            Scancode.C => Direction.Up,
+            Scancode.V => Direction.Right,
+            Scancode.X => Direction.Down,
+            Scancode.Z => Direction.Left,
+            _ => null
         };
 
         if (direction.HasValue)

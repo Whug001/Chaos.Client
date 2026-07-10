@@ -10,7 +10,6 @@ using Chaos.DarkAges.Definitions;
 using Chaos.Extensions.Common;
 using Microsoft.Xna.Framework;
 using Microsoft.Xna.Framework.Graphics;
-using Microsoft.Xna.Framework.Input;
 #endregion
 
 namespace Chaos.Client.Controls.World.Popups.WorldList;
@@ -388,7 +387,7 @@ public sealed class WorldListControl : PrefabPanel
         if (Slide.Sliding)
             return;
 
-        if (e.Key == Keys.Escape)
+        if (e.Keycode == Keycode.Escape)
         {
             SlideClose();
             e.Handled = true;

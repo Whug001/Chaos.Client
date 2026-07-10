@@ -6,7 +6,6 @@ using Chaos.Client.Data.Repositories;
 using Chaos.Client.Models;
 using Chaos.Networking.Entities.Server;
 using Microsoft.Xna.Framework;
-using Microsoft.Xna.Framework.Input;
 #endregion
 
 namespace Chaos.Client.Controls.World.Popups.Profile;
@@ -236,7 +235,7 @@ public sealed class OtherProfileTabControl : PrefabPanel
 
     public override void OnKeyDown(KeyDownEvent e)
     {
-        if (e.Key == Keys.Escape)
+        if (e.Keycode == Keycode.Escape)
         {
             Hide();
             e.Handled = true;

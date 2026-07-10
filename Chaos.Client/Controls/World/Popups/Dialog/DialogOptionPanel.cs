@@ -2,7 +2,6 @@
 using Chaos.Client.Controls.Components;
 using Microsoft.Xna.Framework;
 using Microsoft.Xna.Framework.Graphics;
-using Microsoft.Xna.Framework.Input;
 #endregion
 
 namespace Chaos.Client.Controls.World.Popups.Dialog;
@@ -52,7 +51,7 @@ public sealed class DialogOptionPanel : FramedDialogPanelBase
     {
         Name = "OptionMenu";
         Visible = false;
-        
+
         OkButton = CreateButton("Btn1");
 
         OkButton?.Enabled = false;
@@ -191,7 +190,7 @@ public sealed class DialogOptionPanel : FramedDialogPanelBase
 
     public override void OnKeyDown(KeyDownEvent e)
     {
-        if (e.Key == Keys.Escape)
+        if (e.Keycode == Keycode.Escape)
         {
             Hide();
             OnClose?.Invoke();

@@ -2,7 +2,6 @@
 using Chaos.Client.Controls.Components;
 using Chaos.Networking.Entities.Server;
 using Microsoft.Xna.Framework.Graphics;
-using Microsoft.Xna.Framework.Input;
 #endregion
 
 namespace Chaos.Client.Controls.World.Popups;
@@ -439,7 +438,7 @@ public sealed class GroupRecruitPanel : PrefabPanel
 
     public override void OnKeyDown(KeyDownEvent e)
     {
-        if (e.Key == Keys.Escape)
+        if (e.Keycode == Keycode.Escape)
         {
             Hide();
             OnClose?.Invoke();

@@ -15,7 +15,6 @@ using Chaos.DarkAges.Definitions;
 using Chaos.Networking.Entities.Server;
 using Microsoft.Xna.Framework;
 using Microsoft.Xna.Framework.Graphics;
-using Microsoft.Xna.Framework.Input;
 #endregion
 
 namespace Chaos.Client.Screens;
@@ -608,8 +607,9 @@ public sealed class LobbyLoginScreen : IScreen
             if (Screen is null)
                 return;
 
-            //alt+enter — cycle window size
-            if ((e.Key == Keys.Enter) && e.Modifiers.HasFlag(KeyModifiers.Alt))
+            //alt+enter — cycle window size. positional command hotkey, so it reads the
+            //physical Enter key (matches the dispatcher phase-0 and WorldScreen handlers).
+            if ((e.Scancode == Scancode.Enter) && e.Modifiers.HasFlag(KeyModifiers.Alt))
             {
                 Screen.Game.CycleWindowSize();
                 e.Handled = true;
@@ -618,7 +618,7 @@ public sealed class LobbyLoginScreen : IScreen
             }
 
             //enter — repeat last-clicked button when no sub-control is open
-            if ((e.Key == Keys.Enter)
+            if ((e.Keycode == Keycode.Enter)
                 && Screen.LastClickedButton is { Enabled: true }
                 && !Screen.LoginControl.Visible
                 && !Screen.ServerSelectControl.Visible
@@ -632,7 +632,7 @@ public sealed class LobbyLoginScreen : IScreen
             }
 
             //escape — dismiss serverselectcontrol when it is visible and nothing else claims focus
-            if ((e.Key == Keys.Escape) && Screen.ServerSelectControl.Visible)
+            if ((e.Keycode == Keycode.Escape) && Screen.ServerSelectControl.Visible)
             {
                 Screen.ServerSelectControl.Visible = false;
                 e.Handled = true;

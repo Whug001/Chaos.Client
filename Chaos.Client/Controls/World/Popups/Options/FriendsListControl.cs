@@ -4,7 +4,6 @@ using Chaos.Client.Extensions;
 using Chaos.Client.Utilities;
 using Microsoft.Xna.Framework;
 using Microsoft.Xna.Framework.Graphics;
-using Microsoft.Xna.Framework.Input;
 #endregion
 
 namespace Chaos.Client.Controls.World.Popups.Options;
@@ -71,7 +70,7 @@ public sealed class FriendsListControl : PrefabPanel
                 40,
                 175,
                 MAX_VISIBLE_ROWS * ROW_HEIGHT);
-        
+
         for (var i = 0; i < MAX_VISIBLE_ROWS; i++)
         {
             NamesColumn1[i] = new UITextBox
@@ -276,7 +275,7 @@ public sealed class FriendsListControl : PrefabPanel
         if (Slide.Sliding)
             return;
 
-        if (e.Key == Keys.Escape)
+        if (e.Keycode == Keycode.Escape)
         {
             Close();
             e.Handled = true;

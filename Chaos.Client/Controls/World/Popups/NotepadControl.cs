@@ -5,7 +5,6 @@ using Chaos.Client.Extensions;
 using DALib.Drawing;
 using DALib.Drawing.Virtualized;
 using Microsoft.Xna.Framework;
-using Microsoft.Xna.Framework.Input;
 using SkiaSharp;
 #endregion
 
@@ -380,7 +379,7 @@ public sealed class NotepadControl : UIPanel
 
     public override void OnKeyDown(KeyDownEvent e)
     {
-        if (e.Key == Keys.Escape)
+        if (e.Keycode == Keycode.Escape)
         {
             Close();
             e.Handled = true;

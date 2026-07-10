@@ -4,7 +4,6 @@ using Chaos.Client.Extensions;
 using Chaos.Client.Utilities;
 using Chaos.Client.ViewModel;
 using Microsoft.Xna.Framework;
-using Microsoft.Xna.Framework.Input;
 #endregion
 
 namespace Chaos.Client.Controls.World.Popups.Options;
@@ -220,7 +219,8 @@ public sealed class SettingsControl : PrefabPanel
         if (Slide.Sliding)
             return;
 
-        if (e.Key is Keys.Escape or Keys.F4)
+        //Escape cancels (label key); F4 is the positional command hotkey that toggles settings.
+        if ((e.Keycode == Keycode.Escape) || (e.Scancode == Scancode.F4))
         {
             Close();
             e.Handled = true;

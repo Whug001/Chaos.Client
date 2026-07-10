@@ -5,7 +5,6 @@ using Chaos.Client.Data;
 using Chaos.Client.Utilities;
 using Microsoft.Xna.Framework;
 using Microsoft.Xna.Framework.Graphics;
-using Microsoft.Xna.Framework.Input;
 #endregion
 
 namespace Chaos.Client.Controls.Generic;
@@ -157,7 +156,7 @@ public sealed class TextPopupControl : UIPanel
 
     public override void OnKeyDown(KeyDownEvent e)
     {
-        if (e.Key is Keys.Escape or Keys.Space or Keys.Enter)
+        if (e.Keycode is Keycode.Escape or Keycode.Space or Keycode.Enter)
         {
             Hide();
             e.Handled = true;

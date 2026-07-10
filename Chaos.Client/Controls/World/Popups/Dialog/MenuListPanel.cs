@@ -7,7 +7,6 @@ using Chaos.DarkAges.Definitions;
 using Chaos.Networking.Entities.Server;
 using Microsoft.Xna.Framework;
 using Microsoft.Xna.Framework.Graphics;
-using Microsoft.Xna.Framework.Input;
 #endregion
 
 namespace Chaos.Client.Controls.World.Popups.Dialog;
@@ -396,7 +395,7 @@ public sealed class MenuListPanel : FramedDialogPanelBase
 
     public override void OnKeyDown(KeyDownEvent e)
     {
-        if (e.Key == Keys.Escape)
+        if (e.Keycode == Keycode.Escape)
         {
             Hide();
             OnClose?.Invoke();
@@ -404,7 +403,7 @@ public sealed class MenuListPanel : FramedDialogPanelBase
             return;
         }
 
-        if (e.Key is Keys.Enter or Keys.Space && SelectedIndex >= 0)
+        if (e.Keycode is Keycode.Enter or Keycode.Space && SelectedIndex >= 0)
         {
             OnItemSelected?.Invoke(SelectedIndex);
             e.Handled = true;

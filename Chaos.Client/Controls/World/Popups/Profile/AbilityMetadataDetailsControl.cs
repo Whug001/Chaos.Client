@@ -7,7 +7,6 @@ using Chaos.Client.ViewModel;
 using Chaos.Extensions.Common;
 using Microsoft.Xna.Framework;
 using Microsoft.Xna.Framework.Graphics;
-using Microsoft.Xna.Framework.Input;
 #endregion
 
 namespace Chaos.Client.Controls.World.Popups.Profile;
@@ -256,7 +255,7 @@ public sealed class AbilityMetadataDetailsControl : PrefabPanel
 
     public override void OnKeyDown(KeyDownEvent e)
     {
-        if (e.Key is Keys.Escape or Keys.Enter)
+        if (e.Keycode is Keycode.Escape or Keycode.Enter)
         {
             Hide();
             e.Handled = true;

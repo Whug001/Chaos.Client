@@ -4,7 +4,6 @@ using Chaos.Client.Data;
 using Chaos.Client.Extensions;
 using Chaos.Client.Utilities;
 using Microsoft.Xna.Framework;
-using Microsoft.Xna.Framework.Input;
 #endregion
 
 namespace Chaos.Client.Controls.World.Popups.Options;
@@ -183,7 +182,8 @@ public sealed class MacrosListControl : PrefabPanel
         if (Slide.Sliding)
             return;
 
-        if (e.Key is Keys.Escape or Keys.F3)
+        //Escape cancels (label key); F3 is the positional command hotkey that toggles macros.
+        if ((e.Keycode == Keycode.Escape) || (e.Scancode == Scancode.F3))
         {
             Close();
             e.Handled = true;

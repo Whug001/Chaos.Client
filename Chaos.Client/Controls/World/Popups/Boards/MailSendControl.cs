@@ -3,7 +3,6 @@ using Chaos.Client.Controls.Components;
 using Chaos.Client.Controls.Generic;
 using Chaos.Client.Controls.Scrolling;
 using Microsoft.Xna.Framework;
-using Microsoft.Xna.Framework.Input;
 #endregion
 
 namespace Chaos.Client.Controls.World.Popups.Boards;
@@ -55,7 +54,7 @@ public sealed class MailSendControl : PrefabPanel
         ReceiverEditBox = CreateTextBox("ReceiverEdit", 24);
         ReceiverEditBox?.ForegroundColor = LegendColors.White;
         ReceiverEditBox?.IsTabStop = true;
-        
+
         TitleBox = CreateTextBox("Title", 60);
         TitleBox?.ForegroundColor = LegendColors.White;
         TitleBox?.IsTabStop = true;
@@ -167,16 +166,16 @@ public sealed class MailSendControl : PrefabPanel
 
     public override void OnKeyDown(KeyDownEvent e)
     {
-        switch (e.Key)
+        switch (e.Keycode)
         {
-            case Keys.Escape:
+            case Keycode.Escape:
                 Hide();
                 OnCancel?.Invoke();
                 e.Handled = true;
 
                 break;
 
-            case Keys.Tab:
+            case Keycode.Tab:
                 if (ReceiverEditBox?.IsFocused == true)
                 {
                     ReceiverEditBox.IsFocused = false;
@@ -196,7 +195,7 @@ public sealed class MailSendControl : PrefabPanel
 
                 break;
 
-            case Keys.Enter when ReceiverEditBox?.IsFocused == true:
+            case Keycode.Enter when ReceiverEditBox?.IsFocused == true:
                 ReceiverEditBox.IsFocused = false;
 
                 if (TitleBox is not null)

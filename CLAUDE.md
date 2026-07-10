@@ -174,7 +174,7 @@ Authoritative state objects exposed as static properties on WorldState, updated 
 
 ### Entry Point
 - **`ChaosGame : Game`** -- 640x480 virtual resolution MonoGame window. Owns ConnectionManager, shared renderers (Aisling/Creature/Effect/Item), SoundSystem, InputDispatcher, ScreenManager. Global entity event wiring at construction. WorldState, ClientSettings, and InputBuffer are static classes (not owned by ChaosGame).
-- **`InputBuffer`** (static) -- Process-global input buffer driven by a single `SDL_AddEventWatch` callback. Unified event stream for keyboard, text, mouse button, and mouse wheel events in true OS post order (chronological `Events` buffer), with live cursor position refreshed each frame from `SDL_GetMouseState`. Query API: `WasKeyPressed()`, `IsKeyHeld()`, `TextInput`, `MouseX`/`MouseY`, `IsLeftButtonHeld`/`IsRightButtonHeld`. Lifecycle: `Initialize()` / `Update(isActive)` / `Shutdown()`.
+- **`InputBuffer`** (static) -- Process-global input buffer driven by a single `SDL_AddEventWatch` callback. Unified event stream for keyboard, text, mouse button, and mouse wheel events in true OS post order (chronological `Events` buffer), with live cursor position refreshed each frame from `SDL_GetMouseState`. Query API: `WasScancodePressed()`, `IsScancodeHeld()`, `TextInput`, `MouseX`/`MouseY`, `IsLeftButtonHeld`/`IsRightButtonHeld` (keyboard polling is scancode-based; event handlers read `Scancode`/`Keycode` off the event). Lifecycle: `Initialize()` / `Update(isActive)` / `Shutdown()`.
 
 ### Input Dispatch (`InputDispatcher`)
 Per-frame processor that reads `InputBuffer` state and produces UI events. Key concepts:

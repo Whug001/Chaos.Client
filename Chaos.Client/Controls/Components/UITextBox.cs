@@ -3,7 +3,6 @@ using Chaos.Client.Controls.Scrolling;
 using Chaos.Client.Utilities;
 using Microsoft.Xna.Framework;
 using Microsoft.Xna.Framework.Graphics;
-using Microsoft.Xna.Framework.Input;
 #endregion
 
 namespace Chaos.Client.Controls.Components;
@@ -419,8 +418,8 @@ public class UITextBox : UIElement, IVerticalScrollable
                 var alignX = HorizontalAlignment switch
                 {
                     HorizontalAlignment.Center => alignBounds.X + (alignBounds.Width - TextElement.Width) / 2,
-                    HorizontalAlignment.Right  => alignBounds.X + alignBounds.Width - TextElement.Width,
-                    _                    => alignBounds.X
+                    HorizontalAlignment.Right => alignBounds.X + alignBounds.Width - TextElement.Width,
+                    _ => alignBounds.X
                 };
 
                 var alignY = alignBounds.Y + (alignBounds.Height - TextElement.Height) / 2;
@@ -849,7 +848,7 @@ public class UITextBox : UIElement, IVerticalScrollable
     }
 
     /// <summary>
-    ///     Inserts a newline at the cursor for multiline boxes. Driven by <see cref="OnKeyDown" /> (Keys.Enter) rather
+    ///     Inserts a newline at the cursor for multiline boxes. Driven by <see cref="OnKeyDown" /> (Keycode.Enter) rather
     ///     than text input because SDL never delivers a text-input event for the Return key. Honors <see cref="MaxLength" />
     ///     and reverts the insertion when <see cref="ClampToVisibleArea" /> would be exceeded.
     /// </summary>
@@ -1036,31 +1035,66 @@ public class UITextBox : UIElement, IVerticalScrollable
         var shift = e.Shift;
         var ctrl = e.Ctrl;
 
-        switch (e.Key)
+        //clipboard/select-all use the platform accelerator (Ctrl on Windows/Linux, Cmd on macOS).
+        //e.Accelerator already excludes Alt so an AltGr/Option-typed character (common on
+        //AZERTY/QWERTZ) can't select-all-then-replace.
+        var accel = e.Accelerator;
+
+        switch (e.Keycode)
         {
             //── navigation ──
-            case Keys.Left:
+            case Keycode.Left:
                 if (!shift && HasSelection)
                     MoveCursor(SelectionStart, false);
                 else if (CursorPosition > 0)
-                    MoveCursor(ctrl ? FindWordBoundaryLeft(CursorPosition) : StepLeft(CursorPosition), shift);
+                {
+                    int target;
+
+                    if (e.LineJump)
+                        target = IsMultiLine ? LineStarts[GetLineForPosition(CursorPosition)] : 0;
+                    else if (e.WordJump)
+                        target = FindWordBoundaryLeft(CursorPosition);
+                    else
+                        target = StepLeft(CursorPosition);
+
+                    MoveCursor(target, shift);
+                }
 
                 e.Handled = true;
 
                 break;
 
-            case Keys.Right:
+            case Keycode.Right:
                 if (!shift && HasSelection)
                     MoveCursor(SelectionEnd, false);
                 else if (CursorPosition < Text.Length)
-                    MoveCursor(ctrl ? FindWordBoundaryRight(CursorPosition) : StepRight(CursorPosition), shift);
+                {
+                    int target;
+
+                    if (e.LineJump)
+                    {
+                        if (IsMultiLine)
+                        {
+                            var line = GetLineForPosition(CursorPosition);
+                            target = LineStarts[line] + GetLineText(line).Length;
+                        } else
+                            target = Text.Length;
+                    } else if (e.WordJump)
+                        target = FindWordBoundaryRight(CursorPosition);
+                    else
+                        target = StepRight(CursorPosition);
+
+                    MoveCursor(target, shift);
+                }
 
                 e.Handled = true;
 
                 break;
 
-            case Keys.Up:
-                if (IsMultiLine)
+            case Keycode.Up:
+                if (e.LineJump)
+                    MoveCursor(0, shift);
+                else if (IsMultiLine)
                 {
                     var cursorLine = GetLineForPosition(CursorPosition);
 
@@ -1082,8 +1116,10 @@ public class UITextBox : UIElement, IVerticalScrollable
 
                 break;
 
-            case Keys.Down:
-                if (IsMultiLine)
+            case Keycode.Down:
+                if (e.LineJump)
+                    MoveCursor(Text.Length, shift);
+                else if (IsMultiLine)
                 {
                     var cursorLine = GetLineForPosition(CursorPosition);
 
@@ -1105,7 +1141,7 @@ public class UITextBox : UIElement, IVerticalScrollable
 
                 break;
 
-            case Keys.Home:
+            case Keycode.Home:
                 if (IsMultiLine && !ctrl)
                 {
                     var cursorLine = GetLineForPosition(CursorPosition);
@@ -1117,7 +1153,7 @@ public class UITextBox : UIElement, IVerticalScrollable
 
                 break;
 
-            case Keys.End:
+            case Keycode.End:
                 if (IsMultiLine && !ctrl)
                 {
                     var cursorLine = GetLineForPosition(CursorPosition);
@@ -1131,40 +1167,40 @@ public class UITextBox : UIElement, IVerticalScrollable
                 break;
 
             //── selection / clipboard ──
-            case Keys.A when ctrl && IsSelectable:
+            case Keycode.A when accel && IsSelectable:
                 SelectAll();
                 e.Handled = true;
 
                 break;
 
-            case Keys.C when ctrl && HasSelection:
-            {
-                var clipboardText = IsMasked ? new string('*', SelectionLength) : StripColorCodes(SelectedText);
-                Clipboard.SetText(clipboardText);
-                e.Handled = true;
+            case Keycode.C when accel && HasSelection:
+                {
+                    var clipboardText = IsMasked ? new string('*', SelectionLength) : StripColorCodes(SelectedText);
+                    Clipboard.SetText(clipboardText);
+                    e.Handled = true;
 
-                break;
-            }
+                    break;
+                }
 
-            case Keys.X when ctrl && HasSelection && !IsReadOnly:
-            {
-                var clipboardText = IsMasked ? new string('*', SelectionLength) : StripColorCodes(SelectedText);
-                Clipboard.SetText(clipboardText);
-                DeleteSelection();
-                ResetCursor();
-                e.Handled = true;
+            case Keycode.X when accel && HasSelection && !IsReadOnly:
+                {
+                    var clipboardText = IsMasked ? new string('*', SelectionLength) : StripColorCodes(SelectedText);
+                    Clipboard.SetText(clipboardText);
+                    DeleteSelection();
+                    ResetCursor();
+                    e.Handled = true;
 
-                break;
-            }
+                    break;
+                }
 
-            case Keys.V when ctrl && !IsReadOnly:
+            case Keycode.V when accel && !IsReadOnly:
                 HandlePaste();
                 e.Handled = true;
 
                 break;
 
             //── editing ──
-            case Keys.Delete when ctrl && !IsReadOnly:
+            case Keycode.Delete when e.WordJump && !IsReadOnly:
                 if (HasSelection)
                     DeleteSelection();
                 else if (CursorPosition < Text.Length)
@@ -1178,7 +1214,7 @@ public class UITextBox : UIElement, IVerticalScrollable
 
                 break;
 
-            case Keys.Delete when !IsReadOnly:
+            case Keycode.Delete when !IsReadOnly:
                 if (HasSelection)
                     DeleteSelection();
                 else if (CursorPosition < Text.Length)
@@ -1193,7 +1229,7 @@ public class UITextBox : UIElement, IVerticalScrollable
 
                 break;
 
-            case Keys.Back when ctrl && !IsReadOnly:
+            case Keycode.Back when e.WordJump && !IsReadOnly:
                 if (HasSelection)
                     DeleteSelection();
                 else if (CursorPosition > 0)
@@ -1209,7 +1245,7 @@ public class UITextBox : UIElement, IVerticalScrollable
 
                 break;
 
-            case Keys.Back when !IsReadOnly:
+            case Keycode.Back when !IsReadOnly:
                 HandleBackspace();
                 e.Handled = true;
 
@@ -1219,7 +1255,7 @@ public class UITextBox : UIElement, IVerticalScrollable
             //SDL never delivers a text-input event for Return, so newline insertion is driven
             //here rather than in OnTextInput. single-line boxes fall through to default and let
             //Enter bubble so parent panels (chat send, field cycling) can act on it.
-            case Keys.Enter when IsMultiLine && !IsReadOnly:
+            case Keycode.Enter when IsMultiLine && !IsReadOnly:
                 InsertNewLine();
                 e.Handled = true;
 
@@ -1229,7 +1265,7 @@ public class UITextBox : UIElement, IVerticalScrollable
                 //consume all other key presses while focused so they don't bubble
                 //to hotkey handlers. actual character insertion happens via ontextinput.
                 //let escape and tab bubble for unfocus / focus cycling.
-                if (e.Key is not Keys.Escape && !(e.Key is Keys.Enter && !IsMultiLine) && !(e.Key is Keys.Tab && IsTabStop))
+                if (e.Keycode is not Keycode.Escape && !(e.Keycode is Keycode.Enter && !IsMultiLine) && !(e.Keycode is Keycode.Tab && IsTabStop))
                     e.Handled = true;
 
                 break;
@@ -1260,7 +1296,7 @@ public class UITextBox : UIElement, IVerticalScrollable
         if ((c == '\t') && IsTabStop)
             return;
 
-        //newline insertion is driven by OnKeyDown (Keys.Enter); SDL never delivers Return as
+        //newline insertion is driven by OnKeyDown (Keycode.Enter); SDL never delivers Return as
         //text input. drop any newline that does arrive this way (e.g. via an IME) so it can't
         //double-insert on top of the key-driven path.
         if ((c == '\r') || (c == '\n'))

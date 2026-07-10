@@ -1,6 +1,6 @@
 #region
 using System.Runtime.InteropServices;
-using Microsoft.Xna.Framework.Input;
+using Chaos.Client.Definitions;
 #endregion
 
 namespace Chaos.Client;
@@ -19,7 +19,7 @@ namespace Chaos.Client;
 ///         and <see cref="Shutdown" /> on application exit (removes the watcher). Any code
 ///         can read the static query surface: <see cref="MouseX" /> / <see cref="MouseY" />,
 ///         <see cref="IsLeftButtonHeld" /> / <see cref="IsRightButtonHeld" />,
-///         <see cref="IsKeyHeld" /> / <see cref="WasKeyPressed" /> / <see cref="WasKeyReleased" />,
+///         <see cref="IsScancodeHeld" /> / <see cref="WasScancodePressed" /> / <see cref="WasScancodeReleased" />,
 ///         <see cref="TextInput" />, and the chronologically-ordered <see cref="Events" /> stream.
 ///     </para>
 /// </summary>
@@ -29,7 +29,11 @@ public static class InputBuffer
     //  live state (held / tracked across frames, updated by the SDL watcher)
     //─────────────────────────────────────────────────────────────────────────────
 
-    private static readonly HashSet<Keys> HeldKeys = [];
+    //the held-key set: each currently-held physical key mapped to the keycode it produced at
+    //press time. keyed by scancode — the stable physical identity — so held state can never be
+    //stranded by a mid-hold layout switch. keycodes are layout-dependent, so a KeyUp emits the
+    //same keycode the press did even if the layout switched mid-hold.
+    private static readonly Dictionary<Scancode, Keycode> PressedKeycodeByScancode = [];
     private static int RawMouseX;
     private static int RawMouseY;
     private static float VirtualScaleX = 1f;
@@ -49,8 +53,8 @@ public static class InputBuffer
     //  frame snapshot (frozen at the start of each Update())
     //─────────────────────────────────────────────────────────────────────────────
 
-    private static readonly HashSet<Keys> FrameKeyPresses = [];
-    private static readonly HashSet<Keys> FrameKeyReleases = [];
+    private static readonly HashSet<Scancode> FrameKeyPresses = [];
+    private static readonly HashSet<Scancode> FrameKeyReleases = [];
     private static BufferedInputEvent[] EventBuffer = [];
     private static int EventCount;
     private static char[] TextBuffer = [];
@@ -107,20 +111,22 @@ public static class InputBuffer
     public static bool IsRightButtonHeld { get; private set; }
 
     /// <summary>
-    ///     Returns true if the key is currently held down (event-tracked, not polled).
+    ///     Returns true if the physical key is currently held down (event-tracked, not
+    ///     polled). Keyed by scancode so it is layout-independent — the caller asks about a
+    ///     physical position, not a printed label.
     /// </summary>
-    public static bool IsKeyHeld(Keys key) => HeldKeys.Contains(key);
+    public static bool IsScancodeHeld(Scancode scancode) => PressedKeycodeByScancode.ContainsKey(scancode);
 
     /// <summary>
-    ///     Returns true if the key had a rising edge (was pressed) during this frame. OS
-    ///     key-repeat events are filtered out — only the initial press fires.
+    ///     Returns true if the physical key had a rising edge (was pressed) during this
+    ///     frame. OS key-repeat events are filtered out — only the initial press fires.
     /// </summary>
-    public static bool WasKeyPressed(Keys key) => FrameKeyPresses.Contains(key);
+    public static bool WasScancodePressed(Scancode scancode) => FrameKeyPresses.Contains(scancode);
 
     /// <summary>
-    ///     Returns true if the key had a falling edge (was released) during this frame.
+    ///     Returns true if the physical key had a falling edge (was released) during this frame.
     /// </summary>
-    public static bool WasKeyReleased(Keys key) => FrameKeyReleases.Contains(key);
+    public static bool WasScancodeReleased(Scancode scancode) => FrameKeyReleases.Contains(scancode);
 
     /// <summary>
     ///     Characters typed during this frame (from TextInput events). Includes OS
@@ -223,7 +229,7 @@ public static class InputBuffer
         //otherwise persist as stale state until the user refocuses and re-taps.
         if (WasActivePreviousFrame && !isActive)
         {
-            HeldKeys.Clear();
+            PressedKeycodeByScancode.Clear();
             IsLeftButtonHeld = false;
             IsRightButtonHeld = false;
         }
@@ -239,7 +245,7 @@ public static class InputBuffer
 
         //freeze the unified event stream and derive the query-style frame snapshot
         //in one pass. FrameKeyPresses/FrameKeyReleases/TextBuffer exist only so that
-        //the O(1) accessors (WasKeyPressed etc.) don't have to scan Events each call.
+        //the O(1) accessors (WasScancodePressed etc.) don't have to scan Events each call.
         var pendingCount = PendingEvents.Count;
 
         if (pendingCount > 0)
@@ -260,11 +266,11 @@ public static class InputBuffer
                 switch (evt.Kind)
                 {
                     case BufferedInputKind.KeyDown:
-                        FrameKeyPresses.Add(evt.Key);
+                        FrameKeyPresses.Add(evt.Scancode);
 
                         break;
                     case BufferedInputKind.KeyUp:
-                        FrameKeyReleases.Add(evt.Key);
+                        FrameKeyReleases.Add(evt.Scancode);
 
                         break;
                     case BufferedInputKind.TextInput:
@@ -326,10 +332,12 @@ public static class InputBuffer
 
     private static void HandleKeyEvent(nint sdlEvent, bool isDown)
     {
-        var scancode = Marshal.ReadInt32(sdlEvent, Sdl.KEYBOARDEVENT_SCANCODE_OFFSET);
-        var key = TranslateScancode(scancode);
+        //raw scancode (physical position) and keycode (layout-mapped label) are recorded
+        //verbatim — no translation policy. consumers decide per-hotkey which one they want:
+        //positional hotkeys read Scancode, label-following shortcuts read Keycode.
+        var scancode = NormalizeScancode(Marshal.ReadInt32(sdlEvent, Sdl.KEYBOARDEVENT_SCANCODE_OFFSET));
 
-        if (key == Keys.None)
+        if (scancode == Scancode.Unknown)
             return;
 
         //SDL stamps keysym.mod with the live modifier state at event time. reading
@@ -341,14 +349,51 @@ public static class InputBuffer
 
         if (isDown)
         {
-            HeldKeys.Add(key);
-            PendingEvents.Add(BufferedInputEvent.ForKeyDown(key, mods));
+            //record the keycode ONCE per hold and reuse it for every KEYDOWN of the hold,
+            //including unfiltered OS key-repeats. keycodes are layout-dependent, so a layout
+            //switch mid-hold must not change the keycode a repeat or the release reports — press
+            //and release always agree because both read this record. held state is keyed by
+            //scancode, which never changes for a physical key, so it can never be stranded. a
+            //KeyDown is still emitted per repeat so held-key auto-repeat (textbox
+            //backspace/arrows) works.
+            if (!PressedKeycodeByScancode.TryGetValue(scancode, out var keycode))
+            {
+                keycode = NormalizeKeycode(Marshal.ReadInt32(sdlEvent, Sdl.KEYBOARDEVENT_SYM_OFFSET));
+                PressedKeycodeByScancode[scancode] = keycode;
+            }
+
+            PendingEvents.Add(BufferedInputEvent.ForKeyDown(scancode, keycode, mods));
         } else
         {
-            HeldKeys.Remove(key);
-            PendingEvents.Add(BufferedInputEvent.ForKeyUp(key, mods));
+            //fall back to the live keycode for a key pressed before Initialize or a focus
+            //regain, where no press keycode was recorded.
+            if (!PressedKeycodeByScancode.Remove(scancode, out var keycode))
+                keycode = NormalizeKeycode(Marshal.ReadInt32(sdlEvent, Sdl.KEYBOARDEVENT_SYM_OFFSET));
+
+            PendingEvents.Add(BufferedInputEvent.ForKeyUp(scancode, keycode, mods));
         }
     }
+
+    //folds the numpad digits, minus, and Enter onto their main-keyboard equivalents so a
+    //hotkey bound to a digit or Enter fires whether the user hits the number row or the numpad.
+    //this is a fixed physical equivalence, not a layout mapping — it does not vary by locale.
+    //everything else casts straight through, since Scancode's values are the raw SDL scancodes.
+    private static Scancode NormalizeScancode(int rawScancode)
+        => rawScancode switch
+        {
+            >= 89 and <= 97 => Scancode.D1 + (rawScancode - 89), //keypad 1-9 -> D1-D9
+            98 => Scancode.D0,                       //keypad 0
+            88 => Scancode.Enter,                    //keypad enter
+            86 => Scancode.OemMinus,                 //keypad minus
+            _ => (Scancode)rawScancode
+        };
+
+    //keeps NormalizeScancode's numpad-Enter fold consistent on the keycode side so numpad
+    //Enter still submits a focused textbox (which matches on keycode, not scancode). everything
+    //else casts straight through, since Keycode's values are the raw SDL keycodes.
+    private static Keycode NormalizeKeycode(int rawKeycode)
+        //SDLK_KP_ENTER = SDL_SCANCODE_KP_ENTER (88) | the named-key mask
+        => rawKeycode == ((1 << 30) | 88) ? Keycode.Enter : (Keycode)rawKeycode;
 
     private static void HandleTextInputEvent(nint sdlEvent)
     {
@@ -371,9 +416,9 @@ public static class InputBuffer
 
         var mouseButton = sdlButton switch
         {
-            Sdl.BUTTON_LEFT  => MouseButton.Left,
+            Sdl.BUTTON_LEFT => MouseButton.Left,
             Sdl.BUTTON_RIGHT => MouseButton.Right,
-            _                => (MouseButton)(-1)
+            _ => (MouseButton)(-1)
         };
 
         if ((int)mouseButton < 0)
@@ -443,120 +488,12 @@ public static class InputBuffer
         if ((sdlMods & (Sdl.KMOD_LALT | Sdl.KMOD_RALT)) != 0)
             mods |= KeyModifiers.Alt;
 
+        if ((sdlMods & (Sdl.KMOD_LGUI | Sdl.KMOD_RGUI)) != 0)
+            mods |= KeyModifiers.Command;
+
         return mods;
     }
 
-    //maps SDL_Scancode values to MonoGame Keys. Numpad digits and minus are normalized
-    //to the main number row and numpad Enter to main Enter so hotkeys don't care which
-    //one the user hits. Scancodes are physical-key positions, so hotkey behavior is
-    //stable across keyboard layouts.
-    private static Keys TranslateScancode(int scancode) => scancode switch
-    {
-        4   => Keys.A,
-        5   => Keys.B,
-        6   => Keys.C,
-        7   => Keys.D,
-        8   => Keys.E,
-        9   => Keys.F,
-        10  => Keys.G,
-        11  => Keys.H,
-        12  => Keys.I,
-        13  => Keys.J,
-        14  => Keys.K,
-        15  => Keys.L,
-        16  => Keys.M,
-        17  => Keys.N,
-        18  => Keys.O,
-        19  => Keys.P,
-        20  => Keys.Q,
-        21  => Keys.R,
-        22  => Keys.S,
-        23  => Keys.T,
-        24  => Keys.U,
-        25  => Keys.V,
-        26  => Keys.W,
-        27  => Keys.X,
-        28  => Keys.Y,
-        29  => Keys.Z,
-        30  => Keys.D1,
-        31  => Keys.D2,
-        32  => Keys.D3,
-        33  => Keys.D4,
-        34  => Keys.D5,
-        35  => Keys.D6,
-        36  => Keys.D7,
-        37  => Keys.D8,
-        38  => Keys.D9,
-        39  => Keys.D0,
-        40  => Keys.Enter,
-        41  => Keys.Escape,
-        42  => Keys.Back,
-        43  => Keys.Tab,
-        44  => Keys.Space,
-        45  => Keys.OemMinus,
-        46  => Keys.OemPlus,
-        47  => Keys.OemOpenBrackets,
-        48  => Keys.OemCloseBrackets,
-        49  => Keys.OemPipe,
-        51  => Keys.OemSemicolon,
-        52  => Keys.OemQuotes,
-        53  => Keys.OemTilde,
-        54  => Keys.OemComma,
-        55  => Keys.OemPeriod,
-        56  => Keys.OemQuestion,
-        57  => Keys.CapsLock,
-        58  => Keys.F1,
-        59  => Keys.F2,
-        60  => Keys.F3,
-        61  => Keys.F4,
-        62  => Keys.F5,
-        63  => Keys.F6,
-        64  => Keys.F7,
-        65  => Keys.F8,
-        66  => Keys.F9,
-        67  => Keys.F10,
-        68  => Keys.F11,
-        69  => Keys.F12,
-        70  => Keys.PrintScreen,
-        71  => Keys.Scroll,
-        72  => Keys.Pause,
-        73  => Keys.Insert,
-        74  => Keys.Home,
-        75  => Keys.PageUp,
-        76  => Keys.Delete,
-        77  => Keys.End,
-        78  => Keys.PageDown,
-        79  => Keys.Right,
-        80  => Keys.Left,
-        81  => Keys.Down,
-        82  => Keys.Up,
-        83  => Keys.NumLock,
-        84  => Keys.Divide,
-        85  => Keys.Multiply,
-        86  => Keys.OemMinus,
-        87  => Keys.Add,
-        88  => Keys.Enter,
-        89  => Keys.D1,
-        90  => Keys.D2,
-        91  => Keys.D3,
-        92  => Keys.D4,
-        93  => Keys.D5,
-        94  => Keys.D6,
-        95  => Keys.D7,
-        96  => Keys.D8,
-        97  => Keys.D9,
-        98  => Keys.D0,
-        99  => Keys.Decimal,
-        224 => Keys.LeftControl,
-        225 => Keys.LeftShift,
-        226 => Keys.LeftAlt,
-        227 => Keys.LeftWindows,
-        228 => Keys.RightControl,
-        229 => Keys.RightShift,
-        230 => Keys.RightAlt,
-        231 => Keys.RightWindows,
-        _   => Keys.None
-    };
 
 }
 
@@ -578,7 +515,8 @@ public enum BufferedInputKind : byte
 /// </summary>
 public readonly record struct BufferedInputEvent(
     BufferedInputKind Kind,
-    Keys Key,
+    Scancode Scancode,
+    Keycode Keycode,
     char Character,
     MouseButton Button,
     bool IsPress,
@@ -587,10 +525,11 @@ public readonly record struct BufferedInputEvent(
     int WheelDelta,
     KeyModifiers Modifiers)
 {
-    public static BufferedInputEvent ForKeyDown(Keys key, KeyModifiers modifiers)
+    public static BufferedInputEvent ForKeyDown(Scancode scancode, Keycode keycode, KeyModifiers modifiers)
         => new(
             BufferedInputKind.KeyDown,
-            key,
+            scancode,
+            keycode,
             '\0',
             default,
             false,
@@ -599,10 +538,11 @@ public readonly record struct BufferedInputEvent(
             0,
             modifiers);
 
-    public static BufferedInputEvent ForKeyUp(Keys key, KeyModifiers modifiers)
+    public static BufferedInputEvent ForKeyUp(Scancode scancode, Keycode keycode, KeyModifiers modifiers)
         => new(
             BufferedInputKind.KeyUp,
-            key,
+            scancode,
+            keycode,
             '\0',
             default,
             false,
@@ -614,6 +554,7 @@ public readonly record struct BufferedInputEvent(
     public static BufferedInputEvent ForTextInput(char character)
         => new(
             BufferedInputKind.TextInput,
+            default,
             default,
             character,
             default,
@@ -632,6 +573,7 @@ public readonly record struct BufferedInputEvent(
         => new(
             BufferedInputKind.MouseButton,
             default,
+            default,
             '\0',
             button,
             isPress,
@@ -643,6 +585,7 @@ public readonly record struct BufferedInputEvent(
     public static BufferedInputEvent ForMouseWheel(int delta, int x, int y, KeyModifiers modifiers)
         => new(
             BufferedInputKind.MouseWheel,
+            default,
             default,
             '\0',
             default,

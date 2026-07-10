@@ -4,7 +4,6 @@ using Chaos.Client.Data;
 using Chaos.Client.Extensions;
 using Chaos.Client.Utilities;
 using Microsoft.Xna.Framework;
-using Microsoft.Xna.Framework.Input;
 #endregion
 
 namespace Chaos.Client.Controls.Generic;
@@ -152,11 +151,11 @@ public sealed class OkPopupMessageControl : UIPanel
 
     public override void OnKeyDown(KeyDownEvent e)
     {
-        if (e.Key is Keys.Enter or Keys.Space)
+        if (e.Keycode is Keycode.Enter or Keycode.Space)
         {
             OkButton.PerformClick();
             e.Handled = true;
-        } else if (e.Key == Keys.Escape)
+        } else if (e.Keycode == Keycode.Escape)
         {
             if (CancelButton is not null)
                 CancelButton.PerformClick();

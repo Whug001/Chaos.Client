@@ -3,7 +3,6 @@ using Chaos.Client.Controls.Components;
 using Chaos.DarkAges.Definitions;
 using Microsoft.Xna.Framework;
 using Microsoft.Xna.Framework.Graphics;
-using Microsoft.Xna.Framework.Input;
 #endregion
 
 namespace Chaos.Client.Controls.LobbyLogin;
@@ -124,11 +123,11 @@ public sealed class CharacterCreationControl : PrefabPanel
 
         NameField?.ForegroundColor = LegendColors.White;
         NameField?.IsTabStop = true;
-        
+
         PasswordField?.ForegroundColor = LegendColors.White;
         PasswordField?.IsTabStop = true;
         PasswordField?.IsMasked = true;
-        
+
         PasswordConfirmField?.ForegroundColor = LegendColors.White;
         PasswordConfirmField?.IsTabStop = true;
         PasswordConfirmField?.IsMasked = true;
@@ -394,9 +393,9 @@ public sealed class CharacterCreationControl : PrefabPanel
 
     public override void OnKeyDown(KeyDownEvent e)
     {
-        switch (e.Key)
+        switch (e.Keycode)
         {
-            case Keys.Tab:
+            case Keycode.Tab:
                 //cycle focus: name → password → passwordconfirm → name
                 if (NameField?.IsFocused == true)
                 {
@@ -416,13 +415,13 @@ public sealed class CharacterCreationControl : PrefabPanel
 
                 break;
 
-            case Keys.Enter:
+            case Keycode.Enter:
                 OkButton?.PerformClick();
                 e.Handled = true;
 
                 break;
 
-            case Keys.Escape:
+            case Keycode.Escape:
                 CancelButton?.PerformClick();
                 e.Handled = true;
 

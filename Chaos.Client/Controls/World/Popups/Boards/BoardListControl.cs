@@ -5,7 +5,6 @@ using Chaos.Client.Extensions;
 using Chaos.Client.Utilities;
 using Microsoft.Xna.Framework;
 using Microsoft.Xna.Framework.Graphics;
-using Microsoft.Xna.Framework.Input;
 #endregion
 
 namespace Chaos.Client.Controls.World.Popups.Boards;
@@ -146,7 +145,7 @@ public sealed class BoardListControl : PrefabPanel
         if (Slide.Sliding)
             return;
 
-        if (e.Key == Keys.Escape)
+        if (e.Keycode == Keycode.Escape)
         {
             Close();
             e.Handled = true;
