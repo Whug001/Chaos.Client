@@ -370,7 +370,7 @@ file sealed class NumericTextBox : UITextBox
 
     public override void OnKeyDown(KeyDownEvent e)
     {
-        if ((e.Key == Keys.Enter) && IsFocused)
+        if ((e.Keycode == Keycode.Enter) && IsFocused)
         {
             IsFocused = false; //blur → the spinner's focus-loss poll commits the typed value
             e.Handled = true;

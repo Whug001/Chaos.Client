@@ -909,7 +909,7 @@ public sealed partial class WorldScreen
         //f12 — DEV TEST: summon a fake 4-line NPC dialog for tuning the bottom-bar text layout.
         //ponytail: throwaway harness — delete when the 4-line layout is dialed in. SourceId stays null so
         //closing it never sends a dialog-response packet to the server.
-        if (e.Key == Keys.F12)
+        if (e.Scancode == Scancode.F12)
         {
             NpcSession.ShowDialog(
                 new DisplayDialogArgs

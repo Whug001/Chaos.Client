@@ -615,7 +615,7 @@ file sealed class ListPopup(Action onClose) : UIPanel
     //the bubble up from this popup). Escape also closes the list.
     public override void OnKeyDown(KeyDownEvent e)
     {
-        if (e.Key == Keys.Escape)
+        if (e.Keycode == Keycode.Escape)
             onClose();
 
         e.Handled = true;

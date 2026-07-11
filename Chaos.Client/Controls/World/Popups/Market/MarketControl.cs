@@ -313,7 +313,7 @@ public sealed class MarketControl : FramedDialogPanelBase, IInventoryDropTarget
 
     public override void OnKeyDown(KeyDownEvent e)
     {
-        if (e.Key == Keys.Escape)
+        if (e.Keycode == Keycode.Escape)
         {
             Hide();
             e.Handled = true;
