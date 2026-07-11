@@ -432,6 +432,7 @@ public sealed class InputDispatcher
                     KeyDown.Scancode = evt.Scancode;
                     KeyDown.Keycode = evt.Keycode;
                     KeyDown.Modifiers = evt.Modifiers;
+                    KeyDown.IsRepeat = evt.IsRepeat;
                     DispatchKeyboardEvent(root, KeyDown);
 
                     if (focusBefore is null && ExplicitFocusElement is not null)

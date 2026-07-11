@@ -815,7 +815,7 @@ public sealed partial class WorldScreen
             WorldList.OnClose += () => hud.UsersButton.IsSelected = false;
         }
 
-        WorldList.OnWhisperRequested += name => WorldHud.ChatInput.Focus($"-> {name}: ", TextColors.Whisper);
+        WorldList.OnWhisperRequested += name => WorldHud.ChatInput.FocusWhisper(name);
 
         if (hud.BulletinButton is not null)
         {

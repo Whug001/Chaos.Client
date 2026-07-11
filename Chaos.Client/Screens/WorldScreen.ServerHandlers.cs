@@ -245,11 +245,31 @@ public sealed partial class WorldScreen
         Overlays.AddChatBubble(args.SourceId, args.Message, isShout);
     }
 
+    /// <summary>
+    ///     Remembers who whispered you so /r can reply. A received whisper reads "[Name]: text"; the echo of one you sent
+    ///     reads "[Name]&gt; text" and must not be recorded as a reply target. Anchoring on the name's own closing bracket
+    ///     keeps a "]: " inside the message body from being read as the end of the name.
+    /// </summary>
+    private static void RecordWhisperSender(string message)
+    {
+        if (!message.StartsWith('['))
+            return;
+
+        var end = message.IndexOf(']');
+
+        if ((end <= 1) || !message.AsSpan(end)
+                                  .StartsWith("]: "))
+            return;
+
+        WorldState.Chat.RecordWhisperFrom(message[1..end]);
+    }
+
     private void HandleServerMessage(ServerMessageArgs args)
     {
         switch (args.ServerMessageType)
         {
             case ServerMessageType.Whisper:
+                RecordWhisperSender(args.Message);
                 WorldState.Chat.AddMessage(args.Message, TextColors.Whisper);
                 WorldState.Chat.AddOrangeBarMessage(args.Message, TextColors.Whisper);
                 SystemMessagePane.AddMessage(args.Message, TextColors.Whisper);

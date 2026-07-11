@@ -479,7 +479,7 @@ public sealed partial class WorldScreen
                     //focus regardless of whether the slot is bound — pressing a macro key
                     //is also the user's "start typing in chat" shortcut, so an empty slot
                     //should just open the input without prefilling text
-                    WorldHud.ChatInput.Focus($"{WorldHud.PlayerName}: ", Color.White);
+                    WorldHud.ChatInput.Focus();
 
                     if (macroText.Length > 0)
                         WorldHud.ChatInput.SetText(macroText, macroText.Length);
@@ -690,7 +690,7 @@ public sealed partial class WorldScreen
         if (e.Scancode == Scancode.Enter)
         {
             if (!WorldHud.ChatInput.IsFocused)
-                WorldHud.ChatInput.Focus($"{WorldHud.PlayerName}: ", Color.White);
+                WorldHud.ChatInput.Focus();
 
             e.Handled = true;
 
@@ -816,7 +816,7 @@ public sealed partial class WorldScreen
         //shout hotkey (shift+1)
         if (e is { Scancode: Scancode.D1, Shift: true })
         {
-            WorldHud.ChatInput.Focus($"{WorldHud.PlayerName}! ", Color.Yellow);
+            WorldHud.ChatInput.FocusShout();
             e.Handled = true;
 
             return;
@@ -1586,7 +1586,7 @@ public sealed partial class WorldScreen
                 name,
                 () => Game.Connection.ClickEntity(id),
                 () => Game.Connection.SendGroupInvite(ClientGroupSwitch.TryInvite, name),
-                () => WorldHud.ChatInput.Focus($"-> {name}: ", TextColors.Whisper));
+                () => WorldHud.ChatInput.FocusWhisper(name));
         }
     }
 

@@ -364,13 +364,16 @@ public static class InputBuffer
             //scancode, which never changes for a physical key, so it can never be stranded. a
             //KeyDown is still emitted per repeat so held-key auto-repeat (textbox
             //backspace/arrows) works.
-            if (!PressedKeycodeByScancode.TryGetValue(scancode, out var keycode))
+            //a keycode already on record means the key was down before this event — i.e. a repeat.
+            var isRepeat = PressedKeycodeByScancode.TryGetValue(scancode, out var keycode);
+
+            if (!isRepeat)
             {
                 keycode = NormalizeKeycode(Marshal.ReadInt32(sdlEvent, Sdl.KEYBOARDEVENT_SYM_OFFSET));
                 PressedKeycodeByScancode[scancode] = keycode;
             }
 
-            PendingEvents.Add(BufferedInputEvent.ForKeyDown(scancode, keycode, mods));
+            PendingEvents.Add(BufferedInputEvent.ForKeyDown(scancode, keycode, mods, isRepeat));
         } else
         {
             //fall back to the live keycode for a key pressed before Initialize or a focus
@@ -531,9 +534,14 @@ public readonly record struct BufferedInputEvent(
     int X,
     int Y,
     int WheelDelta,
-    KeyModifiers Modifiers)
+    KeyModifiers Modifiers,
+    bool IsRepeat = false)
 {
-    public static BufferedInputEvent ForKeyDown(Scancode scancode, Keycode keycode, KeyModifiers modifiers)
+    public static BufferedInputEvent ForKeyDown(
+        Scancode scancode,
+        Keycode keycode,
+        KeyModifiers modifiers,
+        bool isRepeat)
         => new(
             BufferedInputKind.KeyDown,
             scancode,
@@ -544,7 +552,8 @@ public readonly record struct BufferedInputEvent(
             0,
             0,
             0,
-            modifiers);
+            modifiers,
+            isRepeat);
 
     public static BufferedInputEvent ForKeyUp(Scancode scancode, Keycode keycode, KeyModifiers modifiers)
         => new(

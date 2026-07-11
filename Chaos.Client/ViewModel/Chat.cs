@@ -1,5 +1,6 @@
 #region
 using Chaos.Client.Collections;
+using Chaos.Extensions.Common;
 using Microsoft.Xna.Framework;
 #endregion
 
@@ -13,9 +14,30 @@ public sealed class Chat
 {
     private const int MAX_MESSAGES = 1000;
     private const int MAX_HISTORY = 1000;
+    private const int MAX_WHISPER_NAMES = 5;
 
     private readonly CircularBuffer<ChatMessage> Messages = new(MAX_MESSAGES);
     private readonly CircularBuffer<OrangeBarMessage> OrangeBarHistory = new(MAX_HISTORY);
+
+    //both HUD layouts build their own ChatInputControl, so anything the player expects to survive a
+    //layout swap (or to be shared between the two boxes) has to live out here.
+    private readonly List<string> WhisperSenders = [];
+    private readonly List<string> WhisperTargets = [];
+
+    /// <summary>
+    ///     The players who most recently whispered you, newest first. The reply targets /r cycles through.
+    /// </summary>
+    public IReadOnlyList<string> RecentWhisperSenders => WhisperSenders;
+
+    /// <summary>
+    ///     The players you most recently whispered, newest first. The targets /w cycles through.
+    /// </summary>
+    public IReadOnlyList<string> RecentWhisperTargets => WhisperTargets;
+
+    /// <summary>
+    ///     The channel the chat input reopens in, set by typing a shortcut alone ("/g" then enter) and cleared by "/s".
+    /// </summary>
+    public ChatMode StickyChannel { get; set; } = ChatMode.Normal;
 
     /// <summary>
     ///     Adds a chat message (public, whisper, group, guild) with the specified color.
@@ -39,12 +61,34 @@ public sealed class Chat
     }
 
     /// <summary>
-    ///     Clears all chat messages and orange bar history.
+    ///     Records a player who whispered you, moving them to the front if already known.
+    /// </summary>
+    public void RecordWhisperFrom(string name) => RecordName(WhisperSenders, name);
+
+    /// <summary>
+    ///     Records a player you whispered, moving them to the front if already known.
+    /// </summary>
+    public void RecordWhisperTo(string name) => RecordName(WhisperTargets, name);
+
+    private static void RecordName(List<string> names, string name)
+    {
+        names.RemoveAll(existing => existing.EqualsI(name));
+        names.Insert(0, name);
+
+        if (names.Count > MAX_WHISPER_NAMES)
+            names.RemoveAt(names.Count - 1);
+    }
+
+    /// <summary>
+    ///     Clears all chat messages, orange bar history, whisper names, and the sticky channel.
     /// </summary>
     public void Clear()
     {
         Messages.Clear();
         OrangeBarHistory.Clear();
+        WhisperSenders.Clear();
+        WhisperTargets.Clear();
+        StickyChannel = ChatMode.Normal;
         Cleared?.Invoke();
     }
 

@@ -1,38 +1,35 @@
 #region
+using Chaos.Client.Collections;
 using Chaos.Client.Controls.Components;
 using Chaos.Client.Data.Models;
-using Chaos.Extensions.Common;
 using Microsoft.Xna.Framework;
 #endregion
 
 namespace Chaos.Client.Controls.World.Hud;
 
-public enum ChatMode
-{
-    None,
-    Normal,
-    Shout,
-    WhisperName,
-    WhisperMessage,
-    IgnoreModeSelect,
-    IgnoreAdd,
-    IgnoreRemove,
-    Prompt
-}
-
 public sealed class ChatInputControl : UIPanel
 {
-    private const int MAX_WHISPER_HISTORY = 5;
+    private const int SAY_MAX_LENGTH = 255;
+
+    //the whisper packet the group/guild channels ride on is dropped server-side past this length.
+    private const int WHISPER_MAX_LENGTH = 100;
+
+    //the server routes a whisper aimed at these names into the group/guild channel.
+    private const string GROUP_CHANNEL = "!group";
+    private const string GUILD_CHANNEL = "!guild";
 
     private readonly int FullWidth;
     private readonly UILabel PrefixLabel;
     private readonly UITextBox TextBox;
-    private readonly List<string> WhisperHistory = [];
+
+    //a snapshot of the names up/down cycles — targets for /w, senders for /r. copied so an
+    //incoming whisper reordering the live list can't shift the name out from under the index.
+    private string[] WhisperNames = [];
 
     private Action<string>? PromptCallback;
     private Color? SavedFocusedBackgroundColor;
     private int SavedMaxLength;
-    private int WhisperHistoryIndex;
+    private int WhisperNameIndex;
     private string? WhisperTarget;
 
     public ChatMode Mode { get; private set; }
@@ -72,12 +69,20 @@ public sealed class ChatInputControl : UIPanel
             Y = 0,
             Width = rect.Width,
             Height = rect.Height,
-            MaxLength = 255,
+            MaxLength = SAY_MAX_LENGTH,
             PaddingLeft = 1,
             PaddingRight = 1,
             PaddingTop = 1,
             PaddingBottom = 1,
             FocusedBackgroundColor = new Color(0, 0, 0, 160)
+        };
+
+        //backspace with nothing left to delete backs out of the current channel. driven by the box
+        //rather than polled, so a held backspace that empties the line can't also drop the channel.
+        TextBox.EmptyBackspace += _ =>
+        {
+            if (Mode is ChatMode.Group or ChatMode.Guild or ChatMode.Shout)
+                EnterChannel(ChatMode.Normal, false);
         };
 
         AddChild(TextBox);
@@ -120,43 +125,188 @@ public sealed class ChatInputControl : UIPanel
         TextBox.Width = FullWidth - prefixWidth;
     }
 
-    //--- focus methods ---
+    //--- mode styling ---
 
-    private void FocusInternal(ChatMode mode, string prefix, Color color)
+    //the mode is the single input every other mode-specific detail is derived from. the screen names a
+    //mode and the box dresses itself; nobody hands it a pre-built prefix, and it never reads one back apart.
+    //Prompt is the one exception — its prefix is caller-supplied text, not a property of the mode.
+    private (string Prefix, Color Color) ModeStyle(ChatMode mode)
+        => mode switch
+        {
+            ChatMode.Group            => ("Group: ", TextColors.GroupChat),
+            ChatMode.Guild            => ("Guild: ", TextColors.GuildChat),
+            ChatMode.Shout            => ($"{WorldState.PlayerName}! ", TextColors.Shout),
+            ChatMode.WhisperName      => ($"to [{SelectedWhisperName}]? ", TextColors.Whisper),
+            ChatMode.WhisperMessage   => ($"-> {WhisperTarget}: ", TextColors.Whisper),
+            ChatMode.IgnoreModeSelect => ("a: add, d: delete, ?: see list>", TextColors.Default),
+            ChatMode.IgnoreAdd        => ("ID of people you wish to reject whisper >", TextColors.Default),
+            ChatMode.IgnoreRemove     => ("ID of people you wish to cancel rejection of whisper >", TextColors.Default),
+            _                         => ($"{WorldState.PlayerName}: ", Color.White)
+        };
+
+    //group, guild and whisper all ride the whisper packet, which the server drops past 100 chars.
+    private static int MaxLengthFor(ChatMode mode)
+        => mode is ChatMode.Group or ChatMode.Guild or ChatMode.WhisperMessage ? WHISPER_MAX_LENGTH : SAY_MAX_LENGTH;
+
+    /// <summary>
+    ///     Dresses the box for a mode — prefix, color and length limit all follow from it. Leaves the text alone, so it also
+    ///     serves as a redraw when something the prefix is built from changes (the whisper name up/down is parked on).
+    /// </summary>
+    private void SetMode(ChatMode mode)
     {
+        var (prefix, color) = ModeStyle(mode);
+
         Mode = mode;
         UpdateLayout(prefix, color);
         TextBox.ForegroundColor = color;
+        TextBox.MaxLength = MaxLengthFor(mode);
+    }
+
+    /// <summary>
+    ///     Switches the box to a mode, dropping whatever was typed in the previous one.
+    /// </summary>
+    private void EnterMode(ChatMode mode)
+    {
+        SetMode(mode);
+        SetText(string.Empty, 0);
+    }
+
+    //--- focus methods ---
+
+    private void FocusMode(ChatMode mode)
+    {
+        SetMode(mode);
         TextBox.IsFocused = true;
         FocusChanged?.Invoke(true);
     }
 
-    public void Focus(string prefix, Color color)
+    /// <summary>
+    ///     Opens the box for normal chat, or in whatever channel was locked in with a "/g&lt;enter&gt;"-style shortcut.
+    /// </summary>
+    public void Focus()
     {
-        ChatMode mode;
+        //a group lock outlives the group, so drop it once there's no group left to talk to — the
+        //server would silently swallow every message otherwise.
+        if ((WorldState.Chat.StickyChannel == ChatMode.Group) && !WorldState.Group.InGroup)
+            WorldState.Chat.StickyChannel = ChatMode.Normal;
 
-        if (prefix.EndsWithI("! "))
-            mode = ChatMode.Shout;
-        else if (prefix.StartsWithI("-> ") && prefix.EndsWithI(": "))
-        {
-            mode = ChatMode.WhisperMessage;
-            WhisperTarget = prefix[3..^2];
-        } else
-            mode = ChatMode.Normal;
-
-        FocusInternal(mode, prefix, color);
+        FocusMode(WorldState.Chat.StickyChannel);
     }
 
+    /// <summary>
+    ///     Opens the box in shout, bypassing any locked channel.
+    /// </summary>
+    public void FocusShout() => FocusMode(ChatMode.Shout);
+
+    /// <summary>
+    ///     Opens the box composing a whisper to a known recipient — the world list and the aisling context menu.
+    /// </summary>
+    public void FocusWhisper(string name)
+    {
+        WhisperTarget = name;
+        FocusMode(ChatMode.WhisperMessage);
+    }
+
+    /// <summary>
+    ///     Opens the whisper target prompt, seeded with the people you last whispered.
+    /// </summary>
     public void FocusWhisper()
     {
-        WhisperHistoryIndex = 0;
-        var defaultName = WhisperHistory.Count > 0 ? WhisperHistory[0] : string.Empty;
-        FocusInternal(ChatMode.WhisperName, $"to [{defaultName}]? ", TextColors.Whisper);
+        BeginWhisper(WorldState.Chat.RecentWhisperTargets);
+        TextBox.IsFocused = true;
+        FocusChanged?.Invoke(true);
+    }
+
+    //--- channel shortcuts ---
+
+    /// <summary>
+    ///     Switches the already-focused box to another channel. Sticky switches also become the channel the box reopens in.
+    /// </summary>
+    private void EnterChannel(ChatMode mode, bool sticky)
+    {
+        if (sticky && (WorldState.Chat.StickyChannel != mode))
+        {
+            WorldState.Chat.StickyChannel = mode;
+
+            //locking is invisible once the box closes, so say how to undo it.
+            if (mode != ChatMode.Normal)
+                WorldState.Chat.AddOrangeBarMessage($"Chat locked to {mode}. Type /s to return to say.");
+        }
+
+        EnterMode(mode);
+    }
+
+    /// <summary>
+    ///     Opens the whisper target prompt. The names seed up/down: people you whispered for /w and the '#' hotkey, people
+    ///     who whispered you for /r.
+    /// </summary>
+    private void BeginWhisper(IReadOnlyList<string> names)
+    {
+        WhisperNames = [..names];
+        WhisperNameIndex = 0;
+
+        EnterMode(ChatMode.WhisperName);
+    }
+
+    /// <summary>
+    ///     Consumes a leading chat shortcut token. Sticky is true when the token was confirmed with enter rather than space.
+    ///     <paramref name="carryBody" /> is false when the rest of the line must die with the token — a reply with nobody to
+    ///     reply to would otherwise leave private text sitting in a say box.
+    /// </summary>
+    private bool TryEnterChannel(string token, bool sticky, out bool carryBody)
+    {
+        carryBody = true;
+
+        //caps lock is how people shout, so the tokens can't be case-sensitive.
+        switch (token.ToLowerInvariant())
+        {
+            case "/g":
+                EnterChannel(ChatMode.Group, sticky);
+
+                return true;
+
+            case "/gu":
+                EnterChannel(ChatMode.Guild, sticky);
+
+                return true;
+
+            case "/y":
+                EnterChannel(ChatMode.Shout, sticky);
+
+                return true;
+
+            case "/s":
+                EnterChannel(ChatMode.Normal, sticky);
+
+                return true;
+
+            case "/w":
+                BeginWhisper(WorldState.Chat.RecentWhisperTargets);
+
+                return true;
+
+            case "/r":
+                if (WorldState.Chat.RecentWhisperSenders.Count == 0)
+                {
+                    WorldState.Chat.AddOrangeBarMessage("No one has whispered you.");
+                    SetText(string.Empty, 0);
+                    carryBody = false;
+
+                    return true;
+                }
+
+                BeginWhisper(WorldState.Chat.RecentWhisperSenders);
+
+                return true;
+
+            default:
+                return false;
+        }
     }
 
     public void FocusIgnore()
     {
-        FocusInternal(ChatMode.IgnoreModeSelect, "a: add, d: delete, ?: see list>", TextColors.Default);
+        FocusMode(ChatMode.IgnoreModeSelect);
         TextBox.IsReadOnly = true;
     }
 
@@ -174,7 +324,7 @@ public sealed class ChatInputControl : UIPanel
         Mode = ChatMode.Prompt;
         PrefixLabel.BackgroundColor = Color.White;
         UpdateLayout(prefix, Color.Black);
-        TextBox.Text = string.Empty;
+        SetText(string.Empty, 0);
         TextBox.IsFocused = true;
         FocusChanged?.Invoke(true);
     }
@@ -183,9 +333,11 @@ public sealed class ChatInputControl : UIPanel
     {
         Mode = ChatMode.None;
         WhisperTarget = null;
+        WhisperNames = [];
         TextBox.IsReadOnly = false;
         TextBox.IsFocused = false;
-        TextBox.Text = string.Empty;
+        TextBox.MaxLength = SAY_MAX_LENGTH;
+        SetText(string.Empty, 0);
         TextBox.ForegroundColor = Color.White;
         UpdateLayout(string.Empty, Color.White);
         InputDispatcher.Instance?.ClearExplicitFocus();
@@ -210,35 +362,22 @@ public sealed class ChatInputControl : UIPanel
 
     //--- whisper history ---
 
-    private void AddWhisperTarget(string name)
-    {
-        WhisperHistory.Remove(name);
-        WhisperHistory.Insert(0, name);
-
-        if (WhisperHistory.Count > MAX_WHISPER_HISTORY)
-            WhisperHistory.RemoveAt(WhisperHistory.Count - 1);
-    }
+    /// <summary>
+    ///     The name up/down is currently parked on — the recipient a whisper is addressed to if nothing else is typed.
+    /// </summary>
+    private string SelectedWhisperName => WhisperNames.Length > 0 ? WhisperNames[WhisperNameIndex] : string.Empty;
 
     private void CycleWhisperTarget(int direction)
     {
-        if ((WhisperHistory.Count == 0) || (Mode != ChatMode.WhisperName))
+        if ((WhisperNames.Length == 0) || (Mode != ChatMode.WhisperName))
             return;
 
-        WhisperHistoryIndex = (WhisperHistoryIndex + direction + WhisperHistory.Count) % WhisperHistory.Count;
-        UpdateLayout($"to [{WhisperHistory[WhisperHistoryIndex]}]? ", TextBox.ForegroundColor);
-    }
+        WhisperNameIndex = (WhisperNameIndex + direction + WhisperNames.Length) % WhisperNames.Length;
+        SetMode(ChatMode.WhisperName);
 
-    private string GetBracketedWhisperTarget()
-    {
-        // ReSharper disable once NullCoalescingConditionIsAlwaysNotNullAccordingToAPIContract
-        var prefix = PrefixLabel.Text ?? string.Empty;
-        var start = prefix.IndexOf('[') + 1;
-        var end = prefix.IndexOf(']');
-
-        if ((start <= 0) || (end < start))
-            return string.Empty;
-
-        return prefix[start..end];
+        //the box already read up/down as home/end on the way here — put the caret back so a half-typed
+        //name doesn't take the next keystroke at the front.
+        SetText(TextBox.Text, TextBox.Text.Length);
     }
 
     //--- input handling ---
@@ -264,11 +403,25 @@ public sealed class ChatInputControl : UIPanel
     {
         var message = TextBox.Text.Trim();
 
+        //a shortcut alone on the line locks the box to that channel instead of sending it.
+        if ((Mode is ChatMode.Normal or ChatMode.Group or ChatMode.Guild or ChatMode.Shout) && TryEnterChannel(message, true, out _))
+            return;
+
         switch (Mode)
         {
             case ChatMode.Normal:
                 MessageSent?.Invoke(message);
                 Unfocus();
+
+                break;
+
+            case ChatMode.Group:
+                SendToChannel(GROUP_CHANNEL, message);
+
+                break;
+
+            case ChatMode.Guild:
+                SendToChannel(GUILD_CHANNEL, message);
 
                 break;
 
@@ -300,14 +453,13 @@ public sealed class ChatInputControl : UIPanel
                 break;
 
             case ChatMode.WhisperName:
-                var targetName = message.Length > 0 ? message : GetBracketedWhisperTarget();
+                //a typed name wins over the one up/down is parked on.
+                var targetName = message.Length > 0 ? message : SelectedWhisperName;
 
                 if (targetName.Length > 0)
                 {
                     WhisperTarget = targetName;
-                    Mode = ChatMode.WhisperMessage;
-                    UpdateLayout($"-> {targetName}: ", TextBox.ForegroundColor);
-                    TextBox.Text = string.Empty;
+                    EnterMode(ChatMode.WhisperMessage);
                 }
 
                 break;
@@ -315,7 +467,7 @@ public sealed class ChatInputControl : UIPanel
             case ChatMode.WhisperMessage:
                 if (WhisperTarget is not null)
                 {
-                    AddWhisperTarget(WhisperTarget);
+                    WorldState.Chat.RecordWhisperTo(WhisperTarget);
                     WhisperSent?.Invoke(WhisperTarget, message);
                 }
 
@@ -334,6 +486,20 @@ public sealed class ChatInputControl : UIPanel
         }
     }
 
+    /// <summary>
+    ///     Sends a composed line to the group or guild channel. Commands go out the public path instead — the server only
+    ///     runs its command interceptor there, so a "/loc" typed in group chat would otherwise be broadcast verbatim.
+    /// </summary>
+    private void SendToChannel(string channel, string message)
+    {
+        if (message.StartsWith('/'))
+            MessageSent?.Invoke(message);
+        else if (message.Length > 0)
+            WhisperSent?.Invoke(channel, message);
+
+        Unfocus();
+    }
+
     private void HandleEscape()
     {
         if (Mode == ChatMode.Prompt)
@@ -350,19 +516,15 @@ public sealed class ChatInputControl : UIPanel
         switch (e.Character)
         {
             case 'a' or 'A':
-                Mode = ChatMode.IgnoreAdd;
                 TextBox.IsReadOnly = false;
-                UpdateLayout("ID of people you wish to reject whisper >", TextBox.ForegroundColor);
-                TextBox.Text = string.Empty;
+                EnterMode(ChatMode.IgnoreAdd);
                 e.Handled = true;
 
                 break;
 
             case 'd' or 'D':
-                Mode = ChatMode.IgnoreRemove;
                 TextBox.IsReadOnly = false;
-                UpdateLayout("ID of people you wish to cancel rejection of whisper >", TextBox.ForegroundColor);
-                TextBox.Text = string.Empty;
+                EnterMode(ChatMode.IgnoreRemove);
                 e.Handled = true;
 
                 break;
@@ -385,12 +547,50 @@ public sealed class ChatInputControl : UIPanel
     {
         base.Update(gameTime);
 
-        if ((Mode != ChatMode.WhisperName) || !IsFocused)
+        if (!IsFocused)
+            return;
+
+        if (Mode is ChatMode.Normal or ChatMode.Group or ChatMode.Guild or ChatMode.Shout)
+        {
+            ConsumeShortcutToken();
+
+            return;
+        }
+
+        if (Mode != ChatMode.WhisperName)
             return;
 
         if (InputBuffer.WasScancodePressed(Scancode.Up))
             CycleWhisperTarget(1);
         else if (InputBuffer.WasScancodePressed(Scancode.Down))
             CycleWhisperTarget(-1);
+    }
+
+    /// <summary>
+    ///     Switches channel once a shortcut token has been closed with a space. The textbox consumes the space itself, so
+    ///     the gesture is read back off the text rather than from the key event. Matching the token as the leading word (not
+    ///     a trailing space) keeps it reliable when a frame delivers the space and the next character together.
+    /// </summary>
+    private void ConsumeShortcutToken()
+    {
+        var text = TextBox.Text;
+        var space = text.IndexOf(' ');
+
+        //only the leading word is ever a token, so "meet me /g" can't trip it.
+        if ((space <= 0) || !TryEnterChannel(text[..space], false, out var carryBody))
+            return;
+
+        if (!carryBody)
+            return;
+
+        //whatever was typed past the token stays as the body of the message. SetText assigns Text
+        //directly, so a pasted line has to be clipped to the new mode's limit by hand.
+        var body = text[(space + 1)..];
+
+        if (body.Length > TextBox.MaxLength)
+            body = body[..TextBox.MaxLength];
+
+        if (body.Length > 0)
+            SetText(body, body.Length);
     }
 }

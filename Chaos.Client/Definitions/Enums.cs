@@ -149,3 +149,22 @@ public enum ScrollBarVisibility
     Visible,  // always show the bar (ScrollBarControl renders it disabled when content fits)
     Hidden    // never show the bar (wheel still scrolls)
 }
+
+/// <summary>
+///     What the chat input is currently composing. Lives here rather than on the control because the sticky channel is
+///     owned by <c>WorldState.Chat</c> and both HUD layouts share it.
+/// </summary>
+public enum ChatMode
+{
+    None,
+    Normal,
+    Group,
+    Guild,
+    Shout,
+    WhisperName,
+    WhisperMessage,
+    IgnoreModeSelect,
+    IgnoreAdd,
+    IgnoreRemove,
+    Prompt
+}

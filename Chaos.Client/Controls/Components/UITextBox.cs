@@ -798,6 +798,13 @@ public class UITextBox : UIElement, IVerticalScrollable
     /// </summary>
     public event TextBoxFocusHandler? LostFocus;
 
+    /// <summary>
+    ///     Fired when backspace is pressed on an empty box — a keystroke with nothing to delete. Lets a parent treat it as
+    ///     "back out of what this box is doing"; the chat input drops its channel prefix. Auto-repeats are excluded, so
+    ///     holding backspace to clear a line cannot run on into the gesture.
+    /// </summary>
+    public event TextBoxEmptyBackspaceHandler? EmptyBackspace;
+
     private void HandlePaste()
     {
         var clipText = Clipboard.GetText();
@@ -1246,7 +1253,18 @@ public class UITextBox : UIElement, IVerticalScrollable
                 break;
 
             case Keycode.Back when !IsReadOnly:
-                HandleBackspace();
+
+                //deleting nothing from an empty box is the "back out" gesture. repeats don't count,
+                //so holding backspace to wipe a line stops at empty instead of running through it.
+                if (Text.Length == 0)
+                {
+                    if (!e.IsRepeat)
+                        EmptyBackspace?.Invoke(this);
+
+                    ResetCursor();
+                } else
+                    HandleBackspace();
+
                 e.Handled = true;
 
                 break;

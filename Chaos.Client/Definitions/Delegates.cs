@@ -173,6 +173,11 @@ public delegate void VisibilityChangedHandler(bool visible);
 public delegate void TextBoxFocusHandler(UITextBox textBox);
 
 /// <summary>
+///     Backspace was pressed on a UITextBox with nothing to delete.
+/// </summary>
+public delegate void TextBoxEmptyBackspaceHandler(UITextBox textBox);
+
+/// <summary>
 ///     A focus state changed.
 /// </summary>
 public delegate void FocusChangedHandler(bool focused);

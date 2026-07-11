@@ -130,6 +130,10 @@ public abstract class KeyEvent : InputEvent
 
     //jump to the line/document edge — Cmd+arrows on macOS (Windows/Linux use the Home/End keys).
     public bool LineJump => Modifiers.HasLineJump();
+
+    //true for the OS auto-repeats of a held key, false for the initial press. text editing wants
+    //the repeats; a one-shot gesture must ignore them or a held key runs straight through it.
+    public bool IsRepeat { get; set; }
 }
 
 public sealed class KeyDownEvent : KeyEvent;
