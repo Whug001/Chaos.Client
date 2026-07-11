@@ -70,6 +70,20 @@ public sealed partial class WorldScreen : IScreen
 
     private readonly CastingSystem CastingSystem = new();
 
+    /// <summary>
+    ///     True while a ground-targeted spell's icon is being dragged over the world. Dragging one is an act of aiming it,
+    ///     so it gets the same treatment as arming it in cast mode — and, unlike an ordinary drag, it must not tint the
+    ///     entity under the cursor, because the tile is the target rather than the entity.
+    /// </summary>
+    private bool IsDraggingGroundSpell
+        => Game.Dispatcher.ActiveDragPayload is SlotDragPayload { Source: SpellSlot { SpellType: SpellType.GroundTargeted } };
+
+    /// <summary>
+    ///     True while a ground-targeted spell is being aimed at a tile — either armed in cast mode, or its icon dragged
+    ///     over the world. Both draw the target-tile stencil in place of the dashed tile cursor.
+    /// </summary>
+    private bool IsAimingAtTile => CastingSystem.IsGroundTargeting || IsDraggingGroundSpell;
+
     private readonly WorldDebugRenderer DebugRenderer = new();
 
     //draw-pass hitbox list: rebuilt every frame during entity rendering, in draw order (back-to-front)
@@ -234,12 +248,18 @@ public sealed partial class WorldScreen : IScreen
     public UIPanel? Root { get; private set; }
 
     /// <inheritdoc />
-    public void Dispose() { }
+    //the dispatcher outlives this screen — drop the predicate so it doesn't keep answering (or keep this screen alive)
+    //after the world is gone
+    public void Dispose() => Game.Dispatcher.DragBlocked = null;
 
     /// <inheritdoc />
     public void Initialize(ChaosGame game)
     {
         Game = game;
+
+        //cast mode owns the mouse: nothing — spell or item — can be picked up while a spell is armed
+        Game.Dispatcher.DragBlocked = () => CastingSystem.IsTargeting;
+
         WireServerEvents();
     }
 

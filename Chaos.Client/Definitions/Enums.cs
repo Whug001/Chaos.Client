@@ -66,30 +66,6 @@ public enum SkillBookPage : byte
 }
 
 /// <summary>
-///     Cooldown rendering style for panel slots.
-/// </summary>
-public enum CooldownStyle
-{
-    /// <summary>
-    ///     No cooldown rendering.
-    /// </summary>
-    None,
-
-    /// <summary>
-    ///     Spell-style: a blue-tinted copy of the icon replaces the normal icon for the full duration. Matches retail
-    ///     <c>SpellInvItemPane::Render</c> which applies a 50/50 blend with <c>legend.pal[0x58]</c> over the entire icon.
-    /// </summary>
-    Swap,
-
-    /// <summary>
-    ///     Skill-style: a grey-tinted base (50/50 blend with <c>legend.pal[0x18]</c>) overlaid by a blue-tinted copy
-    ///     (50/50 blend with <c>legend.pal[0x58]</c>) that is progressively revealed top-to-bottom as the cooldown
-    ///     elapses. Matches retail <c>SkillInvItemPane::Render</c>.
-    /// </summary>
-    Progressive
-}
-
-/// <summary>
 ///     The current animation state of a world entity.
 /// </summary>
 public enum EntityAnimState : byte

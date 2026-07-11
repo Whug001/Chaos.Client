@@ -316,9 +316,12 @@ public sealed partial class WorldScreen
         //GetSortedEntities is self-caching via dirty flag, so this call is free when the sort is still valid.
         WorldState.CurrentFrame.SortedEntities = WorldState.GetSortedEntities();
         WorldState.CurrentFrame.HoveredEntityId = newHoveredId;
-        //ground-targeting tints the tile (see WorldScreen.Draw), not entities — so suppress the entity hover-tint for it
+        //aiming a ground spell tints the tile (see WorldScreen.Draw), not entities — so suppress the entity hover-tint,
+        //whether the spell was armed in cast mode or is being dragged. The two terms stay independent: a ground spell
+        //being armed must not kill the drop-target tint of an unrelated drag (e.g. an inventory item onto a creature).
         WorldState.CurrentFrame.ShowTintHighlight =
-            (CastingSystem.IsTargeting && !CastingSystem.IsGroundTargeting) || Game.Dispatcher.IsDragging;
+            (CastingSystem.IsTargeting && !CastingSystem.IsGroundTargeting)
+            || (Game.Dispatcher.IsDragging && !IsDraggingGroundSpell);
         WorldState.CurrentFrame.UseDragCursor = Game.Dispatcher.IsDragging;
 
         var worldViewport = WorldHud.ViewportBounds;

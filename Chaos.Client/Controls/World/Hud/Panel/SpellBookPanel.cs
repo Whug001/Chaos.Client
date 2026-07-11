@@ -10,7 +10,7 @@ namespace Chaos.Client.Controls.World.Hud.Panel;
 
 /// <summary>
 ///     Spell book panel (D key, Shift+D for secondary). Thin view that subscribes to
-///     <see cref="ViewModel.SpellBook" /> change events and renders spell icons with Swap-style cooldowns.
+///     <see cref="ViewModel.SpellBook" /> change events and renders spell icons with Progressive-style cooldowns.
 /// </summary>
 public sealed class SpellBookPanel : PanelBase
 {
@@ -30,7 +30,6 @@ public sealed class SpellBookPanel : PanelBase
         : base(
             hudPrefabSet,
             MAX_SLOTS,
-            CooldownStyle.Swap,
             (int)page,
             columns,
             cellCount,
@@ -53,24 +52,18 @@ public sealed class SpellBookPanel : PanelBase
         WorldState.SpellBook.Cleared += OnCleared;
     }
 
-    protected override PanelSlot CreateSlot(byte slotNumber, string name, CooldownStyle cooldownStyle)
+    protected override PanelSlot CreateSlot(byte slotNumber, string name)
         => new SpellSlot
         {
             Name = name,
-            Slot = slotNumber,
-            CooldownStyle = cooldownStyle
+            Slot = slotNumber
         };
 
+    //base.Dispose() walks the children, and PanelSlot.Dispose drops its own cooldown textures
     public override void Dispose()
     {
         WorldState.SpellBook.SlotChanged -= OnSlotChanged;
         WorldState.SpellBook.Cleared -= OnCleared;
-
-        foreach (var slot in Slots)
-        {
-            slot.CooldownTexture?.Dispose();
-            slot.CooldownTexture = null;
-        }
 
         base.Dispose();
     }
@@ -86,9 +79,9 @@ public sealed class SpellBookPanel : PanelBase
         {
             slot.NormalTexture?.Dispose();
             slot.NormalTexture = null;
-            slot.CooldownTexture?.Dispose();
-            slot.CooldownTexture = null;
+            slot.ClearCooldownTextures();
             slot.CooldownPercent = 0;
+            slot.CooldownSecondsRemaining = 0;
             slot.SlotName = null;
         }
     }
@@ -102,9 +95,8 @@ public sealed class SpellBookPanel : PanelBase
 
         var data = WorldState.SpellBook.GetSlot(slot);
 
-        //dispose old textures — sprite may have changed
-        control.CooldownTexture?.Dispose();
-        control.CooldownTexture = null;
+        //the sprite may have changed, so the tinted overlays have to be rebuilt
+        control.ClearCooldownTextures();
 
         if (data.IsOccupied)
         {
@@ -128,12 +120,20 @@ public sealed class SpellBookPanel : PanelBase
             control.NormalTexture = null;
             control.SlotName = null;
             control.CooldownPercent = 0;
+            control.CooldownSecondsRemaining = 0;
             control.CurrentDurability = 0;
             control.MaxDurability = 0;
         }
     }
 
     protected override Texture2D RenderIcon(ushort spriteId) => UiRenderer.Instance!.GetSpellIcon(spriteId);
+
+    private Texture2D RenderGreyIcon(ushort spriteId)
+    {
+        var cache = UiRenderer.Instance!;
+
+        return cache.GetCooldownTintedTexture($"spell:{spriteId}", cache.GetSpellIcon(spriteId), LegendColors.DimGray);
+    }
 
     private Texture2D RenderTintedIcon(ushort spriteId)
     {
@@ -146,22 +146,32 @@ public sealed class SpellBookPanel : PanelBase
     {
         base.Update(gameTime);
 
-        //read cooldown state each frame — swap style: fully on or off
+        //read cooldown state each frame — progressive style: grey base with blue overlay
         for (var i = 0; (i < VisibleSlotCount) && (i < Slots.Count); i++)
         {
             var slot = (byte)(i + SlotOffset + 1);
             var control = Slots[i];
-            var isOnCooldown = WorldState.SpellBook.IsOnCooldown(slot);
+            var cooldownPercent = WorldState.SpellBook.GetCooldownPercent(slot);
 
-            if (isOnCooldown && control.CooldownTexture is null && control.NormalTexture is not null)
+            if (cooldownPercent > 0)
             {
-                var data = WorldState.SpellBook.GetSlot(slot);
+                //build the overlays once per cooldown, not once per frame
+                if ((control.GreyTexture is null) || (control.CooldownTexture is null))
+                {
+                    var data = WorldState.SpellBook.GetSlot(slot);
 
-                if (data.IsOccupied)
-                    control.CooldownTexture = RenderTintedIcon(data.Sprite);
-            }
+                    if (data.IsOccupied && control.NormalTexture is not null)
+                    {
+                        control.GreyTexture ??= RenderGreyIcon(data.Sprite);
+                        control.CooldownTexture ??= RenderTintedIcon(data.Sprite);
+                    }
+                }
 
-            control.CooldownPercent = isOnCooldown ? 1f : 0;
+                control.CooldownSecondsRemaining = WorldState.SpellBook.GetCooldownSecondsRemaining(slot);
+            } else
+                control.CooldownSecondsRemaining = 0;
+
+            control.CooldownPercent = cooldownPercent;
         }
     }
 }

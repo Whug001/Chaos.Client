@@ -402,6 +402,7 @@ public sealed class ChaosGame : Game
         TextureConverter.Device = GraphicsDevice;
         FontAtlas.Initialize(GraphicsDevice);
         DamageNumberFont.Initialize(GraphicsDevice);
+        CooldownNumberFont.Initialize(GraphicsDevice);
         UiRenderer.Instance = new UiRenderer(GraphicsDevice);
 
         LoadCustomCursor();

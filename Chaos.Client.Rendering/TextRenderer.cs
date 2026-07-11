@@ -58,7 +58,8 @@ public static class TextRenderer
     #region Draw Methods
     /// <summary>
     ///     Draws a single line of text from the font atlas. Handles inline {=x color codes by changing the vertex color per
-    ///     character.
+    ///     character. <paramref name="scale" /> multiplies both the glyph size and the advance; the font is a bitmap and the
+    ///     global sampler is point-clamped, so integer scales stay crisp (fractional ones will alias).
     /// </summary>
     public static void DrawText(
         SpriteBatch spriteBatch,
@@ -67,7 +68,8 @@ public static class TextRenderer
         Color color,
         bool colorCodesEnabled = true,
         float opacity = 1f,
-        bool applyCodeColors = true)
+        bool applyCodeColors = true,
+        int scale = 1)
     {
         if (string.IsNullOrEmpty(text))
             return;
@@ -106,8 +108,13 @@ public static class TextRenderer
                     glyph.Atlas,
                     new Vector2(cursorX, y),
                     glyph.SourceRect,
-                    activeColor);
-                cursorX += ENGLISH_ADVANCE;
+                    activeColor,
+                    0f,
+                    Vector2.Zero,
+                    scale,
+                    SpriteEffects.None,
+                    0f);
+                cursorX += ENGLISH_ADVANCE * scale;
 
                 continue;
             }
@@ -124,23 +131,29 @@ public static class TextRenderer
                         glyph.Atlas,
                         new Vector2(cursorX, y),
                         glyph.SourceRect,
-                        activeColor);
+                        activeColor,
+                        0f,
+                        Vector2.Zero,
+                        scale,
+                        SpriteEffects.None,
+                        0f);
                 }
 
-                cursorX += KOREAN_ADVANCE;
+                cursorX += KOREAN_ADVANCE * scale;
 
                 continue;
             }
 
             //space or unmapped — advance without drawing
-            cursorX += ENGLISH_ADVANCE;
+            cursorX += ENGLISH_ADVANCE * scale;
         }
     }
 
     /// <summary>
     ///     Draws a single line of text with a dual diagonal drop shadow. The shadow is drawn at (-1,+1) and (+1,+1) relative
     ///     to the main text, matching the original Dark Ages client name tag rendering. The bounding box of the result is
-    ///     (MeasureWidth(text) + 2) wide and (CHAR_HEIGHT + 1) tall.
+    ///     (MeasureWidth(text, scale) + 2*scale) wide and (CHAR_HEIGHT*scale + scale) tall. The shadow offsets scale with the
+    ///     text, so the shadow stays proportional instead of collapsing into the glyph at larger sizes.
     /// </summary>
     public static void DrawShadowedText(
         SpriteBatch spriteBatch,
@@ -148,7 +161,8 @@ public static class TextRenderer
         string text,
         Color textColor,
         Color shadowColor,
-        bool colorCodesEnabled = true)
+        bool colorCodesEnabled = true,
+        int scale = 1)
     {
         if (string.IsNullOrEmpty(text))
             return;
@@ -156,24 +170,27 @@ public static class TextRenderer
         //shadow at down-right (+1,+1) and down-left (-1,+1) relative to main text at (1,0) within the bounding box
         DrawText(
             spriteBatch,
-            position + new Vector2(2, 1),
+            position + new Vector2(2 * scale, scale),
             text,
             shadowColor,
-            colorCodesEnabled);
+            colorCodesEnabled,
+            scale: scale);
 
         DrawText(
             spriteBatch,
-            position + new Vector2(0, 1),
+            position + new Vector2(0, scale),
             text,
             shadowColor,
-            colorCodesEnabled);
+            colorCodesEnabled,
+            scale: scale);
 
         DrawText(
             spriteBatch,
-            position + new Vector2(1, 0),
+            position + new Vector2(scale, 0),
             text,
             textColor,
-            colorCodesEnabled);
+            colorCodesEnabled,
+            scale: scale);
     }
 
     /// <summary>
@@ -404,7 +421,7 @@ public static class TextRenderer
     /// <summary>
     ///     Measures the pixel width of a text string. Skips {=x} color codes.
     /// </summary>
-    public static int MeasureWidth(string text)
+    public static int MeasureWidth(string text, int scale = 1)
     {
         if (string.IsNullOrEmpty(text))
             return 0;
@@ -424,7 +441,7 @@ public static class TextRenderer
             width += IsKorean(text[i]) ? KOREAN_ADVANCE : ENGLISH_ADVANCE;
         }
 
-        return width;
+        return width * scale;
     }
     #endregion
 

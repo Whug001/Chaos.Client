@@ -111,7 +111,7 @@ public sealed partial class WorldScreen
             //ground-target outline — drawn after foreground/entities so a wall/tree on the target tile can't occlude
             //the targeting indicator. camera-space (same transform as the world passes). guarded to skip the batch
             //setup when not targeting.
-            if (CastingSystem.IsGroundTargeting)
+            if (IsAimingAtTile)
             {
                 spriteBatch.Begin(samplerState: GlobalSettings.Sampler, rasterizerState: ScissorRasterizerState, transformMatrix: transform);
                 DrawGroundTargetHighlight(spriteBatch);
@@ -963,7 +963,7 @@ public sealed partial class WorldScreen
             return;
 
         //ground-targeting replaces the dashed cursor with the target-tile treatment (see DrawGroundTargetHighlight)
-        if (CastingSystem.IsGroundTargeting)
+        if (IsAimingAtTile)
             return;
 
         if (WorldState.CurrentFrame.HoveredTile is not { } hoverTile)
@@ -992,7 +992,7 @@ public sealed partial class WorldScreen
         if (MapFile is null || TileHighlightTexture is null)
             return;
 
-        if (!CastingSystem.IsGroundTargeting)
+        if (!IsAimingAtTile)
             return;
 
         if (WorldState.CurrentFrame.HoveredTile is not { } tile)

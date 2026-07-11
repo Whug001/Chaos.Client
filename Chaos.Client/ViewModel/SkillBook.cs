@@ -62,6 +62,22 @@ public sealed class SkillBook
     }
 
     /// <summary>
+    ///     Whole seconds left on a 1-based slot's cooldown, rounded up. Zero only once the slot is actually ready, so the
+    ///     readout never shows "0" on a slot that is still locked.
+    /// </summary>
+    public int GetCooldownSecondsRemaining(byte slot)
+    {
+        var index = slot - 1;
+
+        if (index is < 0 or >= MAX_SLOTS)
+            return 0;
+
+        var remaining = CooldownRemaining[index];
+
+        return remaining > 0 ? (int)MathF.Ceiling(remaining / 1000f) : 0;
+    }
+
+    /// <summary>
     ///     Returns the data for a 1-based slot number. Returns default if slot is out of range.
     /// </summary>
     public ref readonly SkillSlotData GetSlot(byte slot)
@@ -95,19 +111,6 @@ public sealed class SkillBook
         }
 
         return false;
-    }
-
-    /// <summary>
-    ///     Returns true if the 1-based slot has an active cooldown.
-    /// </summary>
-    public bool IsOnCooldown(byte slot)
-    {
-        var index = slot - 1;
-
-        if (index is < 0 or >= MAX_SLOTS)
-            return false;
-
-        return CooldownRemaining[index] > 0;
     }
 
     /// <summary>

@@ -31,6 +31,9 @@ public static class ClientSettings
     public static bool ShowHealNumbersOnNpcs { get; set; } = true;
     public static DamageNumberSize DamageNumberSize { get; set; } = DamageNumberSize.Compact;
 
+    // --- Numeric cooldown readout on skill/spell slots (client-local; gated in PanelSlot) ---
+    public static bool CooldownNumbersEnabled { get; set; } = true;
+
     private static string FilePath => Path.Combine(GlobalSettings.DataPath, FILE_NAME);
 
     /// <summary>
@@ -139,6 +142,11 @@ public static class ClientSettings
 
                         break;
 
+                    case "CooldownNumbersEnabled":
+                        CooldownNumbersEnabled = value == "1";
+
+                        break;
+
                     case "MaxEffectAnimations":
                         if (int.TryParse(value, out var mea))
                             MaxEffectAnimationsPerEntity = Math.Clamp(mea, 0, 10);
@@ -175,6 +183,7 @@ public static class ClientSettings
             writer.WriteLine($"ShowDamageNumbersOnNpcs : {(ShowDamageNumbersOnNpcs ? 1 : 0)}");
             writer.WriteLine($"ShowHealNumbersOnNpcs : {(ShowHealNumbersOnNpcs ? 1 : 0)}");
             writer.WriteLine($"DamageNumberSize : {(int)DamageNumberSize}");
+            writer.WriteLine($"CooldownNumbersEnabled : {(CooldownNumbersEnabled ? 1 : 0)}");
             writer.WriteLine($"MaxEffectAnimations : {MaxEffectAnimationsPerEntity}");
         } catch
         {

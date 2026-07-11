@@ -92,13 +92,8 @@ public sealed partial class WorldScreen
         if (IsOverVisiblePopup(mouseX, mouseY))
             return;
 
-        var viewport = WorldHud.ViewportBounds;
-
         //only drop if released within the world viewport
-        if ((mouseX < viewport.X)
-            || (mouseX >= (viewport.X + viewport.Width))
-            || (mouseY < viewport.Y)
-            || (mouseY >= (viewport.Y + viewport.Height)))
+        if (!IsInWorldViewport(mouseX, mouseY))
             return;
 
         if (MapFile is null)
@@ -114,7 +109,7 @@ public sealed partial class WorldScreen
         //gold bag (slot 0) — show the gold amount popup
         if (slot == 0)
         {
-            GoldDrop.CenterVerticallyIn(viewport);
+            GoldDrop.CenterVerticallyIn(WorldHud.ViewportBounds);
             GoldDrop.ShowForTarget(droppedOnEntity ? entity!.Id : null, tileX, tileY);
             WorldHud.SetDescription($"Gold( {WorldState.Inventory.Gold} )");
 
@@ -193,30 +188,43 @@ public sealed partial class WorldScreen
         Game.Connection.UseSkill(slot);
     }
 
-    private void HandleSpellSlotClicked(byte slot)
-    {
-        //determine which panel the slot came from
-        var spellSlot = WorldHud.ActiveTab switch
+    /// <summary>
+    ///     Resolves the <see cref="SpellSlot" /> a 1-based slot number refers to, preferring the panel that is currently
+    ///     shown. Shared by the click and drag-drop paths so both agree on which spell they are acting on.
+    /// </summary>
+    private SpellSlot? ResolveSpellSlot(byte slot)
+        => WorldHud.ActiveTab switch
         {
-            HudTab.Spells => WorldHud.SpellBook.GetSpellSlot(slot),
+            HudTab.Spells    => WorldHud.SpellBook.GetSpellSlot(slot),
             HudTab.SpellsAlt => WorldHud.SpellBookAlt.GetSpellSlot(slot),
-            HudTab.Tools => WorldHud.Tools.WorldSpells.GetSpellSlot(slot),
+            HudTab.Tools     => WorldHud.Tools.WorldSpells.GetSpellSlot(slot),
             _ => WorldHud.SpellBook.GetSpellSlot(slot)
-                                ?? WorldHud.SpellBookAlt.GetSpellSlot(slot)
-                                ?? WorldHud.Tools.WorldSpells.GetSpellSlot(slot)
+                 ?? WorldHud.SpellBookAlt.GetSpellSlot(slot)
+                 ?? WorldHud.Tools.WorldSpells.GetSpellSlot(slot)
         };
 
-        if (spellSlot is null || string.IsNullOrEmpty(spellSlot.AbilityName))
-            return;
+    private void HandleSpellSlotClicked(byte slot)
+    {
+        var spellSlot = ResolveSpellSlot(slot);
 
-        if (spellSlot.CooldownPercent > 0)
-            return;
+        if (spellSlot is not null)
+            TryBeginCast(spellSlot);
+    }
+
+    /// <summary>
+    ///     Puts a spell into cast mode, and reports whether it is now the armed spell. False means it never armed: the
+    ///     slot is empty or on cooldown, or the spell is NoTarget, which casts outright instead of waiting for a target.
+    /// </summary>
+    private bool TryBeginCast(SpellSlot spellSlot)
+    {
+        if (string.IsNullOrEmpty(spellSlot.AbilityName) || (spellSlot.CooldownPercent > 0))
+            return false;
 
         //notarget spells cast immediately (no cast mode)
         if (spellSlot.SpellType == SpellType.NoTarget)
         {
             if (spellSlot.CastLines == 0)
-                Game.Connection.UseSpell(slot);
+                Game.Connection.UseSpell(spellSlot.Slot);
             else
             {
                 //notarget with lines: begin chant sequence targeting self
@@ -231,31 +239,86 @@ public sealed partial class WorldScreen
                     Game.Connection);
             }
 
-            return;
+            return false;
         }
 
         //enter cast mode — wait for target selection
         CastingSystem.BeginTargeting(spellSlot);
+
+        return true;
     }
+
+    /// <summary>
+    ///     The map tile under a screen point, clamped to the map edges. Null when no map is loaded. Shared by the
+    ///     ground-target click and drop paths so an off-map aim resolves to the same tile either way.
+    /// </summary>
+    private (int X, int Y)? ClampedTileAt(int mouseX, int mouseY)
+    {
+        if (MapFile is null)
+            return null;
+
+        (var tileX, var tileY) = ScreenToTile(mouseX, mouseY);
+
+        return (Math.Clamp(tileX, 0, MapFile.Width - 1), Math.Clamp(tileY, 0, MapFile.Height - 1));
+    }
+
+    /// <summary>
+    ///     True when a screen point lies inside the world viewport. Drag-drop events are NOT absorbed by the panel they
+    ///     land on (only click-family events are), so a drop released over the HUD still bubbles to the root handler with
+    ///     HUD coordinates — every world-drop handler has to reject those itself.
+    /// </summary>
+    private bool IsInWorldViewport(int mouseX, int mouseY) => WorldHud.ViewportBounds.Contains(mouseX, mouseY);
 
     private void HandleSpellSlotDropped(byte slot, int mouseX, int mouseY)
     {
         if (IsOverVisiblePopup(mouseX, mouseY))
             return;
 
-        var entity = GetEntityAtScreen(mouseX, mouseY);
-
-        if (entity?.Type is not (ClientEntityType.Aisling or ClientEntityType.Creature))
+        //releasing the drag back onto the HUD (the panel background, the gutter between slots, another panel's slot) is
+        //the natural "never mind" gesture, and it lands here with HUD coordinates. Without this, the tile clamp below
+        //would turn a nowhere-drop into a valid edge tile and cast the spell there.
+        if (!IsInWorldViewport(mouseX, mouseY))
             return;
 
-        HandleSpellSlotClicked(slot);
+        //the drag payload still holds the exact slot that was picked up, so there is no need to guess the panel back
+        //from the active tab
+        var spellSlot = (Game.Dispatcher.ActiveDragPayload as SlotDragPayload)?.Source as SpellSlot ?? ResolveSpellSlot(slot);
 
-        if (CastingSystem.IsTargeting)
-            CastingSystem.SelectTarget(
-                entity.Id,
-                entity.TileX,
-                entity.TileY,
-                Game.Connection);
+        if (spellSlot is null)
+            return;
+
+        uint targetId;
+        int tileX;
+        int tileY;
+
+        //a ground-targeted spell has no entity to land on — the drop tile IS the target (entity id 0). Everything else
+        //still requires an entity under the cursor.
+        if (spellSlot.SpellType == SpellType.GroundTargeted)
+        {
+            if (ClampedTileAt(mouseX, mouseY) is not { } tile)
+                return;
+
+            (targetId, tileX, tileY) = (0u, tile.X, tile.Y);
+        } else
+        {
+            var entity = GetEntityAtScreen(mouseX, mouseY);
+
+            if (entity?.Type is not (ClientEntityType.Aisling or ClientEntityType.Creature))
+                return;
+
+            (targetId, tileX, tileY) = (entity.Id, entity.TileX, entity.TileY);
+        }
+
+        //arm first, and only fire if this spell actually took cast mode — an empty, cooling-down, or NoTarget slot never
+        //arms, and firing anyway would cast on a spell the drop never selected
+        if (!TryBeginCast(spellSlot))
+            return;
+
+        CastingSystem.SelectTarget(
+            targetId,
+            tileX,
+            tileY,
+            Game.Connection);
     }
 
     //--- hotkeys ---
@@ -1102,9 +1165,16 @@ public sealed partial class WorldScreen
         if (e.Button != MouseButton.Right)
             return;
 
-        //cast mode consumes right-clicks silently so pathfinding doesn't fire under a targeting cursor
+        //right-click backs out of cast mode rather than pathfinding under the targeting cursor. This is the only way to
+        //cancel a ground-targeted spell — an entity-targeted one can be dropped by clicking empty ground, but for a
+        //ground spell every tile is a valid target, so a left-click can never mean "never mind".
         if (CastingSystem.IsTargeting)
+        {
+            CastingSystem.CancelTargeting();
+            e.Handled = true;
+
             return;
+        }
 
         if (e.Shift)
         {
@@ -1171,18 +1241,13 @@ public sealed partial class WorldScreen
             {
                 //ground-targeted spells land on the clicked tile, not an entity (id 0). clamp off-map clicks to the
                 //nearest edge tile, mirroring right-click pathfinding.
-                if (MapFile is not null)
-                {
-                    (var tileX, var tileY) = ScreenToTile(e.ScreenX, e.ScreenY);
-                    tileX = Math.Clamp(tileX, 0, MapFile.Width - 1);
-                    tileY = Math.Clamp(tileY, 0, MapFile.Height - 1);
-
+                if (ClampedTileAt(e.ScreenX, e.ScreenY) is { } tile)
                     CastingSystem.SelectTarget(
                         0,
-                        tileX,
-                        tileY,
+                        tile.X,
+                        tile.Y,
                         Game.Connection);
-                } else
+                else
                     CastingSystem.CancelTargeting();
             } else
             {

@@ -57,6 +57,7 @@ public enum SettingKey
     DoubleTapForAltPanels,
     NpcRecordChat,
     Resolution,
+    CooldownNumbers,
     DamageNumbersEnabled,
     DamageNumbersOnAislings,
     HealNumbersOnAislings,
@@ -119,6 +120,13 @@ public static class SettingDefinitions
             Get: () => ClientSettings.ScrollLevel > 0,
             Set: v => ClientSettings.ScrollLevel = v ? 1 : 0),
         new(
+            SettingKey.CooldownNumbers,
+            "Cooldown numbers",
+            SettingSection.Display,
+            SettingCategory.ClientLocal,
+            Get: () => ClientSettings.CooldownNumbersEnabled,
+            Set: v => ClientSettings.CooldownNumbersEnabled = v),
+        new(
             SettingKey.MaxEffectAnimations,
             "Max animations per entity",
             SettingSection.Display,
@@ -156,7 +164,7 @@ public static class SettingDefinitions
             GatedBy: SettingKey.DamageNumbersEnabled),
         new(
             SettingKey.DamageNumbersMyOutputOnly,
-            "Only show my own output",
+            "Only show my my output",
             SettingSection.DamageNumbers,
             SettingCategory.ServerOption,
             UserOption.DamageNumbersMyOutputOnly,

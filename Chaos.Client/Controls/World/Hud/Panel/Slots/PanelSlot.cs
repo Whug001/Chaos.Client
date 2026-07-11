@@ -1,6 +1,7 @@
 #region
 using Chaos.Client.Controls.Components;
 using Chaos.Client.Models;
+using Chaos.Client.Systems;
 using Microsoft.Xna.Framework;
 using Microsoft.Xna.Framework.Graphics;
 #endregion
@@ -14,6 +15,14 @@ namespace Chaos.Client.Controls.World.Hud.Panel.Slots;
 /// </summary>
 public class PanelSlot : UIButton
 {
+    //three digits is what CooldownNumberFont fits inside a 32px slot icon; a longer cooldown parks here until it ticks
+    //down into range
+    private const int MAX_DISPLAY_SECONDS = 999;
+
+    //the readout is redrawn every frame but only changes once a second — pre-render the strings so Draw allocates none
+    private static readonly string[] SecondsText
+        = [..Enumerable.Range(0, MAX_DISPLAY_SECONDS + 1).Select(static seconds => seconds.ToString())];
+
     private bool DoubleClickFired;
 
     /// <summary>
@@ -22,21 +31,23 @@ public class PanelSlot : UIButton
     public float CooldownPercent { get; set; }
 
     /// <summary>
-    ///     How the cooldown overlay is rendered.
+    ///     Whole seconds left on this slot's cooldown, rounded up. Zero when ready. Drawn over the icon when
+    ///     <see cref="ClientSettings.CooldownNumbersEnabled" /> is set. Panels that have no cooldown concept (inventory)
+    ///     leave this at zero and get no readout.
     /// </summary>
-    public CooldownStyle CooldownStyle { get; set; }
+    public int CooldownSecondsRemaining { get; set; }
 
     /// <summary>
-    ///     Blue-tinted copy of the normal icon used as the cooldown overlay. For <see cref="CooldownStyle.Progressive" />
-    ///     this is progressively revealed top-to-bottom over the grey base; for <see cref="CooldownStyle.Swap" /> it
-    ///     replaces the normal icon entirely for the duration.
+    ///     Blue-tinted copy of the normal icon used as the cooldown overlay. Progressively revealed top-to-bottom over
+    ///     the grey base as the cooldown elapses. Only the skill/spell panels set this; a slot without one (inventory,
+    ///     tools) draws no cooldown treatment at all.
     /// </summary>
     public Texture2D? CooldownTexture { get; set; }
 
     public int CurrentDurability { get; set; }
 
     /// <summary>
-    ///     Grey-tinted copy of the normal icon shown underneath <see cref="CooldownStyle.Progressive" /> cooldowns.
+    ///     Grey-tinted copy of the normal icon shown underneath the cooldown overlay.
     /// </summary>
     public Texture2D? GreyTexture { get; set; }
 
@@ -54,12 +65,21 @@ public class PanelSlot : UIButton
     /// </summary>
     public string? SlotName { get; set; }
 
-    public override void Dispose()
+    /// <summary>
+    ///     Drops both cooldown overlays. Called when the slot's sprite changes, the book is cleared, or the slot is
+    ///     disposed — they are rebuilt lazily on the next frame the slot is on cooldown.
+    /// </summary>
+    public void ClearCooldownTextures()
     {
         CooldownTexture?.Dispose();
         CooldownTexture = null;
         GreyTexture?.Dispose();
         GreyTexture = null;
+    }
+
+    public override void Dispose()
+    {
+        ClearCooldownTextures();
 
         base.Dispose();
     }
@@ -110,61 +130,63 @@ public class PanelSlot : UIButton
         var pos = new Vector2(ScreenX, ScreenY);
 
         if ((CooldownPercent > 0) && CooldownTexture is not null)
-            switch (CooldownStyle)
+        {
+            //grey-tinted base, with the blue-tinted overlay revealed top-to-bottom as the cooldown elapses
+            DrawTexture(
+                spriteBatch,
+                GreyTexture ?? icon,
+                pos,
+                Color.White);
+
+            var elapsed = 1f - CooldownPercent;
+            var revealHeight = (int)(CooldownTexture.Height * elapsed);
+
+            if (revealHeight > 0)
             {
-                case CooldownStyle.Swap:
-                    DrawTexture(
-                        spriteBatch,
-                        CooldownTexture,
-                        pos,
-                        Color.White);
+                var srcRect = new Rectangle(
+                    0,
+                    0,
+                    CooldownTexture.Width,
+                    revealHeight);
 
-                    break;
-
-                case CooldownStyle.Progressive:
-                    //retail parity: grey-tinted base + blue-tinted top-revealed overlay (SkillInvItemPane::Render)
-                    DrawTexture(
-                        spriteBatch,
-                        GreyTexture ?? icon,
-                        pos,
-                        Color.White);
-
-                    var elapsed = 1f - CooldownPercent;
-                    var revealHeight = (int)(CooldownTexture.Height * elapsed);
-
-                    if (revealHeight > 0)
-                    {
-                        var srcRect = new Rectangle(
-                            0,
-                            0,
-                            CooldownTexture.Width,
-                            revealHeight);
-
-                        DrawTexture(
-                            spriteBatch,
-                            CooldownTexture,
-                            pos,
-                            srcRect,
-                            Color.White);
-                    }
-
-                    break;
-
-                default:
-                    DrawTexture(
-                        spriteBatch,
-                        icon,
-                        pos,
-                        Color.White);
-
-                    break;
+                DrawTexture(
+                    spriteBatch,
+                    CooldownTexture,
+                    pos,
+                    srcRect,
+                    Color.White);
             }
-        else
+        } else
             DrawTexture(
                 spriteBatch,
                 icon,
                 pos,
                 Color.White);
+
+        DrawCooldownNumber(spriteBatch, icon);
+    }
+
+    /// <summary>
+    ///     Draws the whole-seconds readout centred over the icon, on top of the cooldown tint. Uses the purpose-authored
+    ///     <see cref="CooldownNumberFont" /> rather than the game font, which is a fixed 8x12 bitmap with no larger face
+    ///     shipped in the archives. The digits are sized so even a three-digit cooldown fits inside the icon; a longer
+    ///     cooldown is clamped to <see cref="MAX_DISPLAY_SECONDS" /> rather than allowed to spill onto the neighbouring
+    ///     slot.
+    /// </summary>
+    private void DrawCooldownNumber(SpriteBatch spriteBatch, Texture2D icon)
+    {
+        if (!ClientSettings.CooldownNumbersEnabled || (CooldownSecondsRemaining <= 0))
+            return;
+
+        var text = SecondsText[Math.Min(CooldownSecondsRemaining, MAX_DISPLAY_SECONDS)];
+        var width = CooldownNumberFont.MeasureWidth(text);
+        var height = CooldownNumberFont.GlyphHeight;
+
+        CooldownNumberFont.Draw(
+            spriteBatch,
+            text,
+            ScreenX + ((icon.Width - width) / 2),
+            ScreenY + ((icon.Height - height) / 2));
     }
 
     /// <summary>

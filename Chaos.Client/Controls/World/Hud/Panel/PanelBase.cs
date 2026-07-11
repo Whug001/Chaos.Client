@@ -94,7 +94,6 @@ public abstract class PanelBase : ExpandablePanel
     protected PanelBase(
         ControlPrefabSet hudPrefabSet,
         int maxSlots,
-        CooldownStyle cooldownStyle = CooldownStyle.None,
         int slotOffset = 0,
         int columns = DEFAULT_COLUMNS,
         int? cellCount = null,
@@ -162,7 +161,7 @@ public abstract class PanelBase : ExpandablePanel
             var row = i / Columns;
 
             // ReSharper disable once VirtualMemberCallInConstructor
-            var slot = CreateSlot((byte)(slotIndex + 1), $"Slot{slotIndex}", cooldownStyle);
+            var slot = CreateSlot((byte)(slotIndex + 1), $"Slot{slotIndex}");
             slot.X = GridOffsetX + col * CELL_WIDTH;
             slot.Y = GridOffsetY + row * CELL_HEIGHT;
             slot.Width = ICON_SIZE;
@@ -204,12 +203,11 @@ public abstract class PanelBase : ExpandablePanel
         ConfigureExpand(expandedBackground);
     }
 
-    protected virtual PanelSlot CreateSlot(byte slotNumber, string name, CooldownStyle cooldownStyle)
+    protected virtual PanelSlot CreateSlot(byte slotNumber, string name)
         => new()
         {
             Name = name,
-            Slot = slotNumber,
-            CooldownStyle = cooldownStyle
+            Slot = slotNumber
         };
 
     public override void Draw(SpriteBatch spriteBatch)

@@ -30,7 +30,6 @@ public sealed class SkillBookPanel : PanelBase
         : base(
             hudPrefabSet,
             MAX_SLOTS,
-            CooldownStyle.Progressive,
             (int)page,
             columns,
             cellCount,
@@ -53,26 +52,18 @@ public sealed class SkillBookPanel : PanelBase
         WorldState.SkillBook.Cleared += OnCleared;
     }
 
-    protected override PanelSlot CreateSlot(byte slotNumber, string name, CooldownStyle cooldownStyle)
+    protected override PanelSlot CreateSlot(byte slotNumber, string name)
         => new SkillSlot
         {
             Name = name,
-            Slot = slotNumber,
-            CooldownStyle = cooldownStyle
+            Slot = slotNumber
         };
 
+    //base.Dispose() walks the children, and PanelSlot.Dispose drops its own cooldown textures
     public override void Dispose()
     {
         WorldState.SkillBook.SlotChanged -= OnSlotChanged;
         WorldState.SkillBook.Cleared -= OnCleared;
-
-        foreach (var slot in Slots)
-        {
-            slot.CooldownTexture?.Dispose();
-            slot.CooldownTexture = null;
-            slot.GreyTexture?.Dispose();
-            slot.GreyTexture = null;
-        }
 
         base.Dispose();
     }
@@ -88,11 +79,9 @@ public sealed class SkillBookPanel : PanelBase
         {
             slot.NormalTexture?.Dispose();
             slot.NormalTexture = null;
-            slot.CooldownTexture?.Dispose();
-            slot.CooldownTexture = null;
-            slot.GreyTexture?.Dispose();
-            slot.GreyTexture = null;
+            slot.ClearCooldownTextures();
             slot.CooldownPercent = 0;
+            slot.CooldownSecondsRemaining = 0;
             slot.SlotName = null;
         }
     }
@@ -106,11 +95,8 @@ public sealed class SkillBookPanel : PanelBase
 
         var data = WorldState.SkillBook.GetSlot(slot);
 
-        //dispose old cooldown textures — sprite may have changed
-        control.CooldownTexture?.Dispose();
-        control.CooldownTexture = null;
-        control.GreyTexture?.Dispose();
-        control.GreyTexture = null;
+        //the sprite may have changed, so the tinted overlays have to be rebuilt
+        control.ClearCooldownTextures();
 
         if (data.IsOccupied)
         {
@@ -127,6 +113,7 @@ public sealed class SkillBookPanel : PanelBase
             control.NormalTexture = null;
             control.SlotName = null;
             control.CooldownPercent = 0;
+            control.CooldownSecondsRemaining = 0;
             control.CurrentDurability = 0;
             control.MaxDurability = 0;
         }
@@ -159,16 +146,23 @@ public sealed class SkillBookPanel : PanelBase
             var control = Slots[i];
             var cooldownPercent = WorldState.SkillBook.GetCooldownPercent(slot);
 
-            if ((cooldownPercent > 0) && control.NormalTexture is not null)
+            if (cooldownPercent > 0)
             {
-                var data = WorldState.SkillBook.GetSlot(slot);
-
-                if (data.IsOccupied)
+                //build the overlays once per cooldown, not once per frame
+                if ((control.GreyTexture is null) || (control.CooldownTexture is null))
                 {
-                    control.GreyTexture ??= RenderGreyIcon(data.Sprite);
-                    control.CooldownTexture ??= RenderTintedIcon(data.Sprite);
+                    var data = WorldState.SkillBook.GetSlot(slot);
+
+                    if (data.IsOccupied && control.NormalTexture is not null)
+                    {
+                        control.GreyTexture ??= RenderGreyIcon(data.Sprite);
+                        control.CooldownTexture ??= RenderTintedIcon(data.Sprite);
+                    }
                 }
-            }
+
+                control.CooldownSecondsRemaining = WorldState.SkillBook.GetCooldownSecondsRemaining(slot);
+            } else
+                control.CooldownSecondsRemaining = 0;
 
             control.CooldownPercent = cooldownPercent;
         }

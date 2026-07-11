@@ -100,6 +100,12 @@ public sealed class InputDispatcher
     public bool IsDragging => DragActive;
 
     /// <summary>
+    ///     Asked before a drag is allowed to begin; returning true refuses it. A drag already in flight is unaffected —
+    ///     this gates initiation only, so an in-progress gesture is never torn up half-way. Null means no restriction.
+    /// </summary>
+    public Func<bool>? DragBlocked { get; set; }
+
+    /// <summary>
     ///     The active drag payload, or null.
     /// </summary>
     public object? ActiveDragPayload => DragPayload;
@@ -296,7 +302,7 @@ public sealed class InputDispatcher
                     //silently eating a legitimate click (e.g. a queued spell never casts).
                     //the watcher flips IsLeftButtonHeld/IsRightButtonHeld synchronously
                     //during the pump before ProcessInput, so this reflects the up already.
-                    if (!DragActive && IsCapturedButtonHeld())
+                    if (!DragActive && (DragBlocked?.Invoke() != true) && IsCapturedButtonHeld())
                     {
                         var dx = mouseX - MouseDownPosition.X;
                         var dy = mouseY - MouseDownPosition.Y;
