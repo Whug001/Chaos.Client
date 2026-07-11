@@ -164,7 +164,7 @@ public static class SettingDefinitions
             GatedBy: SettingKey.DamageNumbersEnabled),
         new(
             SettingKey.DamageNumbersMyOutputOnly,
-            "Only show my my output",
+            "Only show my output",
             SettingSection.DamageNumbers,
             SettingCategory.ServerOption,
             UserOption.DamageNumbersMyOutputOnly,
