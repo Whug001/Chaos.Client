@@ -2,7 +2,6 @@
 using Chaos.Client.Controls.Components;
 using Chaos.Client.Data.Repositories;
 using Chaos.DarkAges.Definitions;
-using Microsoft.Xna.Framework.Input;
 #endregion
 
 namespace Chaos.Client.Controls.World.Popups;
@@ -98,7 +97,7 @@ public sealed class SocialStatusControl : PrefabPanel
 
     public override void OnKeyDown(KeyDownEvent e)
     {
-        if (e.Key == Keys.Escape)
+        if (e.Keycode == Keycode.Escape)
         {
             InputDispatcher.Instance?.RemoveControl(this);
             Visible = false;

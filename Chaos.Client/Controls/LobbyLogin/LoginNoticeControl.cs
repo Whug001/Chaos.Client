@@ -2,7 +2,6 @@
 using Chaos.Client.Controls.Components;
 using Chaos.Client.Controls.Scrolling;
 using Microsoft.Xna.Framework;
-using Microsoft.Xna.Framework.Input;
 #endregion
 
 namespace Chaos.Client.Controls.LobbyLogin;
@@ -81,15 +80,15 @@ public sealed class LoginNoticeControl : PrefabPanel
 
     public override void OnKeyDown(KeyDownEvent e)
     {
-        switch (e.Key)
+        switch (e.Keycode)
         {
-            case Keys.Enter:
+            case Keycode.Enter:
                 OkButton?.PerformClick();
                 e.Handled = true;
 
                 break;
 
-            case Keys.Escape:
+            case Keycode.Escape:
                 //intentionally blocked — escape is a no-op during eula display
                 e.Handled = true;
 

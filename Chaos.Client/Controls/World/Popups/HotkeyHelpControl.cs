@@ -4,7 +4,6 @@ using Chaos.Client.Data;
 using Chaos.Client.Data.Models;
 using Microsoft.Xna.Framework;
 using Microsoft.Xna.Framework.Graphics;
-using Microsoft.Xna.Framework.Input;
 #endregion
 
 namespace Chaos.Client.Controls.World.Popups;
@@ -186,7 +185,8 @@ public sealed class HotkeyHelpControl : PrefabPanel
 
     public override void OnKeyDown(KeyDownEvent e)
     {
-        if (e.Key is Keys.Escape or Keys.F1 or Keys.Enter)
+        //Escape/Enter dismiss (label keys); F1 is the positional command hotkey that toggles help.
+        if ((e.Keycode is Keycode.Escape or Keycode.Enter) || (e.Scancode == Scancode.F1))
         {
             Hide();
             OnClose?.Invoke();

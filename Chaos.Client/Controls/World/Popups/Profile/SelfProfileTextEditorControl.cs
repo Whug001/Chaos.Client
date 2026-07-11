@@ -4,7 +4,6 @@ using Chaos.Client.Data;
 using Chaos.Client.Extensions;
 using Chaos.Client.Utilities;
 using Microsoft.Xna.Framework;
-using Microsoft.Xna.Framework.Input;
 #endregion
 
 namespace Chaos.Client.Controls.World.Popups.Profile;
@@ -153,7 +152,7 @@ public sealed class SelfProfileTextEditorControl : UIPanel
 
     public override void OnKeyDown(KeyDownEvent e)
     {
-        if (e.Key == Keys.Escape)
+        if (e.Keycode == Keycode.Escape)
         {
             Cancel();
             e.Handled = true;

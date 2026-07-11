@@ -4,7 +4,6 @@ using Chaos.Client.Controls.Generic;
 using Chaos.Client.Controls.Scrolling;
 using Chaos.Client.Models;
 using Microsoft.Xna.Framework;
-using Microsoft.Xna.Framework.Input;
 #endregion
 
 namespace Chaos.Client.Controls.World.Popups.Boards;
@@ -73,16 +72,14 @@ public sealed class ArticleListControl : PrefabPanel
                 PaddingTop = 0
             },
             BindRow,
-            selectable: true)
-        {
-            SentinelBinder = BindSentinel,
-            SentinelActivated = () =>
-            {
-                if (Entries.Count > 0)
-                    OnLoadMorePosts?.Invoke(Entries[^1].PostId);
-            }
-        };
+            selectable: true);
 
+        //auto-fetch the next page once the list is scrolled to the bottom of a full page (no "load more" footer)
+        RowList.LoadMoreRequested += () =>
+        {
+            if (Entries.Count > 0)
+                OnLoadMorePosts?.Invoke(Entries[^1].PostId);
+        };
         RowList.SelectionChanged += UpdateButtonStates;
         RowList.RowActivated += entry => OnViewPost?.Invoke(entry.PostId);
 
@@ -131,7 +128,7 @@ public sealed class ArticleListControl : PrefabPanel
     public void AppendEntries(List<MailEntry> entries)
     {
         Entries.AddRange(entries);
-        RowList.ShowSentinel = entries.Count >= MAX_POSTS_PER_PAGE;
+        RowList.CanLoadMore = entries.Count >= MAX_POSTS_PER_PAGE;
         RowList.Invalidate();
     }
 
@@ -145,13 +142,6 @@ public sealed class ArticleListControl : PrefabPanel
                 ? Color.Yellow
                 : TextColors.Default;
         label.Text = FormatRow(entry);
-    }
-
-    private static void BindSentinel(UIElement row)
-    {
-        var label = (UILabel)row;
-        label.ForegroundColor = Color.LightGray;
-        label.Text = "-- Load More --";
     }
 
     private string FormatRow(MailEntry entry)
@@ -174,8 +164,8 @@ public sealed class ArticleListControl : PrefabPanel
     public event HighlightPostHandler? OnHighlight;
 
     /// <summary>
-    ///     Fired when the user clicks the "Load More" row at the bottom of a full page. The short is the last visible PostId
-    ///     to use as the startPostId for the next page request.
+    ///     Fired when the list is scrolled to the bottom of a full page. The short is the last visible PostId to use as
+    ///     the startPostId for the next page request.
     /// </summary>
     public event LoadMorePostsHandler? OnLoadMorePosts;
 
@@ -234,14 +224,14 @@ public sealed class ArticleListControl : PrefabPanel
     {
         BoardId = boardId;
         Entries = entries;
-        RowList.ShowSentinel = entries.Count >= MAX_POSTS_PER_PAGE;
+        RowList.CanLoadMore = entries.Count >= MAX_POSTS_PER_PAGE;
         RowList.SetItems(Entries);
         Show();
     }
 
     public override void OnKeyDown(KeyDownEvent e)
     {
-        if (e.Key == Keys.Escape)
+        if (e.Keycode == Keycode.Escape)
         {
             OnUp?.Invoke();
             e.Handled = true;

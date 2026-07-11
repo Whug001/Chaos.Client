@@ -3,7 +3,6 @@ using Chaos.Client.Controls.Components;
 using Chaos.Client.Data.Models;
 using Chaos.Client.Extensions;
 using Microsoft.Xna.Framework;
-using Microsoft.Xna.Framework.Input;
 #endregion
 
 namespace Chaos.Client.Controls.World.Popups.Profile;
@@ -83,7 +82,7 @@ public sealed class EventMetadataDetailsControl : PrefabPanel
 
     public override void OnKeyDown(KeyDownEvent e)
     {
-        if (e.Key is Keys.Escape or Keys.Enter)
+        if (e.Keycode is Keycode.Escape or Keycode.Enter)
         {
             Hide();
             e.Handled = true;

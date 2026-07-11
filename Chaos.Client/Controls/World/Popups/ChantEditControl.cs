@@ -3,7 +3,6 @@ using Chaos.Client.Controls.Components;
 using Chaos.Client.Extensions;
 using Microsoft.Xna.Framework;
 using Microsoft.Xna.Framework.Graphics;
-using Microsoft.Xna.Framework.Input;
 #endregion
 
 namespace Chaos.Client.Controls.World.Popups;
@@ -248,21 +247,21 @@ public sealed class ChantEditControl : PrefabPanel
 
     public override void OnKeyDown(KeyDownEvent e)
     {
-        switch (e.Key)
+        switch (e.Keycode)
         {
-            case Keys.Escape:
+            case Keycode.Escape:
                 Cancel();
                 e.Handled = true;
 
                 break;
 
-            case Keys.Enter:
+            case Keycode.Enter:
                 Confirm();
                 e.Handled = true;
 
                 break;
 
-            case Keys.Tab when LineCount > 1:
+            case Keycode.Tab when LineCount > 1:
                 for (var i = 0; i < LineCount; i++)
                     if (TextInputs[i].IsFocused)
                     {

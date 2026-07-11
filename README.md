@@ -228,7 +228,7 @@ stale state doesn't linger next time the element becomes visible.
 
 Input is a two-layer stack: `InputBuffer` captures raw input from the OS between frames, and `InputDispatcher` turns the
 buffered snapshot into typed events and routes them to UI elements. `InputBuffer` is a **static** class — read
-`InputBuffer.MouseX`, `InputBuffer.WasKeyPressed(...)`, or walk `InputBuffer.Events` from anywhere. `InputDispatcher` is
+`InputBuffer.MouseX`, `InputBuffer.WasScancodePressed(...)`, or walk `InputBuffer.Events` from anywhere. `InputDispatcher` is
 instance-based and owned by `ChaosGame`. Each frame, `ChaosGame.Update` calls `InputBuffer.Update(IsActive)` first to
 freeze a snapshot, then the active screen calls `Dispatcher.ProcessInput(Root, gameTime)`.
 
@@ -244,13 +244,16 @@ refreshes the cursor from `SDL_GetMouseState` — pump-then-read so `MouseX`/`Mo
 position, even when a macro's trailing mouse move lands mid-frame.
 
 Mouse button and wheel events carry the cursor position and `SDL_GetModState()` snapshot captured at the moment of the
-event, in virtual (640×480) coordinates. Keyboard events are translated from `SDL_Scancode` to MonoGame `Keys`.
+event, in virtual (640×480) coordinates. Keyboard events carry both the raw `SDL_Scancode` (physical position, exposed as
+`Scancode`) and `SDL_Keycode` (layout-mapped label, exposed as `Keycode`); consumers choose per hotkey — positional binds
+read `Scancode`, text editing and label shortcuts (copy/paste, Enter/Escape) read `Keycode`.
 
 Keyboard API:
 
-- `WasKeyPressed(Keys)` / `WasKeyReleased(Keys)` — rising/falling edge this frame. OS key-repeat is filtered out of
-  `WasKeyPressed` but still produces `TextInput` characters.
-- `IsKeyHeld(Keys)` — event-tracked, not polled.
+- `WasScancodePressed(Scancode)` / `WasScancodeReleased(Scancode)` — rising/falling edge this frame. OS key-repeat is filtered
+  out of `WasScancodePressed` but still produces `TextInput` characters.
+- `IsScancodeHeld(Scancode)` — event-tracked, not polled. Polling is scancode-only (physical); event handlers get both
+  `Scancode` and `Keycode` on the `KeyDownEvent`/`KeyUpEvent`.
 - `TextInput` — `ReadOnlySpan<char>` of characters typed this frame (includes key-repeat).
 - Numpad digits are normalized to the main row (`NumPad3` → `D3`) so hotkeys don't care which one the user hit.
 
@@ -340,7 +343,7 @@ Depends on the layer you want to intercept at.
   subclass. Set `e.Handled = true` to stop bubbling. The event reaches you either because your panel is the current
   control-stack top, because it's under the cursor, or via bubbling from a descendant.
 - **From a screen**: put the logic in `WorldScreen.InputHandlers.cs` (or the equivalent in your own screen). That code
-  runs inside the screen's `Update` and reads `InputBuffer.WasKeyPressed`, `InputBuffer.IsKeyHeld`, etc. directly
+  runs inside the screen's `Update` and reads `InputBuffer.WasScancodePressed`, `InputBuffer.IsScancodeHeld`, etc. directly
   against the static buffer snapshot — the right place for world-screen hotkeys like movement, casting, and pathfinding,
   because they shouldn't care about the dispatcher's control-stack routing.
 

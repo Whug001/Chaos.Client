@@ -9,7 +9,6 @@ using Chaos.Client.Systems;
 using Chaos.DarkAges.Definitions;
 using Microsoft.Xna.Framework;
 using Microsoft.Xna.Framework.Graphics;
-using Microsoft.Xna.Framework.Input;
 #endregion
 
 namespace Chaos.Client.Screens;
@@ -401,9 +400,9 @@ public sealed partial class WorldScreen
     ///     Slide panels animate out concurrently with the new panel sliding in. Button deselection
     ///     is handled by the OnClose/SessionClosed events that fire when slide-out completes.
     /// </summary>
-    private void ForceCloseOtherTogglePanels(Keys except)
+    private void ForceCloseOtherTogglePanels(Scancode except)
     {
-        if ((except != Keys.Q) && MainOptions.Visible)
+        if ((except != Scancode.Q) && MainOptions.Visible)
         {
             SettingsDialog.Hide();
             MacrosList.Hide();
@@ -411,7 +410,7 @@ public sealed partial class WorldScreen
             MainOptions.SlideClose();
         }
 
-        if ((except != Keys.W) && IsAnyBoardPanelVisible())
+        if ((except != Scancode.W) && IsAnyBoardPanelVisible())
         {
             if (BoardList.Visible)
                 BoardList.SlideClose();
@@ -419,10 +418,10 @@ public sealed partial class WorldScreen
                 WorldState.Board.CloseSession();
         }
 
-        if ((except != Keys.E) && WorldList.Visible)
+        if ((except != Scancode.E) && WorldList.Visible)
             WorldList.SlideClose();
 
-        if ((except != Keys.R) && SocialStatusPicker.Visible)
+        if ((except != Scancode.R) && SocialStatusPicker.Visible)
         {
             SocialStatusPicker.Hide();
 

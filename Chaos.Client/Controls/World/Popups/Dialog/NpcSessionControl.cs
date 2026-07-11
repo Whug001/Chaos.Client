@@ -6,7 +6,6 @@ using Chaos.DarkAges.Definitions;
 using Chaos.Networking.Entities.Server;
 using Microsoft.Xna.Framework;
 using Microsoft.Xna.Framework.Graphics;
-using Microsoft.Xna.Framework.Input;
 #endregion
 
 namespace Chaos.Client.Controls.World.Popups.Dialog;
@@ -726,7 +725,7 @@ public sealed class NpcSessionControl : PrefabPanel
 
     public override void OnKeyDown(KeyDownEvent e)
     {
-        if (e.Key == Keys.Escape)
+        if (e.Keycode == Keycode.Escape)
         {
             HideAll();
             OnClose?.Invoke();
@@ -736,7 +735,7 @@ public sealed class NpcSessionControl : PrefabPanel
         }
 
         //space/enter — advance normal dialogs via next button, or select first option in menus
-        if (e.Key is Keys.Space or Keys.Enter)
+        if (e.Keycode is Keycode.Space or Keycode.Enter)
         {
             if (DialogOption is { Visible: true, OptionCount: > 0 })
             {

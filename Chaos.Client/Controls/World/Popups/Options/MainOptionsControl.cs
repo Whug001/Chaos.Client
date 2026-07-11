@@ -4,7 +4,6 @@ using Chaos.Client.Controls.Generic;
 using Chaos.Client.Utilities;
 using Microsoft.Xna.Framework;
 using Microsoft.Xna.Framework.Graphics;
-using Microsoft.Xna.Framework.Input;
 #endregion
 
 namespace Chaos.Client.Controls.World.Popups.Options;
@@ -153,12 +152,12 @@ public sealed class MainOptionsControl : PrefabPanel
         if (Slide.Sliding)
             return;
 
-        if (e.Key == Keys.Escape)
+        if (e.Keycode == Keycode.Escape)
         {
             InputDispatcher.Instance?.RemoveControl(this);
             Slide.SlideOut();
             e.Handled = true;
-        } else if (e.Key == Keys.X)
+        } else if (e.Keycode == Keycode.X)
         {
             OnExit?.Invoke();
             e.Handled = true;

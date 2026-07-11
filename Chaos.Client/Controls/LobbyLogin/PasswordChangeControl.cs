@@ -1,6 +1,5 @@
 #region
 using Chaos.Client.Controls.Components;
-using Microsoft.Xna.Framework.Input;
 #endregion
 
 namespace Chaos.Client.Controls.LobbyLogin;
@@ -39,15 +38,15 @@ public sealed class PasswordChangeControl : PrefabPanel
 
         NameField?.ForegroundColor = LegendColors.White;
         NameField?.IsTabStop = true;
-        
+
         CurrentPasswordField?.ForegroundColor = LegendColors.White;
         CurrentPasswordField?.IsMasked = true;
         CurrentPasswordField?.IsTabStop = true;
-        
+
         NewPasswordField?.ForegroundColor = LegendColors.White;
         NewPasswordField?.IsMasked = true;
         NewPasswordField?.IsTabStop = true;
-        
+
         ConfirmPasswordField?.ForegroundColor = LegendColors.White;
         ConfirmPasswordField?.IsMasked = true;
         ConfirmPasswordField?.IsTabStop = true;
@@ -122,9 +121,9 @@ public sealed class PasswordChangeControl : PrefabPanel
 
     public override void OnKeyDown(KeyDownEvent e)
     {
-        switch (e.Key)
+        switch (e.Keycode)
         {
-            case Keys.Tab:
+            case Keycode.Tab:
                 //cycle focus through all 4 fields: name → currentpassword → newpassword → confirm → name
                 if (NameField?.IsFocused == true)
                 {
@@ -148,13 +147,13 @@ public sealed class PasswordChangeControl : PrefabPanel
 
                 break;
 
-            case Keys.Enter:
+            case Keycode.Enter:
                 OkButton?.PerformClick();
                 e.Handled = true;
 
                 break;
 
-            case Keys.Escape:
+            case Keycode.Escape:
                 CancelButton?.PerformClick();
                 e.Handled = true;
 

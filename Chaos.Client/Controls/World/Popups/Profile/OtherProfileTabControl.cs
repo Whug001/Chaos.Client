@@ -6,7 +6,6 @@ using Chaos.Client.Data.Repositories;
 using Chaos.Client.Models;
 using Chaos.Networking.Entities.Server;
 using Microsoft.Xna.Framework;
-using Microsoft.Xna.Framework.Input;
 #endregion
 
 namespace Chaos.Client.Controls.World.Popups.Profile;
@@ -236,8 +235,8 @@ public sealed class OtherProfileTabControl : PrefabPanel
     public override void OnKeyDown(KeyDownEvent e)
     {
         //escape always closes; spacebar closes too, but not while typing in a textbox
-        if ((e.Key == Keys.Escape)
-            || ((e.Key == Keys.Space) && InputDispatcher.Instance?.ExplicitFocus is not UITextBox))
+        if ((e.Keycode == Keycode.Escape)
+            || ((e.Keycode == Keycode.Space) && InputDispatcher.Instance?.ExplicitFocus is not UITextBox))
         {
             Hide();
             e.Handled = true;

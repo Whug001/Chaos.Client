@@ -15,7 +15,6 @@ using Chaos.Networking.Entities.Server;
 using DALib.Extensions;
 using Microsoft.Xna.Framework;
 using Microsoft.Xna.Framework.Graphics;
-using Microsoft.Xna.Framework.Input;
 using SkiaSharp;
 #endregion
 
@@ -644,11 +643,11 @@ public sealed class ChaosGame : Game
         InputBuffer.Update(IsActive);
 
         //f11 — toggle debug overlay (handled globally before screen update)
-        if (InputBuffer.WasKeyPressed(Keys.F11))
+        if (InputBuffer.WasScancodePressed(Scancode.F11))
             DebugOverlay.Toggle();
 
         //f12 — screenshot
-        if (InputBuffer.WasKeyPressed(Keys.F12))
+        if (InputBuffer.WasScancodePressed(Scancode.F12))
             RequestScreenshot();
 
         DebugOverlay.Update(gameTime);

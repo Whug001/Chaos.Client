@@ -2,7 +2,6 @@
 using Chaos.Client.Controls.Components;
 using Chaos.Client.Controls.Scrolling;
 using Microsoft.Xna.Framework;
-using Microsoft.Xna.Framework.Input;
 #endregion
 
 namespace Chaos.Client.Controls.World.Popups.Boards;
@@ -159,7 +158,7 @@ public sealed class MailReadControl : PrefabPanel
 
     public override void OnKeyDown(KeyDownEvent e)
     {
-        if (e.Key == Keys.Escape)
+        if (e.Keycode == Keycode.Escape)
         {
             OnUp?.Invoke();
             e.Handled = true;

@@ -4,7 +4,6 @@ using Chaos.Client.Controls.Components;
 using Chaos.Client.Data;
 using Microsoft.Xna.Framework;
 using Microsoft.Xna.Framework.Graphics;
-using Microsoft.Xna.Framework.Input;
 #endregion
 
 namespace Chaos.Client.Controls.World.Popups;
@@ -163,7 +162,8 @@ public sealed class TownMapControl : UIPanel
 
     public override void OnKeyDown(KeyDownEvent e)
     {
-        if (e.Key is Keys.Escape or Keys.T)
+        //Escape cancels (label); T mirrors the world town-map hotkey, which is positional.
+        if ((e.Keycode == Keycode.Escape) || (e.Scancode == Scancode.T))
         {
             Hide();
             e.Handled = true;

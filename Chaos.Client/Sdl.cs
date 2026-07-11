@@ -39,6 +39,7 @@ internal static partial class Sdl
     //  → SDL_Keysym { scancode(4) at 16, sym(4) at 20, mod(2) at 24, unused(4) }
     public const int KEYBOARDEVENT_REPEAT_OFFSET = 13;
     public const int KEYBOARDEVENT_SCANCODE_OFFSET = 16;
+    public const int KEYBOARDEVENT_SYM_OFFSET = 20;
     public const int KEYBOARDEVENT_MOD_OFFSET = 24;
 
     //SDL_TextInputEvent field offsets:
@@ -52,6 +53,10 @@ internal static partial class Sdl
     public const uint KMOD_RCTRL = 0x0080;
     public const uint KMOD_LALT = 0x0100;
     public const uint KMOD_RALT = 0x0200;
+
+    //the GUI/meta key: Command (⌘) on macOS, the Windows key on Windows.
+    public const uint KMOD_LGUI = 0x0400;
+    public const uint KMOD_RGUI = 0x0800;
 
     [UnmanagedFunctionPointer(CallingConvention.Cdecl)]
     public delegate int EventWatchCallback(nint userdata, nint sdlEvent);

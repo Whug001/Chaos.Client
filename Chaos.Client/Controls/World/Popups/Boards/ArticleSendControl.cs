@@ -3,7 +3,6 @@ using Chaos.Client.Controls.Components;
 using Chaos.Client.Controls.Generic;
 using Chaos.Client.Controls.Scrolling;
 using Microsoft.Xna.Framework;
-using Microsoft.Xna.Framework.Input;
 #endregion
 
 namespace Chaos.Client.Controls.World.Popups.Boards;
@@ -138,16 +137,16 @@ public sealed class ArticleSendControl : PrefabPanel
 
     public override void OnKeyDown(KeyDownEvent e)
     {
-        switch (e.Key)
+        switch (e.Keycode)
         {
-            case Keys.Escape:
+            case Keycode.Escape:
                 Hide();
                 OnCancel?.Invoke();
                 e.Handled = true;
 
                 break;
 
-            case Keys.Tab when TitleBox?.IsFocused == true:
+            case Keycode.Tab when TitleBox?.IsFocused == true:
                 TitleBox.IsFocused = false;
                 BodyBox.IsFocused = true;
                 e.Handled = true;

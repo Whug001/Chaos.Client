@@ -1,7 +1,6 @@
 #region
 using Chaos.Client.Controls.Components;
 using Microsoft.Xna.Framework;
-using Microsoft.Xna.Framework.Input;
 #endregion
 
 namespace Chaos.Client;
@@ -62,7 +61,7 @@ public sealed class InputDispatcher
 
     //per-frame scratch set used to filter out OS key-repeat KeyDowns. cleared at
     //the top of ProcessInput so the same allocation is reused every frame.
-    private readonly HashSet<Keys> DispatchedKeys = [];
+    private readonly HashSet<Scancode> DispatchedKeys = [];
 
     /// <summary>
     ///     Singleton accessor for use by UI controls that need to push/remove themselves
@@ -418,13 +417,14 @@ public sealed class InputDispatcher
                     //OS key-repeat emits repeated WM_KEYDOWN for a single held press.
                     //DispatchedKeys is reset per-key on KeyUp so genuine re-presses
                     //inside the same frame still dispatch.
-                    if (!DispatchedKeys.Add(evt.Key))
+                    if (!DispatchedKeys.Add(evt.Scancode))
                         break;
 
                     var focusBefore = ExplicitFocusElement;
 
                     KeyDown.Reset();
-                    KeyDown.Key = evt.Key;
+                    KeyDown.Scancode = evt.Scancode;
+                    KeyDown.Keycode = evt.Keycode;
                     KeyDown.Modifiers = evt.Modifiers;
                     DispatchKeyboardEvent(root, KeyDown);
 
@@ -436,10 +436,11 @@ public sealed class InputDispatcher
 
                 case BufferedInputKind.KeyUp:
                 {
-                    DispatchedKeys.Remove(evt.Key);
+                    DispatchedKeys.Remove(evt.Scancode);
 
                     KeyUp.Reset();
-                    KeyUp.Key = evt.Key;
+                    KeyUp.Scancode = evt.Scancode;
+                    KeyUp.Keycode = evt.Keycode;
                     KeyUp.Modifiers = evt.Modifiers;
                     DispatchKeyboardEvent(root, KeyUp);
 
@@ -668,7 +669,7 @@ public sealed class InputDispatcher
     private void DispatchKeyboardEvent(UIPanel root, InputEvent e)
     {
         //phase 0: global hotkeys — always delivered to root, bypass focus and stack
-        if (e is KeyDownEvent { Key: Keys.Enter, Alt: true })
+        if (e is KeyDownEvent { Scancode: Scancode.Enter, Alt: true })
         {
             DispatchSingle(root, e);
 

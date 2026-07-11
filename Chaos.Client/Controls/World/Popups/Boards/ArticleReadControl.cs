@@ -2,7 +2,6 @@
 using Chaos.Client.Controls.Components;
 using Chaos.Client.Controls.Scrolling;
 using Microsoft.Xna.Framework;
-using Microsoft.Xna.Framework.Input;
 #endregion
 
 namespace Chaos.Client.Controls.World.Popups.Boards;
@@ -64,10 +63,10 @@ public sealed class ArticleReadControl : PrefabPanel
         //labels
         AuthorLabel = CreateLabel("Author");
         AuthorLabel?.ForegroundColor = LegendColors.White;
-        
+
         TitleLabel = CreateLabel("Title");
         TitleLabel?.ForegroundColor = LegendColors.White;
-        
+
         DateLabel = CreateLabel("Mmdd");
         DateLabel?.ForegroundColor = LegendColors.White;
 
@@ -153,7 +152,7 @@ public sealed class ArticleReadControl : PrefabPanel
 
     public override void OnKeyDown(KeyDownEvent e)
     {
-        if (e.Key == Keys.Escape)
+        if (e.Keycode == Keycode.Escape)
         {
             OnUp?.Invoke();
             e.Handled = true;

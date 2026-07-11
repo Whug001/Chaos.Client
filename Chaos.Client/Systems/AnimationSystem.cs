@@ -56,7 +56,11 @@ public static class AnimationSystem
         //swimming is not a form — use swim animation frame count and normal walk speed on water tiles
         var swimming = entity is { IsOnSwimmingTile: true, SwimWalkFrames: > 0 };
 
-        var frameCount = swimming ? entity.SwimWalkFrames : walkFrameOverride ?? DEFAULT_WALK_FRAMES;
+        //no walk frames (override 0) or no loadable sprite (override null, missing mpf) → no walk animation,
+        //so the walk snaps to the destination with no slide; normal aislings fall back to the human default.
+        var frameCount = swimming
+            ? entity.SwimWalkFrames
+            : walkFrameOverride ?? (isCreature ? 0 : DEFAULT_WALK_FRAMES);
 
         entity.AnimState = EntityAnimState.Walking;
         entity.AnimFrameIndex = 0;
@@ -70,6 +74,9 @@ public static class AnimationSystem
                 : REMOTE_AISLING_WALK_FRAME_MS;
 
         entity.WalkStartOffset = GetWalkOffset(direction);
+
+        //start at full offset so the sprite stays over the source tile until the camera follows; it resolves
+        //to zero next frame, snapping sprite and camera to the destination together.
         entity.VisualOffset = entity.WalkStartOffset;
     }
 

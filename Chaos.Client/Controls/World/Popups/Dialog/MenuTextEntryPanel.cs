@@ -1,7 +1,6 @@
 #region
 using Chaos.Client.Controls.Components;
 using Microsoft.Xna.Framework;
-using Microsoft.Xna.Framework.Input;
 #endregion
 
 namespace Chaos.Client.Controls.World.Popups.Dialog;
@@ -120,15 +119,15 @@ public sealed class MenuTextEntryPanel : FramedDialogPanelBase
 
     public override void OnKeyDown(KeyDownEvent e)
     {
-        switch (e.Key)
+        switch (e.Keycode)
         {
-            case Keys.Escape:
+            case Keycode.Escape:
                 OnClose?.Invoke();
                 e.Handled = true;
 
                 break;
 
-            case Keys.Enter:
+            case Keycode.Enter:
                 HandleSubmit();
                 e.Handled = true;
 

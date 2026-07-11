@@ -5,7 +5,6 @@ using Chaos.Client.Controls.Generic;
 using Chaos.Client.Controls.Scrolling;
 using Chaos.Client.Definitions;
 using Microsoft.Xna.Framework;
-using Microsoft.Xna.Framework.Input;
 #endregion
 
 namespace Chaos.Client.Controls.World.Popups.Exchange;
@@ -305,9 +304,9 @@ public sealed class ExchangeControl : PrefabPanel, IInventoryDropTarget
 
     public override void OnKeyDown(KeyDownEvent e)
     {
-        switch (e.Key)
+        switch (e.Keycode)
         {
-            case Keys.Escape:
+            case Keycode.Escape:
                 OnCancel?.Invoke();
                 e.Handled = true;
 
@@ -316,7 +315,7 @@ public sealed class ExchangeControl : PrefabPanel, IInventoryDropTarget
             //Enter commits the inline money field and releases focus. the single-line box leaves Enter unhandled, so
             //it bubbles here via the focused-child→parent keyboard path. blurring funnels through LostFocus → the
             //single commit path, so Enter and click-away end in the same state (committed + unfocused).
-            case Keys.Enter when MyMoneyTextBox is { IsReadOnly: false, IsFocused: true }:
+            case Keycode.Enter when MyMoneyTextBox is { IsReadOnly: false, IsFocused: true }:
                 ReleaseMoneyFocus();
                 e.Handled = true;
 

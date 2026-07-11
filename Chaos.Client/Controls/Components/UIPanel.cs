@@ -3,7 +3,6 @@ using Chaos.Client.Controls.Generic;
 using Chaos.Extensions.Common;
 using Microsoft.Xna.Framework;
 using Microsoft.Xna.Framework.Graphics;
-using Microsoft.Xna.Framework.Input;
 #endregion
 
 namespace Chaos.Client.Controls.Components;
@@ -185,7 +184,7 @@ public class UIPanel : UIElement
 
     public override void OnKeyDown(KeyDownEvent e)
     {
-        if (e.Key != Keys.Tab)
+        if (e.Keycode != Keycode.Tab)
             return;
 
         //collect all visible istabstop textboxes, sorted by y then x

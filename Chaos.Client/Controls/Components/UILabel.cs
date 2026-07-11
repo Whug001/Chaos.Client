@@ -3,7 +3,6 @@ using Chaos.Client.Controls.Scrolling;
 using Chaos.Client.Utilities;
 using Microsoft.Xna.Framework;
 using Microsoft.Xna.Framework.Graphics;
-using Microsoft.Xna.Framework.Input;
 #endregion
 
 namespace Chaos.Client.Controls.Components;
@@ -177,8 +176,8 @@ public class UILabel : UIElement, IVerticalScrollable
             var textX = HorizontalAlignment switch
             {
                 HorizontalAlignment.Center when TextElement.Width <= bounds.Width => bounds.X + (bounds.Width - TextElement.Width) / 2,
-                HorizontalAlignment.Right                                         => bounds.X + bounds.Width - TextElement.Width,
-                _                                                                 => bounds.X
+                HorizontalAlignment.Right => bounds.X + bounds.Width - TextElement.Width,
+                _ => bounds.X
             };
 
             var textY = bounds.Y + (bounds.Height - TextElement.Height) / 2;
@@ -197,8 +196,8 @@ public class UILabel : UIElement, IVerticalScrollable
         var drawX = HorizontalAlignment switch
         {
             HorizontalAlignment.Center when TextElement.Width <= innerW => innerX + (innerW - TextElement.Width) / 2,
-            HorizontalAlignment.Right                                   => innerX + innerW - TextElement.Width,
-            _                                                           => innerX
+            HorizontalAlignment.Right => innerX + innerW - TextElement.Width,
+            _ => innerX
         };
 
         var drawY = innerY + ((VerticalAlignment == VerticalAlignment.Top ? TextElement.Height : innerH) - TextElement.Height) / 2;
@@ -483,8 +482,8 @@ public class UILabel : UIElement, IVerticalScrollable
         var drawX = HorizontalAlignment switch
         {
             HorizontalAlignment.Center => innerX + (innerW - TextElement.Width) / 2,
-            HorizontalAlignment.Right  => innerX + innerW - TextElement.Width,
-            _                    => innerX
+            HorizontalAlignment.Right => innerX + innerW - TextElement.Width,
+            _ => innerX
         };
 
         var localX = mouseX - drawX;
@@ -701,68 +700,101 @@ public class UILabel : UIElement, IVerticalScrollable
 
         var shift = e.Shift;
         var ctrl = e.Ctrl;
+
+        //copy/select-all use the platform accelerator (Ctrl on Windows/Linux, Cmd on macOS).
+        //e.Accelerator already excludes Alt so an AltGr/Option-typed character (common on
+        //AZERTY/QWERTZ) isn't swallowed as a shortcut.
+        var accel = e.Accelerator;
         var isWrapped = TextElement.WrappedLines is not null;
 
-        switch (e.Key)
+        switch (e.Keycode)
         {
-            case Keys.Left:
+            case Keycode.Left:
                 if (!shift && HasSelection)
                     MoveCursor(SelectionStart, false);
                 else if (CursorPosition > 0)
-                    MoveCursor(ctrl ? FindWordBoundaryLeft(CursorPosition) : StepLeft(CursorPosition), shift);
+                {
+                    int target;
+
+                    if (e.LineJump)
+                        target = isWrapped ? GetWrappedLineStart(GetWrappedLineForPosition(CursorPosition)) : 0;
+                    else if (e.WordJump)
+                        target = FindWordBoundaryLeft(CursorPosition);
+                    else
+                        target = StepLeft(CursorPosition);
+
+                    MoveCursor(target, shift);
+                }
 
                 e.Handled = true;
 
                 break;
 
-            case Keys.Right:
+            case Keycode.Right:
                 if (!shift && HasSelection)
                     MoveCursor(SelectionEnd, false);
                 else if (CursorPosition < PlainText.Length)
-                    MoveCursor(ctrl ? FindWordBoundaryRight(CursorPosition) : StepRight(CursorPosition), shift);
-
-                e.Handled = true;
-
-                break;
-
-            case Keys.Up when isWrapped:
-            {
-                var line = GetWrappedLineForPosition(CursorPosition);
-
-                if (line > 0)
                 {
-                    var lineStart = GetWrappedLineStart(line);
-                    var col = CursorPosition - lineStart;
-                    var prevLineStart = GetWrappedLineStart(line - 1);
-                    var prevLineLen = TextElement.WrappedLines![line - 1].Length;
-                    MoveCursor(prevLineStart + Math.Min(col, prevLineLen), shift);
+                    int target;
+
+                    if (e.LineJump)
+                    {
+                        if (isWrapped)
+                        {
+                            var line = GetWrappedLineForPosition(CursorPosition);
+                            target = GetWrappedLineStart(line) + TextElement.WrappedLines![line].Length;
+                        } else
+                            target = PlainText.Length;
+                    } else if (e.WordJump)
+                        target = FindWordBoundaryRight(CursorPosition);
+                    else
+                        target = StepRight(CursorPosition);
+
+                    MoveCursor(target, shift);
                 }
 
                 e.Handled = true;
 
                 break;
-            }
 
-            case Keys.Down when isWrapped:
-            {
-                var lines = TextElement.WrappedLines!;
-                var line = GetWrappedLineForPosition(CursorPosition);
-
-                if ((line + 1) < lines.Count)
+            case Keycode.Up when isWrapped:
                 {
-                    var lineStart = GetWrappedLineStart(line);
-                    var col = CursorPosition - lineStart;
-                    var nextLineStart = GetWrappedLineStart(line + 1);
-                    var nextLineLen = lines[line + 1].Length;
-                    MoveCursor(nextLineStart + Math.Min(col, nextLineLen), shift);
+                    var line = GetWrappedLineForPosition(CursorPosition);
+
+                    if (line > 0)
+                    {
+                        var lineStart = GetWrappedLineStart(line);
+                        var col = CursorPosition - lineStart;
+                        var prevLineStart = GetWrappedLineStart(line - 1);
+                        var prevLineLen = TextElement.WrappedLines![line - 1].Length;
+                        MoveCursor(prevLineStart + Math.Min(col, prevLineLen), shift);
+                    }
+
+                    e.Handled = true;
+
+                    break;
                 }
 
-                e.Handled = true;
+            case Keycode.Down when isWrapped:
+                {
+                    var lines = TextElement.WrappedLines!;
+                    var line = GetWrappedLineForPosition(CursorPosition);
 
-                break;
-            }
+                    if ((line + 1) < lines.Count)
+                    {
+                        var lineStart = GetWrappedLineStart(line);
+                        var col = CursorPosition - lineStart;
+                        var nextLineStart = GetWrappedLineStart(line + 1);
+                        var nextLineLen = lines[line + 1].Length;
+                        MoveCursor(nextLineStart + Math.Min(col, nextLineLen), shift);
+                    }
 
-            case Keys.Home:
+                    e.Handled = true;
+
+                    break;
+                }
+
+            case Keycode.Home:
                 if (isWrapped && !ctrl)
                 {
                     var line = GetWrappedLineForPosition(CursorPosition);
@@ -774,7 +806,7 @@ public class UILabel : UIElement, IVerticalScrollable
 
                 break;
 
-            case Keys.End:
+            case Keycode.End:
                 if (isWrapped && !ctrl)
                 {
                     var line = GetWrappedLineForPosition(CursorPosition);
@@ -786,14 +818,14 @@ public class UILabel : UIElement, IVerticalScrollable
 
                 break;
 
-            case Keys.A when ctrl && (PlainText.Length > 0):
+            case Keycode.A when accel && (PlainText.Length > 0):
                 SelectionAnchor = 0;
                 CursorPosition = PlainText.Length;
                 e.Handled = true;
 
                 break;
 
-            case Keys.C when ctrl && HasSelection:
+            case Keycode.C when accel && HasSelection:
                 Clipboard.SetText(StripColorCodes(PlainText[SelectionStart..Math.Min(SelectionEnd, PlainText.Length)]));
                 e.Handled = true;
 
