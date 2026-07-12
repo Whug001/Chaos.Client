@@ -493,10 +493,9 @@ public sealed partial class WorldScreen
 
     private void HandleExchangeAmountRequested(byte fromSlot)
     {
-        AmountPurpose = ItemAmountPurpose.Exchange;
         ItemAmount.X = Exchange.X + (Exchange.Width - ItemAmount.Width) / 2;
         ItemAmount.Y = Exchange.Y + (Exchange.Height - ItemAmount.Height) / 2;
-        ItemAmount.ShowForSlot(fromSlot);
+        ItemAmount.ShowFor(ItemAmountPurpose.Exchange, fromSlot);
 
         //surface the slot's hover description (e.g. "Apple[ 10 ]") in the HUD bar while the popup
         //is open — matches retail behavior of pinning the operated-on item's tooltip text.
@@ -1335,6 +1334,83 @@ public sealed partial class WorldScreen
         }
     }
 
+    //--- bank ---
+
+    private void HandleBankDisplay(BankDisplayArgs args)
+    {
+        switch (args.Type)
+        {
+            //the server's one unsolicited push: the player asked a banker to open the window.
+            case BankDisplayType.Open:
+
+                //an Open can retarget an already-visible window (personal → guild), which fires no Closed — any prompt
+                //still up was opened against the previous bank and would withdraw from this one.
+                HideBankPrompts();
+                WorldState.Bank.SetCategories(args);
+                Bank.Show();
+                RequestOpenCategory();
+
+                break;
+
+            //the answer to a Search this client sent. It must never OPEN the window: a refresh still in flight when the
+            //player closes it — or changes map, where Hide() is what keeps the shared guild bank on one map — would
+            //otherwise pop it back open.
+            case BankDisplayType.Categories:
+                if (!Bank.Visible)
+                    break;
+
+                WorldState.Bank.SetCategories(args);
+                RequestOpenCategory();
+
+                break;
+
+            //terminal state: an Items display must send nothing, or the refresh cycle never stops.
+            case BankDisplayType.Items:
+                if (!Bank.Visible)
+                    break;
+
+                WorldState.Bank.SetItems(args);
+
+                break;
+
+            //the server ended the session — walked out of range, or lost guild access. The window would otherwise stay
+            //up, fully painted, silently ignoring every click.
+            case BankDisplayType.Close:
+                Bank.Hide();
+
+                break;
+        }
+    }
+
+    /// <summary>
+    ///     Asks for the category the window is on — or the first one if that category is gone (or none was selected), so
+    ///     the window is never left empty. This is the single send a new rail may trigger; the Items reply it produces
+    ///     triggers nothing, which is what stops the refresh cycle.
+    /// </summary>
+    private void RequestOpenCategory()
+    {
+        //SetCategories has already cleared SelectedCategory if it vanished from the new rail
+        var category = !string.IsNullOrEmpty(WorldState.Bank.SelectedCategory)
+            ? WorldState.Bank.SelectedCategory
+            : WorldState.Bank
+                        .Categories
+                        .FirstOrDefault();
+
+        //an empty rail (empty bank, or a search that matched nothing) has no category to open, and nothing to ask for
+        if (string.IsNullOrEmpty(category))
+            return;
+
+        WorldState.Bank.SelectCategory(category);
+        Game.Connection.SendBankRequestCategory(category);
+    }
+
+    /// <summary>
+    ///     Refreshes the bank after a mutation. The server pushes nothing on success, so the client re-drives its own view:
+    ///     this Search rebuilds the rail, and HandleBankDisplay then re-requests the open category. TCP ordering means the
+    ///     mutation is already applied server-side by the time this is handled.
+    /// </summary>
+    private void RefreshBank() => Game.Connection.SendBankSearch(Bank.Query);
+
     private static MarketListing MapResultEntry(MarketResultEntry e)
         => new(
             e.ListingId,
@@ -1348,7 +1424,7 @@ public sealed partial class WorldScreen
             e.CurrentDurability,
             e.MaxDurability,
             e.Description,
-            new MarketItemStats(
+            new ItemStats(
                 e.Hp,
                 e.Mp,
                 e.Str,

@@ -498,6 +498,11 @@ public sealed class ConnectionManager : IDisposable
     public event MarketDisplayHandler? OnMarketDisplay;
 
     /// <summary>
+    ///     Fired when a bank display packet is received from the server.
+    /// </summary>
+    public event BankDisplayHandler? OnBankDisplay;
+
+    /// <summary>
     ///     Fired when door states are updated.
     /// </summary>
     public event DoorHandler? OnDoor;
@@ -1151,6 +1156,75 @@ public sealed class ConnectionManager : IDisposable
         => SendIfWorld(new MarketInteractionArgs { Type = MarketInteractionType.ViewLogs });
 
     /// <summary>
+    ///     Requests one category's items.
+    /// </summary>
+    /// <remarks>
+    ///     The server's open session supplies the bank and the filter it was built with.
+    /// </remarks>
+    /// <param name="categoryName">The category to open.</param>
+    public void SendBankRequestCategory(string categoryName)
+        => SendIfWorld(
+            new BankInteractionArgs
+            {
+                Type = BankInteractionType.RequestCategory,
+                CategoryName = categoryName
+            });
+
+    /// <summary>
+    ///     Searches the whole bank. Returns a category list, never items.
+    /// </summary>
+    /// <param name="query">The search text. Empty means unfiltered.</param>
+    public void SendBankSearch(string query)
+        => SendIfWorld(new BankInteractionArgs { Type = BankInteractionType.Search, Query = query });
+
+    /// <summary>
+    ///     Withdraws an item by its display name — the bank's key.
+    /// </summary>
+    /// <param name="itemName">The display name of the banked item.</param>
+    /// <param name="amount">The quantity to withdraw.</param>
+    public void SendBankWithdrawItem(string itemName, int amount)
+        => SendIfWorld(
+            new BankInteractionArgs
+            {
+                Type = BankInteractionType.WithdrawItem,
+                ItemName = itemName,
+                Amount = amount
+            });
+
+    /// <summary>
+    ///     Deposits an item from an inventory slot.
+    /// </summary>
+    /// <param name="slot">The inventory slot of the item to bank.</param>
+    /// <param name="amount">The quantity to deposit.</param>
+    public void SendBankDepositItem(byte slot, int amount)
+        => SendIfWorld(
+            new BankInteractionArgs
+            {
+                Type = BankInteractionType.DepositItem,
+                Slot = slot,
+                Amount = amount
+            });
+
+    /// <summary>
+    ///     Withdraws gold from the bank.
+    /// </summary>
+    /// <param name="amount">The amount of gold to withdraw.</param>
+    public void SendBankWithdrawGold(int amount)
+        => SendIfWorld(new BankInteractionArgs { Type = BankInteractionType.WithdrawGold, Amount = amount });
+
+    /// <summary>
+    ///     Deposits gold into the bank.
+    /// </summary>
+    /// <param name="amount">The amount of gold to deposit.</param>
+    public void SendBankDepositGold(int amount)
+        => SendIfWorld(new BankInteractionArgs { Type = BankInteractionType.DepositGold, Amount = amount });
+
+    /// <summary>
+    ///     Tells the server the bank window closed, ending the session it holds.
+    /// </summary>
+    public void SendBankClose() => SendIfWorld(new BankInteractionArgs { Type = BankInteractionType.Close });
+
+    /// <summary>
     ///     Sends a public (normal) chat message visible to nearby players.
     /// </summary>
     /// <param name="message">The chat message text.</param>
@@ -1384,6 +1458,7 @@ public sealed class ConnectionManager : IDisposable
         PacketHandlers[(byte)ServerOpCode.SetEntityTint] = HandleSetEntityTint;
         PacketHandlers[(byte)ServerOpCode.UserOptions] = HandleUserOptions;
         PacketHandlers[(byte)ServerOpCode.MarketDisplay] = HandleMarketDisplay;
+        PacketHandlers[(byte)ServerOpCode.BankDisplay] = HandleBankDisplay;
         PacketHandlers[(byte)ServerOpCode.DisplayAisling] = HandleDisplayAisling;
 
         //world entities
@@ -1692,6 +1767,12 @@ public sealed class ConnectionManager : IDisposable
     {
         var args = Client.Deserialize<MarketDisplayArgs>(in pkt);
         OnMarketDisplay?.Invoke(args);
+    }
+
+    private void HandleBankDisplay(ServerPacket pkt)
+    {
+        var args = Client.Deserialize<BankDisplayArgs>(in pkt);
+        OnBankDisplay?.Invoke(args);
     }
 
     private void HandleDisplayAisling(ServerPacket pkt)

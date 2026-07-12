@@ -51,11 +51,34 @@ public sealed class MarketSearchControl : UIPanel
     private static readonly string[] Classes = ["Any class", "Warrior", "Rogue", "Wizard", "Priest", "Monk"];
     private static readonly string[] AdvClasses =
         ["Any", "Berserker", "Warlord", "Druid", "Adept", "Archer", "Assassin", "Plague Doctor", "Bard", "Arcanist", "Elementalist"];
-    private static readonly string[] StatOptions =
+
+    //one table, so a chip's label and the filter it produces cannot drift apart. Labels match ItemStats.ToBlocks() —
+    //a chip that reads "Cooldown" must name the stat the detail pane calls "Cooldown".
+    private static readonly (string Label, MarketStat Stat)[] StatFilters =
     [
-        "+ add a stat", "HP", "MP", "STR", "INT", "WIS", "CON", "DEX", "AC", "HIT", "DMG", "Atk Speed", "Flat Skill Dmg",
-        "Flat Spell Dmg", "Skill Damage Pct", "Spell Damage Pct", "CDR", "Heal Bonus", "Heal Bonus Pct", "Magic Resistance"
+        ("HP", MarketStat.Hp),
+        ("MP", MarketStat.Mp),
+        ("STR", MarketStat.Str),
+        ("INT", MarketStat.Int),
+        ("WIS", MarketStat.Wis),
+        ("CON", MarketStat.Con),
+        ("DEX", MarketStat.Dex),
+        ("AC", MarketStat.Ac),
+        ("Hit", MarketStat.Hit),
+        ("Dmg", MarketStat.Dmg),
+        ("Atk Speed", MarketStat.AtkSpeed),
+        ("Skill Dmg", MarketStat.FlatSkillDmg),
+        ("Spell Dmg", MarketStat.FlatSpellDmg),
+        ("Skill Dmg %", MarketStat.SkillDmgPct),
+        ("Spell Dmg %", MarketStat.SpellDmgPct),
+        ("Cooldown", MarketStat.Cdr),
+        ("Heal Bonus", MarketStat.HealBonus),
+        ("Heal Bonus %", MarketStat.HealBonusPct),
+        ("Magic Resist", MarketStat.MagicResist)
     ];
+
+    //index 0 is the dropdown's placeholder row, so a picked index maps to StatFilters[index - 1].
+    private static readonly string[] StatOptions = ["+ add a stat", ..StatFilters.Select(filter => filter.Label)];
 
     //client dropdown index -> Chaos.DarkAges EquipmentType byte. UI list omits OverArmor(3)/OverHelmet(6)/Accessory(14).
     //order: [Any, Weapon, Armor, Shield, Helmet, Earrings, Necklace, Ring, Gauntlet, Belt, Greaves, Boots]
@@ -137,33 +160,15 @@ public sealed class MarketSearchControl : UIPanel
     private static ushort ParseU16(string? s) => ushort.TryParse(s, out var v) ? v : (ushort)0;
     private static int ParseI32(string? s) => int.TryParse(s, out var v) ? v : 0;
 
-    // IMPORTANT: these keys must match the StatOptions[] label strings EXACTLY.
-    // A mismatch is silent — the chip is skipped (not an error). When adding/renaming a
-    // stat, update BOTH StatOptions and this switch.
+    //the label IS the key — a chip carries the label it was created from, so this cannot desync from StatFilters.
     private static MarketStat? StatKeyToMarketStat(string key)
-        => key switch
-        {
-            "HP"               => MarketStat.Hp,
-            "MP"               => MarketStat.Mp,
-            "STR"              => MarketStat.Str,
-            "INT"              => MarketStat.Int,
-            "WIS"              => MarketStat.Wis,
-            "CON"              => MarketStat.Con,
-            "DEX"              => MarketStat.Dex,
-            "AC"               => MarketStat.Ac,
-            "HIT"              => MarketStat.Hit,
-            "DMG"              => MarketStat.Dmg,
-            "Atk Speed"        => MarketStat.AtkSpeed,
-            "Flat Skill Dmg"   => MarketStat.FlatSkillDmg,
-            "Flat Spell Dmg"   => MarketStat.FlatSpellDmg,
-            "Skill Damage Pct" => MarketStat.SkillDmgPct,
-            "Spell Damage Pct" => MarketStat.SpellDmgPct,
-            "CDR"              => MarketStat.Cdr,
-            "Heal Bonus"       => MarketStat.HealBonus,
-            "Heal Bonus Pct"   => MarketStat.HealBonusPct,
-            "Magic Resistance" => MarketStat.MagicResist,
-            _                  => null
-        };
+    {
+        foreach ((var label, var stat) in StatFilters)
+            if (label == key)
+                return stat;
+
+        return null;
+    }
 
     private void BuildLeftColumn()
     {

@@ -6,8 +6,8 @@ using Microsoft.Xna.Framework;
 namespace Chaos.Client.Controls.World.Popups;
 
 /// <summary>
-///     Item amount popup using litemex prefab. Shown when adding a stackable item to an exchange —
-///     the server asks for a quantity and this control collects it from the player.
+///     Item amount popup using litemex prefab. Shown when a stackable item needs a quantity —
+///     exchange, market listing, or bank deposit.
 /// </summary>
 public sealed class ItemAmountControl : PrefabPanel
 {
@@ -18,10 +18,24 @@ public sealed class ItemAmountControl : PrefabPanel
     private const int CANCEL_NORMAL = 21;
     private const int CANCEL_PRESSED = 22;
 
+    private UILabel? TitleLabel { get; }
+
     /// <summary>
-    ///     The 1-based inventory slot of the stackable item being exchanged.
+    ///     The 1-based inventory slot of the stackable item being prompted for.
     /// </summary>
     public byte ItemSlot { get; private set; }
+
+    /// <summary>
+    ///     The banked item's display name. The bank has no slots — it keys by name — so
+    ///     <see cref="ItemAmountPurpose.BankWithdraw" /> reads this where the other purposes read <see cref="ItemSlot" />.
+    /// </summary>
+    public string ItemName { get; private set; } = string.Empty;
+
+    /// <summary>
+    ///     What the confirmed amount will be used for. Set by <see cref="ShowFor" />, so the popup can never be opened
+    ///     without declaring intent — the confirm handler routes on this rather than on ambient screen state.
+    /// </summary>
+    public ItemAmountPurpose Purpose { get; private set; } = ItemAmountPurpose.Exchange;
 
     public UITextBox? AmountTextBox { get; }
     public UIButton? CancelButton { get; }
@@ -68,9 +82,8 @@ public sealed class ItemAmountControl : PrefabPanel
 
         AmountTextBox = CreateTextBox("Text", 5);
 
-        var titleLabel = CreateLabel("Title");
-        titleLabel?.ForegroundColor = Color.White;
-        titleLabel?.Text = "How many will you give?";
+        TitleLabel = CreateLabel("Title");
+        TitleLabel?.ForegroundColor = Color.White;
 
         OkButton.Clicked += Confirm;
         CancelButton.Clicked += Cancel;
@@ -121,9 +134,43 @@ public sealed class ItemAmountControl : PrefabPanel
         OkButton?.Enabled = !string.IsNullOrEmpty(AmountTextBox?.Text);
     }
 
-    public void ShowForSlot(byte slot)
+    /// <summary>
+    ///     Opens the popup for a specific purpose. Purpose is mandatory: this one control serves trading, market
+    ///     listings, and bank deposits, and a caller that forgot to declare its intent would silently inherit the
+    ///     previous caller's — routing an exchange into the bank.
+    /// </summary>
+    /// <param name="purpose">What the confirmed amount will be used for.</param>
+    /// <param name="slot">The 1-based inventory slot of the stackable item.</param>
+    public void ShowFor(ItemAmountPurpose purpose, byte slot)
     {
         ItemSlot = slot;
+        ItemName = string.Empty;
+
+        Open(purpose);
+    }
+
+    /// <summary>Opens the prompt for a name-keyed purpose (the bank).</summary>
+    public void ShowFor(ItemAmountPurpose purpose, string itemName)
+    {
+        ItemSlot = 0;
+        ItemName = itemName;
+
+        Open(purpose);
+    }
+
+    //each overload clears the key it does not use: a name left over from a withdraw riding into the next exchange is
+    //the same footgun Purpose itself closed.
+    private void Open(ItemAmountPurpose purpose)
+    {
+        Purpose = purpose;
+
+        TitleLabel?.Text = purpose switch
+        {
+            ItemAmountPurpose.MarketListing => "How many will you list?",
+            ItemAmountPurpose.BankDeposit   => "How many will you deposit?",
+            ItemAmountPurpose.BankWithdraw  => "How many will you withdraw?",
+            _                               => "How many will you give?"
+        };
 
         if (AmountTextBox is not null)
         {

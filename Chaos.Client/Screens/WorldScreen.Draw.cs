@@ -921,40 +921,17 @@ public sealed partial class WorldScreen
         return texture;
     }
 
-    private PanelBase? GetDraggingPanel()
-    {
-        if (WorldHud.Inventory.IsDragging)
-            return WorldHud.Inventory;
-
-        if (WorldHud.SkillBook.IsDragging)
-            return WorldHud.SkillBook;
-
-        if (WorldHud.SkillBookAlt.IsDragging)
-            return WorldHud.SkillBookAlt;
-
-        if (WorldHud.SpellBook.IsDragging)
-            return WorldHud.SpellBook;
-
-        if (WorldHud.SpellBookAlt.IsDragging)
-            return WorldHud.SpellBookAlt;
-
-        if (WorldHud.Tools.WorldSkills.IsDragging)
-            return WorldHud.Tools.WorldSkills;
-
-        if (WorldHud.Tools.WorldSpells.IsDragging)
-            return WorldHud.Tools.WorldSpells;
-
-        return null;
-    }
-
     private void DrawDragIcon(SpriteBatch spriteBatch)
     {
-        var dragging = GetDraggingPanel();
-
-        if (dragging?.DragTexture is not { } icon)
+        //the payload owns its ghost, so a drag source needs no PanelBase behind it. The cursor is the same virtual-space
+        //value the dispatcher measured the drag threshold against, and the UI pass applies no camera transform.
+        if (Game.Dispatcher.ActiveDragPayload is not IDragGhost { GhostTexture: { } icon })
             return;
 
-        spriteBatch.Draw(icon, new Vector2(dragging.DragX - icon.Width / 2, dragging.DragY - icon.Height / 2), Color.White * 0.7f);
+        spriteBatch.Draw(
+            icon,
+            new Vector2(InputBuffer.MouseX - icon.Width / 2, InputBuffer.MouseY - icon.Height / 2),
+            Color.White * 0.7f);
     }
 
     private void DrawTileCursor(SpriteBatch spriteBatch)

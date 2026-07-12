@@ -17,6 +17,11 @@ namespace Chaos.Client.Rendering.Utility;
 /// </remarks>
 public static class ImageUtil
 {
+    /// <summary>Scroll-affordance arrow indicator texture size.</summary>
+    private const int ARROW_TEX_W = 9;
+
+    private const int ARROW_TEX_H = 6;
+
     /// <summary>Warm gold 50/50 blend used for group-member highlights.</summary>
     public static readonly Color GroupTint = LegendColors.CanaryYellow;
 
@@ -621,5 +626,63 @@ public static class ImageUtil
         }
 
         return dst;
+    }
+
+    /// <summary>
+    ///     Draws a small filled up/down triangle centred in the given box. Shared by the combobox's header
+    ///     chevron, the scroll-affordance arrows and the numeric spinner's stepper column.
+    /// </summary>
+    /// <param name="radius">Half-extent of the triangle from its centre; the spinner uses a smaller one than the default.</param>
+    public static void DrawArrow(
+        SKCanvas canvas,
+        int x,
+        int y,
+        int w,
+        int h,
+        bool up,
+        Color color,
+        float radius = 3f)
+    {
+        using var paint = new SKPaint
+        {
+            Color = new SKColor(color.R, color.G, color.B),
+            IsAntialias = false,
+            Style = SKPaintStyle.Fill
+        };
+
+        var cx = x + w / 2f;
+        var cy = y + h / 2f;
+
+        using var path = new SKPath();
+
+        if (up)
+        {
+            path.MoveTo(cx - radius, cy + radius);
+            path.LineTo(cx + radius, cy + radius);
+            path.LineTo(cx, cy - radius);
+        } else
+        {
+            path.MoveTo(cx - radius, cy - radius);
+            path.LineTo(cx + radius, cy - radius);
+            path.LineTo(cx, cy + radius);
+        }
+
+        path.Close();
+        canvas.DrawPath(path, paint);
+    }
+
+    /// <summary>
+    ///     Bakes a small up/down triangle indicator on a transparent background for the scroll affordance.
+    /// </summary>
+    public static Texture2D BuildScrollArrow(bool up, Color color)
+    {
+        var info = new SKImageInfo(ARROW_TEX_W, ARROW_TEX_H, SKColorType.Rgba8888, SKAlphaType.Premul);
+        using var surface = SKSurface.Create(info);
+        surface.Canvas.Clear(SKColors.Transparent);
+        DrawArrow(surface.Canvas, 0, 0, ARROW_TEX_W, ARROW_TEX_H, up, color);
+
+        using var snapshot = surface.Snapshot();
+
+        return TextureConverter.ToTexture2D(snapshot);
     }
 }

@@ -72,6 +72,11 @@ public static class WorldState
     public static Board Board { get; } = new();
 
     /// <summary>
+    ///     Authoritative bank state.
+    /// </summary>
+    public static BankState Bank { get; } = new();
+
+    /// <summary>
     ///     Authoritative chat and orange bar message state.
     /// </summary>
     public static Chat Chat { get; } = new();
@@ -305,6 +310,7 @@ public static class WorldState
         GroupInvite.Clear();
         NpcInteraction.Close();
         Exchange.Close();
+        Bank.Clear();
         WorldList.Clear();
         UserOptions.ClearServerSettings();
     }

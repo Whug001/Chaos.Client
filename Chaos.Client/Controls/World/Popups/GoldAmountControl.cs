@@ -11,6 +11,14 @@ namespace Chaos.Client.Controls.World.Popups;
 /// </summary>
 public sealed class GoldAmountControl : PrefabPanel
 {
+    private UILabel? TitleLabel { get; }
+
+    /// <summary>
+    ///     What the confirmed amount will be used for. Set by <see cref="ShowFor" />, so the popup can never be opened
+    ///     without declaring intent — the confirm handler routes on this rather than on ambient screen state.
+    /// </summary>
+    public GoldAmountPurpose Purpose { get; private set; } = GoldAmountPurpose.Drop;
+
     /// <summary>
     ///     Entity ID to drop gold on, or null for ground drop.
     /// </summary>
@@ -34,10 +42,9 @@ public sealed class GoldAmountControl : PrefabPanel
         AmountTextBox = CreateTextBox("Text", 10);
 
         //replace any existing text display with a label showing the prompt
-        var titleLabel = CreateLabel("Title");
+        TitleLabel = CreateLabel("Title");
 
-        titleLabel?.ForegroundColor = Color.White;
-        titleLabel?.Text = "Gold amount to drop?";
+        TitleLabel?.ForegroundColor = Color.White;
 
         if (OkButton is not null)
             OkButton.Clicked += Confirm;
@@ -92,11 +99,33 @@ public sealed class GoldAmountControl : PrefabPanel
         base.Show();
     }
 
-    public void ShowForTarget(uint? entityId, int tileX, int tileY)
+    /// <summary>
+    ///     Opens the popup for a specific purpose. Purpose is mandatory: this one control serves dropping, trading, and
+    ///     both bank directions, and a caller that forgot to declare its intent would silently inherit the previous
+    ///     caller's — routing a gold drop into the bank.
+    /// </summary>
+    /// <param name="purpose">What the confirmed amount will be used for.</param>
+    /// <param name="entityId">The entity to drop gold on, or null for a ground drop.</param>
+    /// <param name="tileX">The tile to drop gold on.</param>
+    /// <param name="tileY">The tile to drop gold on.</param>
+    public void ShowFor(
+        GoldAmountPurpose purpose,
+        uint? entityId = null,
+        int tileX = 0,
+        int tileY = 0)
     {
+        Purpose = purpose;
         TargetEntityId = entityId;
         TargetTileX = tileX;
         TargetTileY = tileY;
+
+        TitleLabel?.Text = purpose switch
+        {
+            GoldAmountPurpose.BankDeposit  => "Gold amount to deposit?",
+            GoldAmountPurpose.BankWithdraw => "Gold amount to withdraw?",
+            _                              => "Gold amount to drop?"
+        };
+
         Show();
     }
 

@@ -1,6 +1,7 @@
 #region
 using Chaos.Client.Controls.Components;
 using Chaos.Client.Controls.Custom;
+using Chaos.Client.Models;
 using Chaos.Client.Utilities;
 using Chaos.DarkAges.Definitions;
 using Microsoft.Xna.Framework;
@@ -11,7 +12,7 @@ namespace Chaos.Client.Controls.World.Popups.Market;
 /// <summary>
 ///     The Results tab page: a master/detail split. The left column is a full-height, paginated shop-style list of
 ///     market listings (item icon + name + right-aligned price) with a Prev / page-label / Next footer; the right column
-///     is a <see cref="MarketItemDetailControl" /> that fills with the full item detail when a row is <b>hovered</b>. A
+///     is an <see cref="ItemDetailControl" /> that fills with the full item detail when a row is <b>hovered</b>. A
 ///     vertical separator divides the two. There is no scrollbar on the list — navigation is strictly page-by-page via
 ///     the footer buttons (the mouse wheel pages too, except over the detail pane, which scrolls its own stat block).
 ///     Sized to the content <see cref="Rectangle" /> handed in by <see cref="MarketControl" />.
@@ -67,7 +68,10 @@ public sealed class MarketResultsControl : UIPanel
 
     private const int SPINNER_GAP = 4; //gap between the quantity spinner and the OK button
 
-    private readonly MarketItemDetailControl DetailPane;
+    //base-field slots in the detail pane: level+class, weight, durability, seller.
+    private const int DETAIL_BASE_LINES = 4;
+
+    private readonly ItemDetailControl DetailPane;
     private readonly UIButton NextButton;
     private readonly UILabel PageLabel;
     private readonly UILabel PriceLabel;
@@ -125,7 +129,12 @@ public sealed class MarketResultsControl : UIPanel
         var detailX = LIST_WIDTH + DialogFrame.BORDER_SIZE; //keep the original gap so the detail pane doesn't move
         var detailHeight = splitHeight - TOTAL_ROW;
 
-        DetailPane = new MarketItemDetailControl(Width - detailX, detailHeight)
+        //level+class / weight / durability / seller — the seller is the market's own 4th base line.
+        DetailPane = new ItemDetailControl(
+            Width - detailX,
+            detailHeight,
+            DETAIL_BASE_LINES,
+            "Hover a listing to view its details.")
         {
             X = detailX,
             Y = 0
@@ -270,7 +279,21 @@ public sealed class MarketResultsControl : UIPanel
         if ((rowIndex < 0) || (rowIndex >= Listings.Count))
             return;
 
-        DetailPane.Show(Listings[rowIndex]);
+        var listing = Listings[rowIndex];
+
+        //a null base line hides its slot; the description is deliberately not shown here (the market shows price
+        //instead, in the footer).
+        DetailPane.Populate(
+            listing.Sprite,
+            listing.Color,
+            listing.Name,
+            [
+                listing.LevelReq > 0 ? $"Level: {listing.LevelReq}   Class: {listing.ClassReq}" : $"Class: {listing.ClassReq}",
+                $"Weight: {listing.Weight}",
+                listing.MaxDurability > 0 ? $"Durability: {listing.CurrentDurability}/{listing.MaxDurability}" : null,
+                $"Seller: {listing.SellerName}"
+            ],
+            listing.Stats);
     }
 
     /// <summary>Refreshes the footer total (quantity × unit price) for the selected listing; clears it when none selected.</summary>
@@ -384,83 +407,11 @@ public readonly record struct MarketListing(
     int CurrentDurability,
     int MaxDurability,
     string Description,
-    MarketItemStats Stats)
+    ItemStats Stats)
 {
     /// <summary>How many of this item the listing has for sale (the stack size). 1 = non-stackable; caps the buy quantity.</summary>
     public int AvailableCount { get; init; } = 1;
 
     /// <summary>The character name of the player who listed this item.</summary>
     public string SellerName { get; init; } = string.Empty;
-}
-
-/// <summary>
-///     The per-item stat modifiers a market listing can carry — the same set the Search tab filters on (see
-///     <c>MarketSearchControl.StatOptions</c>), so every displayed stat is also searchable. Each field is the bonus
-///     granted by the item; zero means "not present" and is omitted from the detail view. Construct with an object
-///     initializer so only the relevant stats are set, e.g. <c>new MarketItemStats { Dmg = 7, Hit = 3 }</c>.
-/// </summary>
-public readonly record struct MarketItemStats(
-    int Hp,
-    int Mp,
-    int Str,
-    int Int,
-    int Wis,
-    int Con,
-    int Dex,
-    int Ac,
-    int Hit,
-    int Dmg,
-    int AtkSpeed,
-    int FlatSkillDmg,
-    int FlatSpellDmg,
-    int SkillDmgPct,
-    int SpellDmgPct,
-    int Cdr,
-    int HealBonus,
-    int HealBonusPct,
-    int MagicResist)
-{
-    /// <summary>
-    ///     Projects the non-zero stats to inline display blocks like "+10 HP" / "-50 MP" / "+5% CDR", in the canonical
-    ///     (search-list) order. The detail pane lays these out as wrapped inline text, keeping each block whole.
-    /// </summary>
-    public IReadOnlyList<string> ToBlocks()
-    {
-        var blocks = new List<string>(19);
-
-        //per-stat color via inline legend codes: positive = good (Lime {=q), negative = bad (Scarlet {=b). AC is inverted
-        //(lower/negative AC is better in Dark Ages), so it passes invertColor to swap which sign is "good".
-        void Add(string label, int value, bool percent = false, bool invertColor = false)
-        {
-            if (value == 0)
-                return;
-
-            var sign = value > 0 ? "+" : ""; //negatives carry their own '-'
-            var good = (value > 0) != invertColor;
-            var code = good ? "{=q" : "{=b"; //q = Lime, b = Scarlet (LegendPalette text-color codes)
-            blocks.Add($"{code}{sign}{value}{(percent ? "%" : "")} {label}");
-        }
-
-        Add("HP", Hp);
-        Add("MP", Mp);
-        Add("STR", Str);
-        Add("INT", Int);
-        Add("WIS", Wis);
-        Add("CON", Con);
-        Add("DEX", Dex);
-        Add("AC", Ac, invertColor: true);
-        Add("HIT", Hit);
-        Add("DMG", Dmg);
-        Add("Atk Speed", AtkSpeed);
-        Add("Flat Skill Dmg", FlatSkillDmg);
-        Add("Flat Spell Dmg", FlatSpellDmg);
-        Add("Skill Dmg", SkillDmgPct, true);
-        Add("Spell Dmg", SpellDmgPct, true);
-        Add("CDR", Cdr, true);
-        Add("Heal Bonus", HealBonus);
-        Add("Heal Bonus", HealBonusPct, true);
-        Add("Magic Resist", MagicResist);
-
-        return blocks;
-    }
 }

@@ -45,8 +45,6 @@ public abstract class PanelBase : ExpandablePanel
     /// </summary>
     public IReadOnlyList<PanelSlot> Slots { get; }
 
-    private int DragMouseX;
-
     //drag state
     private PanelSlot? DragSource;
 
@@ -55,11 +53,6 @@ public abstract class PanelBase : ExpandablePanel
 
     //hover tracking
     private PanelSlot? LastHoveredSlot;
-
-    /// <summary>
-    ///     Current mouse Y during drag.
-    /// </summary>
-    public int DragY { get; private set; }
 
     /// <summary>
     ///     True when the user is actively dragging a slot icon.
@@ -75,21 +68,6 @@ public abstract class PanelBase : ExpandablePanel
     ///     The number of currently visible grid slots.
     /// </summary>
     public int VisibleSlotCount { get; protected set; }
-
-    /// <summary>
-    ///     The 1-based slot number being dragged, or 0 if not dragging.
-    /// </summary>
-    public byte DragSlot => DragSource?.Slot ?? 0;
-
-    /// <summary>
-    ///     The texture of the currently dragged icon, or null.
-    /// </summary>
-    public Texture2D? DragTexture => IsDragging ? DragSource?.NormalTexture : null;
-
-    /// <summary>
-    ///     Current mouse X during drag.
-    /// </summary>
-    public int DragX => DragMouseX;
 
     protected PanelBase(
         ControlPrefabSet hudPrefabSet,
@@ -285,15 +263,6 @@ public abstract class PanelBase : ExpandablePanel
     }
 
     /// <summary>
-    ///     Updates the ghost icon position during a drag. Called from the root-level DragMove handler.
-    /// </summary>
-    public void UpdateDragPosition(int screenX, int screenY)
-    {
-        DragMouseX = screenX;
-        DragY = screenY;
-    }
-
-    /// <summary>
     ///     Completes a drag-and-drop onto another slot within this panel.
     /// </summary>
     public void CompleteDragSwap(byte targetSlot)
@@ -326,8 +295,6 @@ public abstract class PanelBase : ExpandablePanel
     {
         DragSource = null;
         IsDragging = false;
-        DragMouseX = 0;
-        DragY = 0;
     }
 
     /// <summary>

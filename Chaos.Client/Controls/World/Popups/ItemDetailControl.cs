@@ -2,39 +2,41 @@
 using Chaos.Client.Controls.Components;
 using Chaos.Client.Controls.Scrolling;
 using Chaos.Client.Definitions;
+using Chaos.Client.Models;
+using Chaos.DarkAges.Definitions;
 using Microsoft.Xna.Framework;
 #endregion
 
-namespace Chaos.Client.Controls.World.Popups.Market;
+namespace Chaos.Client.Controls.World.Popups;
 
 /// <summary>
-///     The right-hand detail pane of the Market Results tab. Populated on row <b>hover</b> via <see cref="Show" />: it
-///     shows the item icon + name (a fixed header), a compact "label: value" base-field block (level / class / weight /
-///     durability / seller), then a mouse-wheel-scrollable region where the listing's stat modifiers are
-///     laid out as inline blocks ("+10 HP", "-50 MP") that wrap like text, each block kept whole. The price is shown in
-///     the results footer (next to the OK button), not here.
+///     The item detail pane shared by the market's Results tab and the bank window. Populated on row <b>hover</b> via
+///     <see cref="Populate" />: the item icon + name (a fixed header), a fixed block of "label: value" base-field lines
+///     (level / class / weight / durability, plus whatever else the owner adds), then a mouse-wheel-scrollable region
+///     where the item's non-zero stat modifiers are laid out as inline blocks ("+10 HP", "-50 MP") that wrap like text,
+///     each block kept whole.
 /// </summary>
 /// <remarks>
-///     Data-driven: it renders whatever stat blocks <see cref="MarketItemStats.ToBlocks" /> produces, so the stat
-///     taxonomy lives entirely in the (server-supplied) data — adding or removing a stat needs no client change. The
-///     pane <b>keeps the last-hovered item</b> until a different row is hovered (it does not clear when the cursor leaves
-///     a row); that is what lets the user move onto the pane and wheel-scroll a tall stat block. All children are
-///     non-hit-test-visible, so the pane itself is the single hit-test target and owns the wheel-scroll
-///     (<see cref="OnMouseScroll" />), which it always consumes so scrolling over the detail never pages the list.
+///     A dumb view: it renders only what it is handed, and neither reads world state nor sends packets. The base-field
+///     block is a fixed number of slots (given at construction) — a null line hides its slot but keeps the layout below
+///     it put, so a non-durable item does not shift the separator. The pane <b>keeps the last-hovered item</b> until a
+///     different row is hovered, which is what lets the cursor move onto the pane and wheel-scroll a tall stat block.
+///     All children are non-hit-test-visible, so the pane itself is the single hit-test target and owns the wheel
+///     (<see cref="OnMouseScroll" />), which it always consumes so scrolling over the detail never reaches the owning
+///     window's own list/page scrolling.
 /// </remarks>
-public sealed class MarketItemDetailControl : UIPanel
+public sealed class ItemDetailControl : UIPanel
 {
     private const int PAD = 6;
     private const int ICON = 32;
-    private const int LINE = TextRenderer.CHAR_HEIGHT; //12
     private const int NAME_GAP = 6; //between icon and name
-    private const int STAT_SCROLL_STEP = LINE * 2; //pixels per wheel notch
+    private const int STAT_SCROLL_STEP = TextRenderer.CHAR_HEIGHT * 2; //pixels per wheel notch
 
-    //pooled stat LINES — created once, bound on demand. Stats flow as inline blocks ("+10 HP") wrapped across these.
+    //pooled stat lines — created once, bound on demand. Stats flow as inline blocks ("+10 HP") wrapped across these.
+    //A fully-enchanted item is 19 blocks; in a narrow pane those wrap to well under this cap.
     private const int MAX_STAT_LINES = 48;
 
     private const int BASE_TOP = PAD + ICON + 4; //first base-field line, just under the icon/name header
-    private const int DIVIDER_TOP = BASE_TOP + (LINE + 1) * 4 + 2; //separator sits just below the 4 base lines (seller is last)
 
     private static readonly Color NameColor = LegendColors.White;
     private static readonly Color InfoColor = LegendColors.PaleSilver;
@@ -42,41 +44,45 @@ public sealed class MarketItemDetailControl : UIPanel
     private static readonly Color StatValueColor = LegendColors.SpringGreen;
     private static readonly Color DividerColor = LegendColors.DarkGray;
 
+    private readonly UILabel[] BaseLines;
+    private readonly UIPanel HeaderDivider;
     private readonly UILabel HintLabel;
     private readonly UIImage IconImage;
     private readonly UILabel NameLabel;
-    private readonly UILabel BaseLine1; //level + class
-    private readonly UILabel BaseLine2; //weight
-    private readonly UILabel BaseLine3; //durability
-    private readonly UILabel SellerLine; //seller name — last info line, just above the separator
-    private readonly UIPanel HeaderDivider;
 
     private readonly UILabel[] StatLineLabels = new UILabel[MAX_STAT_LINES];
     private readonly UIPanel StatContent;
     private readonly StatScrollHost StatHost;
     private readonly ScrollViewerControl StatViewer;
 
-    private int ViewportHeightPx;
+    private readonly int ViewportHeightPx;
 
-    public MarketItemDetailControl(int width, int height)
+    /// <param name="baseLineCount">
+    ///     How many base-field slots to reserve. The separator (and everything under it) hangs off this count, so the
+    ///     layout is stable no matter how many of the slots a given item actually fills.
+    /// </param>
+    public ItemDetailControl(int width, int height, int baseLineCount, string hint)
     {
         Width = width;
         Height = height;
 
         var innerWidth = width - PAD * 2;
 
+        //separator sits just below the base-field block
+        var dividerTop = BASE_TOP + (TextRenderer.CHAR_HEIGHT + 1) * baseLineCount + 2;
+
         //── hint shown while nothing is hovered ──
         HintLabel = new UILabel
         {
             X = PAD,
-            Y = height / 2 - LINE,
+            Y = height / 2 - TextRenderer.CHAR_HEIGHT,
             Width = innerWidth,
-            Height = LINE * 2,
+            Height = TextRenderer.CHAR_HEIGHT * 2,
             WordWrap = true,
             HorizontalAlignment = HorizontalAlignment.Center,
             ForegroundColor = StatLabelColor,
             IsHitTestVisible = false,
-            Text = "Hover a listing to view its details."
+            Text = hint
         };
         AddChild(HintLabel);
 
@@ -95,14 +101,13 @@ public sealed class MarketItemDetailControl : UIPanel
         var nameX = PAD + ICON + NAME_GAP;
 
         //a two-line-tall, vertically-centered box: short names sit on the icon's midpoint, long names wrap and straddle
-        //it. UILabel now honors VerticalAlignment for wrapped text, so this needs no per-item repositioning. Paddings
-        //are zeroed so the box is exactly two text lines and the wrap width is the full label width.
+        //it. Paddings are zeroed so the box is exactly two text lines and the wrap width is the full label width.
         NameLabel = new UILabel
         {
             X = nameX,
-            Y = PAD + (ICON - LINE * 2) / 2,
+            Y = PAD + (ICON - TextRenderer.CHAR_HEIGHT * 2) / 2,
             Width = width - nameX - PAD,
-            Height = LINE * 2,
+            Height = TextRenderer.CHAR_HEIGHT * 2,
             WordWrap = true,
             VerticalAlignment = VerticalAlignment.Center,
             PaddingLeft = 0,
@@ -116,20 +121,30 @@ public sealed class MarketItemDetailControl : UIPanel
         AddChild(NameLabel);
 
         //── fixed base-field block (label: value, one per line) ──
-        BaseLine1 = MakeInfoLabel(PAD, BASE_TOP, innerWidth, InfoColor);
-        BaseLine2 = MakeInfoLabel(PAD, BASE_TOP + LINE + 1, innerWidth, InfoColor);
-        BaseLine3 = MakeInfoLabel(PAD, BASE_TOP + (LINE + 1) * 2, innerWidth, InfoColor);
-        SellerLine = MakeInfoLabel(PAD, BASE_TOP + (LINE + 1) * 3, innerWidth, InfoColor);
-        AddChild(BaseLine1);
-        AddChild(BaseLine2);
-        AddChild(BaseLine3);
-        AddChild(SellerLine);
+        BaseLines = new UILabel[baseLineCount];
+
+        for (var i = 0; i < baseLineCount; i++)
+        {
+            var line = new UILabel
+            {
+                X = PAD,
+                Y = BASE_TOP + (TextRenderer.CHAR_HEIGHT + 1) * i,
+                Width = innerWidth,
+                Height = TextRenderer.CHAR_HEIGHT,
+                ForegroundColor = InfoColor,
+                IsHitTestVisible = false,
+                Visible = false
+            };
+
+            BaseLines[i] = line;
+            AddChild(line);
+        }
 
         //── separator between item info and stats, fixed just below the base-field block ──
         HeaderDivider = new UIPanel
         {
             X = PAD,
-            Y = DIVIDER_TOP,
+            Y = dividerTop,
             Width = innerWidth,
             Height = 1,
             BackgroundColor = DividerColor,
@@ -138,11 +153,11 @@ public sealed class MarketItemDetailControl : UIPanel
         };
         AddChild(HeaderDivider);
 
-        //── scrollable stat region (viewer Y/Height set per item below the separator) ──
-        //StatContent (the scrolled surface) lives in StatHost (an IVerticalScrollable clip host), wrapped in a
-        //bar-less (Hidden) ScrollViewerControl that owns the wheel. Bar-less keeps the narrow pane's full width; the
-        //host translates the viewer's unit offset into StatContent.Y (one unit = one wheel notch). The pane's own
-        //OnMouseScroll still consumes the wheel unconditionally so it never falls through to the Results list's paging.
+        //── scrollable stat region ──
+        //StatContent (the scrolled surface) lives in StatHost (an IVerticalScrollable clip host), wrapped in a bar-less
+        //(Hidden) ScrollViewerControl that owns the wheel. Bar-less keeps the narrow pane's full width; the host
+        //translates the viewer's unit offset into StatContent.Y (one unit = one wheel notch). The pane's own
+        //OnMouseScroll still consumes the wheel unconditionally so it never falls through to the owning window.
         StatContent = new UIPanel
         {
             X = 0,
@@ -155,24 +170,32 @@ public sealed class MarketItemDetailControl : UIPanel
         StatHost = new StatScrollHost(StatContent, STAT_SCROLL_STEP) { IsPassThrough = true };
         StatHost.AddChild(StatContent);
 
+        var viewportTop = dividerTop + 4;
+        ViewportHeightPx = Math.Max(0, Height - viewportTop - PAD);
+
+        //the viewer is the clip window; with a Hidden bar it reserves no gutter, so StatContent keeps the full innerWidth.
         StatViewer = new ScrollViewerControl(StatHost)
         {
             X = PAD,
-            Y = DIVIDER_TOP,
+            Y = viewportTop,
             Width = innerWidth,
-            Height = 0,
+            Height = ViewportHeightPx,
             VerticalScrollBarVisibility = ScrollBarVisibility.Hidden
         };
         AddChild(StatViewer);
+
+        //seed the host's Height now so it reports a correct viewport on the first frame (the wheel handler runs before
+        //the viewer's first Update sizes it); the viewer overwrites this each frame thereafter.
+        StatHost.Height = ViewportHeightPx;
 
         for (var i = 0; i < MAX_STAT_LINES; i++)
         {
             var line = new UILabel
             {
                 X = 0,
-                Y = i * LINE,
+                Y = i * TextRenderer.CHAR_HEIGHT,
                 Width = innerWidth,
-                Height = LINE,
+                Height = TextRenderer.CHAR_HEIGHT,
                 ForegroundColor = StatValueColor,
                 ColorCodesEnabled = true, //each stat block carries an inline {=x color code (positive/negative tint)
                 IsHitTestVisible = false,
@@ -182,76 +205,50 @@ public sealed class MarketItemDetailControl : UIPanel
             StatLineLabels[i] = line;
             StatContent.AddChild(line);
         }
-
-        LayoutDividerAndStats(); //separator + stat viewer geometry is fixed (no variable-height description)
     }
 
-    /// <summary>Positions the separator just below the base-field block, then the stat viewport below it.</summary>
-    private void LayoutDividerAndStats()
-    {
-        HeaderDivider.Y = DIVIDER_TOP;
-
-        var viewportTop = DIVIDER_TOP + 4;
-        ViewportHeightPx = Math.Max(0, Height - viewportTop - PAD);
-
-        //the viewer is the clip window; with a Hidden bar it reserves no gutter, so StatContent keeps the full innerWidth.
-        StatViewer.Y = viewportTop;
-        StatViewer.Height = ViewportHeightPx;
-
-        //seed the host's Height now so it reports a correct viewport on the first frame (the wheel handler runs before
-        //the viewer's first Update sizes it); the viewer overwrites this each frame thereafter.
-        StatHost.Height = ViewportHeightPx;
-    }
-
-    private static UILabel MakeInfoLabel(int x, int y, int width, Color color)
-        => new()
-        {
-            X = x,
-            Y = y,
-            Width = width,
-            Height = LINE,
-            ForegroundColor = color,
-            IsHitTestVisible = false,
-            Visible = false
-        };
-
-    /// <summary>Binds the pane to a listing (called on row hover) and resets the stat scroll to the top.</summary>
-    public void Show(MarketListing listing)
+    /// <summary>
+    ///     Binds the pane to an item (called on row hover) and resets the scroll to the top. A null entry in
+    ///     <paramref name="baseLines" /> hides that slot without moving the ones below it.
+    /// </summary>
+    public void Populate(
+        ushort sprite,
+        DisplayColor color,
+        string name,
+        IReadOnlyList<string?> baseLines,
+        ItemStats stats)
     {
         HintLabel.Visible = false;
 
-        IconImage.Texture = UiRenderer.Instance!.GetItemIcon(listing.Sprite);
+        IconImage.Texture = UiRenderer.Instance!.GetItemIcon(sprite, color); //shared cache — never disposed
         IconImage.Visible = true;
 
-        NameLabel.Text = listing.Name;
+        NameLabel.Text = name;
         NameLabel.Visible = true;
 
-        BaseLine1.Text = listing.LevelReq > 0
-            ? $"Level: {listing.LevelReq}   Class: {listing.ClassReq}"
-            : $"Class: {listing.ClassReq}";
-        BaseLine1.Visible = true;
-
-        BaseLine2.Text = $"Weight: {listing.Weight}";
-        BaseLine2.Visible = true;
-
-        if (listing.MaxDurability > 0)
+        for (var i = 0; i < BaseLines.Length; i++)
         {
-            BaseLine3.Text = $"Durability: {listing.CurrentDurability}/{listing.MaxDurability}";
-            BaseLine3.Visible = true;
-        } else
-            BaseLine3.Visible = false;
+            var text = i < baseLines.Count ? baseLines[i] : null;
 
-        SellerLine.Text = $"Seller: {listing.SellerName}";
-        SellerLine.Visible = true;
+            if (text is null)
+            {
+                BaseLines[i].Visible = false;
+
+                continue;
+            }
+
+            BaseLines[i].Text = text;
+            BaseLines[i].Visible = true;
+        }
 
         HeaderDivider.Visible = true;
 
-        BindStats(listing.Stats.ToBlocks());
+        BindContent(stats);
 
-        StatHost.ResetScroll(); //each hovered item opens at the top of its stat block
+        StatHost.ResetScroll(); //each hovered item opens at the top
     }
 
-    /// <summary>Resets the pane to its idle "hover a listing" hint (e.g. when the result set is replaced).</summary>
+    /// <summary>Resets the pane to its idle hint (e.g. when the result set is replaced or the category switched).</summary>
     public void Clear()
     {
         HintLabel.Visible = true;
@@ -259,11 +256,10 @@ public sealed class MarketItemDetailControl : UIPanel
         IconImage.Texture = null;
         IconImage.Visible = false;
         NameLabel.Visible = false;
-        BaseLine1.Visible = false;
-        BaseLine2.Visible = false;
-        BaseLine3.Visible = false;
-        SellerLine.Visible = false;
         HeaderDivider.Visible = false;
+
+        foreach (var line in BaseLines)
+            line.Visible = false;
 
         for (var i = 0; i < MAX_STAT_LINES; i++)
             StatLineLabels[i].Visible = false;
@@ -272,10 +268,10 @@ public sealed class MarketItemDetailControl : UIPanel
         StatHost.ResetScroll();
     }
 
-    private void BindStats(IReadOnlyList<string> blocks)
+    private void BindContent(ItemStats stats)
     {
         //wrap the inline blocks into lines (subtract the label's 1px side padding from the usable width).
-        var lines = WrapBlocks(blocks, StatContent.Width - 2);
+        var lines = WrapBlocks(stats.ToBlocks(), StatContent.Width - 2);
         var count = Math.Min(lines.Count, MAX_STAT_LINES);
 
         for (var i = 0; i < MAX_STAT_LINES; i++)
@@ -288,14 +284,12 @@ public sealed class MarketItemDetailControl : UIPanel
                 StatLineLabels[i].Visible = false;
         }
 
-        var contentHeight = count * LINE;
-        StatContent.Height = Math.Max(contentHeight, ViewportHeightPx);
+        StatContent.Height = Math.Max(count * TextRenderer.CHAR_HEIGHT, ViewportHeightPx);
     }
 
     /// <summary>
     ///     Greedily packs the stat blocks into single-space-separated lines that each fit within
-    ///     <paramref name="maxWidthPx" />, never splitting a block across lines — so "+10 HP" always stays whole
-    ///     (word-wrap at block boundaries, as if the whole thing were one wrapped multi-line label).
+    ///     <paramref name="maxWidthPx" />, never splitting a block across lines — so "+10 HP" always stays whole.
     /// </summary>
     private static List<string> WrapBlocks(IReadOnlyList<string> blocks, int maxWidthPx)
     {
@@ -328,9 +322,9 @@ public sealed class MarketItemDetailControl : UIPanel
         return lines;
     }
 
-    //the StatViewer (a bar-less ScrollViewerControl) owns the actual wheel scrolling of the stat block; this override
-    //only guarantees the wheel is always consumed over the detail pane — including the fixed header region above the
-    //viewer — so it never falls through to the Results list's paging.
+    //the StatViewer (a bar-less ScrollViewerControl) owns the actual wheel scrolling; this override only guarantees the
+    //wheel is always consumed over the detail pane — including the fixed header region above the viewer — so it never
+    //falls through to the owning window's list/page/rail scrolling.
     public override void OnMouseScroll(MouseScrollEvent e) => e.Handled = true;
 
     //── scroll host ─────────────────────────────────────────────────────────────────────────────────────────────

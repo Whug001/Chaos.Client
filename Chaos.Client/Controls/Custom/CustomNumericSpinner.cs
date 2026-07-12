@@ -1,5 +1,6 @@
 #region
 using Chaos.Client.Controls.Components;
+using Chaos.Client.Rendering.Utility;
 using Chaos.Client.Utilities;
 using Microsoft.Xna.Framework;
 using Microsoft.Xna.Framework.Graphics;
@@ -28,6 +29,7 @@ public sealed class CustomNumericSpinner : UIPanel
     private const int ARROW_BOX = 11;              // right-hand arrow column width
     private const float REPEAT_INITIAL_MS = 450f;  // pause after the first step before auto-repeat begins
     private const float REPEAT_INTERVAL_MS = 130f; // cadence once auto-repeat has begun
+    private const float ARROW_RADIUS = 2.5f;       // smaller than the shared default; the arrow column is narrow
 
     private static readonly SKColor FillColor = new(10, 8, 5, 255);
 
@@ -288,8 +290,26 @@ public sealed class CustomNumericSpinner : UIPanel
         const int dx = 2;
         const int dy = 2;
         var ax = w - ARROW_BOX - dx;
-        DrawArrow(canvas, ax, dy, ARROW_BOX, h / 2, true);
-        DrawArrow(canvas, ax, h / 2 - dy, ARROW_BOX, h - h / 2, false);
+
+        ImageUtil.DrawArrow(
+            canvas,
+            ax,
+            dy,
+            ARROW_BOX,
+            h / 2,
+            true,
+            TextColors.Default,
+            ARROW_RADIUS);
+
+        ImageUtil.DrawArrow(
+            canvas,
+            ax,
+            h / 2 - dy,
+            ARROW_BOX,
+            h - h / 2,
+            false,
+            TextColors.Default,
+            ARROW_RADIUS);
 
         using var snapshot = surface.Snapshot();
 
@@ -314,39 +334,6 @@ public sealed class CustomNumericSpinner : UIPanel
         using var dimSnapshot = dimSurface.Snapshot();
 
         return TextureConverter.ToTexture2D(dimSnapshot);
-    }
-
-    private static void DrawArrow(SKCanvas canvas, int x, int y, int w, int h, bool up)
-    {
-        var arrow = TextColors.Default;
-
-        using var paint = new SKPaint
-        {
-            Color = new SKColor(arrow.R, arrow.G, arrow.B),
-            IsAntialias = false,
-            Style = SKPaintStyle.Fill
-        };
-
-        var cx = x + w / 2f;
-        var cy = y + h / 2f;
-        const float R = 2.5f;
-
-        using var path = new SKPath();
-
-        if (up)
-        {
-            path.MoveTo(cx - R, cy + R);
-            path.LineTo(cx + R, cy + R);
-            path.LineTo(cx, cy - R);
-        } else
-        {
-            path.MoveTo(cx - R, cy - R);
-            path.LineTo(cx + R, cy - R);
-            path.LineTo(cx, cy + R);
-        }
-
-        path.Close();
-        canvas.DrawPath(path, paint);
     }
 }
 

@@ -5,6 +5,7 @@ using Chaos.Client.Controls.Generic;
 using Chaos.Client.Controls.World.Hud;
 using Chaos.Client.Controls.World.Hud.Panel.Slots;
 using Chaos.Client.Controls.World.Popups;
+using Chaos.Client.Controls.World.Popups.Bank;
 using Chaos.Client.Controls.World.Popups.Boards;
 using Chaos.Client.Controls.World.Popups.Dialog;
 using Chaos.Client.Controls.World.Popups.Exchange;
@@ -134,11 +135,6 @@ public sealed partial class WorldScreen : IScreen
     private OkPopupMessageControl ExchangeResultPopup = null!;
     private ItemAmountControl ItemAmount = null!;
 
-    //what the shared ItemAmountControl is currently prompting for — its OnConfirm routes on this.
-    private enum ItemAmountPurpose { Exchange, MarketListing }
-
-    private ItemAmountPurpose AmountPurpose = ItemAmountPurpose.Exchange;
-
     private FriendsListControl FriendsList = null!;
 
     private ChaosGame Game = null!;
@@ -157,6 +153,9 @@ public sealed partial class WorldScreen : IScreen
 
     //market window — opened via the Starbargain NPC (scriptKey MarketStall) or the /market command
     private MarketControl Market = null!;
+
+    //bank window — opened by the server's first BankDisplay (Categories); it never opens itself
+    private BankControl Bank = null!;
 
     //ordered inventory drop-target registry (Exchange → Market → equipment); each target owns its eligibility/drop-zone,
     //WorldScreen owns the paired networking action (so all Game.Connection.* calls stay here).
@@ -468,6 +467,22 @@ public sealed partial class WorldScreen : IScreen
 
         GoldDrop.OnConfirm += amount =>
         {
+            //bank gold rides the same prompt; both directions are mutations, so each is followed by a refresh
+            switch (GoldDrop.Purpose)
+            {
+                case GoldAmountPurpose.BankDeposit:
+                    Game.Connection.SendBankDepositGold(ToGoldAmount(amount));
+                    RefreshBank();
+
+                    return;
+
+                case GoldAmountPurpose.BankWithdraw:
+                    Game.Connection.SendBankWithdrawGold(ToGoldAmount(amount));
+                    RefreshBank();
+
+                    return;
+            }
+
             if (Exchange.Visible && (GoldDrop.TargetEntityId == Exchange.OtherUserId))
                 Game.Connection.SendExchangeInteraction(ExchangeRequestType.SetGold, Exchange.OtherUserId, goldAmount: (int)amount);
             else if (GoldDrop.TargetEntityId.HasValue)
@@ -487,7 +502,7 @@ public sealed partial class WorldScreen : IScreen
 
         ItemAmount.OnConfirm += amount =>
         {
-            switch (AmountPurpose)
+            switch (ItemAmount.Purpose)
             {
                 case ItemAmountPurpose.Exchange:
                     Game.Connection.SendExchangeInteraction(
@@ -500,6 +515,17 @@ public sealed partial class WorldScreen : IScreen
 
                 case ItemAmountPurpose.MarketListing:
                     Market.DropSellItem(ItemAmount.ItemSlot, (int)Math.Min(amount, int.MaxValue), PendingMarketDropX, PendingMarketDropY);
+
+                    break;
+
+                case ItemAmountPurpose.BankDeposit:
+                    Game.Connection.SendBankDepositItem(ItemAmount.ItemSlot, (int)Math.Min(amount, int.MaxValue));
+                    RefreshBank();
+
+                    break;
+
+                case ItemAmountPurpose.BankWithdraw:
+                    WithdrawBankItem(ItemAmount.ItemName, (int)Math.Min(amount, int.MaxValue));
 
                     break;
             }
@@ -697,6 +723,12 @@ public sealed partial class WorldScreen : IScreen
             ZIndex = 2
         };
 
+        Bank = new BankControl
+        {
+            ZIndex = 2
+        };
+        WireBank();
+
         //buy-confirm popup for the market: lives on Root (it centers on-screen and must not be clipped inside the Market
         //panel) and draws above the Market window (ZIndex 3 > 2). Shown when the Results tab raises BuyRequested.
         MarketBuyConfirm = new OkPopupMessageControl(true)
@@ -764,6 +796,7 @@ public sealed partial class WorldScreen : IScreen
         Root.AddChild(ItemTooltip);
         Root.AddChild(Market);
         Root.AddChild(MarketBuyConfirm);
+        Root.AddChild(Bank);
         Root.AddChild(MainOptions);
         Root.AddChild(SettingsDialog);
         Root.AddChild(MacrosList);
@@ -805,9 +838,11 @@ public sealed partial class WorldScreen : IScreen
         VotePanel.VoteCast += (pollId, index) => Game.Connection.SendVote(pollId, index);
 
         //inventory drop-target registry: each panel owns its eligibility/drop-zone; the paired action owns the networking
-        //call. priority order mirrors the previous if-chain (Exchange → Market → equipment).
+        //call. priority order mirrors the previous if-chain (Exchange → Market → Bank → equipment). every target gates on
+        //its own Visible, so a closed window never claims a drop and order only breaks ties between two open windows.
         InventoryDropTargets.Add((Exchange, slot => Game.Connection.SendExchangeInteraction(ExchangeRequestType.AddItem, Exchange.OtherUserId, slot)));
         InventoryDropTargets.Add((Market, BeginMarketListing));
+        InventoryDropTargets.Add((Bank, BeginBankDeposit));
         InventoryDropTargets.Add((StatusBook, slot => Game.Connection.UseItem(slot)));
 
         WireHudPanels(SmallHud);
@@ -876,6 +911,7 @@ public sealed partial class WorldScreen : IScreen
         Game.Connection.OnWorldMap -= HandleWorldMap;
         Game.Connection.OnDoor -= HandleDoor;
         Game.Connection.OnMarketDisplay -= HandleMarketDisplay;
+        Game.Connection.OnBankDisplay -= HandleBankDisplay;
 
         //unwire panel click-to-use events
         WorldHud.Inventory.OnSlotClicked -= HandleInventorySlotClicked;

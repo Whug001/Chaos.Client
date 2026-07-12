@@ -1,5 +1,6 @@
 #region
 using Chaos.Client.Controls.Components;
+using Chaos.Client.Rendering.Utility;
 using Chaos.Client.Utilities;
 using Microsoft.Xna.Framework;
 using Microsoft.Xna.Framework.Graphics;
@@ -28,8 +29,6 @@ public sealed class CustomComboBox : UIPanel
     private const int RowHeight = TextRenderer.CHAR_HEIGHT + 2;   // per-option row height
     private const int MAX_VISIBLE_ROWS = 8;                       // open list caps at this many rows; longer lists scroll
     private const int ARROW_ZONE = 9;                            // reserved px at the list's top & bottom for scroll arrows
-    private const int ARROW_TEX_W = 9;                           // scroll-affordance arrow indicator texture size
-    private const int ARROW_TEX_H = 6;
 
     private static readonly SKColor FillColor = new(10, 8, 5, 255);
     private static Color TextColor => TextColors.Default;          // standard UI text (LegendColors.Silver)
@@ -298,8 +297,8 @@ public sealed class CustomComboBox : UIPanel
             visibleRows,
             ARROW_ZONE,
             scrolling,
-            scrolling ? BuildScrollArrow(true) : null,
-            scrolling ? BuildScrollArrow(false) : null);
+            scrolling ? ImageUtil.BuildScrollArrow(true, TextColors.Default) : null,
+            scrolling ? ImageUtil.BuildScrollArrow(false, TextColors.Default) : null);
 
         ListPanel = listPanel;
 
@@ -369,7 +368,14 @@ public sealed class CustomComboBox : UIPanel
         => BuildFramedTexture(
             Width,
             Height,
-            canvas => DrawArrow(canvas, Width - ARROW_BOX - 2, 0, ARROW_BOX, Height, open),
+            canvas => ImageUtil.DrawArrow(
+                canvas,
+                Width - ARROW_BOX - 2,
+                0,
+                ARROW_BOX,
+                Height,
+                open,
+                TextColors.Default),
             dim);
 
     private static Texture2D BuildListTexture(int w, int h) => BuildFramedTexture(w, h);
@@ -418,51 +424,6 @@ public sealed class CustomComboBox : UIPanel
         return TextureConverter.ToTexture2D(dimSnapshot);
     }
 
-    private static void DrawArrow(SKCanvas canvas, int x, int y, int w, int h, bool up)
-    {
-        var arrow = TextColors.Default;
-
-        using var paint = new SKPaint
-        {
-            Color = new SKColor(arrow.R, arrow.G, arrow.B),
-            IsAntialias = false,
-            Style = SKPaintStyle.Fill
-        };
-
-        var cx = x + w / 2f;
-        var cy = y + h / 2f;
-        const float R = 3f;
-
-        using var path = new SKPath();
-
-        if (up)
-        {
-            path.MoveTo(cx - R, cy + R);
-            path.LineTo(cx + R, cy + R);
-            path.LineTo(cx, cy - R);
-        } else
-        {
-            path.MoveTo(cx - R, cy - R);
-            path.LineTo(cx + R, cy - R);
-            path.LineTo(cx, cy + R);
-        }
-
-        path.Close();
-        canvas.DrawPath(path, paint);
-    }
-
-    /// <summary>Bakes a small up/down triangle indicator on a transparent background for the scroll affordance.</summary>
-    private static Texture2D BuildScrollArrow(bool up)
-    {
-        var info = new SKImageInfo(ARROW_TEX_W, ARROW_TEX_H, SKColorType.Rgba8888, SKAlphaType.Premul);
-        using var surface = SKSurface.Create(info);
-        surface.Canvas.Clear(SKColors.Transparent);
-        DrawArrow(surface.Canvas, 0, 0, ARROW_TEX_W, ARROW_TEX_H, up);
-
-        using var snapshot = surface.Snapshot();
-
-        return TextureConverter.ToTexture2D(snapshot);
-    }
 }
 
 /// <summary>One option row. Reuses UILabel text rendering; adds hover-brighten + click-select.</summary>

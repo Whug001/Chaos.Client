@@ -128,6 +128,37 @@ public sealed partial class WorldScreen
             WorldState.Exchange.Close();
         };
     }
+
+    #endregion
+
+    #region Bank Wiring
+    private void WireBank()
+    {
+        Game.Connection.OnBankDisplay += HandleBankDisplay;
+
+        Bank.SearchSubmitted += query => Game.Connection.SendBankSearch(query);
+
+        Bank.CategorySelected += category =>
+        {
+            WorldState.Bank.SelectCategory(category);
+            Game.Connection.SendBankRequestCategory(category);
+        };
+
+        Bank.WithdrawRequested += WithdrawBankItem;
+
+        //the footer gold icon is the only channel for withdrawing gold; a click or a drag onto the inventory prompts
+        Bank.GoldWithdrawRequested += PromptBankGoldWithdraw;
+
+        //a gesture picks the item but not the amount — a stack still has to be prompted for
+        Bank.WithdrawGestured += BeginBankWithdraw;
+
+        //a prompt that acts on the bank cannot outlive the bank: Hide() clears BankState, so confirming afterwards
+        //would act on a window that is gone
+        Bank.Closed += HideBankPrompts;
+
+        //the session is the server's, so it needs to be told the window is gone. Range and disconnect cover the rest.
+        Bank.Closed += Game.Connection.SendBankClose;
+    }
     #endregion
 
     #region NPC Session Wiring
@@ -455,7 +486,6 @@ public sealed partial class WorldScreen
         public override void OnClick(ClickEvent e) => Screen.OnRootClick(e);
         public override void OnMouseScroll(MouseScrollEvent e) => Screen.OnRootMouseScroll(e);
         public override void OnDoubleClick(DoubleClickEvent e) => Screen.OnRootDoubleClick(e);
-        public override void OnDragMove(DragMoveEvent e) => Screen.OnRootDragMove(e);
         public override void OnDragDrop(DragDropEvent e) => Screen.OnRootDragDrop(e);
     }
 

@@ -168,3 +168,26 @@ public enum ChatMode
     IgnoreRemove,
     Prompt
 }
+
+/// <summary>
+///     What a confirmed gold amount will be used for. One popup serves all of these, so the purpose travels with the
+///     open rather than living as ambient screen state a caller could forget to set.
+/// </summary>
+public enum GoldAmountPurpose
+{
+    Drop,
+    BankDeposit,
+    BankWithdraw
+}
+
+/// <summary>
+///     What a confirmed item amount will be used for. One popup serves all of these, so the purpose travels with the
+///     open rather than living as ambient screen state a caller could forget to set.
+/// </summary>
+public enum ItemAmountPurpose
+{
+    Exchange,
+    MarketListing,
+    BankDeposit,
+    BankWithdraw
+}

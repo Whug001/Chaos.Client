@@ -51,6 +51,10 @@ public sealed partial class WorldScreen
 
         //new map — dispose old caches, load fresh mapfile from local files
         TownMapControl.Hide();
+
+        //a bank window left open across a map change would let a player bank from anywhere, breaking the server's
+        //assumption that everyone sharing a guild bank is standing on the same map. Hide() also clears the state.
+        Bank.Hide();
         MapRenderer.Dispose();
         MapRenderer = new MapRenderer();
 

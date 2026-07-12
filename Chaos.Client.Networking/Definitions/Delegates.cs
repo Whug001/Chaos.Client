@@ -314,4 +314,9 @@ public delegate void WorldMapHandler(WorldMapArgs args);
 ///     Fired when a market display packet is received.
 /// </summary>
 public delegate void MarketDisplayHandler(MarketDisplayArgs args);
+
+/// <summary>
+///     Fired when a bank display packet is received.
+/// </summary>
+public delegate void BankDisplayHandler(BankDisplayArgs args);
 #endregion

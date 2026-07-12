@@ -243,7 +243,7 @@ public sealed partial class WorldScreen
         //── track which entity the mouse is hovering over ──
         var hoverEntity = GetEntityAtScreen(InputBuffer.MouseX, InputBuffer.MouseY);
 
-        var isItemDrag = GetDraggingPanel() is { } dragPanel && (dragPanel == WorldHud.Inventory);
+        var isItemDrag = Game.Dispatcher.ActiveDragPayload is SlotDragPayload slotDrag && (slotDrag.Source.Parent == WorldHud.Inventory);
 
         var newHoveredId = hoverEntity?.Type is ClientEntityType.Aisling or ClientEntityType.Creature
                            && !hoverEntity.IsHidden

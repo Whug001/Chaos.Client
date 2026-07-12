@@ -110,7 +110,12 @@ public sealed partial class WorldScreen
         if (slot == 0)
         {
             GoldDrop.CenterVerticallyIn(WorldHud.ViewportBounds);
-            GoldDrop.ShowForTarget(droppedOnEntity ? entity!.Id : null, tileX, tileY);
+
+            GoldDrop.ShowFor(
+                GoldAmountPurpose.Drop,
+                droppedOnEntity ? entity!.Id : null,
+                tileX,
+                tileY);
             WorldHud.SetDescription($"Gold( {WorldState.Inventory.Gold} )");
 
             return;
@@ -162,13 +167,112 @@ public sealed partial class WorldScreen
 
         if (data.Stackable && (data.Count > 1))
         {
-            AmountPurpose = ItemAmountPurpose.MarketListing;
             ItemAmount.X = Market.X + (Market.Width - ItemAmount.Width) / 2;
             ItemAmount.Y = Market.Y + (Market.Height - ItemAmount.Height) / 2;
-            ItemAmount.ShowForSlot(slot);
+            ItemAmount.ShowFor(ItemAmountPurpose.MarketListing, slot);
         } else
             Market.DropSellItem(slot, 1, PendingMarketDropX, PendingMarketDropY);
     }
+
+    //deposit an inventory item (or the gold bag) dragged into the bank window. every deposit is a mutation, so it is
+    //followed by a refresh — the server pushes nothing back on success.
+    private void BeginBankDeposit(byte slot)
+    {
+        //the HUD grids stay draggable while a prompt holds focus, so a second drop can land here mid-prompt. The amount
+        //controls are shared singletons — re-purposing one would wipe the amount already typed into it. Swallow the drop.
+        if (IsBankGoldPromptOpen || IsBankItemPromptOpen)
+            return;
+
+        //the bank is the one drop target that accepts slot 0: the gold bag deposits gold, not an item.
+        if (slot == 0)
+        {
+            CenterOnBank(GoldDrop);
+            GoldDrop.ShowFor(GoldAmountPurpose.BankDeposit);
+            WorldHud.SetDescription($"Gold( {WorldState.Inventory.Gold} )");
+
+            return;
+        }
+
+        ref readonly var data = ref WorldState.Inventory.GetSlot(slot);
+
+        if (!data.IsOccupied)
+            return;
+
+        if (data.Stackable && (data.Count > 1))
+        {
+            CenterOnBank(ItemAmount);
+            ItemAmount.ShowFor(ItemAmountPurpose.BankDeposit, slot);
+
+            //the prompt is a bare text box, so it is the only place the player can see what they have to spend
+            WorldHud.SetDescription($"{data.Name} ( {data.Count} )");
+
+            return;
+        }
+
+        Game.Connection.SendBankDepositItem(slot, 1);
+        RefreshBank();
+    }
+
+    //take a banked item out by gesture (dragged onto the inventory, or double-clicked). A stack asks how many; a lone
+    //item is unambiguous and just comes out.
+    private void BeginBankWithdraw(string itemName, int count)
+    {
+        if (count > 1)
+        {
+            CenterOnBank(ItemAmount);
+            ItemAmount.ShowFor(ItemAmountPurpose.BankWithdraw, itemName);
+            WorldHud.SetDescription($"{itemName} ( {count} )");
+
+            return;
+        }
+
+        WithdrawBankItem(itemName, 1);
+    }
+
+    private void PromptBankGoldWithdraw()
+    {
+        CenterOnBank(GoldDrop);
+        GoldDrop.ShowFor(GoldAmountPurpose.BankWithdraw);
+    }
+
+    //every mutation is followed by a self-issued refresh — the server pushes nothing back
+    private void WithdrawBankItem(string itemName, int amount)
+    {
+        Game.Connection.SendBankWithdrawItem(itemName, amount);
+        RefreshBank();
+    }
+
+    private void CenterOnBank(UIElement popup)
+    {
+        popup.X = Bank.X + (Bank.Width - popup.Width) / 2;
+        popup.Y = Bank.Y + (Bank.Height - popup.Height) / 2;
+    }
+
+    //Purpose stays set after a confirm (the control hides, then reads it), so "acting on the bank" is Visible AND a bank
+    //purpose — a bare Purpose test also matches a prompt that already closed.
+    private bool IsBankGoldPromptOpen
+        => GoldDrop.Visible && GoldDrop.Purpose is GoldAmountPurpose.BankDeposit or GoldAmountPurpose.BankWithdraw;
+
+    private bool IsBankItemPromptOpen
+        => ItemAmount.Visible && ItemAmount.Purpose is ItemAmountPurpose.BankDeposit or ItemAmountPurpose.BankWithdraw;
+
+    /// <summary>
+    ///     Closes any prompt acting on the bank. A bank prompt cannot outlive the bank window it was opened against:
+    ///     <see cref="BankControl.Hide" /> clears <c>BankState</c>, so a
+    ///     prompt confirmed afterwards would send the withdraw to the wrong bank.
+    /// </summary>
+    private void HideBankPrompts()
+    {
+        //Hide() on an already-hidden panel still pops the control stack, handing focus to whatever popup sits below.
+        if (IsBankGoldPromptOpen)
+            GoldDrop.Hide();
+
+        if (IsBankItemPromptOpen)
+            ItemAmount.Hide();
+    }
+
+    //the gold prompt parses a uint; the bank protocol takes an int.
+    private static int ToGoldAmount(uint amount) => (int)Math.Min(amount, int.MaxValue);
 
     //--- skills / spells ---
 
@@ -1406,31 +1510,45 @@ public sealed partial class WorldScreen
     }
 
     /// <summary>
-    ///     Tracks the cursor position during a drag so the ghost icon follows the mouse.
-    ///     Fires on every DragMove that bubbles to root (i.e. any DragMove not consumed by a child).
-    /// </summary>
-    private void OnRootDragMove(DragMoveEvent e)
-    {
-        var dragging = GetDraggingPanel();
-
-        dragging?.UpdateDragPosition(e.ScreenX, e.ScreenY);
-    }
-
-    /// <summary>
-    ///     Handles drag-drop events that bubble up to the root panel.
-    ///     If the drop was not consumed by a PanelSlot (slot swap), it means the user dropped
-    ///     into the world viewport or onto a non-slot UI element — fire OnSlotDroppedOutside.
+    ///     Handles drag-drop events that bubble up to the root panel. A slot drop that no PanelSlot consumed landed in the
+    ///     world viewport or on a non-slot UI element; a bank drop only means something over the inventory.
     /// </summary>
     private void OnRootDragDrop(DragDropEvent e)
     {
-        if (e.Payload is not SlotDragPayload payload)
-            return;
+        switch (e.Payload)
+        {
+            case SlotDragPayload slot when slot.Source.Parent is PanelBase { IsDragging: true } panel:
+                panel.CompleteDragOutside(e.ScreenX, e.ScreenY);
+                e.Handled = true;
 
-        if (payload.Source.Parent is not PanelBase { IsDragging: true } panel)
-            return;
+                break;
 
-        panel.CompleteDragOutside(e.ScreenX, e.ScreenY);
-        e.Handled = true;
+            //a bank drag only means something over the inventory; anywhere else it is a cancel. Escape can close the
+            //bank mid-drag, and Hide() clears BankState — withdrawing then would act on a window that is gone.
+            case BankDragPayload bank:
+                e.Handled = true;
+
+                if (!Bank.Visible || !IsOverInventory(e.DropTarget))
+                    return;
+
+                if (bank.IsGold)
+                    PromptBankGoldWithdraw();
+                else
+                    BeginBankWithdraw(bank.ItemName!, bank.Count);
+
+                break;
+        }
+    }
+
+    //walk the hit-tested drop target's ancestors rather than testing the panel's rect: hit-testing already skips the
+    //hidden HUD tabs (skills/spells share the inventory's rect) and anything a popup covers.
+    private bool IsOverInventory(UIElement? dropTarget)
+    {
+        for (var current = dropTarget; current is not null; current = current.Parent)
+            if (current == WorldHud.Inventory)
+                return true;
+
+        return false;
     }
 
     #endregion
