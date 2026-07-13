@@ -1,6 +1,8 @@
 #region
 using Chaos.Client.Collections;
 using Chaos.Client.Controls.Components;
+using Chaos.Client.Controls.Generic;
+using Chaos.Client.Controls.Scrolling;
 using Chaos.Client.Data.Models;
 using Chaos.Client.Extensions;
 using Chaos.Client.ViewModel;
@@ -19,7 +21,7 @@ public sealed class AbilityMetadataDetailsControl : PrefabPanel
 {
     private static readonly Color UnmetColor = LegendColors.Scarlet;
     private readonly UILabel? ConLabel;
-    private readonly UILabel? DescLabel;
+    private readonly UILabel DescLabel;
     private readonly UILabel? DexLabel;
     private readonly UIImage? IconImage;
     private readonly UILabel? IntLabel;
@@ -71,10 +73,28 @@ public sealed class AbilityMetadataDetailsControl : PrefabPanel
         Sub1Label?.ForegroundColor = LegendColors.White;
         Sub2Label = CreateLabel("SUB2");
         Sub2Label?.ForegroundColor = LegendColors.White;
-        DescLabel = CreateLabel("DESC");
-        DescLabel?.ForegroundColor = LegendColors.White;
-        DescLabel?.WordWrap = true;
-        DescLabel?.VerticalAlignment = VerticalAlignment.Top;
+
+        //the description scrolls so entries can carry more text than the prefab rect holds; the viewer owns the
+        //right-hand bar (dormant while the text fits) and the wheel, and re-sizes the label to the leftover width.
+        var descRect = GetRect("DESC");
+
+        DescLabel = new UILabel
+        {
+            Width = descRect.Width,
+            Height = descRect.Height,
+            ForegroundColor = LegendColors.White,
+            WordWrap = true,
+            VerticalAlignment = VerticalAlignment.Top
+        };
+
+        AddChild(
+            new ScrollViewerControl(DescLabel)
+            {
+                X = descRect.X,
+                Y = descRect.Y,
+                Width = descRect.Width,
+                Height = descRect.Height
+            });
     }
 
     private static string FormatPreReq(string? name, byte level)
@@ -159,7 +179,8 @@ public sealed class AbilityMetadataDetailsControl : PrefabPanel
             Sub2Label.ForegroundColor = RequirementColor(HasPreRequisite(entry.PreReq2Name, entry.PreReq2Level));
         }
 
-        DescLabel?.Text = entry.Description;
+        DescLabel.Text = entry.Description;
+        DescLabel.ScrollOffset = 0;
 
         IconImage?.Texture = entry.ResolveIconState()
                                   .ResolveIcon(entry);
@@ -178,6 +199,10 @@ public sealed class AbilityMetadataDetailsControl : PrefabPanel
 
     public override void OnClick(ClickEvent e)
     {
+        //the bar's arrow/page clicks bubble up here — scrolling must not dismiss the popup
+        if (e.Target is ScrollBarControl)
+            return;
+
         Hide();
         e.Handled = true;
     }
