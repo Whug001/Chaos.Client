@@ -206,6 +206,13 @@ public sealed partial class WorldScreen : IScreen
     //entity captured on first right-click so a follow-up double-click can still target it even if pathfinding has shifted the camera between clicks
     private uint? PendingDoubleClickEntityId;
     private int PendingDoubleClickTick;
+
+    //whether the most recent root left-click was consumed by cast mode. two casts inside the dispatcher's doubleclick
+    //window synthesize a DoubleClick the caster never asked for, which would run world interaction (item pickup, click
+    //entity) on top of the second cast — worst with a ground spell, where holding Shift to un-snap is also the
+    //shift+doubleclick pickup gesture. Click dispatches before DoubleClick on the same release (InputDispatcher), so this
+    //always describes the click that produced the DoubleClick.
+    private bool LastLeftClickWasCast;
     private bool PendingLoginSwitch;
     private byte[] PlayerPortrait = [];
     private SelfProfileTextEditorControl SelfProfileTextEditor = null!;

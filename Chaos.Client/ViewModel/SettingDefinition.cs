@@ -64,7 +64,8 @@ public enum SettingKey
     DamageNumbersOnNpcs,
     HealNumbersOnNpcs,
     DamageNumberSize,
-    DamageNumbersMyOutputOnly
+    DamageNumbersMyOutputOnly,
+    GroundTargetSnapToEntity
 }
 
 /// <summary>
@@ -244,7 +245,15 @@ public static class SettingDefinitions
             SettingSection.Interaction,
             SettingCategory.ClientLocal,
             Get: () => ClientSettings.NpcRecordChat,
-            Set: v => ClientSettings.NpcRecordChat = v)
+            Set: v => ClientSettings.NpcRecordChat = v),
+        new(
+            SettingKey.GroundTargetSnapToEntity,
+            "Ground targeting snaps to entity",
+            SettingSection.Interaction,
+            SettingCategory.ClientLocal,
+            Get: () => ClientSettings.GroundTargetSnapToEntity,
+            Set: v => ClientSettings.GroundTargetSnapToEntity = v,
+            Span: SettingSpan.Full)
     ];
 
     private static readonly Dictionary<SettingKey, SettingDefinition> ByKeyLookup =

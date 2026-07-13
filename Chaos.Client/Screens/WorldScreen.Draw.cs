@@ -972,8 +972,13 @@ public sealed partial class WorldScreen
         if (!IsAimingAtTile)
             return;
 
+        //HoveredTile gates on the viewport and map bounds — an aim over the HUD draws nothing
         if (WorldState.CurrentFrame.HoveredTile is not { } tile)
             return;
+
+        //the reticle has to sit on the tile the cast will actually use, entity snap included
+        if (SnapTargetTileAt(InputBuffer.MouseX, InputBuffer.MouseY) is { } snapped)
+            tile = new Point(snapped.X, snapped.Y);
 
         var tileWorld = Camera.TileToWorld(tile.X, tile.Y, MapFile.Height);
         var tileScreen = Camera.WorldToScreen(new Vector2(tileWorld.X, tileWorld.Y));

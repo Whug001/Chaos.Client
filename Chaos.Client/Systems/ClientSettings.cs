@@ -34,6 +34,9 @@ public static class ClientSettings
     // --- Numeric cooldown readout on skill/spell slots (client-local; gated in PanelSlot) ---
     public static bool CooldownNumbersEnabled { get; set; } = true;
 
+    // --- Ground-target aim snapping (client-local; applied in WorldScreen.GroundTargetTileAt) ---
+    public static bool GroundTargetSnapToEntity { get; set; } = true;
+
     private static string FilePath => Path.Combine(GlobalSettings.DataPath, FILE_NAME);
 
     /// <summary>
@@ -147,6 +150,11 @@ public static class ClientSettings
 
                         break;
 
+                    case "GroundTargetSnapToEntity":
+                        GroundTargetSnapToEntity = value == "1";
+
+                        break;
+
                     case "MaxEffectAnimations":
                         if (int.TryParse(value, out var mea))
                             MaxEffectAnimationsPerEntity = Math.Clamp(mea, 0, 10);
@@ -184,6 +192,7 @@ public static class ClientSettings
             writer.WriteLine($"ShowHealNumbersOnNpcs : {(ShowHealNumbersOnNpcs ? 1 : 0)}");
             writer.WriteLine($"DamageNumberSize : {(int)DamageNumberSize}");
             writer.WriteLine($"CooldownNumbersEnabled : {(CooldownNumbersEnabled ? 1 : 0)}");
+            writer.WriteLine($"GroundTargetSnapToEntity : {(GroundTargetSnapToEntity ? 1 : 0)}");
             writer.WriteLine($"MaxEffectAnimations : {MaxEffectAnimationsPerEntity}");
         } catch
         {

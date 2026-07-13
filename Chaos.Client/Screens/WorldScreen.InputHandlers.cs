@@ -367,6 +367,40 @@ public sealed partial class WorldScreen
     }
 
     /// <summary>
+    ///     The tile a ground-targeted spell aimed at a screen point lands on. A creature's sprite is drawn above and behind
+    ///     the tile it stands on, so aiming at its body would otherwise pick the tile behind it — meaning a ground spell and
+    ///     an entity spell aimed at the same creature land on different tiles. Hovering an entity therefore snaps the aim to
+    ///     that entity's tile. Shift inverts the snap, so <see cref="ClientSettings.GroundTargetSnapToEntity" /> really only
+    ///     decides which of the two behaviours Shift selects. Shift is the modifier because it already means "ignore entity
+    ///     hitboxes, aim at the tile" for shift+doubleclick item pickup. Shared by the aim highlight, the cast click and the
+    ///     icon drop so all three agree on the target tile.
+    /// </summary>
+    private (int X, int Y)? GroundTargetTileAt(int mouseX, int mouseY)
+        => SnapTargetTileAt(mouseX, mouseY) ?? ClampedTileAt(mouseX, mouseY);
+
+    /// <summary>
+    ///     The tile of the entity a ground-target aim snaps to, or null when snapping is off for this aim (option XOR Shift)
+    ///     or nothing snappable is hovered. Hidden entities are excluded — snapping onto a tile with nothing drawn on it
+    ///     would look like the reticle jumping at random.
+    /// </summary>
+    private (int X, int Y)? SnapTargetTileAt(int mouseX, int mouseY)
+    {
+        var shiftHeld = (InputBuffer.CurrentModifiers & KeyModifiers.Shift) != 0;
+
+        if (ClientSettings.GroundTargetSnapToEntity == shiftHeld)
+            return null;
+
+        if (GetEntityAtScreen(mouseX, mouseY) is not
+            {
+                IsHidden: false,
+                Type: ClientEntityType.Aisling or ClientEntityType.Creature
+            } entity)
+            return null;
+
+        return (entity.TileX, entity.TileY);
+    }
+
+    /// <summary>
     ///     True when a screen point lies inside the world viewport. Drag-drop events are NOT absorbed by the panel they
     ///     land on (only click-family events are), so a drop released over the HUD still bubbles to the root handler with
     ///     HUD coordinates — every world-drop handler has to reject those itself.
@@ -399,7 +433,7 @@ public sealed partial class WorldScreen
         //still requires an entity under the cursor.
         if (spellSlot.SpellType == SpellType.GroundTargeted)
         {
-            if (ClampedTileAt(mouseX, mouseY) is not { } tile)
+            if (GroundTargetTileAt(mouseX, mouseY) is not { } tile)
                 return;
 
             (targetId, tileX, tileY) = (0u, tile.X, tile.Y);
@@ -1335,6 +1369,8 @@ public sealed partial class WorldScreen
         if (e.Button != MouseButton.Left)
             return;
 
+        LastLeftClickWasCast = CastingSystem.IsTargeting;
+
         //exchange gold is now set via the inline editable money field (see ExchangeControl.MyMoneyTextBox),
         //which owns its own click/focus — no viewport-level coordination needed here.
 
@@ -1343,9 +1379,9 @@ public sealed partial class WorldScreen
         {
             if (CastingSystem.IsGroundTargeting)
             {
-                //ground-targeted spells land on the clicked tile, not an entity (id 0). clamp off-map clicks to the
+                //ground-targeted spells land on the aimed tile, not an entity (id 0). clamp off-map clicks to the
                 //nearest edge tile, mirroring right-click pathfinding.
-                if (ClampedTileAt(e.ScreenX, e.ScreenY) is { } tile)
+                if (GroundTargetTileAt(e.ScreenX, e.ScreenY) is { } tile)
                     CastingSystem.SelectTarget(
                         0,
                         tile.X,
@@ -1426,6 +1462,10 @@ public sealed partial class WorldScreen
 
         if (e.Button == MouseButton.Left)
         {
+            //a cast click produced this doubleclick — the second cast of a rapid pair, not a request to interact
+            if (LastLeftClickWasCast)
+                return;
+
             var sameTile = LeftClickTracker.Click(tileX, tileY);
 
             if (!sameTile)
