@@ -132,7 +132,7 @@ public sealed partial class WorldScreen
         //stackable items with more than one — prompt for count before dropping
         var invSlot = WorldState.Inventory.GetSlot(slot);
 
-        if (invSlot.Stackable && (invSlot.Count > 1))
+        if (invSlot is { Stackable: true, Count: > 1 })
         {
             var capturedSlot = slot;
             var capturedX = tileX;
@@ -165,7 +165,7 @@ public sealed partial class WorldScreen
         if (!data.IsOccupied)
             return;
 
-        if (data.Stackable && (data.Count > 1))
+        if (data is { Stackable: true, Count: > 1 })
         {
             ItemAmount.X = Market.X + (Market.Width - ItemAmount.Width) / 2;
             ItemAmount.Y = Market.Y + (Market.Height - ItemAmount.Height) / 2;
@@ -198,7 +198,7 @@ public sealed partial class WorldScreen
         if (!data.IsOccupied)
             return;
 
-        if (data.Stackable && (data.Count > 1))
+        if (data is { Stackable: true, Count: > 1 })
         {
             CenterOnBank(ItemAmount);
             ItemAmount.ShowFor(ItemAmountPurpose.BankDeposit, slot);
@@ -251,10 +251,10 @@ public sealed partial class WorldScreen
     //Purpose stays set after a confirm (the control hides, then reads it), so "acting on the bank" is Visible AND a bank
     //purpose — a bare Purpose test also matches a prompt that already closed.
     private bool IsBankGoldPromptOpen
-        => GoldDrop.Visible && GoldDrop.Purpose is GoldAmountPurpose.BankDeposit or GoldAmountPurpose.BankWithdraw;
+        => GoldDrop is { Visible: true, Purpose: GoldAmountPurpose.BankDeposit or GoldAmountPurpose.BankWithdraw };
 
     private bool IsBankItemPromptOpen
-        => ItemAmount.Visible && ItemAmount.Purpose is ItemAmountPurpose.BankDeposit or ItemAmountPurpose.BankWithdraw;
+        => ItemAmount is { Visible: true, Purpose: ItemAmountPurpose.BankDeposit or ItemAmountPurpose.BankWithdraw };
 
     /// <summary>
     ///     Closes any prompt acting on the bank. A bank prompt cannot outlive the bank window it was opened against:
@@ -970,7 +970,7 @@ public sealed partial class WorldScreen
         //types '|' under Shift) from being mistaken for the ISO whisper key.
         if (e is { Shift: true }
             && ((e.Scancode == Scancode.OemQuotes)
-                || ((e.Scancode == Scancode.OemPipe) && e.Keycode is Keycode.Hash or Keycode.Asterisk)))
+                || e is { Scancode: Scancode.OemPipe, Keycode: Keycode.Hash or Keycode.Asterisk }))
         {
             WorldHud.ChatInput.FocusWhisper();
             e.Handled = true;
@@ -1208,7 +1208,7 @@ public sealed partial class WorldScreen
             return;
 
         //shift+up/down scrolls the active chat-style panel (F = chat, shift+F = message history)
-        if (e.Shift && e.Scancode is Scancode.Up or Scancode.Down)
+        if (e is { Shift: true, Scancode: Scancode.Up or Scancode.Down })
         {
             var scrollDelta = e.Scancode == Scancode.Up ? 1 : -1;
 
@@ -1557,7 +1557,7 @@ public sealed partial class WorldScreen
     {
         switch (e.Payload)
         {
-            case SlotDragPayload slot when slot.Source.Parent is PanelBase { IsDragging: true } panel:
+            case SlotDragPayload { Source.Parent: PanelBase { IsDragging: true } panel }:
                 panel.CompleteDragOutside(e.ScreenX, e.ScreenY);
                 e.Handled = true;
 

@@ -1,10 +1,8 @@
 #region
-using Chaos.Client.Collections;
 using Chaos.Client.Controls.Components;
 using Chaos.Client.Controls.Scrolling;
 using Chaos.Client.Data.Models;
-using Chaos.Client.ViewModel;
-using Chaos.Extensions.Common;
+using Chaos.Client.Extensions;
 using Microsoft.Xna.Framework;
 #endregion
 
@@ -91,7 +89,7 @@ public sealed class SelfProfileAbilityMetadataTab : PrefabPanel
     }
 
     private void BindRow(UIElement row, AbilityMetadataEntry entry, bool selected)
-        => ((AbilityMetadataEntryControl)row).SetEntry(entry, ResolveIconState(entry));
+        => ((AbilityMetadataEntryControl)row).SetEntry(entry, entry.ResolveIconState());
 
     /// <summary>
     ///     Clears all entries from both columns.
@@ -102,80 +100,10 @@ public sealed class SelfProfileAbilityMetadataTab : PrefabPanel
         SkillList.SetItems([]);
     }
 
-    private static bool HasPreRequisite(string? name, byte requiredLevel)
-    {
-        if (name is null)
-            return true;
-
-        //check spell book
-        for (byte i = 1; i <= SpellBook.MAX_SLOTS; i++)
-        {
-            ref readonly var slot = ref WorldState.SpellBook.GetSlot(i);
-
-            if (slot.IsOccupied && (slot.AbilityName?.EqualsI(name) == true) && (slot.CurrentLevel >= requiredLevel))
-                return true;
-        }
-
-        //check skill book
-        for (byte i = 1; i <= SkillBook.MAX_SLOTS; i++)
-        {
-            ref readonly var slot = ref WorldState.SkillBook.GetSlot(i);
-
-            if (slot.IsOccupied && (slot.AbilityName?.EqualsI(name) == true) && (slot.CurrentLevel >= requiredLevel))
-                return true;
-        }
-
-        return false;
-    }
-
     /// <summary>
     ///     Fired when any entry row is clicked.
     /// </summary>
     public event AbilityMetadataClickedHandler? OnEntryClicked;
-
-    private static AbilityIconState ResolveIconState(AbilityMetadataEntry entry)
-    {
-        //check if player already knows this ability
-        if (entry.IsSpell)
-            for (byte i = 1; i <= SpellBook.MAX_SLOTS; i++)
-            {
-                ref readonly var slot = ref WorldState.SpellBook.GetSlot(i);
-
-                if (slot.IsOccupied && (slot.AbilityName?.EqualsI(entry.Name) == true))
-                    return AbilityIconState.Known;
-            }
-        else
-            for (byte i = 1; i <= SkillBook.MAX_SLOTS; i++)
-            {
-                ref readonly var slot = ref WorldState.SkillBook.GetSlot(i);
-
-                if (slot.IsOccupied && (slot.AbilityName?.EqualsI(entry.Name) == true))
-                    return AbilityIconState.Known;
-            }
-
-        //check if player meets the requirements to learn it
-        if (WorldState.Attributes.Current is not { } attrs)
-            return AbilityIconState.Locked;
-
-        if (attrs.Level < entry.Level)
-            return AbilityIconState.Locked;
-
-        if ((attrs.Str < entry.Str)
-            || (attrs.Int < entry.Int)
-            || (attrs.Wis < entry.Wis)
-            || (attrs.Dex < entry.Dex)
-            || (attrs.Con < entry.Con))
-            return AbilityIconState.Locked;
-
-        //check prerequisite abilities
-        if (!HasPreRequisite(entry.PreReq1Name, entry.PreReq1Level))
-            return AbilityIconState.Locked;
-
-        if (!HasPreRequisite(entry.PreReq2Name, entry.PreReq2Level))
-            return AbilityIconState.Locked;
-
-        return AbilityIconState.Learnable;
-    }
 
     /// <summary>
     ///     Populates both columns from parsed ability metadata.

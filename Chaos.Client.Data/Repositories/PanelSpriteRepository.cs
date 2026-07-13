@@ -57,9 +57,5 @@ public sealed class PanelSpriteRepository : RepositoryBase
         => GetOrCreate(ConstructKeyForItemSpriteSheet(fileId), () => EpfView.FromArchive($"item{fileId:D3}", DatArchives.Legend));
 
     public Palettized<EpfFrame>? GetSkillIcon(int spriteId) => GetIconFrame(spriteId, "skill001");
-    public Palettized<EpfFrame>? GetSkillLearnableIcon(int spriteId) => GetIconFrame(spriteId, "skill002");
-    public Palettized<EpfFrame>? GetSkillLockedIcon(int spriteId) => GetIconFrame(spriteId, "skill003");
     public Palettized<EpfFrame>? GetSpellIcon(int spriteId) => GetIconFrame(spriteId, "spell001");
-    public Palettized<EpfFrame>? GetSpellLearnableIcon(int spriteId) => GetIconFrame(spriteId, "spell002");
-    public Palettized<EpfFrame>? GetSpellLockedIcon(int spriteId) => GetIconFrame(spriteId, "spell003");
 }

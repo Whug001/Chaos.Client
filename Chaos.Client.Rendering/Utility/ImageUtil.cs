@@ -324,6 +324,62 @@ public static class ImageUtil
     }
 
     /// <summary>
+    ///     Recolors <paramref name="pixels" /> in-place by mapping each pixel's luminance onto <paramref name="ramp" />: the
+    ///     darkest pixels take the first stop, the brightest the last, everything between is interpolated across the evenly
+    ///     spaced stops. Alpha is preserved and fully-transparent pixels are skipped.
+    /// </summary>
+    /// <remarks>
+    ///     This is how the ability-icon sheets were authored — a two-stop black-to-white ramp is the grey "cannot learn"
+    ///     variant, a teal-to-mint ramp is the "can learn" one — so the client derives both from the normal icon instead of
+    ///     shipping them as separate art.
+    /// </remarks>
+    public static void ApplyGradientMap(Color[] pixels, int count, ReadOnlySpan<Color> ramp)
+    {
+        if (ramp.Length < 2)
+            throw new ArgumentException("A gradient map needs at least two stops.", nameof(ramp));
+
+        var lastStop = ramp.Length - 1;
+
+        for (var i = 0; i < count; i++)
+        {
+            var p = pixels[i];
+
+            if (p.A == 0)
+                continue;
+
+            var position = (p.R + p.G + p.B) * lastStop / 765f;
+            var stop = Math.Min((int)position, lastStop - 1);
+            var weight = position - stop;
+
+            var from = ramp[stop];
+            var to = ramp[stop + 1];
+
+            pixels[i] = new Color(
+                Lerp(from.R, to.R, weight),
+                Lerp(from.G, to.G, weight),
+                Lerp(from.B, to.B, weight),
+                p.A);
+        }
+    }
+
+    private static byte Lerp(byte from, byte to, float weight) => (byte)(from + (to - from) * weight + 0.5f);
+
+    /// <summary>
+    ///     Returns a new <see cref="CachedTexture2D" /> that is <paramref name="source" /> with <paramref name="ramp" />
+    ///     gradient-mapped over it. See <see cref="ApplyGradientMap" />.
+    /// </summary>
+    public static CachedTexture2D BuildGradientMappedCached(GraphicsDevice device, Texture2D source, ReadOnlySpan<Color> ramp)
+    {
+        using var scope = new PixelBufferScope(source);
+        ApplyGradientMap(scope.Pixels, scope.Count, ramp);
+
+        var result = new CachedTexture2D(device, scope.Width, scope.Height);
+        scope.CommitTo(result);
+
+        return result;
+    }
+
+    /// <summary>
     ///     Returns a new 1×<paramref name="height" /> texture containing a linear vertical alpha gradient from
     ///     <paramref name="startAlpha" /> (top row) to <paramref name="endAlpha" /> (bottom row) over
     ///     <paramref name="baseColor" />'s RGB channels. Used for dialog darkening overlays.

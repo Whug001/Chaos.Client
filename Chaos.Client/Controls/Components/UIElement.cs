@@ -283,7 +283,7 @@ public abstract class UIElement : IDisposable
 
         position = new Vector2(destX + leftClip, destY + topClip);
 
-        return (sourceRect.Width > 0) && (sourceRect.Height > 0);
+        return sourceRect is { Width: > 0, Height: > 0 };
     }
 
     /// <summary>
@@ -352,7 +352,7 @@ public abstract class UIElement : IDisposable
     {
         var clipped = Rectangle.Intersect(bounds, ClipRect);
 
-        if ((clipped.Width > 0) && (clipped.Height > 0))
+        if (clipped is { Width: > 0, Height: > 0 })
             spriteBatch.Draw(GetPixel(), clipped, color);
     }
 

@@ -804,7 +804,7 @@ public sealed partial class WorldScreen
         //dead wins over transparent: a ghost uses the opaque base alpha so AislingRenderer's GHOST_ALPHA isn't
         //stacked with TRANSPARENT_ALPHA into an effectively-invisible result. Living transparent aislings draw faded
         //in both passes (stripe TRANSPARENT_ALPHA + silhouette TRANSPARENT_SILHOUETTE_ALPHA → ~50% open, ~25% behind FG).
-        var alpha = entity.IsTransparent && !entity.IsDead
+        var alpha = entity is { IsTransparent: true, IsDead: false }
             ? DrawingForSilhouette ? TRANSPARENT_SILHOUETTE_ALPHA : TRANSPARENT_ALPHA
             : 1f;
 

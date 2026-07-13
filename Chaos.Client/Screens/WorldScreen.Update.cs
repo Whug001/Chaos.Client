@@ -320,7 +320,7 @@ public sealed partial class WorldScreen
         //whether the spell was armed in cast mode or is being dragged. The two terms stay independent: a ground spell
         //being armed must not kill the drop-target tint of an unrelated drag (e.g. an inventory item onto a creature).
         WorldState.CurrentFrame.ShowTintHighlight =
-            (CastingSystem.IsTargeting && !CastingSystem.IsGroundTargeting)
+            CastingSystem is { IsTargeting: true, IsGroundTargeting: false }
             || (Game.Dispatcher.IsDragging && !IsDraggingGroundSpell);
         WorldState.CurrentFrame.UseDragCursor = Game.Dispatcher.IsDragging;
 

@@ -315,13 +315,12 @@ public sealed class UiRenderer : IDisposable
 
     /// <summary>
     ///     Returns a cached copy of <paramref name="source" /> with a 50/50 blend of
-    ///     <paramref name="tint" /> applied, used for cooldown overlays on skill/spell icons.
-    ///     Retail parity: <see cref="LegendColors.DimGray" /> (<c>legend.pal[0x18]</c>) is the
-    ///     dim base layer of <c>SkillInvItemPane::Render</c> (<c>FUN_004991d0</c>);
-    ///     <see cref="LegendColors.CornflowerBlue" /> (<c>legend.pal[0x58]</c>) is the upper-half
-    ///     overlay of the same method and the full-icon tint of <c>SpellInvItemPane::Render</c>.
-    ///     Keyed by <paramref name="sourceKey" /> + the packed tint color so the same source
-    ///     key can be tinted multiple colors without collision.
+    ///     <paramref name="tint" /> applied. Used for cooldown overlays on skill/spell icons, and for
+    ///     abilities the player is eligible to learn. Retail parity: <see cref="LegendColors.DimGray" />
+    ///     (<c>legend.pal[0x18]</c>) is the dim base layer of a skill on cooldown;
+    ///     <see cref="LegendColors.CornflowerBlue" /> (<c>legend.pal[0x58]</c>) is the overlay painted
+    ///     over the elapsed portion of the cooldown. Keyed by <paramref name="sourceKey" /> + the packed
+    ///     tint color so the same source key can be tinted multiple colors without collision.
     /// </summary>
     public Texture2D GetCooldownTintedTexture(string sourceKey, Texture2D source, Color tint)
     {
@@ -331,6 +330,24 @@ public sealed class UiRenderer : IDisposable
             return cached;
 
         var texture = ImageUtil.BuildCooldownTintedCached(Device, source, tint);
+        Cache[key] = texture;
+
+        return texture;
+    }
+
+    /// <summary>
+    ///     Returns a cached copy of <paramref name="source" /> with <paramref name="ramp" /> gradient-mapped over it, used
+    ///     for the derived ability-icon states. <paramref name="rampName" /> only names the ramp for the cache key, so two
+    ///     ramps applied to the same source do not collide — it must be distinct per ramp.
+    /// </summary>
+    public Texture2D GetGradientMappedTexture(string sourceKey, Texture2D source, string rampName, ReadOnlySpan<Color> ramp)
+    {
+        var key = $"gm_{rampName}:{sourceKey}";
+
+        if (Cache.TryGetValue(key, out var cached))
+            return cached;
+
+        var texture = ImageUtil.BuildGradientMappedCached(Device, source, ramp);
         Cache[key] = texture;
 
         return texture;
@@ -357,46 +374,6 @@ public sealed class UiRenderer : IDisposable
     }
 
     /// <summary>
-    ///     Renders and caches a skill icon (learnable/002 variant).
-    /// </summary>
-    public Texture2D GetSkillLearnableIcon(ushort spriteId)
-    {
-        var key = $"skill_learnable:{spriteId}";
-
-        if (Cache.TryGetValue(key, out var cached))
-            return cached;
-
-        var texture = RenderSprite(DataContext.PanelSprites.GetSkillLearnableIcon(spriteId));
-
-        if (texture is null)
-            return MissingTexture;
-
-        Cache[key] = texture;
-
-        return texture;
-    }
-
-    /// <summary>
-    ///     Renders and caches a skill icon (locked/003 variant).
-    /// </summary>
-    public Texture2D GetSkillLockedIcon(ushort spriteId)
-    {
-        var key = $"skill_locked:{spriteId}";
-
-        if (Cache.TryGetValue(key, out var cached))
-            return cached;
-
-        var texture = RenderSprite(DataContext.PanelSprites.GetSkillLockedIcon(spriteId));
-
-        if (texture is null)
-            return MissingTexture;
-
-        Cache[key] = texture;
-
-        return texture;
-    }
-
-    /// <summary>
     ///     Renders and caches a spell icon.
     /// </summary>
     public Texture2D GetSpellIcon(ushort spriteId)
@@ -407,46 +384,6 @@ public sealed class UiRenderer : IDisposable
             return cached;
 
         var texture = RenderSprite(DataContext.PanelSprites.GetSpellIcon(spriteId));
-
-        if (texture is null)
-            return MissingTexture;
-
-        Cache[key] = texture;
-
-        return texture;
-    }
-
-    /// <summary>
-    ///     Renders and caches a spell icon (learnable/002 variant).
-    /// </summary>
-    public Texture2D GetSpellLearnableIcon(ushort spriteId)
-    {
-        var key = $"spell_learnable:{spriteId}";
-
-        if (Cache.TryGetValue(key, out var cached))
-            return cached;
-
-        var texture = RenderSprite(DataContext.PanelSprites.GetSpellLearnableIcon(spriteId));
-
-        if (texture is null)
-            return MissingTexture;
-
-        Cache[key] = texture;
-
-        return texture;
-    }
-
-    /// <summary>
-    ///     Renders and caches a spell icon (locked/003 variant).
-    /// </summary>
-    public Texture2D GetSpellLockedIcon(ushort spriteId)
-    {
-        var key = $"spell_locked:{spriteId}";
-
-        if (Cache.TryGetValue(key, out var cached))
-            return cached;
-
-        var texture = RenderSprite(DataContext.PanelSprites.GetSpellLockedIcon(spriteId));
 
         if (texture is null)
             return MissingTexture;

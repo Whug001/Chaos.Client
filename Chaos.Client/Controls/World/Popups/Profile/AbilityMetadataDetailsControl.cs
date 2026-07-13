@@ -4,9 +4,9 @@ using Chaos.Client.Controls.Components;
 using Chaos.Client.Data.Models;
 using Chaos.Client.Extensions;
 using Chaos.Client.ViewModel;
-using Chaos.Extensions.Common;
 using Microsoft.Xna.Framework;
 using Microsoft.Xna.Framework.Graphics;
+using static Chaos.Client.Extensions.AbilityMetadataExtensions;
 #endregion
 
 namespace Chaos.Client.Controls.World.Popups.Profile;
@@ -85,94 +85,6 @@ public sealed class AbilityMetadataDetailsControl : PrefabPanel
         return $"{name} {level}";
     }
 
-    private static bool HasPreRequisite(string? name, byte requiredLevel)
-    {
-        if (name is null)
-            return true;
-
-        for (byte i = 1; i <= SpellBook.MAX_SLOTS; i++)
-        {
-            ref readonly var slot = ref WorldState.SpellBook.GetSlot(i);
-
-            if (slot.IsOccupied && (slot.AbilityName?.EqualsI(name) == true) && (slot.CurrentLevel >= requiredLevel))
-                return true;
-        }
-
-        for (byte i = 1; i <= SkillBook.MAX_SLOTS; i++)
-        {
-            ref readonly var slot = ref WorldState.SkillBook.GetSlot(i);
-
-            if (slot.IsOccupied && (slot.AbilityName?.EqualsI(name) == true) && (slot.CurrentLevel >= requiredLevel))
-                return true;
-        }
-
-        return false;
-    }
-
-    private static Texture2D ResolveIcon(AbilityMetadataEntry entry)
-    {
-        var renderer = UiRenderer.Instance!;
-        var state = ResolveIconState(entry);
-
-        return (entry.IsSpell, state) switch
-        {
-            (true, AbilityIconState.Known)      => renderer.GetSpellIcon(entry.IconSprite),
-            (true, AbilityIconState.Learnable)  => renderer.GetSpellLearnableIcon(entry.IconSprite),
-            (true, AbilityIconState.Locked)     => renderer.GetSpellLockedIcon(entry.IconSprite),
-            (false, AbilityIconState.Known)     => renderer.GetSkillIcon(entry.IconSprite),
-            (false, AbilityIconState.Learnable) => renderer.GetSkillLearnableIcon(entry.IconSprite),
-            (false, AbilityIconState.Locked)    => renderer.GetSkillLockedIcon(entry.IconSprite),
-            _                                   => renderer.GetSkillIcon(entry.IconSprite)
-        };
-    }
-
-    private static AbilityIconState ResolveIconState(AbilityMetadataEntry entry)
-    {
-        if (entry.IsSpell)
-            for (byte i = 1; i <= SpellBook.MAX_SLOTS; i++)
-            {
-                ref readonly var slot = ref WorldState.SpellBook.GetSlot(i);
-
-                if (slot.IsOccupied && (slot.AbilityName?.EqualsI(entry.Name) == true))
-                    return AbilityIconState.Known;
-            }
-        else
-            for (byte i = 1; i <= SkillBook.MAX_SLOTS; i++)
-            {
-                ref readonly var slot = ref WorldState.SkillBook.GetSlot(i);
-
-                if (slot.IsOccupied && (slot.AbilityName?.EqualsI(entry.Name) == true))
-                    return AbilityIconState.Known;
-            }
-
-        if (WorldState.Attributes.Current is not { } attrs)
-            return AbilityIconState.Locked;
-
-        if (entry.RequiresMaster && !WorldState.IsMaster)
-            return AbilityIconState.Locked;
-
-        if ((entry.AbilityLevel > 0) && (attrs.Ability < entry.AbilityLevel))
-            return AbilityIconState.Locked;
-
-        if (!entry.RequiresMaster && (entry.AbilityLevel == 0) && (attrs.Level < entry.Level))
-            return AbilityIconState.Locked;
-
-        if ((attrs.Str < entry.Str)
-            || (attrs.Int < entry.Int)
-            || (attrs.Wis < entry.Wis)
-            || (attrs.Dex < entry.Dex)
-            || (attrs.Con < entry.Con))
-            return AbilityIconState.Locked;
-
-        if (!HasPreRequisite(entry.PreReq1Name, entry.PreReq1Level))
-            return AbilityIconState.Locked;
-
-        if (!HasPreRequisite(entry.PreReq2Name, entry.PreReq2Level))
-            return AbilityIconState.Locked;
-
-        return AbilityIconState.Learnable;
-    }
-
     private static Color RequirementColor(int required, int? current) => current >= required ? LegendColors.White : UnmetColor;
 
     private static Color RequirementColor(bool met) => met ? LegendColors.White : UnmetColor;
@@ -249,7 +161,8 @@ public sealed class AbilityMetadataDetailsControl : PrefabPanel
 
         DescLabel?.Text = entry.Description;
 
-        IconImage?.Texture = ResolveIcon(entry);
+        IconImage?.Texture = entry.ResolveIconState()
+                                  .ResolveIcon(entry);
 
         Show();
     }

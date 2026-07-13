@@ -1,6 +1,7 @@
 #region
 using Chaos.Client.Controls.Components;
 using Chaos.Client.Data.Models;
+using Chaos.Client.Extensions;
 using Microsoft.Xna.Framework.Graphics;
 #endregion
 
@@ -58,22 +59,6 @@ public sealed class AbilityMetadataEntryControl : PrefabPanel
         }
     }
 
-    private static Texture2D ResolveIcon(AbilityMetadataEntry entry, AbilityIconState state)
-    {
-        var renderer = UiRenderer.Instance!;
-
-        return (entry.IsSpell, state) switch
-        {
-            (true, AbilityIconState.Known)      => renderer.GetSpellIcon(entry.IconSprite),
-            (true, AbilityIconState.Learnable)  => renderer.GetSpellLearnableIcon(entry.IconSprite),
-            (true, AbilityIconState.Locked)     => renderer.GetSpellLockedIcon(entry.IconSprite),
-            (false, AbilityIconState.Known)     => renderer.GetSkillIcon(entry.IconSprite),
-            (false, AbilityIconState.Learnable) => renderer.GetSkillLearnableIcon(entry.IconSprite),
-            (false, AbilityIconState.Locked)    => renderer.GetSkillLockedIcon(entry.IconSprite),
-            _                                   => renderer.GetSkillIcon(entry.IconSprite)
-        };
-    }
-
     public void SetEntry(AbilityMetadataEntry entry, AbilityIconState iconState)
     {
         Entry = entry;
@@ -90,7 +75,7 @@ public sealed class AbilityMetadataEntryControl : PrefabPanel
             LevelLabel.ForegroundColor = LegendColors.White;
         }
 
-        var newIcon = ResolveIcon(entry, iconState);
+        var newIcon = iconState.ResolveIcon(entry);
 
         if (newIcon != IconTexture)
         {

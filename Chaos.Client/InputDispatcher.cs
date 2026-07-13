@@ -178,7 +178,7 @@ public sealed class InputDispatcher
             //if a textbox inside the popup stole IsFocused while the popup was up,
             //the stashed textbox now has IsFocused=false — re-assert it so OnTextInput
             //(which gates on IsFocused) actually runs.
-            if (stashed is UITextBox tb && !tb.IsFocused)
+            if (stashed is UITextBox { IsFocused: false } tb)
                 tb.IsFocused = true;
             else
                 SetExplicitFocus(stashed);

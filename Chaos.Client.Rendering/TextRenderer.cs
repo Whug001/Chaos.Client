@@ -304,7 +304,7 @@ public static class TextRenderer
 
         position = new Vector2(destX + leftClip, destY + topClip);
 
-        return (sourceRect.Width > 0) && (sourceRect.Height > 0);
+        return sourceRect is { Width: > 0, Height: > 0 };
     }
 
     /// <summary>

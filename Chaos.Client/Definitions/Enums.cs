@@ -89,22 +89,22 @@ public enum StatusBookTab
 }
 
 /// <summary>
-///     Determines which icon variant to display for an ability in the metadata tab.
+///     Determines how an ability's icon is drawn in the metadata tab. All three states are derived from the normal icon.
 /// </summary>
 public enum AbilityIconState
 {
     /// <summary>
-    ///     Player already knows this ability — use the standard icon (001 variant).
+    ///     Player already knows this ability — draw the icon untouched.
     /// </summary>
     Known,
 
     /// <summary>
-    ///     Player meets all requirements to learn this ability — use the learnable icon (002 variant).
+    ///     Player meets all requirements to learn this ability — draw the icon mint-tinted.
     /// </summary>
     Learnable,
 
     /// <summary>
-    ///     Player does not meet the requirements — use the locked icon (003 variant).
+    ///     Player does not meet the requirements — draw the icon desaturated.
     /// </summary>
     Locked
 }
