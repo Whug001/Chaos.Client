@@ -18,6 +18,8 @@ public sealed class ChatInputControl : UIPanel
     private const string GROUP_CHANNEL = "!group";
     private const string GUILD_CHANNEL = "!guild";
 
+    private static readonly Color FocusedBackground = new(0, 0, 0, 160);
+
     private readonly int FullWidth;
     private readonly UILabel PrefixLabel;
     private readonly UITextBox TextBox;
@@ -27,8 +29,6 @@ public sealed class ChatInputControl : UIPanel
     private string[] WhisperNames = [];
 
     private Action<string>? PromptCallback;
-    private Color? SavedFocusedBackgroundColor;
-    private int SavedMaxLength;
     private int WhisperNameIndex;
     private string? WhisperTarget;
 
@@ -74,7 +74,7 @@ public sealed class ChatInputControl : UIPanel
             PaddingRight = 1,
             PaddingTop = 1,
             PaddingBottom = 1,
-            FocusedBackgroundColor = new Color(0, 0, 0, 160)
+            FocusedBackgroundColor = FocusedBackground
         };
 
         //backspace with nothing left to delete backs out of the current channel. driven by the box
@@ -86,6 +86,16 @@ public sealed class ChatInputControl : UIPanel
         };
 
         AddChild(TextBox);
+
+        //a server dialog focusing its own textbox (or a hide) blurs this box without ever reaching
+        //HandleEnter/HandleEscape. prompt (white background, short MaxLength) and ignore-select
+        //(read-only) mutate the box, so they must tear down on any blur or that state leaks into the
+        //next chat session. plain chat modes leave nothing behind and keep their half-typed message.
+        TextBox.LostFocus += _ =>
+        {
+            if (Mode is ChatMode.Prompt or ChatMode.IgnoreModeSelect)
+                Unfocus();
+        };
 
         //register the chat textbox so popups don't tear keyboard focus away while typing.
         if (InputDispatcher.Instance is { } dispatcher)
@@ -313,8 +323,6 @@ public sealed class ChatInputControl : UIPanel
     public void ShowPrompt(string prefix, int maxLength, Action<string> onConfirm)
     {
         PromptCallback = onConfirm;
-        SavedMaxLength = TextBox.MaxLength;
-        SavedFocusedBackgroundColor = TextBox.FocusedBackgroundColor;
 
         TextBox.MaxLength = maxLength;
         TextBox.FocusedBackgroundColor = Color.White;
@@ -331,6 +339,10 @@ public sealed class ChatInputControl : UIPanel
 
     public void Unfocus()
     {
+        //every exit path routes through here — a prompt left un-restored keeps the box white and length-capped.
+        if (Mode == ChatMode.Prompt)
+            RestoreFromPrompt();
+
         Mode = ChatMode.None;
         WhisperTarget = null;
         WhisperNames = [];
@@ -340,7 +352,12 @@ public sealed class ChatInputControl : UIPanel
         SetText(string.Empty, 0);
         TextBox.ForegroundColor = Color.White;
         UpdateLayout(string.Empty, Color.White);
-        InputDispatcher.Instance?.ClearExplicitFocus();
+
+        //only release keyboard routing if it's still ours — a blur caused by another textbox
+        //taking focus must not clear the focus that box is about to claim.
+        if (InputDispatcher.Instance?.ExplicitFocus == TextBox)
+            InputDispatcher.Instance.ClearExplicitFocus();
+
         FocusChanged?.Invoke(false);
     }
 
@@ -354,8 +371,8 @@ public sealed class ChatInputControl : UIPanel
     private void RestoreFromPrompt()
     {
         PromptCallback = null;
-        TextBox.MaxLength = SavedMaxLength;
-        TextBox.FocusedBackgroundColor = SavedFocusedBackgroundColor;
+        TextBox.MaxLength = SAY_MAX_LENGTH;
+        TextBox.FocusedBackgroundColor = FocusedBackground;
         TextBox.BackgroundColor = null;
         PrefixLabel.BackgroundColor = Color.Black;
     }
@@ -478,7 +495,6 @@ public sealed class ChatInputControl : UIPanel
             case ChatMode.Prompt:
                 var callback = PromptCallback;
                 var text = TextBox.Text;
-                RestoreFromPrompt();
                 Unfocus();
                 callback?.Invoke(text);
 
@@ -500,13 +516,7 @@ public sealed class ChatInputControl : UIPanel
         Unfocus();
     }
 
-    private void HandleEscape()
-    {
-        if (Mode == ChatMode.Prompt)
-            RestoreFromPrompt();
-
-        Unfocus();
-    }
+    private void HandleEscape() => Unfocus();
 
     public override void OnTextInput(TextInputEvent e)
     {
