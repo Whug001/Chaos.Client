@@ -15,6 +15,7 @@ using Chaos.Networking.Entities.Server;
 using DALib.Extensions;
 using Microsoft.Xna.Framework;
 using Microsoft.Xna.Framework.Graphics;
+using Microsoft.Xna.Framework.Input;
 using SkiaSharp;
 #endregion
 
@@ -30,14 +31,13 @@ public sealed class ChaosGame : Game
     private readonly string MetaFilePath = Path.Combine(GlobalSettings.DataPath, "metafile");
     private readonly Dictionary<string, uint> MetaPendingChecksums = new(StringComparer.OrdinalIgnoreCase);
     private readonly List<ServerPacket> PacketBuffer = [];
-    private int CursorOffsetX;
-    private int CursorOffsetY;
-    private Texture2D? CursorTexture;
+    private MouseCursor? ArrowCursor;
+    private MouseCursor? HandCursor;
+    private Texture2D? ArrowBase;
+    private Texture2D? HandBase;
+    private float CursorScale;
     internal volatile bool GcRequested;
     private bool ScreenshotRequested;
-    private int HandCursorOffsetX;
-    private int HandCursorOffsetY;
-    private Texture2D? HandCursorTexture;
     private bool MetaSyncStarted;
     private RenderTarget2D RenderTarget = null!;
     private bool ResizingInProgress;
@@ -54,7 +54,18 @@ public sealed class ChaosGame : Game
     /// </summary>
     public ScreenManager Screens { get; private set; } = null!;
 
-    public bool UseHandCursor { get; set; }
+    public bool UseHandCursor
+    {
+        get;
+        set
+        {
+            if (field == value)
+                return;
+
+            field = value;
+            ApplyActiveCursor(); //swap arrow/hand on hover-state change
+        }
+    }
 
     /// <summary>
     ///     Shared aisling renderer for compositing player/NPC equipment layers.
@@ -169,17 +180,8 @@ public sealed class ChaosGame : Game
         if (DebugOverlay.IsActive)
             DebugOverlay.DrawStats(SpriteBatch);
 
-        //custom cursor — drawn in virtual space so it aligns with game content
-        if (CursorTexture is not null)
-        {
-            var activeCursor = UseHandCursor && HandCursorTexture is not null ? HandCursorTexture : CursorTexture;
-            var offsetX = UseHandCursor && HandCursorTexture is not null ? HandCursorOffsetX : CursorOffsetX;
-            var offsetY = UseHandCursor && HandCursorTexture is not null ? HandCursorOffsetY : CursorOffsetY;
-
-            SpriteBatch.Begin(samplerState: GlobalSettings.Sampler);
-            SpriteBatch.Draw(activeCursor, new Vector2(InputBuffer.MouseX - offsetX, InputBuffer.MouseY - offsetY), Color.White);
-            SpriteBatch.End();
-        }
+        //hardware cursor scales with the window; the rebuild only fires on an actual scale change
+        RefreshCursorScale();
 
         //capture screenshot while the render target is still bound — DiscardContents may
         //invalidate pixel data after SetRenderTarget(null) on some drivers
@@ -352,17 +354,14 @@ public sealed class ChaosGame : Game
         return table;
     }
 
-    private static (int X, int Y) FindCursorHotspot(Texture2D texture)
+    private static (int X, int Y) FindCursorHotspot(Color[] pixels, int width, int height)
     {
-        var pixels = new Color[texture.Width * texture.Height];
-        texture.GetData(pixels);
+        var hotX = width;
+        var hotY = height;
 
-        var hotX = texture.Width;
-        var hotY = texture.Height;
-
-        for (var y = 0; y < texture.Height; y++)
-            for (var x = 0; x < texture.Width; x++)
-                if (pixels[y * texture.Width + x].A > 0)
+        for (var y = 0; y < height; y++)
+            for (var x = 0; x < width; x++)
+                if (pixels[(y * width) + x].A > 0)
                 {
                     if (x < hotX)
                         hotX = x;
@@ -371,7 +370,8 @@ public sealed class ChaosGame : Game
                         hotY = y;
                 }
 
-        return (hotX, hotY);
+        //clamp so a fully-transparent frame can't return an out-of-range origin (FromTexture2D would throw)
+        return (Math.Min(hotX, width - 1), Math.Min(hotY, height - 1));
     }
 
     protected override void Initialize()
@@ -412,18 +412,97 @@ public sealed class ChaosGame : Game
 
     private void LoadCustomCursor()
     {
-        CursorTexture = UiRenderer.Instance!.GetEpfTexture("mouse.epf", 0);
+        //Hardware cursor: OS-composited at pointer-poll latency. A missing mouse.epf frame resolves to UiRenderer's
+        //checkerboard, so ResolveCursorFrame maps that to null and we keep the OS default instead of showing garbage.
+        ArrowBase = ResolveCursorFrame(0);
+        HandBase = ResolveCursorFrame(1);
 
-        if (CursorTexture is not null)
+        RefreshCursorScale();
+    }
+
+    //The mouse.epf frame, or null when the asset is missing (GetEpfTexture yields the shared checkerboard placeholder).
+    private static Texture2D? ResolveCursorFrame(int frame)
+    {
+        var texture = UiRenderer.Instance!.GetEpfTexture("mouse.epf", frame);
+
+        return ReferenceEquals(texture, UiRenderer.Instance.MissingTexture) ? null : texture;
+    }
+
+    /// <summary>
+    ///     Rebuilds the hardware cursor(s) so the pointer scales with the window, matching the point-sampled game
+    ///     content. Polled from Draw, but only the scale compare runs unless the scale actually changed.
+    /// </summary>
+    private void RefreshCursorScale()
+    {
+        if (ArrowBase is null)
+            return;
+
+        var present = GetPresentRect();
+        var scale = MathF.Max(1f, MathF.Min((float)present.Width / VIRTUAL_WIDTH, (float)present.Height / VIRTUAL_HEIGHT));
+
+        //ponytail: 1%-granularity gate; a live window-drag rebuilds a handful of times, each a tiny-texture op
+        if (MathF.Abs(scale - CursorScale) < 0.01f)
+            return;
+
+        CursorScale = scale;
+
+        ArrowCursor?.Dispose();
+        ArrowCursor = BuildScaledCursor(ArrowBase, scale);
+
+        if (HandBase is not null)
         {
-            IsMouseVisible = false;
-            (CursorOffsetX, CursorOffsetY) = FindCursorHotspot(CursorTexture);
+            HandCursor?.Dispose();
+            HandCursor = BuildScaledCursor(HandBase, scale);
         }
 
-        HandCursorTexture = UiRenderer.Instance.GetEpfTexture("mouse.epf", 1);
+        ApplyActiveCursor();
+    }
 
-        if (HandCursorTexture is not null)
-            (HandCursorOffsetX, HandCursorOffsetY) = FindCursorHotspot(HandCursorTexture);
+    //Sets the OS cursor to the active frame — hand while hovering an entity, else arrow. No-op until the arrow is
+    //built, so a missing mouse.epf leaves the OS default in place.
+    private void ApplyActiveCursor()
+    {
+        if (ArrowCursor is null)
+            return;
+
+        Mouse.SetCursor(UseHandCursor && HandCursor is not null ? HandCursor : ArrowCursor);
+    }
+
+    //Nearest-neighbor upscale of a cursor frame to the (possibly fractional) window scale, into a hardware cursor —
+    //PointClamp parity with the content, so borderless/free-dragged sizes match too. The hotspot scales with the art
+    //so the origin still lands on the click point; the temp texture is copied into the SDL cursor, then freed.
+    private MouseCursor BuildScaledCursor(Texture2D baseTex, float scale)
+    {
+        var srcW = baseTex.Width;
+        var srcH = baseTex.Height;
+        var src = new Color[srcW * srcH];
+        baseTex.GetData(src);
+
+        var (hotX, hotY) = FindCursorHotspot(src, srcW, srcH);
+
+        var dstW = Math.Max(1, (int)MathF.Round(srcW * scale));
+        var dstH = Math.Max(1, (int)MathF.Round(srcH * scale));
+
+        if ((dstW == srcW) && (dstH == srcH))
+            return MouseCursor.FromTexture2D(baseTex, hotX, hotY);
+
+        var dst = new Color[dstW * dstH];
+
+        for (var y = 0; y < dstH; y++)
+        {
+            var srcRow = ((y * srcH) / dstH) * srcW;
+
+            for (var x = 0; x < dstW; x++)
+                dst[(y * dstW) + x] = src[srcRow + ((x * srcW) / dstW)];
+        }
+
+        using var scaled = new Texture2D(GraphicsDevice, dstW, dstH);
+        scaled.SetData(dst);
+
+        var scaledHotX = Math.Min(dstW - 1, (int)MathF.Round(hotX * scale));
+        var scaledHotY = Math.Min(dstH - 1, (int)MathF.Round(hotY * scale));
+
+        return MouseCursor.FromTexture2D(scaled, scaledHotX, scaledHotY);
     }
 
     #region Window Sizing
@@ -613,7 +692,8 @@ public sealed class ChaosGame : Game
     {
         Window.ClientSizeChanged -= OnClientSizeChanged;
         DisplaySettings.Applier = null;
-        CursorTexture?.Dispose();
+        ArrowCursor?.Dispose();
+        HandCursor?.Dispose();
         RenderTarget.Dispose();
         Screens.Dispose();
         Connection.Dispose();
