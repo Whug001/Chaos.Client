@@ -424,7 +424,8 @@ public sealed class BankControl : FramedDialogPanelBase, IInventoryDropTarget
                 entry.Cdr,
                 entry.HealBonus,
                 entry.HealBonusPct,
-                entry.MagicResist));
+                entry.MagicResist),
+            entry.Description);
 
         PopulatedEntry = entry;
     }

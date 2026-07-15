@@ -148,6 +148,7 @@ public class UILabel : UIElement, IVerticalScrollable
                 var lineY = innerY + vOffset + (lineIdx - firstLine) * TextRenderer.CHAR_HEIGHT;
                 var lineX = WrappedLineX(line, innerX, innerW);
                 TextElement.Draw(spriteBatch, new Vector2(lineX, lineY), ClipRect, line, Opacity);
+                DrawLineOverlay(spriteBatch, lineIdx, line, lineX, lineY);
             }
         } else if (TruncateWithEllipsis && (TextElement.Width > innerW))
         {
@@ -271,6 +272,10 @@ public class UILabel : UIElement, IVerticalScrollable
             } else if (lineText.Length > 0)
                 DrawTextClipped(spriteBatch, new Vector2(lineBaseX, lineY), lineText, TextElement.Color, ColorCodesEnabled);
 
+            //a decoration draws over the selection as readily as over the text -- a subclass that decorates a
+            //selectable label owns that overlap
+            DrawLineOverlay(spriteBatch, i, lineText, lineBaseX, lineY);
+
             charOffset = lineEndIdx;
         }
     }
@@ -282,7 +287,7 @@ public class UILabel : UIElement, IVerticalScrollable
     ///     per <see cref="VerticalAlignment" />. Centering/bottom-align apply only when the block fits; when it overflows
     ///     (scrolling content) it stays top-aligned so <see cref="ScrollOffset" /> governs the visible window.
     /// </summary>
-    private int WrappedVerticalOffset(int lineCount, int innerH)
+    protected int WrappedVerticalOffset(int lineCount, int innerH)
     {
         var contentHeight = lineCount * TextRenderer.CHAR_HEIGHT;
 
@@ -295,7 +300,7 @@ public class UILabel : UIElement, IVerticalScrollable
     }
 
     /// <summary>The X at which a single wrapped <paramref name="line" /> starts, per <see cref="HorizontalAlignment" />.</summary>
-    private int WrappedLineX(string line, int innerX, int innerW)
+    protected int WrappedLineX(string line, int innerX, int innerW)
     {
         var lineWidth = TextRenderer.MeasureWidth(line);
 
@@ -306,6 +311,51 @@ public class UILabel : UIElement, IVerticalScrollable
             _                                                   => innerX
         };
     }
+
+    /// <summary>
+    ///     The wrapped lines, or null when <see cref="WordWrap" /> is off. For subclasses that decorate individual lines.
+    /// </summary>
+    protected IReadOnlyList<string>? WrappedLines => TextElement.WrappedLines;
+
+    /// <summary>
+    ///     Called after each wrapped line is drawn, for subclasses that draw over it (underlines, highlights). Coordinates
+    ///     are the same ones the line was drawn at, so a decoration lines up with the glyphs without repeating the layout
+    ///     maths.
+    /// </summary>
+    protected virtual void DrawLineOverlay(
+        SpriteBatch spriteBatch,
+        int lineIndex,
+        string lineText,
+        int lineX,
+        int lineY) { }
+
+    /// <summary>
+    ///     Underlines part of a wrapped line, clipped to this label. For use from <see cref="DrawLineOverlay" />, whose
+    ///     arguments this takes. <paramref name="color" /> defaults to the colour the underlined glyphs are drawn in.
+    /// </summary>
+    protected void DrawUnderline(
+        SpriteBatch spriteBatch,
+        string lineText,
+        int index,
+        int length,
+        int lineX,
+        int lineY,
+        Color? color = null)
+        => TextElement.DrawUnderline(
+            spriteBatch,
+            new Vector2(lineX, lineY),
+            lineText,
+            index,
+            length,
+            ClipRect,
+            Opacity,
+            color);
+
+    /// <summary>
+    ///     Called whenever the text or the wrap width changes, i.e. whenever <see cref="WrappedLines" /> is replaced. A
+    ///     subclass holding anything indexed into those lines rebuilds it here.
+    /// </summary>
+    protected virtual void OnTextInvalidated() { }
 
     private string PlainText => TextElement.Text;
 
@@ -323,6 +373,7 @@ public class UILabel : UIElement, IVerticalScrollable
         TextElement.ShadowStyle = ShadowStyle;
         TextElement.Update(text, color);
         LastEffectiveWrapWidth = effectiveWrapWidth;
+        OnTextInvalidated();
     }
 
     public override void ResetInteractionState()

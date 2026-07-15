@@ -14,7 +14,7 @@ namespace Chaos.Client.Controls.World.Popups;
 ///     <see cref="Populate" />: the item icon + name (a fixed header), a fixed block of "label: value" base-field lines
 ///     (level / class / weight / durability, plus whatever else the owner adds), then a mouse-wheel-scrollable region
 ///     where the item's non-zero stat modifiers are laid out as inline blocks ("+10 HP", "-50 MP") that wrap like text,
-///     each block kept whole.
+///     each block kept whole, followed last by the item's word-wrapped description.
 /// </summary>
 /// <remarks>
 ///     A dumb view: it renders only what it is handed, and neither reads world state nor sends packets. The base-field
@@ -153,7 +153,7 @@ public sealed class ItemDetailControl : UIPanel
         };
         AddChild(HeaderDivider);
 
-        //── scrollable stat region ──
+        //── scrollable stat + description region ──
         //StatContent (the scrolled surface) lives in StatHost (an IVerticalScrollable clip host), wrapped in a bar-less
         //(Hidden) ScrollViewerControl that owns the wheel. Bar-less keeps the narrow pane's full width; the host
         //translates the viewer's unit offset into StatContent.Y (one unit = one wheel notch). The pane's own
@@ -216,7 +216,8 @@ public sealed class ItemDetailControl : UIPanel
         DisplayColor color,
         string name,
         IReadOnlyList<string?> baseLines,
-        ItemStats stats)
+        ItemStats stats,
+        string description)
     {
         HintLabel.Visible = false;
 
@@ -243,7 +244,7 @@ public sealed class ItemDetailControl : UIPanel
 
         HeaderDivider.Visible = true;
 
-        BindContent(stats);
+        BindContent(stats, description);
 
         StatHost.ResetScroll(); //each hovered item opens at the top
     }
@@ -268,23 +269,46 @@ public sealed class ItemDetailControl : UIPanel
         StatHost.ResetScroll();
     }
 
-    private void BindContent(ItemStats stats)
+    private void BindContent(ItemStats stats, string description)
     {
-        //wrap the inline blocks into lines (subtract the label's 1px side padding from the usable width).
-        var lines = WrapBlocks(stats.ToBlocks(), StatContent.Width - 2);
-        var count = Math.Min(lines.Count, MAX_STAT_LINES);
+        //everything below shares the pooled StatLineLabels (a common MAX_STAT_LINES cap) and scrolls as one block:
+        //the colour-coded stat blocks first, then — separated by a blank line — the item's word-wrapped description.
+        var innerWidth = StatContent.Width - 2; //subtract the label's 1px side padding from the usable width
+        var next = 0;
 
-        for (var i = 0; i < MAX_STAT_LINES; i++)
+        //── stats (green; each block carries its own inline colour code) ──
+        var statLines = WrapBlocks(stats.ToBlocks(), innerWidth);
+
+        for (var i = 0; (i < statLines.Count) && (next < MAX_STAT_LINES); i++, next++)
         {
-            if (i < count)
-            {
-                StatLineLabels[i].Text = lines[i];
-                StatLineLabels[i].Visible = true;
-            } else
-                StatLineLabels[i].Visible = false;
+            StatLineLabels[next].ForegroundColor = StatValueColor;
+            StatLineLabels[next].Text = statLines[i];
+            StatLineLabels[next].Visible = true;
         }
 
-        StatContent.Height = Math.Max(count * TextRenderer.CHAR_HEIGHT, ViewportHeightPx);
+        //── description last (muted; wrapped), with a blank spacer above it when stats precede it ──
+        if (description.Length > 0)
+        {
+            if ((next > 0) && (next < MAX_STAT_LINES))
+            {
+                StatLineLabels[next].Visible = false; //blank spacer keeps the line height but paints nothing
+                next++;
+            }
+
+            var descLines = TextRenderer.WrapText(description, innerWidth);
+
+            for (var i = 0; (i < descLines.Count) && (next < MAX_STAT_LINES); i++, next++)
+            {
+                StatLineLabels[next].ForegroundColor = InfoColor;
+                StatLineLabels[next].Text = descLines[i];
+                StatLineLabels[next].Visible = true;
+            }
+        }
+
+        for (var i = next; i < MAX_STAT_LINES; i++)
+            StatLineLabels[i].Visible = false;
+
+        StatContent.Height = Math.Max(next * TextRenderer.CHAR_HEIGHT, ViewportHeightPx);
     }
 
     /// <summary>

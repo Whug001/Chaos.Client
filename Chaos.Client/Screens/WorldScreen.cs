@@ -149,6 +149,7 @@ public sealed partial class WorldScreen : IScreen
     private PanelSlot? HoveredInventorySlot;
     private bool IsGameMaster;
     private ItemTooltipControl ItemTooltip = null!;
+    private KeywordTooltipControl KeywordTooltip = null!;
     private LargeWorldHudControl LargeHud = null!;
 
     //market window — opened via the Starbargain NPC (scriptKey MarketStall) or the /market command
@@ -725,6 +726,12 @@ public sealed partial class WorldScreen : IScreen
             ZIndex = 3
         };
 
+        //above the ability popup it explains, or it would be drawn underneath the words it is pointing at
+        KeywordTooltip = new KeywordTooltipControl
+        {
+            ZIndex = 4
+        };
+
         Market = new MarketControl
         {
             ZIndex = 2
@@ -801,6 +808,7 @@ public sealed partial class WorldScreen : IScreen
         Root.AddChild(SystemMessagePane);
         Root.AddChild(NpcSession);
         Root.AddChild(ItemTooltip);
+        Root.AddChild(KeywordTooltip);
         Root.AddChild(Market);
         Root.AddChild(MarketBuyConfirm);
         Root.AddChild(Bank);

@@ -3,6 +3,7 @@ using Chaos.Client.Collections;
 using Chaos.Client.Controls.Components;
 using Chaos.Client.Controls.Generic;
 using Chaos.Client.Controls.Scrolling;
+using Chaos.Client.Data;
 using Chaos.Client.Data.Models;
 using Chaos.Client.Extensions;
 using Chaos.Client.ViewModel;
@@ -21,7 +22,7 @@ public sealed class AbilityMetadataDetailsControl : PrefabPanel
 {
     private static readonly Color UnmetColor = LegendColors.Scarlet;
     private readonly UILabel? ConLabel;
-    private readonly UILabel DescLabel;
+    private readonly RichUILabel DescLabel;
     private readonly UILabel? DexLabel;
     private readonly UIImage? IconImage;
     private readonly UILabel? IntLabel;
@@ -78,13 +79,16 @@ public sealed class AbilityMetadataDetailsControl : PrefabPanel
         //right-hand bar (dormant while the text fits) and the wheel, and re-sizes the label to the leftover width.
         var descRect = GetRect("DESC");
 
-        DescLabel = new UILabel
+        DescLabel = new RichUILabel
         {
             Width = descRect.Width,
             Height = descRect.Height,
             ForegroundColor = LegendColors.White,
-            WordWrap = true,
-            VerticalAlignment = VerticalAlignment.Top
+            VerticalAlignment = VerticalAlignment.Top,
+
+            //one colour for every glossary term, so the rule reads as "you can hover this" rather than as part of the
+            //word it sits under -- the tags are each written in their own colour, and would each mark it differently
+            UnderlineColor = LegendColors.White
         };
 
         AddChild(
@@ -180,6 +184,10 @@ public sealed class AbilityMetadataDetailsControl : PrefabPanel
         }
 
         DescLabel.Text = entry.Description;
+
+        //not at construction: the metafiles are not on disk yet when the popup is built. The repository caches it.
+        DescLabel.Keywords = DataContext.MetaFiles.GetGlossaryMetadata()
+                                        ?.Keywords ?? [];
         DescLabel.ScrollOffset = 0;
 
         IconImage?.Texture = entry.ResolveIconState()
@@ -187,6 +195,12 @@ public sealed class AbilityMetadataDetailsControl : PrefabPanel
 
         Show();
     }
+
+    /// <summary>
+    ///     The text a keyword tooltip may search while this popup is open, or null while it is closed. Only the
+    ///     description -- the ability's own name and its requirements are not game terms.
+    /// </summary>
+    public RichUILabel? HoverableText => Visible ? DescLabel : null;
 
     public override void OnKeyDown(KeyDownEvent e)
     {

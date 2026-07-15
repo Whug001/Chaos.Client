@@ -25,6 +25,7 @@ public sealed class MetaFileRepository
     };
 
     private readonly string MetaFileDirectory = Path.Combine(DataContext.DataPath, "metafile");
+    private GlossaryMetadata? GlossaryMetadataCache;
     private FrozenDictionary<int, ushort>? ItemIndex;
     private NpcIllustrationMetadata? NpcIllustrationMetadataCache;
 
@@ -177,6 +178,27 @@ public sealed class MetaFileRepository
             });
 
         return results;
+    }
+
+    /// <summary>
+    ///     Loads the keyword explanations shown when a player hovers a word in game text.
+    /// </summary>
+    /// <remarks>
+    ///     Only a hit is cached, and deliberately so. The metafiles arrive one packet at a time *after* world entry, so a
+    ///     caller early enough can legitimately find no glossary on disk yet -- caching that miss would leave the session
+    ///     with no hoverable text at all, and re-asking would never recover it.
+    /// </remarks>
+    public GlossaryMetadata? GetGlossaryMetadata()
+    {
+        if (GlossaryMetadataCache is not null)
+            return GlossaryMetadataCache;
+
+        var metaFile = Get("Glossary");
+
+        if (metaFile is null or { Count: 0 })
+            return null;
+
+        return GlossaryMetadataCache = GlossaryMetadata.Parse(metaFile);
     }
 
     /// <summary>

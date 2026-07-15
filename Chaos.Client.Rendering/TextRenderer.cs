@@ -408,7 +408,12 @@ public static class TextRenderer
     /// <summary>
     ///     Returns true if the text at position i starts a {=x color code sequence.
     /// </summary>
-    public static bool IsColorCode(string text, int i)
+    public static bool IsColorCode(string text, int i) => IsColorCode(text.AsSpan(), i);
+
+    /// <summary>
+    ///     Returns true if the text at position i starts a {=x color code sequence.
+    /// </summary>
+    public static bool IsColorCode(ReadOnlySpan<char> text, int i)
         => ((i + 2) < text.Length) && (text[i] == '{') && (text[i + 1] == '=') && GetColorCode(text[i + 2]) is not null;
 
     private static bool IsKorean(char c) => c > 127;
@@ -421,9 +426,18 @@ public static class TextRenderer
     /// <summary>
     ///     Measures the pixel width of a text string. Skips {=x} color codes.
     /// </summary>
-    public static int MeasureWidth(string text, int scale = 1)
+    public static int MeasureWidth(string text, int scale = 1) => MeasureWidth(text.AsSpan(), scale);
+
+    /// <summary>
+    ///     Measures the pixel width of a span of text. Skips {=x} color codes.
+    /// </summary>
+    /// <remarks>
+    ///     Callers measuring a slice of a longer line -- a keyword inside a sentence, a truncation candidate -- take this
+    ///     overload rather than slicing a string per call.
+    /// </remarks>
+    public static int MeasureWidth(ReadOnlySpan<char> text, int scale = 1)
     {
-        if (string.IsNullOrEmpty(text))
+        if (text.IsEmpty)
             return 0;
 
         var width = 0;

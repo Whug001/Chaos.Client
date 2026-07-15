@@ -232,6 +232,9 @@ public sealed partial class WorldScreen
         if (ItemTooltip.Visible)
             ItemTooltip.UpdatePosition(InputBuffer.MouseX, InputBuffer.MouseY);
 
+        //── keyword hover — explain the tag or status the cursor is resting on ──
+        KeywordTooltip.TrackHover(InputBuffer.MouseX, InputBuffer.MouseY, AbilityMetadataDetails.HoverableText);
+
         //── tooltip dismissal — clear hovered slot when blocking panels are visible ──
         if (HoveredInventorySlot is not null
             && (OtherProfile.Visible || NpcSession.Visible || FindVisibleModal() is not null))

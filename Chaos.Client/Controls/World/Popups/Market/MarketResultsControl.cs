@@ -281,8 +281,7 @@ public sealed class MarketResultsControl : UIPanel
 
         var listing = Listings[rowIndex];
 
-        //a null base line hides its slot; the description is deliberately not shown here (the market shows price
-        //instead, in the footer).
+        //a null base line hides its slot; the description renders last in the detail pane's scrollable region.
         DetailPane.Populate(
             listing.Sprite,
             listing.Color,
@@ -293,7 +292,8 @@ public sealed class MarketResultsControl : UIPanel
                 listing.MaxDurability > 0 ? $"Durability: {listing.CurrentDurability}/{listing.MaxDurability}" : null,
                 $"Seller: {listing.SellerName}"
             ],
-            listing.Stats);
+            listing.Stats,
+            listing.Description);
     }
 
     /// <summary>Refreshes the footer total (quantity × unit price) for the selected listing; clears it when none selected.</summary>

@@ -126,6 +126,77 @@ public sealed class TextElement
         }
     }
 
+    /// <summary>
+    ///     Underlines the <paramref name="length" /> characters of <paramref name="text" /> starting at
+    ///     <paramref name="index" />, as drawn by <see cref="Draw" /> at the same <paramref name="position" />. The rule sits
+    ///     on the bottom row of the glyph cell.
+    /// </summary>
+    /// <param name="color">
+    ///     The rule's colour. Omit it to adopt the colour the underlined glyphs are drawn in -- including any {=x} code that
+    ///     colours them -- so a rule under coloured text matches it without the caller working out which colour that is.
+    ///     Pass one to override that, when the rule means something the text's own colour does not.
+    /// </param>
+    public void DrawUnderline(
+        SpriteBatch spriteBatch,
+        Vector2 position,
+        string text,
+        int index,
+        int length,
+        Rectangle clipRect = default,
+        float opacity = 1f,
+        Color? color = null)
+    {
+        if (string.IsNullOrEmpty(text) || (length <= 0) || (index < 0) || ((index + length) > text.Length))
+            return;
+
+        //the shadowed styles draw their main pass offset from position; the rule has to follow it
+        var origin = position + MainPassOffset;
+        var ruleColor = color ?? ColorAt(text, index);
+
+        var bounds = new Rectangle(
+            (int)origin.X + TextRenderer.MeasureWidth(text.AsSpan(0, index)),
+            (int)origin.Y + TextRenderer.CHAR_HEIGHT - 1,
+            TextRenderer.MeasureWidth(text.AsSpan(index, length)),
+            1);
+
+        if (!clipRect.IsEmpty)
+        {
+            bounds = Rectangle.Intersect(bounds, clipRect);
+
+            if (bounds is { Width: <= 0 } or { Height: <= 0 })
+                return;
+        }
+
+        UIElement.DrawRect(spriteBatch, bounds, ruleColor * opacity);
+    }
+
+    /// <summary>
+    ///     The colour the glyph at <paramref name="index" /> is drawn in: the nearest {=x} code before it, or this element's
+    ///     own <see cref="Color" /> when no code precedes it.
+    /// </summary>
+    private Color ColorAt(string text, int index)
+    {
+        if (!ColorCodesEnabled)
+            return Color;
+
+        //a code occupies 3 chars, so the nearest one able to colour index starts at index-3
+        for (var i = index - 3; i >= 0; i--)
+            if (TextRenderer.IsColorCode(text, i))
+                return TextRenderer.GetColorCode(text[i + 2]) ?? Color;
+
+        return Color;
+    }
+
+    /// <summary>
+    ///     Offset of the main (non-shadow) text pass from the draw position, per <see cref="ShadowStyle" />.
+    /// </summary>
+    private Vector2 MainPassOffset
+        => ShadowStyle switch
+        {
+            ShadowStyle.BottomLeft or ShadowStyle.BothSides => new Vector2(1, 0),
+            _                                               => Vector2.Zero
+        };
+
     private void DrawClipped(
         SpriteBatch spriteBatch,
         Vector2 position,
