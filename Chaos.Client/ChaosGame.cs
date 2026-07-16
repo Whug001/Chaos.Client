@@ -405,6 +405,9 @@ public sealed class ChaosGame : Game
         CooldownNumberFont.Initialize(GraphicsDevice);
         UiRenderer.Instance = new UiRenderer(GraphicsDevice);
 
+        //opt our hardware cursor out of Win11's DPI + accessibility "pointer size" scaling before we build it,
+        //so the OS doesn't multiply our already-window-scaled cursor into an oversized one
+        Win32Cursor.DisableOsScalingForThisThread();
         LoadCustomCursor();
 
         Screens.Switch(new LobbyLoginScreen());
