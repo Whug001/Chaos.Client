@@ -282,7 +282,9 @@ public sealed partial class WorldScreen
                         ?? WorldHud.SkillBookAlt.GetSkillSlot(slot)
                         ?? WorldHud.Tools.WorldSkills.GetSkillSlot(slot);
 
-        if (skillSlot is not null && (skillSlot.CooldownPercent > 0))
+        //gate on the authoritative book, not skillSlot.CooldownPercent: the control's copy only refreshes while its panel is
+        //visibly updating, so a macro firing from a hidden pane would read a stale (frozen-on-cooldown or stale-ready) value
+        if (WorldState.SkillBook.GetCooldownPercent(slot) > 0)
             return;
 
         //send chant line if one is set for this skill
@@ -321,7 +323,8 @@ public sealed partial class WorldScreen
     /// </summary>
     private bool TryBeginCast(SpellSlot spellSlot)
     {
-        if (string.IsNullOrEmpty(spellSlot.AbilityName) || (spellSlot.CooldownPercent > 0))
+        //gate on the authoritative book, not spellSlot.CooldownPercent — see HandleSkillSlotClicked
+        if (string.IsNullOrEmpty(spellSlot.AbilityName) || (WorldState.SpellBook.GetCooldownPercent(spellSlot.Slot) > 0))
             return false;
 
         //notarget spells cast immediately (no cast mode)

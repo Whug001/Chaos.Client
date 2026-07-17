@@ -193,15 +193,9 @@ public sealed class ChatInputControl : UIPanel
     /// <summary>
     ///     Opens the box for normal chat, or in whatever channel was locked in with a "/g&lt;enter&gt;"-style shortcut.
     /// </summary>
-    public void Focus()
-    {
-        //a group lock outlives the group, so drop it once there's no group left to talk to — the
-        //server would silently swallow every message otherwise.
-        if ((WorldState.Chat.StickyChannel == ChatMode.Group) && !WorldState.Group.InGroup)
-            WorldState.Chat.StickyChannel = ChatMode.Normal;
-
-        FocusMode(WorldState.Chat.StickyChannel);
-    }
+    //a channel lock persists until /s, even with no group/guild to talk to — parity with /gu, and the
+    //server just drops the unreachable messages. no preemptive reset, or a fresh solo /g lock never sticks.
+    public void Focus() => FocusMode(WorldState.Chat.StickyChannel);
 
     /// <summary>
     ///     Opens the box in shout, bypassing any locked channel.

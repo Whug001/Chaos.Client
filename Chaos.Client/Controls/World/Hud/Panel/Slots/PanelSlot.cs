@@ -215,6 +215,9 @@ public class PanelSlot : UIButton
 
     public override void OnDoubleClick(DoubleClickEvent e)
     {
+        //cache gate is intentional here (also OnDragStart): a mouse gesture only lands on a visible — therefore
+        //freshly-updated — panel, and PanelSlot is book-agnostic (backs inventory too) so it cannot consult the model.
+        //The macro/keyboard path in WorldScreen.InputHandlers must gate on WorldState.<Book> instead; do not "unify" these.
         if ((e.Button == MouseButton.Left) && NormalTexture is not null && (CooldownPercent <= 0))
         {
             DoubleClicked?.Invoke(Slot);
