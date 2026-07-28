@@ -196,6 +196,13 @@ public delegate void DisplayVisibleEntitiesHandler(DisplayVisibleEntitiesArgs ar
 public delegate void SetEntityTintHandler(SetEntityTintArgs args);
 
 /// <summary>
+///     Fired when an entity's current steps-per-second override changes (mount tier, arena speed effects,
+///     etc). Also fires whenever the entity becomes visible, so newly-visible entities get their current
+///     speed immediately.
+/// </summary>
+public delegate void SetEntitySpeedHandler(SetEntitySpeedArgs args);
+
+/// <summary>
 ///     Fired when the server sends the player's user options.
 /// </summary>
 public delegate void UserOptionsHandler(UserOptionsArgs args);

@@ -488,6 +488,11 @@ public sealed class ConnectionManager : IDisposable
     public event SetEntityTintHandler? OnSetEntityTint;
 
     /// <summary>
+    ///     Fired when an entity's current steps-per-second override changes, or when it becomes visible.
+    /// </summary>
+    public event SetEntitySpeedHandler? OnSetEntitySpeed;
+
+    /// <summary>
     ///     Fired when the server sends the player's user options.
     /// </summary>
     public event UserOptionsHandler? OnUserOptions;
@@ -1456,6 +1461,7 @@ public sealed class ConnectionManager : IDisposable
         PacketHandlers[(byte)ServerOpCode.Attributes] = HandleAttributes;
         PacketHandlers[(byte)ServerOpCode.DisplayVisibleEntities] = HandleDisplayVisibleEntities;
         PacketHandlers[(byte)ServerOpCode.SetEntityTint] = HandleSetEntityTint;
+        PacketHandlers[(byte)ServerOpCode.SetEntitySpeed] = HandleSetEntitySpeed;
         PacketHandlers[(byte)ServerOpCode.UserOptions] = HandleUserOptions;
         PacketHandlers[(byte)ServerOpCode.MarketDisplay] = HandleMarketDisplay;
         PacketHandlers[(byte)ServerOpCode.BankDisplay] = HandleBankDisplay;
@@ -1755,6 +1761,12 @@ public sealed class ConnectionManager : IDisposable
     {
         var args = Client.Deserialize<SetEntityTintArgs>(in pkt);
         OnSetEntityTint?.Invoke(args);
+    }
+
+    private void HandleSetEntitySpeed(ServerPacket pkt)
+    {
+        var args = Client.Deserialize<SetEntitySpeedArgs>(in pkt);
+        OnSetEntitySpeed?.Invoke(args);
     }
 
     private void HandleUserOptions(ServerPacket pkt)

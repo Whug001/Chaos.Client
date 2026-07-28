@@ -96,19 +96,12 @@ public static class DataUtilities
     public static Gender DetermineGender(BodySprite bodySprite)
         => bodySprite switch
         {
-            BodySprite.None        => 0,
-            BodySprite.Male        => Gender.Male,
             BodySprite.Female      => Gender.Female,
-            BodySprite.MaleGhost   => Gender.Male,
             BodySprite.FemaleGhost => Gender.Female,
-            BodySprite.MaleInvis   => Gender.Male,
             BodySprite.FemaleInvis => Gender.Female,
-            BodySprite.MaleJester  => Gender.Male,
-            BodySprite.MaleHead    => Gender.Male,
             BodySprite.FemaleHead  => Gender.Female,
-            BodySprite.BlankMale   => Gender.Male,
             BodySprite.BlankFemale => Gender.Female,
-            _                      => 0
+            _                      => Gender.Male
         };
 
     public static (string ArchiveName, string EntryName) DetermineKhanDetails(BodyAnimation bodyAnimation, BodySprite bodySprite)

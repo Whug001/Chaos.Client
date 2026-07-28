@@ -23,6 +23,39 @@ public sealed class WorldEntity
     public int AnimFrameIndex { get; set; }
     public float AnimFrameIntervalMs { get; set; }
 
+    /// <summary>
+    ///     Free-running elapsed time (ms) driving the walk-pose frame. Unlike <see cref="AnimElapsedMs" />
+    ///     (reset every tile by <see cref="AnimationSystem.StartWalk" />), this is never reset — it keeps
+    ///     accumulating across tile boundaries so the pose cycles at its natural pace continuously instead
+    ///     of rushing/truncating a full stride every single tile (e.g. a fast mount whose per-tile
+    ///     <see cref="MoveDurationMs" /> is shorter than one full pose cycle).
+    /// </summary>
+    public float WalkPoseElapsedMs { get; set; }
+
+    /// <summary>
+    ///     Whether this entity was still <see cref="EntityAnimState.Walking" /> as of the last
+    ///     <see cref="AnimationSystem.Advance" /> call. Used by <see cref="AnimationSystem.StartWalk" /> to
+    ///     tell a genuine fresh walk-start apart from a tile-to-tile continuation of an ongoing walk, so
+    ///     <see cref="WalkPoseElapsedMs" /> only resets on a real stop instead of every single tile.
+    /// </summary>
+    public bool WasWalkingLastFrame { get; set; }
+
+    /// <summary>
+    ///     Total tile-crossing (translation) duration (ms) for the current walk, when it must differ from
+    ///     <see cref="AnimFrameCount" /> * <see cref="AnimFrameIntervalMs" /> (e.g. a fast mount). Only
+    ///     affects how quickly the entity slides between tiles — the walk-pose cadence
+    ///     (<see cref="WalkPoseElapsedMs" />) is entirely independent. 0 = derive from frame count * frame
+    ///     interval as usual.
+    /// </summary>
+    public float MoveDurationMs { get; set; }
+
+    /// <summary>
+    ///     The entity's current steps-per-second, as last reported by the server (CreatureWalk for remote
+    ///     entities, ClientWalkResponse for the local player). Reflects mount tier, arena speed effects, etc.
+    ///     0 = normal speed. Drives <see cref="AnimationSystem" />'s walk-timing override.
+    /// </summary>
+    public byte MoveSpeedOverride { get; set; }
+
     //animation state — managed by animationmanager
     public EntityAnimState AnimState { get; set; }
 

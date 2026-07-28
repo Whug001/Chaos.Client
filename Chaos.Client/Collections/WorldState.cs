@@ -1,9 +1,11 @@
 #region
 using Chaos.Client.Data;
 using Chaos.Client.Data.Models;
+using Chaos.Client.Data.Utilities;
 using Chaos.Client.Extensions;
 using Chaos.Client.Models;
 using Chaos.Client.Networking;
+using Chaos.Client.Rendering;
 using Chaos.Client.Systems;
 using Chaos.Client.ViewModel;
 using Chaos.DarkAges.Definitions;
@@ -184,7 +186,7 @@ public static class WorldState
 
             entity.Appearance = new AislingAppearance
             {
-                Gender = args.BodySprite is BodySprite.Female or BodySprite.FemaleGhost ? Gender.Female : Gender.Male,
+                Gender = DataUtilities.DetermineGender(args.BodySprite),
                 BodySpriteId = GetBodySpriteId(args.BodySprite),
                 BodyColor = args.BodySprite is BodySprite.MaleGhost or BodySprite.FemaleGhost
                     ? GHOST_BODY_COLOR
@@ -275,6 +277,24 @@ public static class WorldState
     }
 
     /// <summary>
+    ///     Applies a server-sent steps-per-second override to an entity, creating a placeholder entry if it
+    ///     isn't tracked yet. Drives <see cref="Systems.AnimationSystem" />'s walk-timing override.
+    /// </summary>
+    public static void SetEntitySpeed(SetEntitySpeedArgs args)
+    {
+        if (!Entities.TryGetValue(args.Id, out var entity))
+        {
+            entity = new WorldEntity
+            {
+                Id = args.Id
+            };
+            Entities[args.Id] = entity;
+        }
+
+        entity.MoveSpeedOverride = args.Speed;
+    }
+
+    /// <summary>
     ///     Clears all tracked entities and active effects. Call on map change.
     /// </summary>
     public static void Clear()
@@ -348,7 +368,11 @@ public static class WorldState
             BodySprite.MaleGhost or BodySprite.FemaleGhost => 2,
             BodySprite.MaleInvis or BodySprite.FemaleInvis => 3,
             BodySprite.MaleJester                          => 4,
-            _                                              => 1
+            //no body sprite in the data set matches a mounted rider's silhouette (ids 5-9 are
+            //swim/boat poses) — omit the body layer entirely so the mount overcoat isn't fought by
+            //the character's own arms/legs.
+            BodySprite.MaleHead or BodySprite.FemaleHead => AislingRenderer.NO_BODY_ID,
+            _                                            => 1
         };
 
     /// <summary>

@@ -67,11 +67,30 @@ public static class AnimationSystem
         entity.AnimElapsedMs = 0;
         entity.AnimFrameCount = frameCount;
 
+        //WalkPoseElapsedMs free-runs across chained tiles (see AdvanceWalk) so a natural-paced stride
+        //isn't rushed/truncated by a short MoveDurationMs — but that only looks right while genuinely
+        //continuing a walk. If the entity wasn't still walking as of the last processed frame, this is
+        //a fresh start (or was mid-cycle when it stopped last time), so reset to frame 0 — otherwise a
+        //walk could end and later resume at an arbitrary mid-stride phase, or end this tile at whatever
+        //phase the clock happens to be at instead of a clean stride frame, looking like a stutter/hitch
+        //right before settling into idle.
+        if (!entity.WasWalkingLastFrame)
+            entity.WalkPoseElapsedMs = 0;
+
+        //walk-pose cadence is always the entity's natural per-type pace — never compressed to fit a
+        //speed override's shortened tile-crossing time. A natural gait cycle (4 frames at this pace)
+        //takes longer than one fast tile-crossing, so the pose necessarily spans multiple tiles.
         entity.AnimFrameIntervalMs = isCreature && !swimming
             ? entity.Type == ClientEntityType.Aisling ? MORPHED_AISLING_WALK_FRAME_MS : CREATURE_WALK_FRAME_MS
             : isLocalPlayer
                 ? DEFAULT_WALK_FRAME_MS
                 : REMOTE_AISLING_WALK_FRAME_MS;
+
+        //server-authoritative speed override (mount tier, arena speed effects, etc) — see
+        //WorldEntity.MoveSpeedOverride. Only compresses the tile-crossing (translation) duration; the
+        //walk-pose cadence above is entirely independent.
+        var hasSpeedOverride = !swimming && (entity.MoveSpeedOverride > 0);
+        entity.MoveDurationMs = hasSpeedOverride ? 1000f / entity.MoveSpeedOverride : 0f;
 
         entity.WalkStartOffset = GetWalkOffset(direction);
 
@@ -191,6 +210,13 @@ public static class AnimationSystem
         if ((entity.IdleAnimFrameCount > 0) || entity.IsRenderedAsCreatureSprite || entity.IsOnSwimmingTile)
             AdvanceIdleAnim(entity, elapsedMs);
 
+        //captured before AdvanceWalk runs, so it reflects whether the entity was still walking as of
+        //the last processed frame — even though AdvanceWalk may flip AnimState to Idle below (tile
+        //complete), this still reads true for that transitional frame, telling the next StartWalk call
+        //(if the walk chains into another tile) that it's a continuation, not a fresh start. See
+        //StartWalk's use of this flag for why that distinction matters for WalkPoseElapsedMs.
+        entity.WasWalkingLastFrame = entity.AnimState == EntityAnimState.Walking;
+
         switch (entity.AnimState)
         {
             case EntityAnimState.Walking:
@@ -209,15 +235,32 @@ public static class AnimationSystem
     {
         entity.AnimElapsedMs += elapsedMs;
 
-        //total duration includes all frames — each frame gets a full interval (including the last).
-        var totalDuration = Math.Max(MIN_WALK_DURATION_MS, entity.AnimFrameCount * entity.AnimFrameIntervalMs);
+        //translation (tile-crossing) duration normally equals all frames at a full interval each, but
+        //MoveDurationMs can override it (e.g. a fast mount) without changing the walk-pose cadence below.
+        var totalDuration = entity.MoveDurationMs > 0f
+            ? entity.MoveDurationMs
+            : Math.Max(MIN_WALK_DURATION_MS, entity.AnimFrameCount * entity.AnimFrameIntervalMs);
         var progress = Math.Clamp(entity.AnimElapsedMs / totalDuration, 0f, 1f);
 
-        //some entities have no walk frames — that's valid. the walk slide still needs to play out,
-        //but there's no frame stepping to do.
-        entity.AnimFrameIndex = entity.AnimFrameCount > 0
-            ? Math.Clamp((int)(progress * entity.AnimFrameCount), 0, entity.AnimFrameCount - 1)
-            : 0;
+        //walk pose. Entities with an active speed override (MoveDurationMs > 0 — mount tier, arena
+        //speed effects) use a free-running clock that is never reset by StartWalk, so consecutive
+        //tiles (whose MoveDurationMs is shorter than a full pose cycle) don't rush/truncate the stride
+        //each tile — it just keeps cycling at its natural pace, continuing seamlessly across tile
+        //boundaries. Wraps via modulo instead of clamping so it never gets stuck mid-stride.
+        //Everyone else uses the original formula, locked to translation progress (AnimElapsedMs) —
+        //unaffected by any of this, since for them one tile always equals exactly one full pose cycle.
+        //some entities have no walk frames — that's valid, the walk slide still needs to play out either way.
+        if (entity.MoveDurationMs > 0f)
+        {
+            entity.WalkPoseElapsedMs += elapsedMs;
+
+            entity.AnimFrameIndex = entity.AnimFrameCount > 0
+                ? (int)(entity.WalkPoseElapsedMs / entity.AnimFrameIntervalMs) % entity.AnimFrameCount
+                : 0;
+        } else
+            entity.AnimFrameIndex = entity.AnimFrameCount > 0
+                ? Math.Clamp((int)(entity.AnimElapsedMs / entity.AnimFrameIntervalMs), 0, entity.AnimFrameCount - 1)
+                : 0;
 
         //both smooth and stepped use integer-only offsets to prevent sub-pixel wobble.
         //the walk start offsets are always integer (±28, ±14), and integer division
@@ -231,9 +274,14 @@ public static class AnimationSystem
                 : 0;
             entity.VisualOffset = GetSteppedWalkOffset(entity.WalkStartOffset, smoothFrameIndex, smoothFrameCount);
         } else
-
-            //stepped: offset jumps discretely with each animation frame
-            entity.VisualOffset = GetSteppedWalkOffset(entity.WalkStartOffset, entity.AnimFrameIndex, entity.AnimFrameCount);
+        {
+            //stepped: offset jumps discretely, paced by translation progress (not the walk pose) so the
+            //slide still completes in totalDuration even when the pose cadence is slower.
+            var translationFrameIndex = entity.AnimFrameCount > 0
+                ? Math.Clamp((int)(progress * entity.AnimFrameCount), 0, entity.AnimFrameCount - 1)
+                : 0;
+            entity.VisualOffset = GetSteppedWalkOffset(entity.WalkStartOffset, translationFrameIndex, entity.AnimFrameCount);
+        }
 
         if (progress >= 1f)
             ResetToIdle(entity);

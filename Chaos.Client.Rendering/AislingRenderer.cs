@@ -80,6 +80,13 @@ public sealed class AislingRenderer : IDisposable
 {
     private const int BODY_ID = 1;
     private const int PANTS_ID = 1;
+
+    /// <summary>
+    ///     Sentinel <see cref="AislingAppearance.BodySpriteId" /> value meaning "render no body layer at all"
+    ///     (arms/legs skin omitted entirely). Used for mounted aislings, where the mount overcoat sprite depicts
+    ///     the rider directly and no body-shaped sprite in the data set matches its silhouette.
+    /// </summary>
+    public const int NO_BODY_ID = -1;
     private const int MAX_MALE_HAIR_STYLE = 18;
     private const int MAX_FEMALE_HAIR_STYLE = 17;
     private const int MAX_HAIR_COLOR = 13;
@@ -287,7 +294,7 @@ public sealed class AislingRenderer : IDisposable
         var options = new MemoryCacheEntryOptions()
             .SetSlidingExpiration(LAYER_IMAGE_CACHE_SLIDING)
             .RegisterPostEvictionCallback(static (_, value, _, _) => (value as IDisposable)?.Dispose());
-
+        
         LayerImageCache.Set(key, image, options);
     }
 
@@ -312,6 +319,7 @@ public sealed class AislingRenderer : IDisposable
                 in appearance,
                 p.FrameIndex,
                 out var contentBottomY,
+                out var topPadding,
                 p.AnimSuffix,
                 p.Flip,
                 p.IsFrontFacing,
@@ -323,7 +331,7 @@ public sealed class AislingRenderer : IDisposable
             if (p.GroundPaintHeight > 0)
             {
                 using var scope = new PixelBufferScope(texture);
-                ImageUtil.ApplyGroundTint(scope.Pixels, scope.Width, scope.Height, p.GroundPaintHeight, CANVAS_CENTER_Y, p.GroundTintColor);
+                ImageUtil.ApplyGroundTint(scope.Pixels, scope.Width, scope.Height, p.GroundPaintHeight, CANVAS_CENTER_Y + topPadding, p.GroundTintColor);
                 scope.CommitTo(texture);
             }
 
@@ -340,7 +348,8 @@ public sealed class AislingRenderer : IDisposable
                 EmotionFrame = p.EmotionFrame,
                 GroundPaintHeight = p.GroundPaintHeight,
                 Texture = texture,
-                ContentBottomY = contentBottomY
+                ContentBottomY = contentBottomY,
+                TopPadding = topPadding
             };
             CompositeCache[p.EntityId] = cached;
         }
@@ -351,7 +360,7 @@ public sealed class AislingRenderer : IDisposable
         var drawTexture = cached.Texture;
 
         var baseX = p.TileCenterX + p.VisualOffset.X - CANVAS_CENTER_X;
-        var baseY = p.TileCenterY + p.VisualOffset.Y - CANVAS_CENTER_Y;
+        var baseY = p.TileCenterY + p.VisualOffset.Y - CANVAS_CENTER_Y - cached.TopPadding;
         var screenPos = camera.WorldToScreen(new Vector2(baseX, baseY));
 
         var finalTexture = p.Tint switch
@@ -445,6 +454,7 @@ public sealed class AislingRenderer : IDisposable
         public int GroundPaintHeight { get; init; }
         public Texture2D? Texture { get; init; }
         public int ContentBottomY { get; init; }
+        public int TopPadding { get; init; }
     }
 
     //layer image is NOT owned by this struct — lifetime is managed by LayerImageCache (LRU + sliding expiration
@@ -460,7 +470,7 @@ public sealed class AislingRenderer : IDisposable
             TypeLetter = typeLetter;
         }
     }
-    
+
     [SuppressMessage("ReSharper", "NotAccessedPositionalProperty.Local")]
     private readonly record struct LayerCacheKey(
         char TypeLetter,
@@ -477,7 +487,12 @@ public sealed class AislingRenderer : IDisposable
     /// <summary>
     ///     Composites all layers into a single image. Used for paperdoll and character creation preview.
     /// </summary>
-    private static SKImage? Composite(LayerInfo?[] layers, LayerSlot[] order, bool flipHorizontal, out int contentBottomY)
+    private static SKImage? Composite(
+        LayerInfo?[] layers,
+        LayerSlot[] order,
+        bool flipHorizontal,
+        out int contentBottomY,
+        out int topPadding)
     {
         var width = COMPOSITE_WIDTH;
         var height = COMPOSITE_HEIGHT;
@@ -488,6 +503,13 @@ public sealed class AislingRenderer : IDisposable
         foreach (var slot in order)
             if (layers[(int)slot] is { } sized && (sized.Image.Height > height))
                 height = sized.Image.Height;
+
+        //when a display sprite is taller than the normal body frame, the extra rows would otherwise hang
+        //below the feet instead of the character fitting on the tile. topPadding tells Draw() how far to
+        //shift the whole composited texture up on screen to compensate — every layer keeps its position
+        //relative to the others (nothing here repositions an individual layer), only the shared anchor
+        //moves. Zero for every normal-height sprite.
+        topPadding = height - COMPOSITE_HEIGHT;
 
         using var bitmap = new SKBitmap(width, height);
 
@@ -536,6 +558,7 @@ public sealed class AislingRenderer : IDisposable
             in appearance,
             frameIndex,
             out _,
+            out _,
             animSuffix,
             flipHorizontal,
             isFrontFacing,
@@ -545,12 +568,14 @@ public sealed class AislingRenderer : IDisposable
         in AislingAppearance appearance,
         int frameIndex,
         out int contentBottomY,
+        out int topPadding,
         string animSuffix = WALK_ANIM,
         bool flipHorizontal = false,
         bool? isFrontFacing = null,
         int emotionFrame = -1)
     {
         contentBottomY = 0;
+        topPadding = 0;
         var layers = RenderLayers;
         Array.Clear(layers, 0, layers.Length);
 
@@ -600,12 +625,14 @@ public sealed class AislingRenderer : IDisposable
                 }
             }
 
-            if (!layers[(int)LayerSlot.Body].HasValue && !layers[(int)LayerSlot.BodyB].HasValue)
+            if ((appearance.BodySpriteId != NO_BODY_ID)
+                && !layers[(int)LayerSlot.Body].HasValue
+                && !layers[(int)LayerSlot.BodyB].HasValue)
                 return null;
 
             var order = isFront ? FRONT_ORDER : BACK_ORDER;
 
-            using var composite = Composite(layers, order, flipHorizontal, out contentBottomY);
+            using var composite = Composite(layers, order, flipHorizontal, out contentBottomY, out topPadding);
 
             return composite is not null ? TextureConverter.ToTexture2D(composite) : null;
         } finally
@@ -661,27 +688,37 @@ public sealed class AislingRenderer : IDisposable
         string anim,
         int idleFallbackFrame = -1)
     {
-        var bodySpriteId = appearance.BodySpriteId > 0 ? appearance.BodySpriteId : BODY_ID;
+        var bodySpriteId = appearance.BodySpriteId switch
+        {
+            NO_BODY_ID => NO_BODY_ID,
+            > 0        => appearance.BodySpriteId,
+            _          => BODY_ID
+        };
 
-        layers[(int)LayerSlot.BodyB] = RenderEquipLayer(
-            'b',
-            bodySpriteId,
-            DisplayColor.Default,
-            in appearance,
-            frameIndex,
-            anim,
-            idleFallbackFrame);
-
-        if (bodySpriteId == BODY_ID)
-            layers[(int)LayerSlot.Body] = RenderBodyPaletteLayer(
-                'm',
-                BODY_ID,
+        if (bodySpriteId != NO_BODY_ID)
+        {
+            layers[(int)LayerSlot.BodyB] = RenderEquipLayer(
+                'b',
+                bodySpriteId,
+                DisplayColor.Default,
                 in appearance,
                 frameIndex,
                 anim,
                 idleFallbackFrame);
 
-        if (appearance.PantsColor.HasValue)
+            if (bodySpriteId == BODY_ID)
+                layers[(int)LayerSlot.Body] = RenderBodyPaletteLayer(
+                    'm',
+                    BODY_ID,
+                    in appearance,
+                    frameIndex,
+                    anim,
+                    idleFallbackFrame);
+        }
+
+        //mounted (no-body) riders have their legs hidden behind the mount overcoat art, so pants
+        //would otherwise float free of any body layer beneath them — omit until dismounted.
+        if (appearance.PantsColor.HasValue && (bodySpriteId != NO_BODY_ID))
             layers[(int)LayerSlot.Pants] = RenderEquipLayer(
                 'n',
                 PANTS_ID,
@@ -700,7 +737,7 @@ public sealed class AislingRenderer : IDisposable
                 anim,
                 idleFallbackFrame);
 
-        if (appearance.BootsSprite > 0)
+        if ((appearance.BootsSprite > 0) && (bodySpriteId != NO_BODY_ID))
             layers[(int)LayerSlot.Boots] = RenderEquipLayer(
                 'l',
                 appearance.BootsSprite,
@@ -759,7 +796,9 @@ public sealed class AislingRenderer : IDisposable
                 anim,
                 idleFallbackFrame);
 
-        if (appearance.WeaponSprite > 0)
+        //mounted (no-body) riders have weapons/shield/accessories hidden along with the rest of their
+        //gear — the mount overcoat art replaces the whole equipped look until dismounted.
+        if ((appearance.WeaponSprite > 0) && (bodySpriteId != NO_BODY_ID))
         {
             layers[(int)LayerSlot.WeaponW] = RenderEquipLayer(
                 'w',
@@ -780,7 +819,7 @@ public sealed class AislingRenderer : IDisposable
                 idleFallbackFrame);
         }
 
-        if (appearance.ShieldSprite > 0)
+        if ((appearance.ShieldSprite > 0) && (bodySpriteId != NO_BODY_ID))
             layers[(int)LayerSlot.Shield] = RenderEquipLayer(
                 's',
                 appearance.ShieldSprite,
@@ -790,7 +829,7 @@ public sealed class AislingRenderer : IDisposable
                 anim,
                 idleFallbackFrame);
 
-        if (appearance.Accessory1Sprite > 0)
+        if ((appearance.Accessory1Sprite > 0) && (bodySpriteId != NO_BODY_ID))
         {
             layers[(int)LayerSlot.Acc1C] = RenderEquipLayer(
                 'c',
@@ -811,7 +850,7 @@ public sealed class AislingRenderer : IDisposable
                 idleFallbackFrame);
         }
 
-        if (appearance.Accessory2Sprite > 0)
+        if ((appearance.Accessory2Sprite > 0) && (bodySpriteId != NO_BODY_ID))
         {
             layers[(int)LayerSlot.Acc2C] = RenderEquipLayer(
                 'c',
@@ -832,7 +871,7 @@ public sealed class AislingRenderer : IDisposable
                 idleFallbackFrame);
         }
 
-        if (appearance.Accessory3Sprite > 0)
+        if ((appearance.Accessory3Sprite > 0) && (bodySpriteId != NO_BODY_ID))
         {
             layers[(int)LayerSlot.Acc3C] = RenderEquipLayer(
                 'c',
