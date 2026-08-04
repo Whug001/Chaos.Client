@@ -217,7 +217,7 @@ public sealed class EffectRenderer : IDisposable
         if (spf is null)
             return null;
 
-        var frames = new SpriteFrame[spf.Count];
+        var frames = new List<SpriteFrame>(spf.Count);
 
         for (var i = 0; i < spf.Count; i++)
         {
@@ -225,20 +225,28 @@ public sealed class EffectRenderer : IDisposable
 
             using var skImage = SpfRenderer.RenderFrame(spf, i);
 
+            //a frame can fail to render (e.g. malformed/missing frame data) -- skip it rather than crash
+            if (skImage is null)
+                continue;
+
             var texture = TextureConverter.ToTexture2D(skImage);
 
             var centerX = spfFrame.HasCenterPoint ? spfFrame.CenterX : (short)28;
             var centerY = spfFrame.HasCenterPoint ? spfFrame.CenterY : (short)70;
 
-            frames[i] = new SpriteFrame(
-                texture,
-                centerX,
-                centerY,
-                (short)spfFrame.Left,
-                (short)spfFrame.Top);
+            frames.Add(
+                new SpriteFrame(
+                    texture,
+                    centerX,
+                    centerY,
+                    (short)spfFrame.Left,
+                    (short)spfFrame.Top));
         }
 
-        return new SpriteAnimation(frames);
+        if (frames.Count == 0)
+            return null;
+
+        return new SpriteAnimation(frames.ToArray());
     }
 
     internal SpriteAnimation? GetOrLoadMefcAnimation(int mefcId)

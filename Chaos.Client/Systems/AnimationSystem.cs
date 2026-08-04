@@ -242,22 +242,24 @@ public static class AnimationSystem
             : Math.Max(MIN_WALK_DURATION_MS, entity.AnimFrameCount * entity.AnimFrameIntervalMs);
         var progress = Math.Clamp(entity.AnimElapsedMs / totalDuration, 0f, 1f);
 
-        //walk pose. Entities with an active speed override (MoveDurationMs > 0 — mount tier, arena
-        //speed effects) use a free-running clock that is never reset by StartWalk, so consecutive
-        //tiles (whose MoveDurationMs is shorter than a full pose cycle) don't rush/truncate the stride
-        //each tile — it just keeps cycling at its natural pace, continuing seamlessly across tile
-        //boundaries. Wraps via modulo instead of clamping so it never gets stuck mid-stride.
-        //Everyone else uses the original formula, locked to translation progress (AnimElapsedMs) —
-        //unaffected by any of this, since for them one tile always equals exactly one full pose cycle.
-        //some entities have no walk frames — that's valid, the walk slide still needs to play out either way.
+        //walk pose — always paced by AnimFrameIntervalMs, independent of translation duration, so a
+        //compressed MoveDurationMs doesn't make the legs flicker through the walk cycle. some entities
+        //have no walk frames — that's valid, the walk slide still needs to play out either way.
         if (entity.MoveDurationMs > 0f)
         {
+            //free-running clock that is never reset by StartWalk, so consecutive tiles (whose
+            //MoveDurationMs is shorter than a full pose cycle) don't rush/truncate the stride each
+            //tile — it just keeps cycling at its natural pace, continuing seamlessly across tile
+            //boundaries. Wraps via modulo instead of clamping so it never gets stuck mid-stride.
             entity.WalkPoseElapsedMs += elapsedMs;
 
             entity.AnimFrameIndex = entity.AnimFrameCount > 0
                 ? (int)(entity.WalkPoseElapsedMs / entity.AnimFrameIntervalMs) % entity.AnimFrameCount
                 : 0;
         } else
+
+            //everyone else uses the original formula, locked to translation progress (AnimElapsedMs) —
+            //for them one tile always equals exactly one full pose cycle, so there's no drift to guard against.
             entity.AnimFrameIndex = entity.AnimFrameCount > 0
                 ? Math.Clamp((int)(entity.AnimElapsedMs / entity.AnimFrameIntervalMs), 0, entity.AnimFrameCount - 1)
                 : 0;

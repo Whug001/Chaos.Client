@@ -82,9 +82,16 @@ public sealed class AislingRenderer : IDisposable
     private const int PANTS_ID = 1;
 
     /// <summary>
+    ///     <see cref="AislingAppearance.BodySpriteId" /> value for a mounted rider's head-and-shoulders body
+    ///     sprite ("mm005"/"wm005" in the khanmim/khanwim archives). Rendered via the same 'm' palette layer
+    ///     as <see cref="BODY_ID" />, but gear (pants, boots, weapon, shield, accessories) is still hidden for
+    ///     this id — see the <c>isMounted</c> checks in <see cref="RenderAllLayers" />.
+    /// </summary>
+    public const int MOUNT_BODY_ID = 5;
+
+    /// <summary>
     ///     Sentinel <see cref="AislingAppearance.BodySpriteId" /> value meaning "render no body layer at all"
-    ///     (arms/legs skin omitted entirely). Used for mounted aislings, where the mount overcoat sprite depicts
-    ///     the rider directly and no body-shaped sprite in the data set matches its silhouette.
+    ///     (arms/legs skin omitted entirely).
     /// </summary>
     public const int NO_BODY_ID = -1;
     private const int MAX_MALE_HAIR_STYLE = 18;
@@ -695,6 +702,11 @@ public sealed class AislingRenderer : IDisposable
             _          => BODY_ID
         };
 
+        //mounted riders (no body at all, or the head-and-shoulders mount body) still have their legs
+        //hidden behind the mount overcoat art and the whole equipped look replaced by it — gear stays
+        //hidden for both, even though MOUNT_BODY_ID does render a body-ish layer below.
+        var isMounted = (bodySpriteId == NO_BODY_ID) || (bodySpriteId == MOUNT_BODY_ID);
+
         if (bodySpriteId != NO_BODY_ID)
         {
             layers[(int)LayerSlot.BodyB] = RenderEquipLayer(
@@ -709,16 +721,32 @@ public sealed class AislingRenderer : IDisposable
             if (bodySpriteId == BODY_ID)
                 layers[(int)LayerSlot.Body] = RenderBodyPaletteLayer(
                     'm',
-                    BODY_ID,
+                    bodySpriteId,
                     in appearance,
                     frameIndex,
                     anim,
                     idleFallbackFrame);
+            else if (bodySpriteId == MOUNT_BODY_ID)
+            {
+                //mm005/wm005's walk-frame range is a swim-stroke animation, not a walking mount rider
+                //— hold a single static idle-direction frame instead of tracking the entity's current
+                //walk/idle/attack animation state. The mount overcoat art alone conveys motion.
+                var isFront = IsFrontFacing(frameIndex, anim);
+                var mountBodyFrame = isFront ? RIGHT_IDLE_FRAME : UP_IDLE_FRAME;
+
+                layers[(int)LayerSlot.Body] = RenderBodyPaletteLayer(
+                    'm',
+                    bodySpriteId,
+                    in appearance,
+                    mountBodyFrame,
+                    WALK_ANIM,
+                    -1);
+            }
         }
 
-        //mounted (no-body) riders have their legs hidden behind the mount overcoat art, so pants
-        //would otherwise float free of any body layer beneath them — omit until dismounted.
-        if (appearance.PantsColor.HasValue && (bodySpriteId != NO_BODY_ID))
+        //mounted riders have their legs hidden behind the mount overcoat art, so pants would
+        //otherwise float free of any body layer beneath them — omit until dismounted.
+        if (appearance.PantsColor.HasValue && !isMounted)
             layers[(int)LayerSlot.Pants] = RenderEquipLayer(
                 'n',
                 PANTS_ID,
@@ -737,7 +765,7 @@ public sealed class AislingRenderer : IDisposable
                 anim,
                 idleFallbackFrame);
 
-        if ((appearance.BootsSprite > 0) && (bodySpriteId != NO_BODY_ID))
+        if ((appearance.BootsSprite > 0) && !isMounted)
             layers[(int)LayerSlot.Boots] = RenderEquipLayer(
                 'l',
                 appearance.BootsSprite,
@@ -796,9 +824,9 @@ public sealed class AislingRenderer : IDisposable
                 anim,
                 idleFallbackFrame);
 
-        //mounted (no-body) riders have weapons/shield/accessories hidden along with the rest of their
-        //gear — the mount overcoat art replaces the whole equipped look until dismounted.
-        if ((appearance.WeaponSprite > 0) && (bodySpriteId != NO_BODY_ID))
+        //mounted riders have weapons/shield/accessories hidden along with the rest of their gear —
+        //the mount overcoat art replaces the whole equipped look until dismounted.
+        if ((appearance.WeaponSprite > 0) && !isMounted)
         {
             layers[(int)LayerSlot.WeaponW] = RenderEquipLayer(
                 'w',
@@ -819,7 +847,7 @@ public sealed class AislingRenderer : IDisposable
                 idleFallbackFrame);
         }
 
-        if ((appearance.ShieldSprite > 0) && (bodySpriteId != NO_BODY_ID))
+        if ((appearance.ShieldSprite > 0) && !isMounted)
             layers[(int)LayerSlot.Shield] = RenderEquipLayer(
                 's',
                 appearance.ShieldSprite,
@@ -829,7 +857,7 @@ public sealed class AislingRenderer : IDisposable
                 anim,
                 idleFallbackFrame);
 
-        if ((appearance.Accessory1Sprite > 0) && (bodySpriteId != NO_BODY_ID))
+        if ((appearance.Accessory1Sprite > 0) && !isMounted)
         {
             layers[(int)LayerSlot.Acc1C] = RenderEquipLayer(
                 'c',
@@ -850,7 +878,7 @@ public sealed class AislingRenderer : IDisposable
                 idleFallbackFrame);
         }
 
-        if ((appearance.Accessory2Sprite > 0) && (bodySpriteId != NO_BODY_ID))
+        if ((appearance.Accessory2Sprite > 0) && !isMounted)
         {
             layers[(int)LayerSlot.Acc2C] = RenderEquipLayer(
                 'c',
@@ -871,7 +899,7 @@ public sealed class AislingRenderer : IDisposable
                 idleFallbackFrame);
         }
 
-        if ((appearance.Accessory3Sprite > 0) && (bodySpriteId != NO_BODY_ID))
+        if ((appearance.Accessory3Sprite > 0) && !isMounted)
         {
             layers[(int)LayerSlot.Acc3C] = RenderEquipLayer(
                 'c',

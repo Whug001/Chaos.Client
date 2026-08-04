@@ -368,9 +368,10 @@ public static class WorldState
             BodySprite.MaleGhost or BodySprite.FemaleGhost => 2,
             BodySprite.MaleInvis or BodySprite.FemaleInvis => 3,
             BodySprite.MaleJester                          => 4,
-            //no body sprite in the data set matches a mounted rider's silhouette (ids 5-9 are
-            //swim/boat poses) — omit the body layer entirely so the mount overcoat isn't fought by
-            //the character's own arms/legs.
+            //no body sprite in the data set matches a mounted rider's silhouette — omit the body
+            //layer entirely so the mount overcoat isn't fought by the character's own arms/legs.
+            //(AislingRenderer.MOUNT_BODY_ID / mm005 wasn't a fit — see its handling in RenderAllLayers
+            //if revisiting this with a different sprite id.)
             BodySprite.MaleHead or BodySprite.FemaleHead => AislingRenderer.NO_BODY_ID,
             _                                            => 1
         };
