@@ -203,6 +203,22 @@ public delegate void SetEntityTintHandler(SetEntityTintArgs args);
 public delegate void SetEntitySpeedHandler(SetEntitySpeedArgs args);
 
 /// <summary>
+///     Fired when an entity's remaining damage-absorption barrier changes, or when the entity becomes visible.
+///     A <c>Remaining</c> of 0 means the entity has no barrier.
+/// </summary>
+public delegate void SetEntityBarrierHandler(SetEntityBarrierArgs args);
+
+/// <summary>
+///     Fired when the server reports which song is playing and its Harmony.
+/// </summary>
+public delegate void SetSongStateHandler(SetSongStateArgs args);
+
+/// <summary>
+///     Fired when the server issues a four-note song call.
+/// </summary>
+public delegate void SongCallHandler(SongCallArgs args);
+
+/// <summary>
 ///     Fired when the server sends the player's user options.
 /// </summary>
 public delegate void UserOptionsHandler(UserOptionsArgs args);

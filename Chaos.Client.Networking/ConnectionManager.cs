@@ -493,6 +493,21 @@ public sealed class ConnectionManager : IDisposable
     public event SetEntitySpeedHandler? OnSetEntitySpeed;
 
     /// <summary>
+    ///     Fired when an entity's remaining damage-absorption barrier changes, or when it becomes visible.
+    /// </summary>
+    public event SetEntityBarrierHandler? OnSetEntityBarrier;
+
+    /// <summary>
+    ///     Fired when the playing song or its Harmony changes.
+    /// </summary>
+    public event SetSongStateHandler? OnSetSongState;
+
+    /// <summary>
+    ///     Fired when the server issues a song call to answer.
+    /// </summary>
+    public event SongCallHandler? OnSongCall;
+
+    /// <summary>
     ///     Fired when the server sends the player's user options.
     /// </summary>
     public event UserOptionsHandler? OnUserOptions;
@@ -1344,6 +1359,25 @@ public sealed class ConnectionManager : IDisposable
             });
 
     /// <summary>
+    ///     Answers a song call. Notes not entered are sent as 0.
+    /// </summary>
+    public void SendSongAnswer(
+        ushort callId,
+        byte note1,
+        byte note2,
+        byte note3,
+        byte note4)
+        => SendIfWorld(
+            new SongAnswerArgs
+            {
+                CallId = callId,
+                Note1 = note1,
+                Note2 = note2,
+                Note3 = note3,
+                Note4 = note4
+            });
+
+    /// <summary>
     ///     Sends an unequip request for the specified equipment slot.
     /// </summary>
     /// <param name="slot">The equipment slot to unequip.</param>
@@ -1462,6 +1496,9 @@ public sealed class ConnectionManager : IDisposable
         PacketHandlers[(byte)ServerOpCode.DisplayVisibleEntities] = HandleDisplayVisibleEntities;
         PacketHandlers[(byte)ServerOpCode.SetEntityTint] = HandleSetEntityTint;
         PacketHandlers[(byte)ServerOpCode.SetEntitySpeed] = HandleSetEntitySpeed;
+        PacketHandlers[(byte)ServerOpCode.SetEntityBarrier] = HandleSetEntityBarrier;
+        PacketHandlers[(byte)ServerOpCode.SetSongState] = HandleSetSongState;
+        PacketHandlers[(byte)ServerOpCode.SongCall] = HandleSongCall;
         PacketHandlers[(byte)ServerOpCode.UserOptions] = HandleUserOptions;
         PacketHandlers[(byte)ServerOpCode.MarketDisplay] = HandleMarketDisplay;
         PacketHandlers[(byte)ServerOpCode.BankDisplay] = HandleBankDisplay;
@@ -1767,6 +1804,24 @@ public sealed class ConnectionManager : IDisposable
     {
         var args = Client.Deserialize<SetEntitySpeedArgs>(in pkt);
         OnSetEntitySpeed?.Invoke(args);
+    }
+
+    private void HandleSetEntityBarrier(ServerPacket pkt)
+    {
+        var args = Client.Deserialize<SetEntityBarrierArgs>(in pkt);
+        OnSetEntityBarrier?.Invoke(args);
+    }
+
+    private void HandleSetSongState(ServerPacket pkt)
+    {
+        var args = Client.Deserialize<SetSongStateArgs>(in pkt);
+        OnSetSongState?.Invoke(args);
+    }
+
+    private void HandleSongCall(ServerPacket pkt)
+    {
+        var args = Client.Deserialize<SongCallArgs>(in pkt);
+        OnSongCall?.Invoke(args);
     }
 
     private void HandleUserOptions(ServerPacket pkt)

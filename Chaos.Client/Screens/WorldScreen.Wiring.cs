@@ -83,6 +83,11 @@ public sealed partial class WorldScreen
 
         //health bars
         Game.Connection.OnHealthBar += HandleHealthBar;
+        Game.Connection.OnSetEntityBarrier += HandleSetEntityBarrier;
+
+        //bard song state / call
+        Game.Connection.OnSetSongState += HandleSetSongState;
+        Game.Connection.OnSongCall += HandleSongCall;
 
         //status effects
         Game.Connection.OnEffect += HandleEffect;
@@ -1050,6 +1055,9 @@ public sealed partial class WorldScreen
     {
         public static readonly Action<IWorldHud, int, int> SetCoords =
             static (h, x, y) => h.SetCoords(x, y);
+
+        public static readonly Action<IWorldHud, int> SetBarrier =
+            static (h, remaining) => h.SetBarrier(remaining);
 
         public static readonly Action<IWorldHud, string> SetZoneName =
             static (h, name) => h.SetZoneName(name);

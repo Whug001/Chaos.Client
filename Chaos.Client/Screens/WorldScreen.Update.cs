@@ -220,6 +220,20 @@ public sealed partial class WorldScreen
                 Game.CreatureRenderer,
                 gameTime);
 
+        //bard song call countdown — driven from the update tick (not draw) so a live call expires in real
+        //time even when draws are skipped or catch-up ticks run update multiple times per draw.
+        //if the window expired before all four notes were entered, SongState hands back the partial
+        //answer (0 for unentered notes) and has already cleared the call; send it exactly once here.
+        var expiredSongAnswer = WorldState.Song.Update(elapsedMs);
+
+        if (expiredSongAnswer is { } songAnswer)
+            Game.Connection.SendSongAnswer(
+                songAnswer.CallId,
+                songAnswer.N1,
+                songAnswer.N2,
+                songAnswer.N3,
+                songAnswer.N4);
+
         //gather light sources for this frame and feed them to consumers
         Lighting.Gather(MapFile, CurrentMapFlags, Camera);
 

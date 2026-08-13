@@ -9,6 +9,7 @@ using Chaos.Client.Extensions;
 using Chaos.Client.Models;
 using Chaos.Client.Networking;
 using Chaos.Client.Networking.Definitions;
+using Chaos.Client.Rendering;
 using Chaos.Client.Rendering.Models;
 using Chaos.Client.Systems;
 using Chaos.Client.ViewModel;
@@ -1181,6 +1182,27 @@ public sealed partial class WorldScreen
     //--- health / effects / light ---
 
     private void HandleEffect(EffectArgs args) => UpdateHuds(HudOps.SetEffect, args.EffectIcon, args.EffectColor);
+
+    private void HandleSetEntityBarrier(SetEntityBarrierArgs args)
+    {
+        //entity may not be tracked yet (or at all) — the hud path below does not depend on the entity table
+        WorldState.GetEntity(args.Id)
+                  ?.Barrier.Set(args.Remaining);
+
+        if (args.Id == Game.Connection.AislingId)
+            UpdateHuds(HudOps.SetBarrier, (int)args.Remaining);
+    }
+
+    private void HandleSetSongState(SetSongStateArgs args) => WorldState.Song.SetState(args.SongId, args.Harmony);
+
+    private void HandleSongCall(SongCallArgs args)
+        => WorldState.Song.BeginCall(
+            args.CallId,
+            args.Note1,
+            args.Note2,
+            args.Note3,
+            args.Note4,
+            args.WindowMs);
 
     private void HandleHealthBar(HealthBarArgs args)
     {

@@ -4,6 +4,8 @@ using Chaos.Client.Controls.Components;
 using Chaos.Client.Controls.World.Hud.Panel;
 using Chaos.Client.Controls.World.ViewPort;
 using Chaos.Client.Data;
+using Chaos.Client.Definitions;
+using Chaos.Client.Models;
 using Chaos.Client.Systems;
 using Chaos.Client.ViewModel;
 using Microsoft.Xna.Framework;
@@ -25,6 +27,7 @@ public sealed class WorldHudControl : PrefabPanel, IWorldHud
 
     //hp/mp numeric displays
     private readonly UILabel HpNumLabel;
+    private readonly Color DefaultHpTextColor;
 
     //hp/mp orbs
     private readonly UIProgressBar HpOrb;
@@ -50,6 +53,7 @@ public sealed class WorldHudControl : PrefabPanel, IWorldHud
     private readonly UILabel WeightLabel;
 
     private int Hp = int.MinValue;
+    private readonly BarrierState Barrier = new();
     private int Mp = int.MinValue;
     private int WeightCurrent = int.MinValue;
     private int WeightMax = int.MinValue;
@@ -90,6 +94,9 @@ public sealed class WorldHudControl : PrefabPanel, IWorldHud
 
     //inventory
     public Rectangle InventoryBounds { get; }
+
+    /// <inheritdoc />
+    public Rectangle OrangeBarBounds { get; }
 
     //inventory tab buttons
     public UIButton?[] InventoryTabButtons { get; } = new UIButton?[6];
@@ -141,6 +148,13 @@ public sealed class WorldHudControl : PrefabPanel, IWorldHud
         //inventory area
         InventoryBounds = GetRect("InventoryRect");
 
+        //orange bar pane — the song strip lines itself up with this
+        OrangeBarBounds = GetRect("SystemMessageWrap");
+
+        //a prefab without that rect would otherwise give the song strip zero width and hide it outright
+        if (OrangeBarBounds == Rectangle.Empty)
+            OrangeBarBounds = ViewportBounds;
+
         //hp/mp orbs
         HpOrb = CreateProgressBar("ORB_HP")!;
         MpOrb = CreateProgressBar("ORB_MP")!;
@@ -148,6 +162,7 @@ public sealed class WorldHudControl : PrefabPanel, IWorldHud
         //hp/mp numeric text — zindex=1 so labels always render above overlapping orbs after re-sorts
         HpNumLabel = CreateLabel("NUM_HP", HorizontalAlignment.Right)!;
         HpNumLabel.ZIndex = 1;
+        DefaultHpTextColor = HpNumLabel.ForegroundColor;
         MpNumLabel = CreateLabel("NUM_MP", HorizontalAlignment.Right)!;
         MpNumLabel.ZIndex = 1;
 
@@ -515,13 +530,34 @@ public sealed class WorldHudControl : PrefabPanel, IWorldHud
     #region Public Methods
     public void UpdateHp(int current, int max)
     {
-        if (current != Hp)
-        {
-            Hp = current;
-            HpNumLabel.Text = current.ToString();
-        }
-
+        Hp = current;
         HpOrb.UpdateValue(current, max);
+        RefreshHpDisplay();
+    }
+
+    public void SetBarrier(int remaining)
+    {
+        Barrier.Set((uint)Math.Max(remaining, 0));
+        RefreshHpDisplay();
+    }
+
+    /// <summary>
+    ///     Applies the HP number for the current HP / barrier pair. Both <see cref="UpdateHp" /> and
+    ///     <see cref="SetBarrier" /> route through here so the display is correct regardless of which packet lands
+    ///     first. The orb itself is deliberately left alone and keeps tracking real HP — the barrier's remaining
+    ///     fraction is shown by the second bar under the entity's overhead health bar instead.
+    /// </summary>
+    private void RefreshHpDisplay()
+    {
+        if (Barrier.IsActive)
+        {
+            HpNumLabel.Text = Barrier.Remaining.ToString();
+            HpNumLabel.ForegroundColor = Constants.BarrierColor;
+        } else
+        {
+            HpNumLabel.Text = Hp.ToString();
+            HpNumLabel.ForegroundColor = DefaultHpTextColor;
+        }
     }
 
     public void UpdateMp(int current, int max)

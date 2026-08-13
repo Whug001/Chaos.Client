@@ -34,6 +34,12 @@ public sealed class UIProgressBar : UIElement
     public float Percent { get; set; }
 
     /// <summary>
+    ///     Tint multiplied into the rendered bar in frame-based and texture-clip mode. Defaults to
+    ///     <see cref="Color.White" /> (no tint). Has no effect in color-fill mode, which uses <see cref="FillColor" />.
+    /// </summary>
+    public Color TintColor { get; set; } = Color.White;
+
+    /// <summary>
     ///     Creates a color-fill progress bar (no frames).
     /// </summary>
     public UIProgressBar() => Frames = [];
@@ -65,7 +71,7 @@ public sealed class UIProgressBar : UIElement
                 spriteBatch,
                 Frames[CurrentFrame],
                 new Vector2(ScreenX, ScreenY),
-                Color.White);
+                TintColor);
 
             return;
         }
@@ -85,7 +91,7 @@ public sealed class UIProgressBar : UIElement
                         0,
                         clipWidth,
                         FillTexture.Height),
-                    Color.White);
+                    TintColor);
 
             return;
         }

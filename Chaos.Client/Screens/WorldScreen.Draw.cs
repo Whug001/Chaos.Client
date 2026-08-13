@@ -2,6 +2,7 @@
 using Chaos.Client.Collections;
 using Chaos.Client.Controls.Generic;
 using Chaos.Client.Controls.World.Hud.Panel;
+using Chaos.Client.Controls.World.ViewPort;
 using Chaos.Client.Data;
 using Chaos.Client.Models;
 using Chaos.Client.Rendering.Models;
@@ -16,6 +17,10 @@ namespace Chaos.Client.Screens;
 
 public sealed partial class WorldScreen
 {
+    //bard song strip -- lazily constructed screen-space overlay, positioned each frame against whichever
+    //hud layout is active (small/large hud viewports differ in height, so the strip cannot be pinned once)
+    private SongBarControl? SongBar;
+
     public void Draw(SpriteBatch spriteBatch, GameTime gameTime)
     {
         //sort once per frame — cached via dirty flag, reused by all draw sub-passes
@@ -185,6 +190,24 @@ public sealed partial class WorldScreen
 
             Overlays.Draw(spriteBatch, Camera, MapFile.Height);
             spriteBatch.End();
+
+            //bard song strip — overlay sitting on the bottom edge of the viewport. screen-space (no camera
+            //transform), positioned every frame against the active hud: it takes its column from
+            //WorldHud.OrangeBarBounds so it matches the panes below and stays clear of the hp/mp orbs and pane
+            //icons, and its baseline from WorldHud.ViewportBounds since the small/large layouts differ in
+            //viewport height. the call countdown itself is driven from WorldScreen.Update
+            //(WorldState.Song.Update) — this only refreshes visibility/label text and repositions the strip.
+            SongBar ??= new SongBarControl();
+            SongBar.Update(gameTime);
+            SongBar.SetStripBounds(WorldHud.OrangeBarBounds.X, WorldHud.OrangeBarBounds.Width);
+            SongBar.Y = WorldHud.ViewportBounds.Bottom - SongBar.Height - 2;
+
+            if (SongBar.Visible)
+            {
+                spriteBatch.Begin(samplerState: GlobalSettings.Sampler);
+                SongBar.Draw(spriteBatch);
+                spriteBatch.End();
+            }
 
             //snapshot draw count before debug draws so the reported count excludes debug visualizations
             DebugOverlay.SnapshotDrawCount();

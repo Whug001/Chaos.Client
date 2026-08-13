@@ -551,6 +551,52 @@ public sealed partial class WorldScreen
         return true;
     }
 
+    /// <summary>
+    ///     Records a song note if a call is outstanding. Returns false without consuming the key when no call is
+    ///     live, so U/I/O/P remain unbound during normal play.
+    /// </summary>
+    private bool HandleSongNote(KeyDownEvent e)
+    {
+        var song = WorldState.Song;
+
+        if (!song.HasLiveCall)
+            return false;
+
+        if (e is { Ctrl: true } || e is { Alt: true })
+            return false;
+
+        byte note = e.Scancode switch
+        {
+            Scancode.U => 1,
+            Scancode.I => 2,
+            Scancode.O => 3,
+            Scancode.P => 4,
+            _          => 0
+        };
+
+        if (note == 0)
+            return false;
+
+        var complete = song.EnterNote(note);
+
+        if (complete)
+        {
+            var (n1, n2, n3, n4) = song.TakeAnswer();
+            Game.Connection.SendSongAnswer(
+                song.CallId,
+                n1,
+                n2,
+                n3,
+                n4);
+
+            song.ClearCall();
+        }
+
+        e.Handled = true;
+
+        return true;
+    }
+
     private bool HandleSlotHotkey(KeyDownEvent e)
     {
         var slot = e.Scancode switch
@@ -1201,6 +1247,10 @@ public sealed partial class WorldScreen
 
             return;
         }
+
+        //song notes -- u/i/o/p, claimed ONLY while a call is live so the keys stay free the rest of the time
+        if (HandleSongNote(e))
+            return;
 
         //emote hotkeys: ctrl/alt/ctrl+alt + number row
         if (HandleEmoteHotkey(e))

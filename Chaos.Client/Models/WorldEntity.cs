@@ -56,6 +56,13 @@ public sealed class WorldEntity
     /// </summary>
     public byte MoveSpeedOverride { get; set; }
 
+    /// <summary>
+    ///     This entity's damage-absorption barrier, as last reported by the server. Sizes the barrier segment on the
+    ///     entity's health bar against the barrier's own peak, so the segment reads as "barrier left" rather than
+    ///     "barrier as a share of maximum health".
+    /// </summary>
+    public BarrierState Barrier { get; } = new();
+
     //animation state — managed by animationmanager
     public EntityAnimState AnimState { get; set; }
 

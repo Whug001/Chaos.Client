@@ -918,6 +918,9 @@ public sealed partial class WorldScreen : IScreen
         Game.Connection.OnRedirectReceived -= HandleRedirectReceived;
         Game.Connection.StateChanged -= HandleStateChanged;
         Game.Connection.OnHealthBar -= HandleHealthBar;
+        Game.Connection.OnSetEntityBarrier -= HandleSetEntityBarrier;
+        Game.Connection.OnSetSongState -= HandleSetSongState;
+        Game.Connection.OnSongCall -= HandleSongCall;
         Game.Connection.OnEffect -= HandleEffect;
         Game.Connection.OnLightLevel -= HandleLightLevel;
         Game.OnMetaDataSyncComplete -= HandleMetaDataSyncComplete;
@@ -946,6 +949,7 @@ public sealed partial class WorldScreen : IScreen
         WeatherRenderer.Dispose();
         SilhouetteRenderer.Dispose();
         Root?.Dispose();
+        SongBar?.Dispose();
         Game.AislingRenderer.ClearCompositeCache();
         Game.AislingRenderer.ClearGroupTintCache();
         Game.CreatureRenderer.ClearTintCaches();

@@ -19,5 +19,6 @@ public sealed class Animation
     public uint? TargetEntityId { get; init; }
     public int? TileX { get; init; }
     public int? TileY { get; init; }
+
     public bool IsComplete => CurrentFrame >= FrameCount;
 }

@@ -135,6 +135,11 @@ public static class WorldState
     public static SpellBook SpellBook { get; } = new();
 
     /// <summary>
+    ///     Authoritative bard song state with harmony, calls, and entered notes.
+    /// </summary>
+    public static SongState Song { get; } = new();
+
+    /// <summary>
     ///     Authoritative server-controlled user option toggles.
     /// </summary>
     public static UserOptions UserOptions { get; } = new();
@@ -322,6 +327,7 @@ public static class WorldState
         Inventory.Clear();
         SkillBook.Clear();
         SpellBook.Clear();
+        Song.Reset();
         Equipment.Clear();
         Attributes.Clear();
         Chat.Clear();
