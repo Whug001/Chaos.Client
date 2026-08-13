@@ -79,21 +79,16 @@ public readonly record struct AislingDrawParams(
 public sealed class AislingRenderer : IDisposable
 {
     private const int BODY_ID = 1;
+
+    /// <summary>
+    ///     The head form ("005" in the khanmim/khanwim archives) — a floating head with no body beneath it.
+    ///     This fork's server also uses it as the mounted-rider sprite, so gear is hidden for this id; see
+    ///     the <c>isMounted</c> checks in <see cref="RenderAllLayers" />.
+    /// </summary>
+    private const int HEAD_BODY_ID = 5;
+
+    private const int NO_BODY_ID = 0;
     private const int PANTS_ID = 1;
-
-    /// <summary>
-    ///     <see cref="AislingAppearance.BodySpriteId" /> value for a mounted rider's head-and-shoulders body
-    ///     sprite ("mm005"/"wm005" in the khanmim/khanwim archives). Rendered via the same 'm' palette layer
-    ///     as <see cref="BODY_ID" />, but gear (pants, boots, weapon, shield, accessories) is still hidden for
-    ///     this id — see the <c>isMounted</c> checks in <see cref="RenderAllLayers" />.
-    /// </summary>
-    public const int MOUNT_BODY_ID = 5;
-
-    /// <summary>
-    ///     Sentinel <see cref="AislingAppearance.BodySpriteId" /> value meaning "render no body layer at all"
-    ///     (arms/legs skin omitted entirely).
-    /// </summary>
-    public const int NO_BODY_ID = -1;
     private const int MAX_MALE_HAIR_STYLE = 18;
     private const int MAX_FEMALE_HAIR_STYLE = 17;
     private const int MAX_HAIR_COLOR = 13;
@@ -632,6 +627,8 @@ public sealed class AislingRenderer : IDisposable
                 }
             }
 
+            //a blank form legitimately has no body layer, so an empty body is not the "sprite failed to
+            //load" signal it is for every other form.
             if ((appearance.BodySpriteId != NO_BODY_ID)
                 && !layers[(int)LayerSlot.Body].HasValue
                 && !layers[(int)LayerSlot.BodyB].HasValue)
@@ -671,6 +668,7 @@ public sealed class AislingRenderer : IDisposable
         var appearance = new AislingAppearance
         {
             Gender = gender,
+            BodySpriteId = BODY_ID,
             HeadSprite = hairStyle,
             HeadColor = hairColor
         };
@@ -695,20 +693,15 @@ public sealed class AislingRenderer : IDisposable
         string anim,
         int idleFallbackFrame = -1)
     {
-        var bodySpriteId = appearance.BodySpriteId switch
-        {
-            NO_BODY_ID => NO_BODY_ID,
-            > 0        => appearance.BodySpriteId,
-            _          => BODY_ID
-        };
+        var bodySpriteId = appearance.BodySpriteId;
 
-        //mounted riders (no body at all, or the head-and-shoulders mount body) still have their legs
-        //hidden behind the mount overcoat art and the whole equipped look replaced by it — gear stays
-        //hidden for both, even though MOUNT_BODY_ID does render a body-ish layer below.
-        var isMounted = (bodySpriteId == NO_BODY_ID) || (bodySpriteId == MOUNT_BODY_ID);
+        //this fork's server sends the head form to mean "mounted" (MountEffect, WolfHuntMountEffect),
+        //so the whole equipped look is replaced by the mount overcoat art for this id.
+        var isMounted = bodySpriteId == HEAD_BODY_ID;
 
-        if (bodySpriteId != NO_BODY_ID)
-        {
+        //head forms have no 'b' outline layer — only the skin layer, which is a floating head.
+        //blank forms have neither, so no body composites at all.
+        if (bodySpriteId is not (NO_BODY_ID or HEAD_BODY_ID))
             layers[(int)LayerSlot.BodyB] = RenderEquipLayer(
                 'b',
                 bodySpriteId,
@@ -718,31 +711,14 @@ public sealed class AislingRenderer : IDisposable
                 anim,
                 idleFallbackFrame);
 
-            if (bodySpriteId == BODY_ID)
-                layers[(int)LayerSlot.Body] = RenderBodyPaletteLayer(
-                    'm',
-                    bodySpriteId,
-                    in appearance,
-                    frameIndex,
-                    anim,
-                    idleFallbackFrame);
-            else if (bodySpriteId == MOUNT_BODY_ID)
-            {
-                //mm005/wm005's walk-frame range is a swim-stroke animation, not a walking mount rider
-                //— hold a single static idle-direction frame instead of tracking the entity's current
-                //walk/idle/attack animation state. The mount overcoat art alone conveys motion.
-                var isFront = IsFrontFacing(frameIndex, anim);
-                var mountBodyFrame = isFront ? RIGHT_IDLE_FRAME : UP_IDLE_FRAME;
-
-                layers[(int)LayerSlot.Body] = RenderBodyPaletteLayer(
-                    'm',
-                    bodySpriteId,
-                    in appearance,
-                    mountBodyFrame,
-                    WALK_ANIM,
-                    -1);
-            }
-        }
+        if (bodySpriteId is BODY_ID or HEAD_BODY_ID)
+            layers[(int)LayerSlot.Body] = RenderBodyPaletteLayer(
+                'm',
+                bodySpriteId,
+                in appearance,
+                frameIndex,
+                anim,
+                idleFallbackFrame);
 
         //mounted riders have their legs hidden behind the mount overcoat art, so pants would
         //otherwise float free of any body layer beneath them — omit until dismounted.

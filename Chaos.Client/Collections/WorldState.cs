@@ -368,18 +368,21 @@ public static class WorldState
     //ghost palette entry instead so the face matches the wraith body.
     private const int GHOST_BODY_COLOR = (int)BodyColor.LightBlue;
 
+    //khan body sprite number used by the 'b' (body) and 'm' (skin) layer file names.
+    //0 means the form has no body sprite at all.
+    //khan body sprite number used by the 'b' (body) and 'm' (skin) layer file names.
+    //0 means the form has no body sprite at all.
     private static int GetBodySpriteId(BodySprite bodySprite)
         => bodySprite switch
         {
-            BodySprite.MaleGhost or BodySprite.FemaleGhost => 2,
-            BodySprite.MaleInvis or BodySprite.FemaleInvis => 3,
-            BodySprite.MaleJester                          => 4,
-            //no body sprite in the data set matches a mounted rider's silhouette — omit the body
-            //layer entirely so the mount overcoat isn't fought by the character's own arms/legs.
-            //(AislingRenderer.MOUNT_BODY_ID / mm005 wasn't a fit — see its handling in RenderAllLayers
-            //if revisiting this with a different sprite id.)
-            BodySprite.MaleHead or BodySprite.FemaleHead => AislingRenderer.NO_BODY_ID,
-            _                                            => 1
+            BodySprite.MaleGhost or BodySprite.FemaleGhost  => 2,
+            BodySprite.MaleInvis or BodySprite.FemaleInvis  => 3,
+            BodySprite.MaleJester                           => 4,
+            //this fork's server also sends MaleHead/FemaleHead to mean "mounted" (MountEffect,
+            //WolfHuntMountEffect) — the floating head is the rider, and AislingRenderer hides gear for it.
+            BodySprite.MaleHead or BodySprite.FemaleHead    => 5,
+            BodySprite.BlankMale or BodySprite.BlankFemale  => 0,
+            _                                               => 1
         };
 
     /// <summary>
