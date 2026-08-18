@@ -139,6 +139,8 @@ public static class WorldState
     /// </summary>
     public static SongState Song { get; } = new();
 
+    public static IchorState Ichor { get; } = new();
+
     /// <summary>
     ///     Authoritative server-controlled user option toggles.
     /// </summary>
@@ -328,6 +330,7 @@ public static class WorldState
         SkillBook.Clear();
         SpellBook.Clear();
         Song.Reset();
+        Ichor.Reset();
         Equipment.Clear();
         Attributes.Clear();
         Chat.Clear();

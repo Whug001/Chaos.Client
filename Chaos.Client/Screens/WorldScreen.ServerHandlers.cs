@@ -1195,6 +1195,13 @@ public sealed partial class WorldScreen
 
     private void HandleSetSongState(SetSongStateArgs args) => WorldState.Song.SetState(args.SongId, args.Harmony);
 
+    /// <summary>
+    ///     Plague doctor Ichor, 0-100, reported by the server. Server-authoritative -- the client only stores
+    ///     and displays this value, it never computes Ichor itself. Drawn by <see cref="IchorBar" /> in
+    ///     <c>WorldScreen.Draw.cs</c>.
+    /// </summary>
+    private void HandleSetIchorState(SetIchorStateArgs args) => WorldState.Ichor.SetIchor(args.Ichor);
+
     private void HandleSongCall(SongCallArgs args)
         => WorldState.Song.BeginCall(
             args.CallId,

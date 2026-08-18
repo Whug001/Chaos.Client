@@ -214,6 +214,11 @@ public delegate void SetEntityBarrierHandler(SetEntityBarrierArgs args);
 public delegate void SetSongStateHandler(SetSongStateArgs args);
 
 /// <summary>
+///     Raised when the server reports the Plague Doctor's current Ichor.
+/// </summary>
+public delegate void SetIchorStateHandler(SetIchorStateArgs args);
+
+/// <summary>
 ///     Fired when the server issues a four-note song call.
 /// </summary>
 public delegate void SongCallHandler(SongCallArgs args);
