@@ -67,10 +67,12 @@ public sealed class AbilityMetadataEntryControl : PrefabPanel
 
         if (LevelLabel is not null)
         {
-            LevelLabel.Text = entry.RequiresMaster
-                ? "master"
-                : entry.AbilityLevel > 0
-                    ? $"ability {entry.AbilityLevel}"
+            //an advanced-class ability carries both the master flag and an ability level. The ability level is the one
+            //that tells the player where they actually get it, so it wins the label.
+            LevelLabel.Text = entry.AbilityLevel > 0
+                ? $"ability {entry.AbilityLevel}"
+                : entry.RequiresMaster
+                    ? "master"
                     : $"level {entry.Level}";
             LevelLabel.ForegroundColor = LegendColors.White;
         }

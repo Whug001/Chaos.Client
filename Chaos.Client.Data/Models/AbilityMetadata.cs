@@ -1,4 +1,5 @@
 #region
+using Chaos.DarkAges.Definitions;
 using DALib.Data;
 #endregion
 
@@ -65,10 +66,25 @@ public sealed class AbilityMetadata
     }
 
     /// <summary>
+    ///     Returns a copy holding only the abilities <paramref name="advClass" /> can learn: the ones shared by the whole
+    ///     base class, plus that advanced class's own. A player who has not advanced yet (<see cref="AdvClass.None" />)
+    ///     sees the shared ones only.
+    /// </summary>
+    public AbilityMetadata ForAdvClass(AdvClass advClass)
+        => new(
+            Skills.Where(entry => IsVisibleTo(entry, advClass))
+                  .ToList(),
+            Spells.Where(entry => IsVisibleTo(entry, advClass))
+                  .ToList());
+
+    private static bool IsVisibleTo(AbilityMetadataEntry entry, AdvClass advClass)
+        => (entry.AdvClass == AdvClass.None) || (entry.AdvClass == advClass);
+
+    /// <summary>
     ///     Parses a single MetaFileEntry into an AbilityMetadataEntry.
     /// </summary>
     /// <remarks>
-    ///     Property layout: [0]=Level/IsMaster/AbilityLevel, [1]=IconId/0/0, [2]=Str/Int/Wis/Dex/Con,
+    ///     Property layout: [0]=Level/IsMaster/AbilityLevel, [1]=IconId/AdvClass/0, [2]=Str/Int/Wis/Dex/Con,
     ///     [3]=PreReq1Name/Level, [4]=PreReq2Name/Level, [5]=Description.
     /// </remarks>
     private static AbilityMetadataEntry ParseEntry(MetaFileEntry entry, bool isSpell)
@@ -83,11 +99,15 @@ public sealed class AbilityMetadata
         var requiresMaster = levelParts.ElementAtOrDefault(1) == "1";
         int.TryParse(levelParts.ElementAtOrDefault(2), out var abilityLevel);
 
-        //[1] "{iconid}/0/0"
+        //[1] "{iconid}/{advclass}/0"
         var iconParts = props[1]
             .Split('/');
 
         ushort.TryParse(iconParts.ElementAtOrDefault(0), out var iconSprite);
+
+        //an ability with no advanced class is one every member of the base class can learn. older metadata files wrote a
+        //literal 0 here, which parses to AdvClass.None, so they keep working.
+        byte.TryParse(iconParts.ElementAtOrDefault(1), out var advClass);
 
         //[2] "{str}/{int}/{wis}/{dex}/{con}"
         byte str = 0,
@@ -130,6 +150,7 @@ public sealed class AbilityMetadata
             Name = entry.Key,
             IsSpell = isSpell,
             IconSprite = iconSprite,
+            AdvClass = Enum.IsDefined((AdvClass)advClass) ? (AdvClass)advClass : AdvClass.None,
             Level = level,
             RequiresMaster = requiresMaster,
             AbilityLevel = abilityLevel,

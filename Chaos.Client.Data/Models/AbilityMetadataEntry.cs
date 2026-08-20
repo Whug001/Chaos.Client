@@ -1,3 +1,7 @@
+#region
+using Chaos.DarkAges.Definitions;
+#endregion
+
 namespace Chaos.Client.Data.Models;
 
 /// <summary>
@@ -6,6 +10,13 @@ namespace Chaos.Client.Data.Models;
 public sealed record AbilityMetadataEntry
 {
     public int AbilityLevel { get; init; }
+
+    /// <summary>
+    ///     The advanced class this ability belongs to, or <see cref="Chaos.DarkAges.Definitions.AdvClass.None" /> when
+    ///     every member of the base class can learn it.
+    /// </summary>
+    public AdvClass AdvClass { get; init; }
+
     public byte Con { get; init; }
     public string Description { get; init; } = string.Empty;
     public byte Dex { get; init; }

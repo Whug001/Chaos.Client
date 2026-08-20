@@ -49,6 +49,12 @@ public static class WorldState
     public static bool IsMaster { get; set; }
 
     /// <summary>
+    ///     The player's advanced class, read from the SelfProfile packet's display class. <see cref="AdvClass.None" />
+    ///     until they advance.
+    /// </summary>
+    public static AdvClass AdvClass { get; set; }
+
+    /// <summary>
     ///     Active spell/effect animations currently playing in the world.
     /// </summary>
     public static List<Animation> ActiveEffects { get; } = [];

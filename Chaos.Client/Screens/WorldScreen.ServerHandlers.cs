@@ -744,6 +744,10 @@ public sealed partial class WorldScreen
     {
         WorldState.IsMaster = args.EnableMasterQuestMetaData;
 
+        //the server sends the advanced class name as the display class once the player has advanced; anything else
+        //(a base class name, or "Master") leaves them on AdvClass.None.
+        WorldState.AdvClass = Enum.TryParse<AdvClass>(args.DisplayClass, true, out var advClass) ? advClass : AdvClass.None;
+
         //nation emblem and text
         StatusBook.SetNation((byte)args.Nation);
 
@@ -776,11 +780,12 @@ public sealed partial class WorldScreen
 
         StatusBook.SetLegendMarks(marks);
 
-        //ability metadata (skills/spells from sclass file)
+        //ability metadata (skills/spells from sclass file) — the file carries every advanced class that branches off this
+        //base class, so trim it to the player's own before it reaches the tab
         var abilityMetadata = DataContext.MetaFiles.GetAbilityMetadata((byte)args.BaseClass);
 
         if (abilityMetadata is not null)
-            StatusBook.SetAbilityMetadata(abilityMetadata);
+            StatusBook.SetAbilityMetadata(abilityMetadata.ForAdvClass(WorldState.AdvClass));
         else
             StatusBook.ClearSkills();
 

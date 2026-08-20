@@ -126,14 +126,19 @@ public sealed class AbilityMetadataDetailsControl : PrefabPanel
 
         if (LevelLabel is not null)
         {
-            if (entry.RequiresMaster)
+            //an advanced-class ability carries both the master flag and an ability level. The ability level is the one
+            //that tells the player where they actually get it, so it wins the label -- but the colour still has to
+            //account for the master flag, or a non-master would see the requirement in met white.
+            if (entry.AbilityLevel > 0)
+            {
+                LevelLabel.Text = $"ability {entry.AbilityLevel}";
+
+                LevelLabel.ForegroundColor = RequirementColor(
+                    (attrs?.Ability >= entry.AbilityLevel) && (!entry.RequiresMaster || WorldState.IsMaster));
+            } else if (entry.RequiresMaster)
             {
                 LevelLabel.Text = "master";
                 LevelLabel.ForegroundColor = WorldState.IsMaster ? LegendColors.White : UnmetColor;
-            } else if (entry.AbilityLevel > 0)
-            {
-                LevelLabel.Text = $"ability {entry.AbilityLevel}";
-                LevelLabel.ForegroundColor = RequirementColor(entry.AbilityLevel, attrs?.Ability);
             } else
             {
                 LevelLabel.Text = $"level {entry.Level}";
