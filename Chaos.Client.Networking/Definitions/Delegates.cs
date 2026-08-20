@@ -219,6 +219,13 @@ public delegate void SetSongStateHandler(SetSongStateArgs args);
 public delegate void SetIchorStateHandler(SetIchorStateArgs args);
 
 /// <summary>
+///     Raised when the server reports the Berserker's current Rage. Kept separate from
+///     <see cref="SetIchorStateHandler" /> despite the identical shape so the client can tell the two class
+///     resources apart on display.
+/// </summary>
+public delegate void SetRageStateHandler(SetRageStateArgs args);
+
+/// <summary>
 ///     Fired when the server issues a four-note song call.
 /// </summary>
 public delegate void SongCallHandler(SongCallArgs args);

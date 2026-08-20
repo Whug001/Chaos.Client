@@ -145,7 +145,11 @@ public static class WorldState
     /// </summary>
     public static SongState Song { get; } = new();
 
-    public static IchorState Ichor { get; } = new();
+    /// <summary>
+    ///     Authoritative class-resource state -- the Plague Doctor's Ichor or the Berserker's Rage, whichever the
+    ///     server last reported.
+    /// </summary>
+    public static ClassResourceState ClassResource { get; } = new();
 
     /// <summary>
     ///     Authoritative server-controlled user option toggles.
@@ -336,7 +340,7 @@ public static class WorldState
         SkillBook.Clear();
         SpellBook.Clear();
         Song.Reset();
-        Ichor.Reset();
+        ClassResource.Reset();
         Equipment.Clear();
         Attributes.Clear();
         Chat.Clear();

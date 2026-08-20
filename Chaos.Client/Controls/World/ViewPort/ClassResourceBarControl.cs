@@ -7,14 +7,16 @@ using Microsoft.Xna.Framework;
 namespace Chaos.Client.Controls.World.ViewPort;
 
 /// <summary>
-///     Strip showing the Plague Doctor's harvested Ichor, 0-100. A viewport overlay rather than a HUD child so it
-///     is built once for both the compact and expanded HUD layouts, mirroring <see cref="SongBarControl" />'s
-///     placement mechanism: <c>WorldScreen</c> calls <see cref="SetStripBounds" /> every frame with a column
-///     derived from whichever HUD layout is active. Hidden whenever <see cref="WorldState.Ichor" /> has not yet
-///     reported a value this session. The server is the sole source of truth for the value -- this control only
-///     displays what was last received, it never computes Ichor itself.
+///     Strip showing the local player's class resource, 0-100 - the Plague Doctor's harvested Ichor or the
+///     Berserker's Rage, whichever the server last reported. One strip serves both because no character carries
+///     both; the two are told apart by fill colour and label (Ichor green, Rage red). A viewport overlay rather
+///     than a HUD child so it is built once for both the compact and expanded HUD layouts, mirroring
+///     <see cref="SongBarControl" />'s placement mechanism: <c>WorldScreen</c> calls <see cref="SetStripBounds" />
+///     every frame with a column derived from whichever HUD layout is active. Hidden whenever
+///     <see cref="WorldState.ClassResource" /> has nothing to show. The server is the sole source of truth for the
+///     value -- this control only displays what was last received, it never computes the resource itself.
 /// </summary>
-public sealed class IchorBarControl : UIPanel
+public sealed class ClassResourceBarControl : UIPanel
 {
     public const int STRIP_HEIGHT = 18;
 
@@ -24,27 +26,30 @@ public sealed class IchorBarControl : UIPanel
     private const int SIDE_PADDING = 4;
     private const int FILL_INSET = 2;
 
+    private static readonly Color IchorFillColor = new(120, 200, 90, 200);
+    private static readonly Color RageFillColor = new(200, 70, 60, 200);
+
     public UIProgressBar Fill { get; }
     public UILabel Label { get; }
 
-    public IchorBarControl()
+    public ClassResourceBarControl()
     {
         Height = STRIP_HEIGHT;
         BackgroundColor = new Color(0, 0, 0, 128);
 
         Fill = new UIProgressBar
         {
-            Name = "IchorFill",
+            Name = "ClassResourceFill",
             X = FILL_INSET,
             Y = FILL_INSET,
             Height = STRIP_HEIGHT - (FILL_INSET * 2),
-            FillColor = new Color(120, 200, 90, 200)
+            FillColor = IchorFillColor
         };
         AddChild(Fill);
 
         Label = new UILabel
         {
-            Name = "IchorLabel",
+            Name = "ClassResourceLabel",
             X = SIDE_PADDING,
             Y = 0,
             Height = STRIP_HEIGHT,
@@ -80,19 +85,22 @@ public sealed class IchorBarControl : UIPanel
     }
 
     /// <summary>
-    ///     Refreshes visibility, fill percentage, and label text from <see cref="WorldState.Ichor" />.
+    ///     Refreshes visibility, fill colour/percentage, and label text from <see cref="WorldState.ClassResource" />.
     /// </summary>
     public override void Update(GameTime gameTime)
     {
-        var ichor = WorldState.Ichor;
+        var resource = WorldState.ClassResource;
 
-        Visible = ichor.HasValue;
+        Visible = resource.HasValue;
 
         if (!Visible)
             return;
 
-        Fill.UpdateValue(ichor.Ichor, 100);
-        Label.Text = $"Ichor {ichor.Ichor}/100";
+        var isRage = resource.Kind == ClassResourceKind.Rage;
+
+        Fill.FillColor = isRage ? RageFillColor : IchorFillColor;
+        Fill.UpdateValue(resource.Amount, 100);
+        Label.Text = $"{(isRage ? "Rage" : "Ichor")} {resource.Amount}/100";
 
         base.Update(gameTime);
     }

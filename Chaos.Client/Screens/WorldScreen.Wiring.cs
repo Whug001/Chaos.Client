@@ -89,8 +89,9 @@ public sealed partial class WorldScreen
         Game.Connection.OnSetSongState += HandleSetSongState;
         Game.Connection.OnSongCall += HandleSongCall;
 
-        //plague doctor ichor
+        //class resources -- plague doctor ichor / berserker rage
         Game.Connection.OnSetIchorState += HandleSetIchorState;
+        Game.Connection.OnSetRageState += HandleSetRageState;
 
         //status effects
         Game.Connection.OnEffect += HandleEffect;

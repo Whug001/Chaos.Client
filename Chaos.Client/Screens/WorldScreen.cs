@@ -922,6 +922,7 @@ public sealed partial class WorldScreen : IScreen
         Game.Connection.OnSetSongState -= HandleSetSongState;
         Game.Connection.OnSongCall -= HandleSongCall;
         Game.Connection.OnSetIchorState -= HandleSetIchorState;
+        Game.Connection.OnSetRageState -= HandleSetRageState;
         Game.Connection.OnEffect -= HandleEffect;
         Game.Connection.OnLightLevel -= HandleLightLevel;
         Game.OnMetaDataSyncComplete -= HandleMetaDataSyncComplete;
@@ -951,7 +952,7 @@ public sealed partial class WorldScreen : IScreen
         SilhouetteRenderer.Dispose();
         Root?.Dispose();
         SongBar?.Dispose();
-        IchorBar?.Dispose();
+        ClassResourceBar?.Dispose();
         Game.AislingRenderer.ClearCompositeCache();
         Game.AislingRenderer.ClearGroupTintCache();
         Game.CreatureRenderer.ClearTintCaches();

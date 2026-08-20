@@ -504,6 +504,8 @@ public sealed class ConnectionManager : IDisposable
 
     public event SetIchorStateHandler? OnSetIchorState;
 
+    public event SetRageStateHandler? OnSetRageState;
+
     /// <summary>
     ///     Fired when the server issues a song call to answer.
     /// </summary>
@@ -1501,6 +1503,7 @@ public sealed class ConnectionManager : IDisposable
         PacketHandlers[(byte)ServerOpCode.SetEntityBarrier] = HandleSetEntityBarrier;
         PacketHandlers[(byte)ServerOpCode.SetSongState] = HandleSetSongState;
         PacketHandlers[(byte)ServerOpCode.SetIchorState] = HandleSetIchorState;
+        PacketHandlers[(byte)ServerOpCode.SetRageState] = HandleSetRageState;
         PacketHandlers[(byte)ServerOpCode.SongCall] = HandleSongCall;
         PacketHandlers[(byte)ServerOpCode.UserOptions] = HandleUserOptions;
         PacketHandlers[(byte)ServerOpCode.MarketDisplay] = HandleMarketDisplay;
@@ -1825,6 +1828,12 @@ public sealed class ConnectionManager : IDisposable
     {
         var args = Client.Deserialize<SetIchorStateArgs>(in pkt);
         OnSetIchorState?.Invoke(args);
+    }
+
+    private void HandleSetRageState(ServerPacket pkt)
+    {
+        var args = Client.Deserialize<SetRageStateArgs>(in pkt);
+        OnSetRageState?.Invoke(args);
     }
 
     private void HandleSongCall(ServerPacket pkt)

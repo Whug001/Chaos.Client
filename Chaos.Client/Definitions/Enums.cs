@@ -191,3 +191,19 @@ public enum ItemAmountPurpose
     BankDeposit,
     BankWithdraw
 }
+/// <summary>
+///     Which per-class resource the class-resource strip is showing. The server reports each one on its own opcode
+///     (Ichor on 115, Rage on 116) so the client can colour and label them apart, but only one is ever live on a
+///     given character.
+/// </summary>
+public enum ClassResourceKind
+{
+    /// <summary>No class resource reported this session, or the reported one is spent. The strip is hidden.</summary>
+    None,
+
+    /// <summary>The Plague Doctor's harvested Ichor.</summary>
+    Ichor,
+
+    /// <summary>The Berserker's Rage.</summary>
+    Rage
+}

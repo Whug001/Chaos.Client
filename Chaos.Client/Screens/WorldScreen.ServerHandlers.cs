@@ -1202,10 +1202,17 @@ public sealed partial class WorldScreen
 
     /// <summary>
     ///     Plague doctor Ichor, 0-100, reported by the server. Server-authoritative -- the client only stores
-    ///     and displays this value, it never computes Ichor itself. Drawn by <see cref="IchorBar" /> in
+    ///     and displays this value, it never computes Ichor itself. Drawn by <see cref="ClassResourceBar" /> in
     ///     <c>WorldScreen.Draw.cs</c>.
     /// </summary>
-    private void HandleSetIchorState(SetIchorStateArgs args) => WorldState.Ichor.SetIchor(args.Ichor);
+    private void HandleSetIchorState(SetIchorStateArgs args) => WorldState.ClassResource.SetIchor(args.Ichor);
+
+    /// <summary>
+    ///     Berserker Rage, 0-100, reported by the server. Same shape and the same strip as
+    ///     <see cref="HandleSetIchorState" /> -- a separate opcode purely so the two class resources can be told
+    ///     apart on display. Zero means the rage is spent and the strip hides.
+    /// </summary>
+    private void HandleSetRageState(SetRageStateArgs args) => WorldState.ClassResource.SetRage(args.Rage);
 
     private void HandleSongCall(SongCallArgs args)
         => WorldState.Song.BeginCall(

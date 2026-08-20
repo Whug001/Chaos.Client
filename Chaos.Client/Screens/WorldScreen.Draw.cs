@@ -21,10 +21,10 @@ public sealed partial class WorldScreen
     //hud layout is active (small/large hud viewports differ in height, so the strip cannot be pinned once)
     private SongBarControl? SongBar;
 
-    //plague doctor ichor strip -- same lazy/per-frame-positioned overlay pattern as SongBar. Takes the bottom
-    //row of the viewport, directly above the orange bar, and pushes the song strip up a row when both are
-    //visible at once so the two never overlap.
-    private IchorBarControl? IchorBar;
+    //class resource strip (plague doctor ichor / berserker rage) -- same lazy/per-frame-positioned overlay
+    //pattern as SongBar. Takes the bottom row of the viewport, directly above the orange bar, and pushes the
+    //song strip up a row when both are visible at once so the two never overlap.
+    private ClassResourceBarControl? ClassResourceBar;
 
     public void Draw(SpriteBatch spriteBatch, GameTime gameTime)
     {
@@ -196,37 +196,38 @@ public sealed partial class WorldScreen
             Overlays.Draw(spriteBatch, Camera, MapFile.Height);
             spriteBatch.End();
 
-            //plague doctor ichor strip — screen-space overlay (no camera transform) on the bottom row of the
-            //viewport, sitting directly above the orange bar. positioned every frame against the active hud: it
-            //takes its column from WorldHud.OrangeBarBounds so it matches the panes below and stays clear of the
-            //hp/mp orbs and pane icons. the baseline comes from WorldHud.ViewportBounds rather than
-            //OrangeBarBounds.Y because only the small hud (_nbk_s) defines a SystemMessageWrap rect — the large
-            //hud falls back to OrangeBarBounds = ViewportBounds, whose Y is the TOP of the screen. viewport
-            //bottom is the one anchor that lands just above the orange bar in both layouts. Ichor is
-            //server-authoritative (WorldState.Ichor) — this only displays the last value the server reported.
-            IchorBar ??= new IchorBarControl();
-            IchorBar.Update(gameTime);
-            IchorBar.SetStripBounds(WorldHud.OrangeBarBounds.X, WorldHud.OrangeBarBounds.Width);
-            IchorBar.Y = WorldHud.ViewportBounds.Bottom - IchorBar.Height - 2;
+            //class resource strip (plague doctor ichor / berserker rage) — screen-space overlay (no camera
+            //transform) on the bottom row of the viewport, sitting directly above the orange bar. positioned every
+            //frame against the active hud: it takes its column from WorldHud.OrangeBarBounds so it matches the
+            //panes below and stays clear of the hp/mp orbs and pane icons. the baseline comes from
+            //WorldHud.ViewportBounds rather than OrangeBarBounds.Y because only the small hud (_nbk_s) defines a
+            //SystemMessageWrap rect — the large hud falls back to OrangeBarBounds = ViewportBounds, whose Y is the
+            //TOP of the screen. viewport bottom is the one anchor that lands just above the orange bar in both
+            //layouts. the resource is server-authoritative (WorldState.ClassResource) — this only displays the
+            //last value the server reported.
+            ClassResourceBar ??= new ClassResourceBarControl();
+            ClassResourceBar.Update(gameTime);
+            ClassResourceBar.SetStripBounds(WorldHud.OrangeBarBounds.X, WorldHud.OrangeBarBounds.Width);
+            ClassResourceBar.Y = WorldHud.ViewportBounds.Bottom - ClassResourceBar.Height - 2;
 
-            if (IchorBar.Visible)
+            if (ClassResourceBar.Visible)
             {
                 spriteBatch.Begin(samplerState: GlobalSettings.Sampler);
-                IchorBar.Draw(spriteBatch);
+                ClassResourceBar.Draw(spriteBatch);
                 spriteBatch.End();
             }
 
-            //bard song strip — same overlay mechanism as the ichor strip above. it takes the bottom row when the
-            //ichor strip is hidden, and stacks one row higher when it is showing, so the two can never overlap on
-            //a plague doctor who is also carrying a song. must be positioned AFTER IchorBar.Update, since that
-            //call is what settles IchorBar.Visible for this frame. the call countdown itself is driven from
+            //bard song strip — same overlay mechanism as the class resource strip above. it takes the bottom row
+            //when that strip is hidden, and stacks one row higher when it is showing, so the two can never overlap
+            //on a character who is carrying both. must be positioned AFTER ClassResourceBar.Update, since that
+            //call is what settles ClassResourceBar.Visible for this frame. the call countdown itself is driven from
             //WorldScreen.Update (WorldState.Song.Update) — this only refreshes visibility/label text and
             //repositions the strip.
             SongBar ??= new SongBarControl();
             SongBar.Update(gameTime);
             SongBar.SetStripBounds(WorldHud.OrangeBarBounds.X, WorldHud.OrangeBarBounds.Width);
 
-            var songBaseline = IchorBar.Visible ? IchorBar.Y : WorldHud.ViewportBounds.Bottom;
+            var songBaseline = ClassResourceBar.Visible ? ClassResourceBar.Y : WorldHud.ViewportBounds.Bottom;
             SongBar.Y = songBaseline - SongBar.Height - 2;
 
             if (SongBar.Visible)
