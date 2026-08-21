@@ -11,27 +11,40 @@ public sealed class ChatInputControl : UIPanel
 {
     private const int SAY_MAX_LENGTH = 255;
 
-    //the whisper packet the group/guild channels ride on is dropped server-side past this length.
-    private const int WHISPER_MAX_LENGTH = 100;
-
-    //a public message goes out as "Name: message" (or "Name! message" for a shout) and the server cuts the
-    //finished line here -- CONSTANTS.MAX_MESSAGE_LINE_LENGTH, applied in Creature.ShowPublicMessage after the
-    //prefix is attached. so the name eats into what survives; budgeting the input against the same number
-    //stops the tail being cut instead of letting the player type into it.
+    //every line the server sends back is assembled from the message plus whatever that channel wraps around
+    //it, and only then cut to length -- so the decoration, not just the message, is what has to fit. these two
+    //are CONSTANTS.MAX_MESSAGE_LINE_LENGTH and CONSTANTS.MAX_COMPLETE_MESSAGE_LENGTH: a public message is cut
+    //at the first (Creature.ShowPublicMessage), a whisper or channel line at the second (WorldServer.OnWhisper
+    //and ChannelService.SendMessage).
     private const int MAX_MESSAGE_LINE_LENGTH = 67;
+    private const int MAX_COMPLETE_MESSAGE_LENGTH = 90;
 
-    //the ": " or "! " the server puts between the name and the message. counts against the line like any
-    //other character.
+    //"{=x", an inline colour code the client renders instead of printing. it still costs three characters of
+    //the line, and channel lines are budgeted for it even on a channel whose default colour omits it -- a
+    //subscriber holding a per-channel colour override receives the prefixed copy of the same cut.
+    private const int COLOR_CODE_LENGTH = 3;
+
+    //the ": " or "! " between the name and a public message.
     private const int NAME_SEPARATOR_LENGTH = 2;
 
-    //the server's minimum username length. no name is shorter, so it yields the most room a public message
-    //can ever get -- and it stands in for the name before the server has told us who we are, rather than
-    //handing out room it will not honor.
+    //"[" and "] " around the channel name, plus the ": " after the sender: "[!global] Someone: message".
+    private const int CHANNEL_DECORATION_LENGTH = 5;
+
+    //"[", "]", the ">" or ":", and the space around the name on a whisper: "[Someone]> message".
+    private const int WHISPER_DECORATION_LENGTH = 4;
+
+    //the server's username length bounds. the minimum is the most room any name can leave, and stands in for
+    //a name we do not have yet; the maximum is the least, and stands in for a whisper target we cannot name.
+    //either way we prefer the assumption that under-fills the line to the one that overruns it.
     private const int MIN_NAME_LENGTH = 3;
+    private const int MAX_NAME_LENGTH = 12;
 
     //the server routes a whisper aimed at these names into the group/guild channel.
     private const string GROUP_CHANNEL = "!group";
     private const string GUILD_CHANNEL = "!guild";
+
+    //what marks a whisper target as a channel rather than a person.
+    private const char CHANNEL_PREFIX = '!';
 
     private static readonly Color FocusedBackground = new(0, 0, 0, 160);
 
@@ -169,28 +182,67 @@ public sealed class ChatInputControl : UIPanel
             _                         => ($"{WorldState.PlayerName}: ", Color.White)
         };
 
-    //group, guild and whisper all ride the whisper packet, which the server drops past 100 chars. say and
-    //shout are the name-prefixed public ones, so they share the name + message budget. everything else is a
-    //prompt or an ignore-list entry, which nothing prefixes.
-    private static int MaxLengthFor(ChatMode mode)
+    //each channel dresses the message differently on the way back out, so each gets its own room to type in.
+    //group and guild are channels like any other -- they ride the whisper packet, but the server routes them
+    //to ChannelService and they come back bracketed. prompts and ignore-list entries are undecorated.
+    //nothing here can reach the 100 characters at which the whisper packet is dropped outright, since the
+    //longest of these budgets is the 90-character line less its own decoration.
+    private int MaxLengthFor(ChatMode mode)
         => mode switch
         {
-            ChatMode.Group or ChatMode.Guild or ChatMode.WhisperMessage => WHISPER_MAX_LENGTH,
-            ChatMode.Normal or ChatMode.Shout                           => PublicMessageMaxLength(),
-            _                                                           => SAY_MAX_LENGTH
+            ChatMode.Normal or ChatMode.Shout => PublicMessageMaxLength(),
+            ChatMode.Group                    => ChannelMaxLength(GROUP_CHANNEL),
+            ChatMode.Guild                    => ChannelMaxLength(GUILD_CHANNEL),
+            ChatMode.WhisperMessage           => WhisperMaxLength(WhisperTarget),
+            _                                 => SAY_MAX_LENGTH
         };
 
     /// <summary>
-    ///     How much of a public message survives the cut for the name we are sending it under: 57 characters for an
-    ///     eight-character name, one more for each character shorter, up to 62 for the three-character minimum, and
-    ///     53 for the twelve-character maximum. Never less than a single character to type.
+    ///     The name a message will carry, floored at the shortest one the server allows so that a name we have not
+    ///     been told yet cannot hand out room the server will not honor.
+    /// </summary>
+    private static int PlayerNameLength => Math.Max(WorldState.PlayerName.Length, MIN_NAME_LENGTH);
+
+    /// <summary>
+    ///     Room in "Name: message" (or "Name! message" for a shout): 57 characters for an eight-character name, one
+    ///     more for each character shorter, up to 62 for the three-character minimum.
     /// </summary>
     private static int PublicMessageMaxLength()
-    {
-        var nameLength = Math.Max(WorldState.PlayerName.Length, MIN_NAME_LENGTH);
+        => Clamp(MAX_MESSAGE_LINE_LENGTH - NAME_SEPARATOR_LENGTH - PlayerNameLength);
 
-        return Math.Max(MAX_MESSAGE_LINE_LENGTH - NAME_SEPARATOR_LENGTH - nameLength, 1);
+    /// <summary>
+    ///     Room in "[!channel] Name: message" — the form group, guild and every other "!" channel come back in. The
+    ///     channel's own name is part of what the line has to fit, so a message to "!global" gets one character less
+    ///     than the same message to "!guild".
+    /// </summary>
+    private static int ChannelMaxLength(string channel)
+        => Clamp(
+            MAX_COMPLETE_MESSAGE_LENGTH
+            - COLOR_CODE_LENGTH
+            - CHANNEL_DECORATION_LENGTH
+            - channel.Length
+            - PlayerNameLength);
+
+    /// <summary>
+    ///     Room in a whisper. A "!" target is a channel and is measured as one; a person is measured as
+    ///     "[Name]> message", the form the server sizes its own cut from. A target we somehow do not have is
+    ///     measured as the longest name the server allows.
+    /// </summary>
+    private static int WhisperMaxLength(string? target)
+    {
+        if (target is null)
+            return Clamp(MAX_COMPLETE_MESSAGE_LENGTH - WHISPER_DECORATION_LENGTH - MAX_NAME_LENGTH);
+
+        if (target.StartsWith(CHANNEL_PREFIX))
+            return ChannelMaxLength(target);
+
+        var nameLength = Math.Max(target.Length, MIN_NAME_LENGTH);
+
+        return Clamp(MAX_COMPLETE_MESSAGE_LENGTH - WHISPER_DECORATION_LENGTH - nameLength);
     }
+
+    //a budget can only go so small before the box is unusable -- leave a character to type either way.
+    private static int Clamp(int budget) => Math.Max(budget, 1);
 
     /// <summary>
     ///     Dresses the box for a mode — prefix, color and length limit all follow from it. Leaves the text alone, so it also
