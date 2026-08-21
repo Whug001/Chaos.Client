@@ -14,13 +14,19 @@ public sealed class ChatInputControl : UIPanel
     //the whisper packet the group/guild channels ride on is dropped server-side past this length.
     private const int WHISPER_MAX_LENGTH = 100;
 
-    //a public message goes out prefixed with the sender's name, and the finished line is cut off past this
-    //many characters -- so the longer the name, the less of the message survives. budgeting name + message
-    //against the one number stops the tail being eaten instead of letting the player type into the cut.
-    private const int PUBLIC_MESSAGE_BUDGET = 68;
+    //a public message goes out as "Name: message" (or "Name! message" for a shout) and the server cuts the
+    //finished line here -- CONSTANTS.MAX_MESSAGE_LINE_LENGTH, applied in Creature.ShowPublicMessage after the
+    //prefix is attached. so the name eats into what survives; budgeting the input against the same number
+    //stops the tail being cut instead of letting the player type into it.
+    private const int MAX_MESSAGE_LINE_LENGTH = 67;
 
-    //no name is shorter than this, so it yields the most room a public message can ever get. also stands in
-    //for the name before the server has told us who we are, rather than handing out room it will not honor.
+    //the ": " or "! " the server puts between the name and the message. counts against the line like any
+    //other character.
+    private const int NAME_SEPARATOR_LENGTH = 2;
+
+    //the server's minimum username length. no name is shorter, so it yields the most room a public message
+    //can ever get -- and it stands in for the name before the server has told us who we are, rather than
+    //handing out room it will not honor.
     private const int MIN_NAME_LENGTH = 3;
 
     //the server routes a whisper aimed at these names into the group/guild channel.
@@ -175,15 +181,15 @@ public sealed class ChatInputControl : UIPanel
         };
 
     /// <summary>
-    ///     How much of a public message survives the cut for the name we are sending it under: 60 characters for an
-    ///     eight-character name, one more for each character shorter, up to 65 for the three-character minimum. An
-    ///     unusually long name still keeps a line to type on.
+    ///     How much of a public message survives the cut for the name we are sending it under: 57 characters for an
+    ///     eight-character name, one more for each character shorter, up to 62 for the three-character minimum, and
+    ///     53 for the twelve-character maximum. Never less than a single character to type.
     /// </summary>
     private static int PublicMessageMaxLength()
     {
         var nameLength = Math.Max(WorldState.PlayerName.Length, MIN_NAME_LENGTH);
 
-        return Math.Max(PUBLIC_MESSAGE_BUDGET - nameLength, 1);
+        return Math.Max(MAX_MESSAGE_LINE_LENGTH - NAME_SEPARATOR_LENGTH - nameLength, 1);
     }
 
     /// <summary>
