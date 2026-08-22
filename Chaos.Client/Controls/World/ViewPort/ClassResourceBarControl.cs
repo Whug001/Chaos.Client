@@ -1,7 +1,9 @@
 #region
 using Chaos.Client.Collections;
 using Chaos.Client.Controls.Components;
+using Chaos.Client.Rendering;
 using Microsoft.Xna.Framework;
+using Microsoft.Xna.Framework.Graphics;
 #endregion
 
 namespace Chaos.Client.Controls.World.ViewPort;
@@ -19,7 +21,10 @@ namespace Chaos.Client.Controls.World.ViewPort;
 /// </summary>
 public sealed class ClassResourceBarControl : UIPanel
 {
-    public const int STRIP_HEIGHT = 9;
+    //tall enough to hold the 12px font at its native size with a pixel of air above and below. anything
+    //shorter forces the label through a fractional shrink, and a bitmap font resampled off its own grid is
+    //the blur this height exists to avoid. the strip is bottom-anchored, so the extra rows grow upward.
+    public const int STRIP_HEIGHT = TextRenderer.CHAR_HEIGHT + 2;
 
     //only used until WorldScreen's first SetStripBounds call lines the strip up with the active hud
     private const int DEFAULT_WIDTH = 200;
@@ -36,7 +41,11 @@ public sealed class ClassResourceBarControl : UIPanel
     private static readonly Color MaliceFillColor = new(160, 90, 210, 200);
 
     public UIProgressBar Fill { get; }
-    public UILabel Label { get; }
+
+    private string LabelText = string.Empty;
+
+    //cached so Draw does not re-measure the same string every frame
+    private int LabelWidth;
 
     public ClassResourceBarControl()
     {
@@ -53,22 +62,7 @@ public sealed class ClassResourceBarControl : UIPanel
         };
         AddChild(Fill);
 
-        Label = new UILabel
-        {
-            Name = "ClassResourceLabel",
-            X = SIDE_PADDING,
-            Y = 0,
-            Height = STRIP_HEIGHT,
-            Text = string.Empty,
-            HorizontalAlignment = HorizontalAlignment.Center,
-            ForegroundColor = LegendColors.White,
-            PaddingLeft = 0,
-            PaddingRight = 0,
-            PaddingTop = 0
-        };
-        AddChild(Label);
-
-        //a placeholder so the fill/label have sane widths before WorldScreen's first SetStripBounds call
+        //a placeholder so the fill has a sane width before WorldScreen's first SetStripBounds call
         SetStripBounds((ChaosGame.VIRTUAL_WIDTH - DEFAULT_WIDTH) / 2, DEFAULT_WIDTH);
     }
 
@@ -87,7 +81,6 @@ public sealed class ClassResourceBarControl : UIPanel
         Width = width;
 
         Fill.Width = Math.Max(0, width - (FILL_INSET * 2));
-        Label.Width = width;
     }
 
     /// <summary>
@@ -112,8 +105,35 @@ public sealed class ClassResourceBarControl : UIPanel
 
         Fill.FillColor = fillColor;
         Fill.UpdateValue(resource.Amount, 100);
-        Label.Text = $"{resourceName} {resource.Amount}/100";
+
+        var labelText = $"{resourceName} {resource.Amount}/100";
+
+        if (labelText != LabelText)
+        {
+            LabelText = labelText;
+            LabelWidth = TextRenderer.MeasureWidth(labelText);
+        }
 
         base.Update(gameTime);
+    }
+
+    /// <summary>
+    ///     Draws the strip, then the label centered over the fill at the font's native size.
+    /// </summary>
+    public override void Draw(SpriteBatch spriteBatch)
+    {
+        base.Draw(spriteBatch);
+
+        if (!Visible || (LabelText.Length == 0))
+            return;
+
+        //integer position only. the font is a bitmap on a point-clamped sampler, so a half-pixel offset
+        //is the difference between clean glyphs and the smear this control used to show.
+        var position = new Vector2(
+            ScreenX + ((Width - LabelWidth) / 2),
+            ScreenY + ((Height - TextRenderer.CHAR_HEIGHT) / 2));
+
+        //pure white rather than the palette's off-white, so the label separates from the fill behind it
+        TextRenderer.DrawText(spriteBatch, position, LabelText, Color.White, false);
     }
 }

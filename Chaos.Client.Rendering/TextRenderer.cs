@@ -22,6 +22,11 @@ public static class TextRenderer
     private const int ENGLISH_ADVANCE = ENGLISH_GLYPH_WIDTH - 2;
     private const int KOREAN_ADVANCE = KOREAN_GLYPH_WIDTH - 2;
 
+    //contrast window for BuildSmallText: coverage at or below the floor goes fully transparent, at or
+    //above the ceiling goes fully opaque, and only the band between the two stays antialiased
+    private const float SMALL_TEXT_FLOOR = 0.28f;
+    private const float SMALL_TEXT_CEILING = 0.62f;
+
     private static Encoding? KoreanEncoding;
 
     private static void EnsureInitialized() => KoreanEncoding ??= Encoding.GetEncoding(949);
@@ -191,6 +196,116 @@ public static class TextRenderer
             textColor,
             colorCodesEnabled,
             scale: scale);
+    }
+
+    /// <summary>
+    ///     Builds a reduced-size (<paramref name="targetHeight" />px tall, default 6) single-line text texture for
+    ///     UI strips too short for the 12px font, e.g. the class resource bar. Glyphs are rasterized on the CPU
+    ///     straight from the English font bitmap and shrunk with an area-weighted box filter, so the result stays
+    ///     legible under the global point-clamp sampler where a fractional
+    ///     draw-time scale would alias. White-on-transparent (premultiplied), so it can be tinted at draw time.
+    ///     Inline color codes and Korean text are not supported. Returns null for empty text. The caller owns the
+    ///     returned texture and must dispose it.
+    /// </summary>
+    public static Texture2D? BuildSmallText(GraphicsDevice device, string text, int targetHeight = 6)
+    {
+        if (string.IsNullOrEmpty(text) || (targetHeight <= 0) || (targetHeight > GLYPH_HEIGHT))
+            return null;
+
+        var font = DataContext.Fonts.EnglishFont;
+        var bytesPerRow = (font.GlyphWidth + 7) / 8;
+        var bytesPerGlyph = bytesPerRow * GLYPH_HEIGHT;
+
+        //full-size coverage mask: 1 where the font bitmap has ink
+        var fullWidth = (text.Length - 1) * ENGLISH_ADVANCE + ENGLISH_GLYPH_WIDTH;
+        var coverage = new byte[fullWidth * GLYPH_HEIGHT];
+        var cursorX = 0;
+
+        foreach (var c in text)
+        {
+            if (c is >= (char)33 and <= (char)126 && ((c - 33) < font.GlyphCount))
+            {
+                var offset = (c - 33) * bytesPerGlyph;
+
+                for (var row = 0; row < GLYPH_HEIGHT; row++)
+                for (var byteIdx = 0; byteIdx < bytesPerRow; byteIdx++)
+                {
+                    var dataByte = font.Data[offset + row * bytesPerRow + byteIdx];
+
+                    if (dataByte == 0)
+                        continue;
+
+                    for (var bit = 7; bit >= 0; bit--)
+                    {
+                        if ((dataByte & (1 << bit)) == 0)
+                            continue;
+
+                        var glyphX = byteIdx * 8 + (7 - bit);
+                        var px = cursorX + glyphX;
+
+                        if ((glyphX < font.GlyphWidth) && (px < fullWidth))
+                            coverage[row * fullWidth + px] = 1;
+                    }
+                }
+            }
+
+            cursorX += ENGLISH_ADVANCE;
+        }
+
+        //Fake bold, grown downward only. The shrink below loses vertical weight, so thickening on the
+        //same axis puts it back. Growing sideways instead would merge neighbouring letters, because the
+        //advance is narrower than the glyph cell.
+        for (var x = 0; x < fullWidth; x++)
+        for (var y = GLYPH_HEIGHT - 1; y > 0; y--)
+            if (coverage[(y - 1) * fullWidth + x] != 0)
+                coverage[y * fullWidth + x] = 1;
+
+        //area-weighted box filter down to the target height; partial coverage becomes partial alpha
+        var ratio = (float)GLYPH_HEIGHT / targetHeight;
+        var smallWidth = Math.Max(1, (int)MathF.Ceiling(fullWidth / ratio));
+        var smallHeight = targetHeight;
+        var pixels = new Color[smallWidth * smallHeight];
+
+        for (var y = 0; y < smallHeight; y++)
+        for (var x = 0; x < smallWidth; x++)
+        {
+            var xs0 = x * ratio;
+            var xs1 = MathF.Min((x + 1) * ratio, fullWidth);
+            var ys0 = y * ratio;
+            var ys1 = MathF.Min((y + 1) * ratio, GLYPH_HEIGHT);
+
+            var covered = 0f;
+            var total = 0f;
+
+            for (var sy = (int)ys0; sy < (int)MathF.Ceiling(ys1); sy++)
+            for (var sx = (int)xs0; sx < (int)MathF.Ceiling(xs1); sx++)
+            {
+                //overlap area of source pixel [sx,sx+1)x[sy,sy+1) with the destination box
+                var weight = (MathF.Min(sx + 1, xs1) - MathF.Max(sx, xs0)) * (MathF.Min(sy + 1, ys1) - MathF.Max(sy, ys0));
+
+                total += weight;
+                covered += coverage[sy * fullWidth + sx] * weight;
+            }
+
+            if ((covered <= 0f) || (total <= 0f))
+                continue;
+
+            //Straight coverage leaves most of the label sitting near half alpha, which is what reads as
+            //a grey haze. Stretching the middle of the range sends anything mostly covered to solid and
+            //anything mostly empty to nothing, keeping a thin band of real antialiasing at the edges.
+            var fraction = Math.Clamp((covered / total - SMALL_TEXT_FLOOR) / (SMALL_TEXT_CEILING - SMALL_TEXT_FLOOR), 0f, 1f);
+
+            if (fraction <= 0f)
+                continue;
+
+            var alpha = (byte)Math.Clamp((int)MathF.Round(fraction * 255f), 0, 255);
+            pixels[y * smallWidth + x] = new Color(alpha, alpha, alpha, alpha);
+        }
+
+        var texture = new Texture2D(device, smallWidth, smallHeight);
+        texture.SetData(pixels);
+
+        return texture;
     }
 
     /// <summary>
