@@ -8,12 +8,12 @@ namespace Chaos.Client.Controls.World.ViewPort;
 
 /// <summary>
 ///     Strip showing the local player's class resource, 0-100 - the Plague Doctor's harvested Ichor, the
-///     Berserker's Rage or the Assassin's Malice, whichever the server last reported. One strip serves them all
-///     because no character carries more than one; they are told apart by fill colour and label (Ichor green,
-///     Rage red, Malice violet). A viewport overlay rather than a HUD child so it is built once for both the
-///     compact and expanded HUD layouts, mirroring
-///     <see cref="SongBarControl" />'s placement mechanism: <c>WorldScreen</c> calls <see cref="SetStripBounds" />
-///     every frame with a column derived from whichever HUD layout is active. Hidden whenever
+///     Berserker's Rage, the Warlord's Valor or the Assassin's Malice, whichever the server last reported. One
+///     strip serves them all because no character carries more than one; they are told apart by fill colour and
+///     label (Ichor green, Rage red, Valor gold, Malice violet). A viewport overlay rather than a HUD child so it
+///     is built once for both the compact and expanded HUD layouts, mirroring <see cref="SongBarControl" />'s
+///     placement mechanism: <c>WorldScreen</c> calls <see cref="SetStripBounds" /> every frame with a column
+///     derived from whichever HUD layout is active. Hidden whenever
 ///     <see cref="WorldState.ClassResource" /> has nothing to show. The server is the sole source of truth for the
 ///     value -- this control only displays what was last received, it never computes the resource itself.
 /// </summary>
@@ -29,6 +29,7 @@ public sealed class ClassResourceBarControl : UIPanel
 
     private static readonly Color IchorFillColor = new(120, 200, 90, 200);
     private static readonly Color RageFillColor = new(200, 70, 60, 200);
+    private static readonly Color ValorFillColor = new(215, 175, 60, 200);
 
     //violet, deliberately nowhere near the rage red: malice and rage are both kill-fed and both climb, so a
     //player who alts between assassin and berserker must never have to look twice to tell which bar this is.
@@ -104,6 +105,7 @@ public sealed class ClassResourceBarControl : UIPanel
         var (fillColor, resourceName) = resource.Kind switch
         {
             ClassResourceKind.Rage   => (RageFillColor, "Rage"),
+            ClassResourceKind.Valor  => (ValorFillColor, "Valor"),
             ClassResourceKind.Malice => (MaliceFillColor, "Malice"),
             _                        => (IchorFillColor, "Ichor")
         };

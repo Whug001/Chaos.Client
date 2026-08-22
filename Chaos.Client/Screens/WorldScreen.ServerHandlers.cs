@@ -1215,6 +1215,12 @@ public sealed partial class WorldScreen
     private void HandleSetRageState(SetRageStateArgs args) => WorldState.ClassResource.SetRage(args.Rage);
 
     /// <summary>
+    ///     Warlord Valor, 0-100, reported by the server. Same shape and the same strip as
+    ///     <see cref="HandleSetRageState" />, coloured gold. Zero means the valor is spent and the strip hides.
+    /// </summary>
+    private void HandleSetValorState(SetValorStateArgs args) => WorldState.ClassResource.SetValor(args.Valor);
+
+    /// <summary>
     ///     Assassin Malice, 0-100, reported by the server. Same shape and the same strip as
     ///     <see cref="HandleSetRageState" />, coloured violet rather than red so the two kill-fed resources are
     ///     never mistaken for each other. Zero means the malice is spent and the strip hides.

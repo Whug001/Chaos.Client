@@ -194,8 +194,8 @@ public enum ItemAmountPurpose
 
 /// <summary>
 ///     Which per-class resource the class-resource strip is showing. The server reports each one on its own opcode
-///     (Ichor on 115, Rage on 116, Malice on 118) so the client can colour and label them apart, but only one is
-///     ever live on a given character.
+///     (Ichor on 115, Rage on 116, Valor on 117, Malice on 118) so the client can colour and label them apart, but
+///     only one is ever live on a given character.
 /// </summary>
 public enum ClassResourceKind
 {
@@ -207,6 +207,9 @@ public enum ClassResourceKind
 
     /// <summary>The Berserker's Rage.</summary>
     Rage,
+
+    /// <summary>The Warlord's Valor.</summary>
+    Valor,
 
     /// <summary>The Assassin's Malice.</summary>
     Malice

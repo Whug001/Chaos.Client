@@ -923,6 +923,7 @@ public sealed partial class WorldScreen : IScreen
         Game.Connection.OnSongCall -= HandleSongCall;
         Game.Connection.OnSetIchorState -= HandleSetIchorState;
         Game.Connection.OnSetRageState -= HandleSetRageState;
+        Game.Connection.OnSetValorState -= HandleSetValorState;
         Game.Connection.OnSetMaliceState -= HandleSetMaliceState;
         Game.Connection.OnEffect -= HandleEffect;
         Game.Connection.OnLightLevel -= HandleLightLevel;
