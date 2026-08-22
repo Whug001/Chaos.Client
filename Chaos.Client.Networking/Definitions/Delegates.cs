@@ -226,6 +226,13 @@ public delegate void SetIchorStateHandler(SetIchorStateArgs args);
 public delegate void SetRageStateHandler(SetRageStateArgs args);
 
 /// <summary>
+///     Raised when the server reports the Assassin's current Malice. Its own handler for the same reason
+///     <see cref="SetRageStateHandler" /> is: the class resources share one bar and are told apart by which
+///     packet arrived.
+/// </summary>
+public delegate void SetMaliceStateHandler(SetMaliceStateArgs args);
+
+/// <summary>
 ///     Fired when the server issues a four-note song call.
 /// </summary>
 public delegate void SongCallHandler(SongCallArgs args);

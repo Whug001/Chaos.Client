@@ -191,10 +191,11 @@ public enum ItemAmountPurpose
     BankDeposit,
     BankWithdraw
 }
+
 /// <summary>
 ///     Which per-class resource the class-resource strip is showing. The server reports each one on its own opcode
-///     (Ichor on 115, Rage on 116) so the client can colour and label them apart, but only one is ever live on a
-///     given character.
+///     (Ichor on 115, Rage on 116, Malice on 118) so the client can colour and label them apart, but only one is
+///     ever live on a given character.
 /// </summary>
 public enum ClassResourceKind
 {
@@ -205,5 +206,8 @@ public enum ClassResourceKind
     Ichor,
 
     /// <summary>The Berserker's Rage.</summary>
-    Rage
+    Rage,
+
+    /// <summary>The Assassin's Malice.</summary>
+    Malice
 }

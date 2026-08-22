@@ -506,6 +506,8 @@ public sealed class ConnectionManager : IDisposable
 
     public event SetRageStateHandler? OnSetRageState;
 
+    public event SetMaliceStateHandler? OnSetMaliceState;
+
     /// <summary>
     ///     Fired when the server issues a song call to answer.
     /// </summary>
@@ -1504,6 +1506,7 @@ public sealed class ConnectionManager : IDisposable
         PacketHandlers[(byte)ServerOpCode.SetSongState] = HandleSetSongState;
         PacketHandlers[(byte)ServerOpCode.SetIchorState] = HandleSetIchorState;
         PacketHandlers[(byte)ServerOpCode.SetRageState] = HandleSetRageState;
+        PacketHandlers[(byte)ServerOpCode.SetMaliceState] = HandleSetMaliceState;
         PacketHandlers[(byte)ServerOpCode.SongCall] = HandleSongCall;
         PacketHandlers[(byte)ServerOpCode.UserOptions] = HandleUserOptions;
         PacketHandlers[(byte)ServerOpCode.MarketDisplay] = HandleMarketDisplay;
@@ -1834,6 +1837,12 @@ public sealed class ConnectionManager : IDisposable
     {
         var args = Client.Deserialize<SetRageStateArgs>(in pkt);
         OnSetRageState?.Invoke(args);
+    }
+
+    private void HandleSetMaliceState(ServerPacket pkt)
+    {
+        var args = Client.Deserialize<SetMaliceStateArgs>(in pkt);
+        OnSetMaliceState?.Invoke(args);
     }
 
     private void HandleSongCall(ServerPacket pkt)

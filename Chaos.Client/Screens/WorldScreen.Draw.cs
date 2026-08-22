@@ -21,7 +21,7 @@ public sealed partial class WorldScreen
     //hud layout is active (small/large hud viewports differ in height, so the strip cannot be pinned once)
     private SongBarControl? SongBar;
 
-    //class resource strip (plague doctor ichor / berserker rage) -- same lazy/per-frame-positioned overlay
+    //class resource strip (ichor / rage / malice) -- same lazy/per-frame-positioned overlay
     //pattern as SongBar. Takes the bottom row of the viewport, directly above the orange bar, and pushes the
     //song strip up a row when both are visible at once so the two never overlap.
     private ClassResourceBarControl? ClassResourceBar;
@@ -196,7 +196,7 @@ public sealed partial class WorldScreen
             Overlays.Draw(spriteBatch, Camera, MapFile.Height);
             spriteBatch.End();
 
-            //class resource strip (plague doctor ichor / berserker rage) — screen-space overlay (no camera
+            //class resource strip (ichor / rage / malice) — screen-space overlay (no camera
             //transform) on the bottom row of the viewport, sitting directly above the orange bar. positioned every
             //frame against the active hud: it takes its column from WorldHud.OrangeBarBounds so it matches the
             //panes below and stays clear of the hp/mp orbs and pane icons. the baseline comes from

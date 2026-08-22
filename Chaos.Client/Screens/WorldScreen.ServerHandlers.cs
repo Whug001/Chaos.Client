@@ -1214,6 +1214,13 @@ public sealed partial class WorldScreen
     /// </summary>
     private void HandleSetRageState(SetRageStateArgs args) => WorldState.ClassResource.SetRage(args.Rage);
 
+    /// <summary>
+    ///     Assassin Malice, 0-100, reported by the server. Same shape and the same strip as
+    ///     <see cref="HandleSetRageState" />, coloured violet rather than red so the two kill-fed resources are
+    ///     never mistaken for each other. Zero means the malice is spent and the strip hides.
+    /// </summary>
+    private void HandleSetMaliceState(SetMaliceStateArgs args) => WorldState.ClassResource.SetMalice(args.Malice);
+
     private void HandleSongCall(SongCallArgs args)
         => WorldState.Song.BeginCall(
             args.CallId,

@@ -7,10 +7,11 @@ using Microsoft.Xna.Framework;
 namespace Chaos.Client.Controls.World.ViewPort;
 
 /// <summary>
-///     Strip showing the local player's class resource, 0-100 - the Plague Doctor's harvested Ichor or the
-///     Berserker's Rage, whichever the server last reported. One strip serves both because no character carries
-///     both; the two are told apart by fill colour and label (Ichor green, Rage red). A viewport overlay rather
-///     than a HUD child so it is built once for both the compact and expanded HUD layouts, mirroring
+///     Strip showing the local player's class resource, 0-100 - the Plague Doctor's harvested Ichor, the
+///     Berserker's Rage or the Assassin's Malice, whichever the server last reported. One strip serves them all
+///     because no character carries more than one; they are told apart by fill colour and label (Ichor green,
+///     Rage red, Malice violet). A viewport overlay rather than a HUD child so it is built once for both the
+///     compact and expanded HUD layouts, mirroring
 ///     <see cref="SongBarControl" />'s placement mechanism: <c>WorldScreen</c> calls <see cref="SetStripBounds" />
 ///     every frame with a column derived from whichever HUD layout is active. Hidden whenever
 ///     <see cref="WorldState.ClassResource" /> has nothing to show. The server is the sole source of truth for the
@@ -28,6 +29,10 @@ public sealed class ClassResourceBarControl : UIPanel
 
     private static readonly Color IchorFillColor = new(120, 200, 90, 200);
     private static readonly Color RageFillColor = new(200, 70, 60, 200);
+
+    //violet, deliberately nowhere near the rage red: malice and rage are both kill-fed and both climb, so a
+    //player who alts between assassin and berserker must never have to look twice to tell which bar this is.
+    private static readonly Color MaliceFillColor = new(160, 90, 210, 200);
 
     public UIProgressBar Fill { get; }
     public UILabel Label { get; }
@@ -96,11 +101,16 @@ public sealed class ClassResourceBarControl : UIPanel
         if (!Visible)
             return;
 
-        var isRage = resource.Kind == ClassResourceKind.Rage;
+        var (fillColor, resourceName) = resource.Kind switch
+        {
+            ClassResourceKind.Rage   => (RageFillColor, "Rage"),
+            ClassResourceKind.Malice => (MaliceFillColor, "Malice"),
+            _                        => (IchorFillColor, "Ichor")
+        };
 
-        Fill.FillColor = isRage ? RageFillColor : IchorFillColor;
+        Fill.FillColor = fillColor;
         Fill.UpdateValue(resource.Amount, 100);
-        Label.Text = $"{(isRage ? "Rage" : "Ichor")} {resource.Amount}/100";
+        Label.Text = $"{resourceName} {resource.Amount}/100";
 
         base.Update(gameTime);
     }
