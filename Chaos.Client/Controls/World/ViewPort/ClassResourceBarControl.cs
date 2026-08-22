@@ -18,7 +18,7 @@ namespace Chaos.Client.Controls.World.ViewPort;
 /// </summary>
 public sealed class ClassResourceBarControl : UIPanel
 {
-    public const int STRIP_HEIGHT = 18;
+    public const int STRIP_HEIGHT = 9;
 
     //only used until WorldScreen's first SetStripBounds call lines the strip up with the active hud
     private const int DEFAULT_WIDTH = 200;
