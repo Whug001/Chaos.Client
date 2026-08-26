@@ -346,6 +346,58 @@ public abstract class UIElement : IDisposable
     }
 
     /// <summary>
+    ///     Draws a texture scaled to exactly fill <paramref name="destinationRect" />, clipped to this element's
+    ///     ClipRect -- unlike the position-based <see cref="DrawTexture(SpriteBatch,Texture2D?,Vector2,Color)" />
+    ///     overloads (which draw at native size), this shrinks or stretches the source into a fixed on-screen box.
+    ///     Used where a source sprite must be scaled down to a small fixed box (e.g.
+    ///     <c>PaytableIconRow</c>'s creature icons). Skips the draw entirely if
+    ///     <paramref name="destinationRect" /> does not intersect ClipRect at all; callers that need this element
+    ///     is small and fully contained within its own layout (never straddling a clip edge) can rely on that
+    ///     simple check rather than the per-pixel source-rect cropping the position-based overloads do.
+    /// </summary>
+    /// <param name="effects">
+    ///     Sprite mirroring, if any. Needed by callers drawing direction-grouped sprite sheets, where one direction's
+    ///     art IS the mirror of another's (see <c>AnimationSystem.GetCreatureIdleFrame</c>) — the flip is part of
+    ///     resolving the frame, not a decoration on top of it.
+    /// </param>
+    protected void DrawTextureFitted(
+        SpriteBatch spriteBatch,
+        Texture2D? texture,
+        Rectangle destinationRect,
+        Color color,
+        SpriteEffects effects = SpriteEffects.None)
+    {
+        if (texture is null)
+            return;
+
+        Texture2D actualTexture;
+        Rectangle sourceRect;
+
+        if (texture is CachedTexture2D { AtlasRegion: { } region })
+        {
+            actualTexture = region.Atlas;
+            sourceRect = region.SourceRect;
+        } else
+        {
+            actualTexture = texture;
+            sourceRect = new Rectangle(0, 0, texture.Width, texture.Height);
+        }
+
+        if (!destinationRect.Intersects(ClipRect))
+            return;
+
+        spriteBatch.Draw(
+            actualTexture,
+            destinationRect,
+            sourceRect,
+            color,
+            0f,
+            Vector2.Zero,
+            effects,
+            0f);
+    }
+
+    /// <summary>
     ///     Draws a filled rectangle clipped to this element's ClipRect.
     /// </summary>
     protected void DrawRectClipped(SpriteBatch spriteBatch, Rectangle bounds, Color color)

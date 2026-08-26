@@ -136,6 +136,17 @@ public static class WorldState
     public static SkillBook SkillBook { get; } = new();
 
     /// <summary>
+    ///     Authoritative slot machine state (current machine name, bet, jackpot, reels, paytable, last spin result).
+    /// </summary>
+    public static SlotMachine SlotMachine { get; } = new();
+
+    /// <summary>
+    ///     Authoritative Gilded Spindle wheel state (current machine name, tiers, selected stake, pot, last spin
+    ///     result).
+    /// </summary>
+    public static GildedSpindle GildedSpindle { get; } = new();
+
+    /// <summary>
     ///     Authoritative spell book state with cooldown timers.
     /// </summary>
     public static SpellBook SpellBook { get; } = new();
@@ -325,6 +336,19 @@ public static class WorldState
 
         DyingEffects.Clear();
         SortVersion++;
+
+        //NOTE: this resets the SlotMachine *ViewModel's* fields only -- it does NOT hide the slot panel.
+        //SlotMachineControl caches its own copies of what it paints (TitleLabel.Text, BetLabel.Text, each
+        //PaytableRows[].Text, ReelControl's strip) and repaints them only from RefreshFromViewModel(), which
+        //runs on Show()/RefreshJackpot(), never from Clear(). A Clear() call with no matching Hide() leaves
+        //Visible untouched and every one of those cached texts fully painted -- a panel surviving a map change
+        //this way would look exactly as it did before the change, showing a stale machine. The actual fix for
+        //that -- calling Slots.Hide() -- lives in WorldScreen.Map.cs's map-change path, mirroring how Bank.Hide()
+        //is called there for the same reason. This call is just routine ViewModel hygiene, consistent with every
+        //other ViewModel reset above; do not rely on it alone to close the panel. The same caveat applies to
+        //GildedSpindle.Clear() below -- it resets the wheel ViewModel's fields only, not panel visibility.
+        SlotMachine.Clear();
+        GildedSpindle.Clear();
     }
 
     /// <summary>
@@ -352,6 +376,8 @@ public static class WorldState
         Bank.Clear();
         WorldList.Clear();
         UserOptions.ClearServerSettings();
+        SlotMachine.Clear();
+        GildedSpindle.Clear();
     }
 
     /// <summary>

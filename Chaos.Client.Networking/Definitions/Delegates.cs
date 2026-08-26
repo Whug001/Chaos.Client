@@ -368,4 +368,14 @@ public delegate void MarketDisplayHandler(MarketDisplayArgs args);
 ///     Fired when a bank display packet is received.
 /// </summary>
 public delegate void BankDisplayHandler(BankDisplayArgs args);
+
+/// <summary>
+///     Fired when a slot machine display packet is received.
+/// </summary>
+public delegate void SlotMachineDisplayHandler(SlotMachineDisplayArgs args);
+
+/// <summary>
+///     Fired when a wheel (Gilded Spindle) display packet is received.
+/// </summary>
+public delegate void WheelDisplayHandler(WheelDisplayArgs args);
 #endregion

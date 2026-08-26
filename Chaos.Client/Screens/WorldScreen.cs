@@ -12,6 +12,8 @@ using Chaos.Client.Controls.World.Popups.Exchange;
 using Chaos.Client.Controls.World.Popups.Market;
 using Chaos.Client.Controls.World.Popups.Options;
 using Chaos.Client.Controls.World.Popups.Profile;
+using Chaos.Client.Controls.World.Popups.Slots;
+using Chaos.Client.Controls.World.Popups.Wheel;
 using Chaos.Client.Controls.World.Popups.WorldList;
 using Chaos.Client.Controls.World.ViewPort;
 using Chaos.Client.Data.Repositories;
@@ -157,6 +159,12 @@ public sealed partial class WorldScreen : IScreen
 
     //bank window — opened by the server's first BankDisplay (Categories); it never opens itself
     private BankControl Bank = null!;
+
+    //slot machine window — opened by the server's slot machine Open display when the player sits at a stool
+    private SlotMachineControl Slots = null!;
+
+    //gilded spindle wheel window — opened by the server's wheel Open display when the player sits at a Spindle
+    private GildedSpindleControl Spindle = null!;
 
     //ordered inventory drop-target registry (Exchange → Market → equipment); each target owns its eligibility/drop-zone,
     //WorldScreen owns the paired networking action (so all Game.Connection.* calls stay here).
@@ -743,6 +751,18 @@ public sealed partial class WorldScreen : IScreen
         };
         WireBank();
 
+        Slots = new SlotMachineControl(Game.CreatureRenderer, Game.SoundSystem)
+        {
+            ZIndex = 2
+        };
+        WireSlots();
+
+        Spindle = new GildedSpindleControl(Game.SoundSystem)
+        {
+            ZIndex = 2
+        };
+        WireSpindle();
+
         //buy-confirm popup for the market: lives on Root (it centers on-screen and must not be clipped inside the Market
         //panel) and draws above the Market window (ZIndex 3 > 2). Shown when the Results tab raises BuyRequested.
         MarketBuyConfirm = new OkPopupMessageControl(true)
@@ -812,6 +832,8 @@ public sealed partial class WorldScreen : IScreen
         Root.AddChild(Market);
         Root.AddChild(MarketBuyConfirm);
         Root.AddChild(Bank);
+        Root.AddChild(Slots);
+        Root.AddChild(Spindle);
         Root.AddChild(MainOptions);
         Root.AddChild(SettingsDialog);
         Root.AddChild(MacrosList);
@@ -934,6 +956,8 @@ public sealed partial class WorldScreen : IScreen
         Game.Connection.OnDoor -= HandleDoor;
         Game.Connection.OnMarketDisplay -= HandleMarketDisplay;
         Game.Connection.OnBankDisplay -= HandleBankDisplay;
+        Game.Connection.OnSlotMachineDisplay -= HandleSlotMachineDisplay;
+        Game.Connection.OnWheelDisplay -= HandleWheelDisplay;
 
         //unwire panel click-to-use events
         WorldHud.Inventory.OnSlotClicked -= HandleInventorySlotClicked;

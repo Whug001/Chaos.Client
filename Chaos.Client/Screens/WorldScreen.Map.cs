@@ -55,6 +55,16 @@ public sealed partial class WorldScreen
         //a bank window left open across a map change would let a player bank from anywhere, breaking the server's
         //assumption that everyone sharing a guild bank is standing on the same map. Hide() also clears the state.
         Bank.Hide();
+
+        //same reasoning as Bank.Hide() above: a slot machine panel left open across a map change would keep
+        //showing a machine the player is no longer anywhere near. WorldState.SlotMachine.Clear() (called from
+        //WorldState.Clear() below via ClearTransientState) only resets the ViewModel's fields -- it does not
+        //touch Visible or the panel's own cached label/reel textures, so it cannot close this on its own. Hide()
+        //is what actually does that (and clears the ViewModel too, same as Bank's).
+        Slots.Hide();
+
+        //same reasoning as Slots.Hide() immediately above, for the gilded spindle wheel.
+        Spindle.Hide();
         MapRenderer.Dispose();
         MapRenderer = new MapRenderer();
 

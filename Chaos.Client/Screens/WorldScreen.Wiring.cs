@@ -172,6 +172,32 @@ public sealed partial class WorldScreen
     }
     #endregion
 
+    #region Slots Wiring
+    private void WireSlots()
+    {
+        Game.Connection.OnSlotMachineDisplay += HandleSlotMachineDisplay;
+
+        Slots.SpinRequested += () => Game.Connection.SendSlotSpin();
+
+        //mirrors Bank.Closed -> SendBankClose: the session is the server's, so it needs to be told the window is
+        //gone whether the player clicked Close/Escape or the server itself pushed the Close display that led here.
+        Slots.Closed += () => Game.Connection.SendSlotClose();
+    }
+    #endregion
+
+    #region Spindle Wiring
+    private void WireSpindle()
+    {
+        Game.Connection.OnWheelDisplay += HandleWheelDisplay;
+
+        Spindle.SpinRequested += stakeIndex => Game.Connection.SendWheelSpin(stakeIndex);
+
+        //mirrors Slots.Closed -> SendSlotClose: the session is the server's, so it needs to be told the window is
+        //gone whether the player clicked Close/Escape or the server itself pushed the Close display that led here.
+        Spindle.Closed += () => Game.Connection.SendWheelClose();
+    }
+    #endregion
+
     #region NPC Session Wiring
     private void WireNpcSession()
     {

@@ -531,6 +531,16 @@ public sealed class ConnectionManager : IDisposable
     public event BankDisplayHandler? OnBankDisplay;
 
     /// <summary>
+    ///     Fired when a slot machine display packet is received from the server.
+    /// </summary>
+    public event SlotMachineDisplayHandler? OnSlotMachineDisplay;
+
+    /// <summary>
+    ///     Fired when a wheel (Gilded Spindle) display packet is received from the server.
+    /// </summary>
+    public event WheelDisplayHandler? OnWheelDisplay;
+
+    /// <summary>
     ///     Fired when door states are updated.
     /// </summary>
     public event DoorHandler? OnDoor;
@@ -1131,6 +1141,28 @@ public sealed class ConnectionManager : IDisposable
         => SendIfWorld(new MarketInteractionArgs { Type = MarketInteractionType.Search, Criteria = criteria });
 
     /// <summary>
+    ///     Requests a spin at whichever slot machine this character currently occupies.
+    /// </summary>
+    public void SendSlotSpin() => SendIfWorld(new SlotMachineInteractionArgs { Type = SlotInteractionType.Spin });
+
+    /// <summary>
+    ///     Tells the server this character is done with the slot machine they occupy.
+    /// </summary>
+    public void SendSlotClose() => SendIfWorld(new SlotMachineInteractionArgs { Type = SlotInteractionType.Close });
+
+    /// <summary>
+    ///     Requests a spin at whichever Gilded Spindle wheel this character currently occupies, at the given tier.
+    /// </summary>
+    /// <param name="stakeIndex">Index into the tier list the server sent in its Open display.</param>
+    public void SendWheelSpin(byte stakeIndex)
+        => SendIfWorld(new WheelInteractionArgs { Type = WheelInteractionType.Spin, StakeIndex = stakeIndex });
+
+    /// <summary>
+    ///     Tells the server this character is done with the wheel they occupy.
+    /// </summary>
+    public void SendWheelClose() => SendIfWorld(new WheelInteractionArgs { Type = WheelInteractionType.Close });
+
+    /// <summary>
     ///     Sends a market buy request for a specific listing.
     /// </summary>
     /// <param name="listingId">The listing ID to buy.</param>
@@ -1514,6 +1546,8 @@ public sealed class ConnectionManager : IDisposable
         PacketHandlers[(byte)ServerOpCode.UserOptions] = HandleUserOptions;
         PacketHandlers[(byte)ServerOpCode.MarketDisplay] = HandleMarketDisplay;
         PacketHandlers[(byte)ServerOpCode.BankDisplay] = HandleBankDisplay;
+        PacketHandlers[(byte)ServerOpCode.SlotMachineDisplay] = HandleSlotMachineDisplay;
+        PacketHandlers[(byte)ServerOpCode.WheelDisplay] = HandleWheelDisplay;
         PacketHandlers[(byte)ServerOpCode.DisplayAisling] = HandleDisplayAisling;
 
         //world entities
@@ -1876,6 +1910,18 @@ public sealed class ConnectionManager : IDisposable
     {
         var args = Client.Deserialize<BankDisplayArgs>(in pkt);
         OnBankDisplay?.Invoke(args);
+    }
+
+    private void HandleSlotMachineDisplay(ServerPacket pkt)
+    {
+        var args = Client.Deserialize<SlotMachineDisplayArgs>(in pkt);
+        OnSlotMachineDisplay?.Invoke(args);
+    }
+
+    private void HandleWheelDisplay(ServerPacket pkt)
+    {
+        var args = Client.Deserialize<WheelDisplayArgs>(in pkt);
+        OnWheelDisplay?.Invoke(args);
     }
 
     private void HandleDisplayAisling(ServerPacket pkt)

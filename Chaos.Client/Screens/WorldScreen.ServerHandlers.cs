@@ -1465,6 +1465,96 @@ public sealed partial class WorldScreen
     /// </summary>
     private void RefreshBank() => Game.Connection.SendBankSearch(Bank.Query);
 
+    //--- slots ---
+
+    /// <summary>
+    ///     Dispatches a slot machine display packet. Open/SpinResult/JackpotAlert first apply the packet to
+    ///     <see cref="WorldState.SlotMachine" /> (the authoritative state) and then tell <see cref="Slots" /> to
+    ///     repaint from it; Rejected and Close carry nothing worth storing in the view model, so they go straight
+    ///     to the control. <see cref="WorldState.SlotMachine" /> has no Changed event (unlike
+    ///     <see cref="ViewModel.BankState" />) — there is exactly one producer of these packets, so this direct
+    ///     apply-then-repaint call is simpler than adding an event with a single subscriber.
+    /// </summary>
+    private void HandleSlotMachineDisplay(SlotMachineDisplayArgs args)
+    {
+        switch (args.Type)
+        {
+            case SlotDisplayType.Open:
+                WorldState.SlotMachine.ApplyOpen(args);
+                Slots.Show();
+
+                break;
+
+            case SlotDisplayType.SpinResult:
+                WorldState.SlotMachine.ApplySpinResult(args);
+                Slots.OnSpinResult();
+
+                break;
+
+            case SlotDisplayType.JackpotAlert:
+                WorldState.SlotMachine.ApplyJackpot(args);
+                Slots.RefreshJackpot();
+
+                break;
+
+            case SlotDisplayType.Rejected:
+                Slots.OnRejected(args.Reason);
+
+                break;
+
+            //the server ended the session — the player stood up, closed the panel, or the occupancy backstop
+            //released them. The window would otherwise stay up, fully painted, with every Spin press coming back
+            //NotOccupant, and could be carried by the player onto a different machine entirely.
+            case SlotDisplayType.Close:
+                Slots.Hide();
+
+                break;
+        }
+    }
+
+    //--- gilded spindle wheel ---
+
+    /// <summary>
+    ///     Dispatches a wheel display packet. Mirrors <see cref="HandleSlotMachineDisplay" /> exactly: Open/SpinResult
+    ///     /JackpotAlert first apply the packet to <see cref="WorldState.GildedSpindle" /> (the authoritative state)
+    ///     and then tell <see cref="Spindle" /> to repaint from it; Rejected and Close carry nothing worth storing
+    ///     in the view model, so they go straight to the control.
+    /// </summary>
+    private void HandleWheelDisplay(WheelDisplayArgs args)
+    {
+        switch (args.Type)
+        {
+            case WheelDisplayType.Open:
+                WorldState.GildedSpindle.ApplyOpen(args);
+                Spindle.Show();
+
+                break;
+
+            case WheelDisplayType.SpinResult:
+                WorldState.GildedSpindle.ApplySpinResult(args);
+                Spindle.OnSpinResult();
+
+                break;
+
+            case WheelDisplayType.JackpotAlert:
+                WorldState.GildedSpindle.ApplyJackpot(args);
+                Spindle.RefreshJackpot();
+
+                break;
+
+            case WheelDisplayType.Rejected:
+                Spindle.OnRejected(args.Reason);
+
+                break;
+
+            //the server ended the session -- the player stood up or the occupancy backstop released them
+            case WheelDisplayType.Close:
+                Spindle.Hide();
+
+                break;
+        }
+    }
+
     private static MarketListing MapResultEntry(MarketResultEntry e)
         => new(
             e.ListingId,

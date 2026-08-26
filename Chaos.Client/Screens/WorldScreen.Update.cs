@@ -273,6 +273,15 @@ public sealed partial class WorldScreen
         //tick casting timer (chant lines are sent on a 1-second interval)
         CastingSystem.Update(elapsedMs, Game.Connection);
 
+        //slot machine reels: Slots.Update(float) is a distinct method from the inherited GameTime-based Update, so
+        //Root!.Update(gameTime) below would never reach it -- it must be ticked explicitly, in seconds (ReelControl's
+        //SPIN_SPEED/SETTLE_SECONDS are both second-based), hence the /1000f conversion from this method's millisecond elapsed.
+        Slots.Update(elapsedMs / 1000f);
+
+        //gilded spindle wheels: same reasoning as Slots.Update above -- Spindle.Update(float) is a distinct method
+        //from the inherited GameTime-based Update and must be ticked explicitly, in seconds.
+        Spindle.Update(elapsedMs / 1000f);
+
         //spacebar assail is handled in OnRootKeyDown — the dispatcher delivers both the
         //initial press and os key-repeat keydowns through the event pipeline, so dialogs
         //that consume spacebar (via e.Handled = true) naturally block it.

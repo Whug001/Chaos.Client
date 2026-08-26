@@ -683,6 +683,39 @@ public static class AnimationSystem
     }
 
     /// <summary>
+    ///     Returns the whole walk cycle — start frame, frame count, and flip flag — for a creature sprite facing the
+    ///     given direction. The direction-group companion to
+    ///     <see cref="GetCreatureIdleFrame(in CreatureAnimInfo,Direction)" />: same two-group frame layout, but the
+    ///     full range rather than a single frame, for callers that want a creature visibly moving rather than posed.
+    ///     Does not require a WorldEntity.
+    /// </summary>
+    /// <remarks>
+    ///     A sprite that defines only one direction group reuses it for every direction — the same single-direction
+    ///     fallback the entity-driven <see cref="GetCreatureFrame" /> applies. The offset is therefore checked
+    ///     against the cycle's LAST frame rather than its first, which is the strictest case of that method's own
+    ///     per-frame guard. Returns a count of 0 when the sprite defines no walk frames at all; callers must treat
+    ///     that as "do not animate" rather than indexing into it.
+    /// </remarks>
+    public static (int StartFrame, int FrameCount, bool Flip) GetCreatureWalkCycle(in CreatureAnimInfo info, Direction direction)
+    {
+        var count = info.WalkFrameCount;
+
+        if (count == 0)
+            return (info.WalkFrameIndex, 0, false);
+
+        var dirOffset = (info.WalkFrameIndex + (count * 2) - 1) >= info.TotalFrameCount ? 0 : count;
+
+        return direction switch
+        {
+            Direction.Up    => (info.WalkFrameIndex, count, false),
+            Direction.Right => (info.WalkFrameIndex + dirOffset, count, false),
+            Direction.Down  => (info.WalkFrameIndex + dirOffset, count, true),
+            Direction.Left  => (info.WalkFrameIndex, count, true),
+            _               => (info.WalkFrameIndex, count, false)
+        };
+    }
+
+    /// <summary>
     ///     Computes the starting visual offset for a walk animation. The entity has already moved to the new tile; this offset
     ///     places it visually at the old position, then lerps to zero.
     /// </summary>
