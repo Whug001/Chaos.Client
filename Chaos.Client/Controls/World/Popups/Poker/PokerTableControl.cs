@@ -1,4 +1,4 @@
-#region
+﻿#region
 using Chaos.Client.Collections;
 using Chaos.Client.Controls.Components;
 using Chaos.Client.Controls.Custom;
@@ -1068,7 +1068,10 @@ public sealed class PokerTableControl : FramedDialogPanelBase
             NameLabel.ForegroundColor = inactive ? dimmed :
                 isYou ? LegendColors.Gold : LegendColors.White;
 
-            GoldLabel.Text = $"Gold: {seat.Gold:N0}";
+            //only your own purse is on the wire for you -- the server sends zero for every other seat -- so a
+            //placeholder rather than "Gold: 0", which would read as a player who is broke instead of a number
+            //that was deliberately withheld. Plain ASCII: the bitmap font's coverage above 126 is not assured.
+            GoldLabel.Text = isYou ? $"Gold: {seat.Gold:N0}" : "-";
             GoldLabel.ForegroundColor = inactive ? dimmed : LegendColors.White;
 
             CommittedLabel.Text = $"Bet: {seat.Committed:N0}";
