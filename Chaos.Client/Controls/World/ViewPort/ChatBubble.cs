@@ -1,4 +1,4 @@
-#region
+﻿#region
 using Chaos.Client.Controls.Components;
 using Chaos.Client.Rendering.Utility;
 using Microsoft.Xna.Framework;
@@ -66,7 +66,20 @@ public sealed class ChatBubble : UIImage
         Height = height;
     }
 
-    public static ChatBubble Create(uint entityId, string message, bool isShout)
+    /// <param name="entityId">Who is speaking.</param>
+    /// <param name="message">What they said.</param>
+    /// <param name="isShout">Whether to colour it as a shout.</param>
+    /// <param name="name">
+    ///     Optional control name. <see cref="UIPanel.RemoveChild" /> removes by name and
+    ///     <see cref="UIElement.Name" /> is init-only, so a caller that parents bubbles to a panel and needs to
+    ///     retire them individually has to name them at construction. The world's own overlay manager tracks its
+    ///     bubbles itself and passes nothing.
+    /// </param>
+    public static ChatBubble Create(
+        uint entityId,
+        string message,
+        bool isShout,
+        string? name = null)
     {
         var lines = WordWrap(message);
         var textColor = isShout ? ShoutTextColor : NormalTextColor;
@@ -108,7 +121,10 @@ public sealed class ChatBubble : UIImage
             lines,
             textColor,
             bubbleWidth,
-            totalHeight);
+            totalHeight)
+        {
+            Name = name ?? string.Empty
+        };
     }
 
     public override void Draw(SpriteBatch spriteBatch)

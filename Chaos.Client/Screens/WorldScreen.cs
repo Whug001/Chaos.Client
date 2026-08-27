@@ -767,7 +767,7 @@ public sealed partial class WorldScreen : IScreen
         };
         WireSpindle();
 
-        Poker = new PokerTableControl(Game.SoundSystem)
+        Poker = new PokerTableControl(Game.SoundSystem, Game.AislingRenderer, Game.CreatureRenderer)
         {
             ZIndex = 2
         };

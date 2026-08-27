@@ -1,4 +1,4 @@
-#region
+﻿#region
 using Chaos.Client.Collections;
 using Chaos.Client.Controls.Generic;
 using Chaos.Client.Controls.World.Popups.Market;
@@ -244,6 +244,10 @@ public sealed partial class WorldScreen
 
         var isShout = args.PublicMessageType == PublicMessageType.Shout;
         Overlays.AddChatBubble(args.SourceId, args.Message, isShout);
+
+        //and again over the speaker's portrait if they are sitting at the poker table, whose panel is covering
+        //the bubble that was just added to the floor. Ignored outright when they are not seated there.
+        Poker.ShowChatBubble(args.SourceId, args.Message, isShout);
     }
 
     /// <summary>

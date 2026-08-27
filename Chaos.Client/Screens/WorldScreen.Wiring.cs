@@ -1,4 +1,4 @@
-#region
+﻿#region
 using Chaos.Client.Collections;
 using Chaos.Client.Controls.Components;
 using Chaos.Client.Controls.World.Hud;
@@ -208,6 +208,14 @@ public sealed partial class WorldScreen
         //standing up from the table: mid-hand this folds the player and forfeits gold already committed to the
         //pot. Deliberately NOT the same send as Closed -- see Closed's remark below.
         Poker.LeaveRequested += () => Game.Connection.SendPokerLeave();
+
+        //the emote goes to the world like any other: everyone sees it over the player's head, and the
+        //seated players see it on each other's portraits because the panel hides the world behind it.
+        Poker.EmoteRequested += animation => Game.Connection.SendEmote(animation);
+
+        //ordinary public speech: the room hears it, and the bubble the world would have drawn is drawn on
+        //the poker table too, because the panel is covering the floor it would have appeared on.
+        Poker.ChatRequested += message => Game.Connection.SendPublicMessage(message);
 
         Poker.SitOutRequested += () => Game.Connection.SendPokerSitOut();
         Poker.SitInRequested += () => Game.Connection.SendPokerSitIn();

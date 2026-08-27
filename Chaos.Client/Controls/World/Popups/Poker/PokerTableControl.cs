@@ -4,12 +4,16 @@ using Chaos.Client.Controls.Components;
 using Chaos.Client.Controls.Custom;
 using Chaos.Client.Controls.Generic;
 using Chaos.Client.Controls.World.Popups.Dialog;
+using Chaos.Client.Controls.World.ViewPort;
 using Chaos.Client.Extensions;
+using Chaos.Client.Models;
+using Chaos.Client.Rendering;
 using Chaos.Client.Rendering.Utility;
 using Chaos.Client.Systems;
 using Chaos.Client.Utilities;
 using Chaos.Client.ViewModel;
 using Chaos.DarkAges.Definitions;
+using Chaos.Geometry.Abstractions.Definitions;
 using Microsoft.Xna.Framework;
 using Microsoft.Xna.Framework.Graphics;
 using SkiaSharp;
@@ -77,33 +81,27 @@ public sealed class PokerTableControl : FramedDialogPanelBase
     private const byte ACTION_BET = 3;
     private const byte ACTION_RAISE = 4;
 
-    private const int SEATS_PER_ROW = 3;
-
-    /// <summary>The number of seat rows this layout draws -- one above the board and one below it.</summary>
-    private const int SEAT_ROWS = 2;
-
     /// <summary>
     ///     The table's fixed seat count -- six, matching the shipped hold-em table's <c>seatCount</c>.
     /// </summary>
     /// <remarks>
-    ///     DERIVED from the row geometry rather than written as a literal 6, so the two can never drift apart.
-    ///     <see cref="SeatScreenSlot" />'s arithmetic is only correct while the seats fill exactly
-    ///     <see cref="SEAT_ROWS" /> rows of <see cref="SEATS_PER_ROW" />; when this was an independent literal, a
-    ///     seventh seat would have been placed at column -1 -- silently off the left edge of the panel -- rather
-    ///     than reported. Raising the count now means changing the geometry that actually draws it.
+    ///     The seats are placed around an ellipse by <see cref="SeatAnchor" />, which owns one hand-written
+    ///     anchor per seat rather than deriving positions from rows and columns. That is deliberate: a ring has
+    ///     no arithmetic that stays correct as the count changes, so <see cref="SeatAnchor" /> throws on an index
+    ///     it has no anchor for instead of computing a plausible-looking position off the felt. Raising this
+    ///     count means adding anchors, and the code will say so rather than silently misplacing a seat.
     /// </remarks>
-    private const int SEAT_COUNT = SEATS_PER_ROW * SEAT_ROWS;
+    private const int SEAT_COUNT = 6;
 
     /// <summary>The community board never exceeds five cards (flop, turn, river).</summary>
     private const int BOARD_SIZE = 5;
 
-    //── canonical panel size ──
-    //Both dimensions are DERIVED from the content, never pinned: SlotMachineControl's remarks at its own
-    //PANEL_WIDTH explain what pinning a total costs -- a gap tightened later leaves a bare patch behind instead
-    //of shrinking the window. Width is one seat row plus its margins; height runs from the title down to the
-    //table-control row, plus the ornate frame's own bottom border.
-    private const int CONTENT_LEFT = 20;
-    private const int CONTENT_RIGHT = 20;
+    //-- canonical panel size --
+    //Unlike the two-row layout this replaced, the panel total IS pinned here, because a ring is laid out from
+    //its centre outward rather than stacked from the top down: the felt's centre, the seat anchors and the
+    //board all measure from PANEL_WIDTH/PANEL_HEIGHT, so deriving the total from the content would be circular.
+    //Both fit the 640x480 virtual screen with margin to spare.
+    private const int PANEL_WIDTH = 624;
 
     //FramedDialogPanelBase paints a 47px ornate bottom border over the panel's last 47 rows (rivet strip plus the
     //Close button), so content has to end above it. Budgeted by name rather than eyeballed.
@@ -115,45 +113,158 @@ public sealed class PokerTableControl : FramedDialogPanelBase
     private const int OK_RIGHT_MARGIN = 20;
     private const int OK_BOTTOM_MARGIN = 3;
 
-    //── seat box ──
-    private const int SEAT_WIDTH = 128;
-    private const int SEAT_HEIGHT = 56;
-    private const int SEAT_GAP = 10;
-    private const int SEAT_ROW_WIDTH = (SEAT_WIDTH * SEATS_PER_ROW) + (SEAT_GAP * (SEATS_PER_ROW - 1));
+    //-- seat plaque --
+    //A portrait sits at the left with the name and wager stacked beside it, and the two hole cards sit under
+    //both. Sized to the content: the card row is the wider of the two blocks only if the cards grow.
+    private const int PORTRAIT_SIZE = 40;
+    private const int SEAT_TEXT_GAP = 4;
 
-    private const int PANEL_WIDTH = CONTENT_LEFT + SEAT_ROW_WIDTH + CONTENT_RIGHT;
+    //wide enough for "Gold: 52,364,211" -- a purse, not a table stack, so it runs to eight digits and grouping.
+    private const int SEAT_TEXT_WIDTH = 100;
 
-    //── vertical rhythm ──
+    private const int SEAT_PAD = 2;
+
+    /// <summary>The portrait's offset inside its plaque. Named here so the control can centre a bubble on a face.</summary>
+    private const int PORTRAIT_X_IN_SEAT = SEAT_PAD;
+    private const int SEAT_CARD_GAP = 2;
+    private const int SEAT_CARDS_WIDTH = (CardView.WIDTH * 2) + SEAT_CARD_GAP;
+
+    /// <summary>
+    ///     Portrait, details and hole cards sit side by side rather than stacked.
+    /// </summary>
+    /// <remarks>
+    ///     Stacking the cards under the details was tried first and does not fit: three text rows reach y=38
+    ///     while a <see cref="CardView" /> is 50 tall, so in a plaque short enough to ring the felt the cards
+    ///     landed on top of the wager line. Widening and going horizontal is what actually has room -- the
+    ///     height then only has to clear the tallest single element rather than the sum of all three.
+    /// </remarks>
+    private const int SEAT_WIDTH = SEAT_PAD
+                                   + PORTRAIT_SIZE
+                                   + SEAT_TEXT_GAP
+                                   + SEAT_TEXT_WIDTH
+                                   + SEAT_TEXT_GAP
+                                   + SEAT_CARDS_WIDTH
+                                   + SEAT_PAD;
+
+    private const int SEAT_HEIGHT = CardView.HEIGHT + (SEAT_PAD * 2);
+
+    //-- felt --
     private const int TITLE_TOP = 8;
-    private const int SEAT_ROW_TOP = TITLE_TOP + TextRenderer.CHAR_HEIGHT + 6;
-    private const int BOARD_TOP = SEAT_ROW_TOP + SEAT_HEIGHT + 10;
-    private const int POT_TOP = BOARD_TOP + CardView.HEIGHT + 6;
+    private const int FELT_TOP = TITLE_TOP + TextRenderer.CHAR_HEIGHT + 6;
+    private const int FELT_HEIGHT = 300;
+    private const int FELT_BOTTOM = FELT_TOP + FELT_HEIGHT;
+
+    /// <summary>How far the painted felt is inset from the panel edges, leaving the side seats room to sit on its rail.</summary>
+    private const int FELT_SIDE_INSET = 96;
+
+    private const int FELT_WIDTH = PANEL_WIDTH - (FELT_SIDE_INSET * 2);
+    private const int FELT_CENTER_X = PANEL_WIDTH / 2;
+    private const int FELT_CENTER_Y = FELT_TOP + (FELT_HEIGHT / 2);
+
+    /// <summary>Width of the darker rail ringing the felt -- the table edge players' plaques rest on.</summary>
+    private const int FELT_RAIL_WIDTH = 7;
+
+    private const int SEAT_EDGE_MARGIN = 6;
+
+    /// <summary>Horizontal gap between the two top seats (and the two bottom seats) either side of the centre line.</summary>
+    private const int SEAT_SPREAD = 12;
+
+    //-- board and pot, both centred on the felt --
+    /// <summary>
+    ///     The emotes the picker offers, in grid order.
+    /// </summary>
+    /// <remarks>
+    ///     <b>Face emotes only</b> -- expressions drawn onto the character's own face. The extended emote set
+    ///     (Rock On, Shock, Sweat, Love and the rest) draws a white speech bubble above the head instead, which
+    ///     is not wanted here: at portrait size the bubble is most of what you see.
+    ///     <para>
+    ///         These are frames 0-6 of the emote sheet -- a contiguous run of single-frame expressions, which is
+    ///         the original face set. Everything from frame 11 up is the extended bubble set; Sweat is frame 21
+    ///         and was the one that showed the problem.
+    ///     </para>
+    ///     <para>
+    ///         <c>Snore</c> (frames 7-8) and <c>Mouth</c> (9-10) sit between the two blocks and are excluded
+    ///         because their artwork has not been checked -- their frame counts suggest animation rather than a
+    ///         still expression. <c>BlowKiss</c> and <c>Wave</c> are excluded for a different reason entirely:
+    ///         they are body animations, not overlays, and never showed up here at all.
+    ///     </para>
+    /// </remarks>
+    private static readonly (BodyAnimation Animation, string Caption)[] Emotes =
+    [
+        (BodyAnimation.Smile, "Smile"),
+        (BodyAnimation.Wink, "Wink"),
+        (BodyAnimation.Frown, "Frown"),
+        (BodyAnimation.Cry, "Cry"),
+        (BodyAnimation.Surprise, "Surprise"),
+        (BodyAnimation.Tongue, "Tongue"),
+        (BodyAnimation.Pleasant, "Pleasant")
+    ];
+
+    private const int EMOTE_COLUMNS = 3;
+    private const int EMOTE_BUTTON_WIDTH = 88;
+    private const int EMOTE_BUTTON_GAP = 5;
+    private const int EMOTE_PICKER_PAD = 6;
+
+    private static readonly int EmoteRows = (Emotes.Length + EMOTE_COLUMNS - 1) / EMOTE_COLUMNS;
+
+    private static readonly int EmotePickerWidth
+        = (EMOTE_PICKER_PAD * 2) + (EMOTE_BUTTON_WIDTH * EMOTE_COLUMNS) + (EMOTE_BUTTON_GAP * (EMOTE_COLUMNS - 1));
+
+    private static readonly int EmotePickerHeight
+        = (EMOTE_PICKER_PAD * 2) + (CustomButton.HEIGHT * EmoteRows) + (EMOTE_BUTTON_GAP * (EmoteRows - 1));
+
+    private const int CHAT_PROMPT_WIDTH = 300;
+    private const int CHAT_PROMPT_PAD = 6;
+    private const int CHAT_SEND_WIDTH = 60;
+
+    /// <summary>How long a player has to type before the prompt is not worth keeping open. Matches the bubble's own life.</summary>
+    private const int CHAT_MAX_LENGTH = 90;
+
+    /// <summary>Gap between a seat's plaque and the speech bubble pointing at it.</summary>
+    private const int BUBBLE_GAP = 3;
+
+    private const int BOARD_CARD_GAP = 4;
+
+    private const int BOARD_ROW_WIDTH = (CardView.WIDTH * BOARD_SIZE) + (BOARD_CARD_GAP * (BOARD_SIZE - 1));
+    private const int BOARD_TOP = FELT_CENTER_Y - CardView.HEIGHT - 8;
+    private const int POT_TOP = BOARD_TOP + CardView.HEIGHT + 10;
+
+    //narrow enough to pass between the left and right plaques, which reach further inward than they used to.
+    private const int POT_BOX_WIDTH = 160;
     private const int POT_BOX_HEIGHT = CustomButton.HEIGHT;
-    private const int SEAT_ROW2_TOP = POT_TOP + POT_BOX_HEIGHT + 10;
-    private const int EVENT_TOP = SEAT_ROW2_TOP + SEAT_HEIGHT + 8;
-    private const int ACTION_ROW_TOP = EVENT_TOP + TextRenderer.CHAR_HEIGHT + 6;
-    private const int TABLE_ROW_TOP = ACTION_ROW_TOP + CustomButton.HEIGHT + 6;
+    private const int POT_BOX_LEFT = FELT_CENTER_X - (POT_BOX_WIDTH / 2);
 
-    private const int PANEL_HEIGHT = TABLE_ROW_TOP + CustomButton.HEIGHT + 4 + FRAME_BOTTOM_BORDER;
+    //the action log sits ON the felt beneath the pot, where a dealer's call would be heard, rather than in the
+    //strip below: the ring layout spends that strip on buttons and there is no room left under the table.
+    private const int EVENT_TOP = POT_TOP + POT_BOX_HEIGHT + 6;
+    //narrow enough to pass BETWEEN the two side seats rather than under them: at 300 it clears both, and the
+    //felt is wider than the gap those seats leave.
+    private const int EVENT_WIDTH = 300;
+    private const int EVENT_LEFT = FELT_CENTER_X - (EVENT_WIDTH / 2);
 
-    //── button rows ──
-    //five action buttons spanning exactly one seat row, so the buttons line up under the seats above them.
+    //-- button rows, below the felt --
+    private const int ACTION_ROW_TOP = FELT_BOTTOM + 8;
     private const int ACTION_BUTTON_COUNT = 5;
     private const int ACTION_BUTTON_GAP = 6;
+    private const int ACTION_ROW_WIDTH = 400;
 
     private const int ACTION_BUTTON_WIDTH
-        = (SEAT_ROW_WIDTH - (ACTION_BUTTON_GAP * (ACTION_BUTTON_COUNT - 1))) / ACTION_BUTTON_COUNT;
+        = (ACTION_ROW_WIDTH - (ACTION_BUTTON_GAP * (ACTION_BUTTON_COUNT - 1))) / ACTION_BUTTON_COUNT;
 
-    private const int TABLE_BUTTON_COUNT = 3;
+    private const int ACTION_ROW_LEFT
+        = (PANEL_WIDTH - ((ACTION_BUTTON_WIDTH * ACTION_BUTTON_COUNT) + (ACTION_BUTTON_GAP * (ACTION_BUTTON_COUNT - 1)))) / 2;
+
+    private const int TABLE_ROW_TOP = ACTION_ROW_TOP + CustomButton.HEIGHT + 6;
+    private const int TABLE_BUTTON_COUNT = 5;
     private const int TABLE_BUTTON_WIDTH = 96;
     private const int TABLE_BUTTON_GAP = 8;
 
     private const int TABLE_ROW_WIDTH
         = (TABLE_BUTTON_WIDTH * TABLE_BUTTON_COUNT) + (TABLE_BUTTON_GAP * (TABLE_BUTTON_COUNT - 1));
 
-    private const int TABLE_ROW_LEFT = CONTENT_LEFT + ((SEAT_ROW_WIDTH - TABLE_ROW_WIDTH) / 2);
+    private const int TABLE_ROW_LEFT = (PANEL_WIDTH - TABLE_ROW_WIDTH) / 2;
 
-    private const int BOARD_CARD_GAP = 3;
+    private const int PANEL_HEIGHT = TABLE_ROW_TOP + CustomButton.HEIGHT + 4 + FRAME_BOTTOM_BORDER;
 
     /// <summary>
     ///     How long a rejection message resists being overwritten by the next snapshot's <c>EventText</c> -- long
@@ -172,6 +283,15 @@ public sealed class PokerTableControl : FramedDialogPanelBase
     /// <summary>Fill behind the recessed surfaces (seat boxes, pot readout) -- the same near-black CustomButton uses.</summary>
     private static readonly SKColor RecessedFillColor = new(10, 8, 5, 255);
 
+    /// <summary>The felt itself -- a muted table green, dark enough that cream cards and white text sit on it legibly.</summary>
+    private static readonly SKColor FeltSurfaceColor = new(24, 78, 52, 255);
+
+    /// <summary>The rail ringing the felt: the table's wooden edge, where the seat plaques rest.</summary>
+    private static readonly SKColor FeltRailColor = new(48, 32, 18, 255);
+
+    /// <summary>Hairline inside the rail, so the two greens read as a surface with an edge rather than a flat disc.</summary>
+    private static readonly SKColor FeltSheenColor = new(46, 112, 78, 255);
+
     /// <summary>Warm gold outline marking the seat on the clock. Border-only, so it never recolors the seat's own text.</summary>
     private static readonly Color ActingSeatColor = new(255, 200, 60, 220);
 
@@ -181,7 +301,9 @@ public sealed class PokerTableControl : FramedDialogPanelBase
     private readonly UILabel PotLabel;
     private readonly UILabel EventLabel;
 
-    //indexed by TABLE seat index, not by screen position -- SeatScreenSlot maps one to the other.
+    //indexed by TABLE seat index, not by ring position -- SeatAnchor maps one to the other.
+    private readonly UIPanel FeltPanel;
+
     private readonly SeatPanel[] SeatPanels = new SeatPanel[SEAT_COUNT];
 
     private readonly CardView[] BoardCards = new CardView[BOARD_SIZE];
@@ -194,6 +316,32 @@ public sealed class PokerTableControl : FramedDialogPanelBase
     private readonly CustomButton LeaveButton;
     private readonly CustomButton SitOutButton;
     private readonly CustomButton SitInButton;
+    private readonly CustomButton EmoteButton;
+    private readonly UIPanel EmotePicker;
+    private readonly CustomButton ChatButton;
+    private readonly ChatPromptPanel ChatPrompt;
+
+    //live speech bubbles, one entry per seat that is currently saying something
+    private readonly List<ChatBubble> Bubbles = [];
+
+    //in-flight action animations. Both are pure presentation: they are spawned by comparing one snapshot to the
+    //last and never feed anything back into what is drawn from server state.
+    private readonly List<ChipSlide> ChipSlides = [];
+    private readonly List<ActionFlash> ActionFlashes = [];
+
+    //what the previous snapshot said, so a change can be told from a repeat
+    private readonly int[] PreviousCommitted = new int[SEAT_COUNT];
+    private readonly string?[] PreviousAction = new string?[SEAT_COUNT];
+
+    //false until the first snapshot after a Show has seeded the above. Without it, opening the panel onto a hand
+    //already in progress would replay every wager and action that had happened before the player sat down.
+    private bool AnimationsPrimed;
+
+    //makes each animation's control name unique; RemoveChild matches on name
+    private int AnimationSequence;
+
+    /// <summary>The gold piece a <see cref="ChipSlide" /> carries. Shared, and never disposed -- one small texture for the process.</summary>
+    private static readonly Texture2D CoinTexture = BuildCoin(10);
 
     /// <summary>
     ///     The "leave the hand?" confirmation, shown only by <see cref="RequestDismissal" />. A stock
@@ -232,6 +380,26 @@ public sealed class PokerTableControl : FramedDialogPanelBase
     /// <summary>Raised when the player clicks Sit Out. Wired to <c>ConnectionManager.SendPokerSitOut</c>.</summary>
     public event Action? SitOutRequested;
 
+    /// <summary>
+    ///     Raised with the chosen emote when the player picks one. Wired to <c>ConnectionManager.SendEmote</c>.
+    /// </summary>
+    /// <remarks>
+    ///     Carries the <see cref="BodyAnimation" /> itself rather than a raw byte, unlike
+    ///     <see cref="ActionRequested" />: that one is a poker action whose wire values this control defines, while
+    ///     this is an existing world enum the send method already takes.
+    /// </remarks>
+    public event Action<BodyAnimation>? EmoteRequested;
+
+    /// <summary>
+    ///     Raised with what the player typed. Wired to <c>ConnectionManager.SendPublicMessage</c>.
+    /// </summary>
+    /// <remarks>
+    ///     Ordinary public speech, not a table-only channel: it reaches the room the same way talking normally
+    ///     does, and the bubble this panel draws is the same one the world would have drawn had the panel not
+    ///     been covering it.
+    /// </remarks>
+    public event Action<string>? ChatRequested;
+
     /// <summary>Raised when the player clicks Sit In. Wired to <c>ConnectionManager.SendPokerSitIn</c>.</summary>
     public event Action? SitInRequested;
 
@@ -255,10 +423,18 @@ public sealed class PokerTableControl : FramedDialogPanelBase
     /// </remarks>
     public event Action? Closed;
 
-    public PokerTableControl(SoundSystem soundSystem)
+    /// <param name="soundSystem">Plays the your-turn cue.</param>
+    /// <param name="aislingRenderer">
+    ///     Draws the seated players' portraits. Appearance is not carried by the poker protocol at all -- it is
+    ///     read from <c>WorldState</c>, where every player standing at the table already is.
+    /// </param>
+    /// <param name="creatureRenderer">Draws the monsters standing in for the court cards.</param>
+    public PokerTableControl(SoundSystem soundSystem, AislingRenderer aislingRenderer, CreatureRenderer creatureRenderer)
         : base("_nsett", false)
     {
         ArgumentNullException.ThrowIfNull(soundSystem);
+        ArgumentNullException.ThrowIfNull(aislingRenderer);
+        ArgumentNullException.ThrowIfNull(creatureRenderer);
 
         SoundSystem = soundSystem;
 
@@ -302,15 +478,27 @@ public sealed class PokerTableControl : FramedDialogPanelBase
         };
         AddChild(TitleLabel);
 
-        //── the six seat boxes, ringed around the board ──
+        //── the felt, added before the seats so it draws beneath them: the plaques sit ON the rail ──
+        FeltPanel = new UIPanel
+        {
+            X = FELT_SIDE_INSET,
+            Y = FELT_TOP,
+            Width = FELT_WIDTH,
+            Height = FELT_HEIGHT,
+            Background = BuildFelt(FELT_WIDTH, FELT_HEIGHT, FELT_RAIL_WIDTH),
+            IsHitTestVisible = false
+        };
+        AddChild(FeltPanel);
+
+        //── the six seat plaques, ringed clockwise around the felt ──
         for (var seat = 0; seat < SEAT_COUNT; seat++)
         {
-            var (column, row) = SeatScreenSlot(seat);
+            var (x, y) = SeatAnchor(seat);
 
-            var panel = new SeatPanel
+            var panel = new SeatPanel(aislingRenderer, creatureRenderer)
             {
-                X = CONTENT_LEFT + (column * (SEAT_WIDTH + SEAT_GAP)),
-                Y = row == 0 ? SEAT_ROW_TOP : SEAT_ROW2_TOP
+                X = x,
+                Y = y
             };
             SeatPanels[seat] = panel;
             AddChild(panel);
@@ -320,7 +508,7 @@ public sealed class PokerTableControl : FramedDialogPanelBase
         //   middle of the table rather than hard against the left of a five-wide strip. See LayOutBoard. ──
         for (var i = 0; i < BoardCards.Length; i++)
         {
-            var card = new CardView
+            var card = new CardView(creatureRenderer)
             {
                 Y = BOARD_TOP,
                 Visible = false
@@ -329,14 +517,14 @@ public sealed class PokerTableControl : FramedDialogPanelBase
             AddChild(card);
         }
 
-        //── pot readout: a recessed display spanning the seat row, directly beneath the board ──
+        //── pot readout: a recessed plate centred on the felt, directly beneath the board ──
         var potBox = new UIPanel
         {
-            X = CONTENT_LEFT,
+            X = POT_BOX_LEFT,
             Y = POT_TOP,
-            Width = SEAT_ROW_WIDTH,
+            Width = POT_BOX_WIDTH,
             Height = POT_BOX_HEIGHT,
-            Background = BuildRecessedPanel(SEAT_ROW_WIDTH, POT_BOX_HEIGHT),
+            Background = BuildRecessedPanel(POT_BOX_WIDTH, POT_BOX_HEIGHT),
             IsHitTestVisible = false
         };
         AddChild(potBox);
@@ -345,7 +533,7 @@ public sealed class PokerTableControl : FramedDialogPanelBase
         {
             X = 8,
             Y = (POT_BOX_HEIGHT - TextRenderer.CHAR_HEIGHT) / 2,
-            Width = SEAT_ROW_WIDTH - 16,
+            Width = POT_BOX_WIDTH - 16,
             Height = TextRenderer.CHAR_HEIGHT,
             HorizontalAlignment = HorizontalAlignment.Center,
             ForegroundColor = LegendColors.Gold,
@@ -357,9 +545,9 @@ public sealed class PokerTableControl : FramedDialogPanelBase
         //── one-line action log, directly above the action buttons ──
         EventLabel = new UILabel
         {
-            X = CONTENT_LEFT,
+            X = EVENT_LEFT,
             Y = EVENT_TOP,
-            Width = SEAT_ROW_WIDTH,
+            Width = EVENT_WIDTH,
             Height = TextRenderer.CHAR_HEIGHT,
             HorizontalAlignment = HorizontalAlignment.Center,
             ForegroundColor = LegendColors.White,
@@ -385,6 +573,73 @@ public sealed class PokerTableControl : FramedDialogPanelBase
 
         SitInButton = CreateTableButton("Sit In", 2);
         SitInButton.Clicked += () => SitInRequested?.Invoke();
+
+        EmoteButton = CreateTableButton("Emote", 3);
+
+        //── the emote picker, hidden until asked for ──
+        EmotePicker = new UIPanel
+        {
+            X = FELT_CENTER_X - (EmotePickerWidth / 2),
+            Y = FELT_CENTER_Y - (EmotePickerHeight / 2),
+            Width = EmotePickerWidth,
+            Height = EmotePickerHeight,
+            Background = BuildRecessedPanel(EmotePickerWidth, EmotePickerHeight),
+            Visible = false,
+
+            //above the table but below the leave confirmation, which must never be covered
+            ZIndex = 50
+        };
+        AddChild(EmotePicker);
+
+        for (var i = 0; i < Emotes.Length; i++)
+        {
+            var (animation, caption) = Emotes[i];
+
+            var button = new CustomButton(caption, EMOTE_BUTTON_WIDTH)
+            {
+                X = EMOTE_PICKER_PAD + ((i % EMOTE_COLUMNS) * (EMOTE_BUTTON_WIDTH + EMOTE_BUTTON_GAP)),
+                Y = EMOTE_PICKER_PAD + ((i / EMOTE_COLUMNS) * (CustomButton.HEIGHT + EMOTE_BUTTON_GAP))
+            };
+
+            button.Clicked += () =>
+            {
+                EmoteRequested?.Invoke(animation);
+                EmotePicker.Visible = false;
+            };
+
+            EmotePicker.AddChild(button);
+        }
+
+        //wired after the picker exists rather than beside the button: the handler captures it, and the field is
+        //still null at the point the button is created.
+        EmoteButton.Clicked += () => EmotePicker.Visible = !EmotePicker.Visible;
+
+        ChatButton = CreateTableButton("Chat", 4);
+
+        //── the say-something prompt ──
+        ChatPrompt = new ChatPromptPanel(CHAT_PROMPT_WIDTH, CHAT_SEND_WIDTH, CHAT_PROMPT_PAD, CHAT_MAX_LENGTH)
+        {
+            X = FELT_CENTER_X - (CHAT_PROMPT_WIDTH / 2),
+            Y = FELT_CENTER_Y - 16,
+            Visible = false,
+            ZIndex = 50
+        };
+        ChatPrompt.Submitted += text => ChatRequested?.Invoke(text);
+        AddChild(ChatPrompt);
+
+        ChatButton.Clicked += () =>
+        {
+            if (ChatPrompt.Visible)
+            {
+                ChatPrompt.Close();
+
+                return;
+            }
+
+            //only one of the two overlays at a time -- they occupy the same middle of the felt
+            EmotePicker.Visible = false;
+            ChatPrompt.Open();
+        };
 
         //── the leave-the-hand confirmation ──
         //Owned by this panel and parented to it, rather than living on Root the way MarketBuyConfirm does. That
@@ -426,14 +681,138 @@ public sealed class PokerTableControl : FramedDialogPanelBase
     ///     say so. Server-sent seat indices never reach here -- <see cref="OnSnapshot" /> range-checks and logs
     ///     those instead, because a wider table is the server's news to deliver, not a crash.
     /// </exception>
-    private static (int Column, int Row) SeatScreenSlot(int seat)
+    /// <summary>
+    ///     Where seat <paramref name="seat" />'s plaque sits, as the top-left corner of a
+    ///     <see cref="SEAT_WIDTH" />x<see cref="SEAT_HEIGHT" /> box in panel space.
+    /// </summary>
+    /// <remarks>
+    ///     Seats run <b>clockwise from the left</b> -- left, top-left, top-right, right, bottom-right,
+    ///     bottom-left -- which preserves the ordering the two-row layout had before it: that one ran left to
+    ///     right along the top and then back right to left along the bottom, which is the same ring walked the
+    ///     same way. Table seat 0 is still drawn at the same end of the table it always was, so a player who
+    ///     knew where their seat appeared does not find it moved.
+    ///     <para>
+    ///         The anchors are written out rather than computed from an angle. A trigonometric ring would place
+    ///         seats on the ellipse's true perimeter, which is wrong here: the plaques are rectangles that must
+    ///         sit tangent to the rail without overlapping each other or running off the panel, and the four
+    ///         corner positions need more inward bias than a circle gives them. Six hand-placed anchors are
+    ///         honest about that; a formula would have to be fought with fudge factors.
+    ///     </para>
+    /// </remarks>
+    /// <exception cref="ArgumentOutOfRangeException">
+    ///     If <paramref name="seat" /> has no anchor. Deliberately louder than a computed fallback: a seat with
+    ///     no place on the ring must be reported, not drawn somewhere plausible-looking off the felt.
+    /// </exception>
+    private static (int X, int Y) SeatAnchor(int seat)
     {
         ArgumentOutOfRangeException.ThrowIfNegative(seat);
         ArgumentOutOfRangeException.ThrowIfGreaterThanOrEqual(seat, SEAT_COUNT);
 
-        return seat < SEATS_PER_ROW
-            ? (seat, 0)
-            : (SEATS_PER_ROW - 1 - (seat - SEATS_PER_ROW), 1);
+        const int LEFT_X = SEAT_EDGE_MARGIN;
+        const int RIGHT_X = PANEL_WIDTH - SEAT_WIDTH - SEAT_EDGE_MARGIN;
+        const int SIDE_Y = FELT_CENTER_Y - (SEAT_HEIGHT / 2);
+        const int TOP_Y = FELT_TOP;
+        const int BOTTOM_Y = FELT_BOTTOM - SEAT_HEIGHT;
+        const int INNER_LEFT_X = FELT_CENTER_X - SEAT_SPREAD - SEAT_WIDTH;
+        const int INNER_RIGHT_X = FELT_CENTER_X + SEAT_SPREAD;
+
+        return seat switch
+        {
+            0 => (LEFT_X, SIDE_Y),
+            1 => (INNER_LEFT_X, TOP_Y),
+            2 => (INNER_RIGHT_X, TOP_Y),
+            3 => (RIGHT_X, SIDE_Y),
+            4 => (INNER_RIGHT_X, BOTTOM_Y),
+            5 => (INNER_LEFT_X, BOTTOM_Y),
+            _ => throw new ArgumentOutOfRangeException(nameof(seat), seat, "No ring anchor for this seat")
+        };
+    }
+
+    /// <summary>
+    ///     Paints the table: an antialiased felt ellipse ringed by a darker rail, on a transparent background so
+    ///     the ornate frame's own backdrop still shows in the corners the table does not reach.
+    /// </summary>
+    /// <remarks>
+    ///     Skia rather than a hand-rasterised ellipse, for the same reason
+    ///     <see cref="BuildRecessedPanel" /> uses it: a coverage-tested ellipse of this size has visibly stepped
+    ///     edges, and the antialiasing is what makes it read as a table rather than as a polygon.
+    /// </remarks>
+    /// <summary>Builds the gold piece: a filled disc with a darker rim, so it reads as a coin at ten pixels.</summary>
+    private static Texture2D BuildCoin(int size)
+    {
+        var info = new SKImageInfo(size, size, SKColorType.Rgba8888, SKAlphaType.Premul);
+        using var surface = SKSurface.Create(info);
+
+        surface.Canvas.Clear(SKColors.Transparent);
+
+        var centre = size / 2f;
+
+        using (var rim = new SKPaint())
+        {
+            rim.IsAntialias = true;
+            rim.Style = SKPaintStyle.Fill;
+            rim.Color = new SKColor(122, 86, 12, 255);
+            surface.Canvas.DrawCircle(centre, centre, centre, rim);
+        }
+
+        using (var face = new SKPaint())
+        {
+            face.IsAntialias = true;
+            face.Style = SKPaintStyle.Fill;
+            face.Color = new SKColor(232, 184, 48, 255);
+            surface.Canvas.DrawCircle(centre, centre, centre - 1.2f, face);
+        }
+
+        using var snapshot = surface.Snapshot();
+
+        return TextureConverter.ToTexture2D(snapshot);
+    }
+
+    private static Texture2D BuildFelt(int width, int height, int railWidth)
+    {
+        var info = new SKImageInfo(width, height, SKColorType.Rgba8888, SKAlphaType.Premul);
+        using var surface = SKSurface.Create(info);
+
+        surface.Canvas.Clear(SKColors.Transparent);
+
+        var full = new SKRect(0, 0, width, height);
+
+        using (var rail = new SKPaint())
+        {
+            rail.IsAntialias = true;
+            rail.Style = SKPaintStyle.Fill;
+            rail.Color = FeltRailColor;
+            surface.Canvas.DrawOval(full, rail);
+        }
+
+        var inner = new SKRect(
+            railWidth,
+            railWidth,
+            width - railWidth,
+            height - railWidth);
+
+        using (var felt = new SKPaint())
+        {
+            felt.IsAntialias = true;
+            felt.Style = SKPaintStyle.Fill;
+            felt.Color = FeltSurfaceColor;
+            surface.Canvas.DrawOval(inner, felt);
+        }
+
+        //a hairline highlight just inside the rail: without it the two greens meet flat and the table reads as a
+        //painted disc rather than a surface with an edge
+        using (var sheen = new SKPaint())
+        {
+            sheen.IsAntialias = true;
+            sheen.Style = SKPaintStyle.Stroke;
+            sheen.StrokeWidth = 1;
+            sheen.Color = FeltSheenColor;
+            surface.Canvas.DrawOval(inner, sheen);
+        }
+
+        using var snapshot = surface.Snapshot();
+
+        return TextureConverter.ToTexture2D(snapshot);
     }
 
     /// <summary>
@@ -520,7 +899,7 @@ public sealed class PokerTableControl : FramedDialogPanelBase
     {
         var button = new CustomButton(caption, ACTION_BUTTON_WIDTH)
         {
-            X = CONTENT_LEFT + (column * (ACTION_BUTTON_WIDTH + ACTION_BUTTON_GAP)),
+            X = ACTION_ROW_LEFT + (column * (ACTION_BUTTON_WIDTH + ACTION_BUTTON_GAP)),
             Y = ACTION_ROW_TOP,
             Enabled = false
         };
@@ -557,7 +936,7 @@ public sealed class PokerTableControl : FramedDialogPanelBase
             return;
 
         var stripWidth = (count * CardView.WIDTH) + ((count - 1) * BOARD_CARD_GAP);
-        var left = CONTENT_LEFT + ((SEAT_ROW_WIDTH - stripWidth) / 2);
+        var left = FELT_CENTER_X - (stripWidth / 2);
 
         for (var i = 0; i < count; i++)
             BoardCards[i].X = left + (i * (CardView.WIDTH + BOARD_CARD_GAP));
@@ -608,6 +987,8 @@ public sealed class PokerTableControl : FramedDialogPanelBase
                 //silently dropping a seat, the same way StakeSelectorControl handles its own overflow.
                 System.Diagnostics.Debug.WriteLine(
                     $"PokerTableControl: seat index {seat.SeatIndex} exceeds the {SEAT_COUNT}-seat layout and will not be shown.");
+
+        DetectActionAnimations();
 
         for (var seat = 0; seat < SEAT_COUNT; seat++)
             SeatPanels[seat]
@@ -701,6 +1082,185 @@ public sealed class PokerTableControl : FramedDialogPanelBase
         RejectHoldRemaining = REJECT_MESSAGE_HOLD_SECONDS;
     }
 
+    /// <summary>
+    ///     Shows <paramref name="message" /> over the seat held by <paramref name="entityId" />, if that player is
+    ///     at this table.
+    /// </summary>
+    /// <remarks>
+    ///     Called from the same handler that adds the world's own bubble, so a seated player's speech appears in
+    ///     both places and neither can drift from the other. Anyone who is not seated here is ignored -- their
+    ///     bubble is drawn on the floor behind this panel, where it belongs.
+    /// </remarks>
+    public void ShowChatBubble(uint entityId, string message, bool isShout)
+    {
+        if (!Visible || string.IsNullOrWhiteSpace(message))
+            return;
+
+        var seat = SeatOfEntity(entityId);
+
+        if (seat < 0)
+            return;
+
+        //one bubble per seat: a player who talks twice replaces their own bubble rather than stacking two on top
+        //of each other over the same head
+        RemoveBubblesFor(entityId);
+
+        var bubble = ChatBubble.Create(entityId, message, isShout, BubbleName(entityId));
+        var (seatX, seatY) = SeatAnchor(seat);
+
+        //the top row speaks downward and everyone else upward, so a bubble always opens onto the felt instead of
+        //off the top of the panel
+        var below = seatY <= FELT_TOP;
+
+        bubble.TailOnTop = below;
+        bubble.Y = below ? seatY + SEAT_HEIGHT + BUBBLE_GAP : seatY - bubble.Height - BUBBLE_GAP;
+
+        //centred over the portrait rather than the plaque: the portrait is the face it belongs to
+        var wanted = seatX + PORTRAIT_X_IN_SEAT + (PORTRAIT_SIZE / 2) - (bubble.Width / 2);
+        bubble.X = Math.Clamp(wanted, 2, Math.Max(2, PANEL_WIDTH - bubble.Width - 2));
+
+        //above the felt and the plaques, below the pickers and the confirmation
+        bubble.ZIndex = 40;
+
+        Bubbles.Add(bubble);
+        AddChild(bubble);
+    }
+
+    /// <summary>
+    ///     Spawns the action animations by diffing this snapshot against the last.
+    /// </summary>
+    /// <remarks>
+    ///     Gold reaching the pot is detected as a seat's committed total going UP, which covers calls, bets,
+    ///     raises and both blinds without needing the server to say which of those it was. A total that goes DOWN
+    ///     is the hand settling and the seat resetting to zero -- nothing travels for that, because nothing was
+    ///     wagered.
+    /// </remarks>
+    private void DetectActionAnimations()
+    {
+        var potX = FELT_CENTER_X;
+        var potY = POT_TOP + (POT_BOX_HEIGHT / 2);
+
+        for (var seat = 0; seat < SEAT_COUNT; seat++)
+        {
+            var info = SeatLookup[seat];
+            var committed = info?.Committed ?? 0;
+            var action = info?.LastAction;
+
+            if (AnimationsPrimed)
+            {
+                var (seatX, seatY) = SeatAnchor(seat);
+                var originX = seatX + (SEAT_WIDTH / 2);
+                var originY = seatY + (SEAT_HEIGHT / 2);
+
+                if (committed > PreviousCommitted[seat])
+                    SpawnChipSlide(originX, originY, potX, potY);
+
+                if (!string.IsNullOrEmpty(action) && !string.Equals(action, PreviousAction[seat], StringComparison.Ordinal))
+                    SpawnActionFlash(action, originX, originY, potX, potY);
+            }
+
+            PreviousCommitted[seat] = committed;
+            PreviousAction[seat] = action;
+        }
+
+        AnimationsPrimed = true;
+    }
+
+    private void SpawnChipSlide(
+        int fromX,
+        int fromY,
+        int toX,
+        int toY)
+    {
+        var slide = new ChipSlide(
+            $"PokerChip{AnimationSequence++}",
+            fromX,
+            fromY,
+            toX,
+            toY)
+        {
+            //over the felt and the plaques, under the pickers and the confirmation
+            ZIndex = 45
+        };
+
+        ChipSlides.Add(slide);
+        AddChild(slide);
+    }
+
+    private void SpawnActionFlash(
+        string action,
+        int originX,
+        int originY,
+        int towardX,
+        int towardY)
+    {
+        var tint = action switch
+        {
+            "Fold"  => LegendColors.DimGray,
+            "Check" => LegendColors.White,
+            "Call"  => LegendColors.PastelYellow,
+            _       => LegendColors.Gold
+        };
+
+        var flash = new ActionFlash(
+            $"PokerFlash{AnimationSequence++}",
+            action,
+            tint,
+            originX - (TextRenderer.MeasureWidth(action) / 2),
+            originY,
+            towardX,
+            towardY)
+        {
+            ZIndex = 46
+        };
+
+        ActionFlashes.Add(flash);
+        AddChild(flash);
+    }
+
+    private void ClearAnimations()
+    {
+        foreach (var slide in ChipSlides)
+            RemoveChild(slide.Name);
+
+        foreach (var flash in ActionFlashes)
+            RemoveChild(flash.Name);
+
+        ChipSlides.Clear();
+        ActionFlashes.Clear();
+
+        Array.Clear(PreviousCommitted);
+        Array.Clear(PreviousAction);
+        AnimationsPrimed = false;
+    }
+
+    private int SeatOfEntity(uint entityId)
+    {
+        for (var seat = 0; seat < SeatPanels.Length; seat++)
+            if (SeatPanels[seat].SubjectId == entityId)
+                return seat;
+
+        return -1;
+    }
+
+    //RemoveChild takes a name and disposes what it finds, so every bubble is named after the player it belongs
+    //to. One name per seated player also means a second bubble for the same player cannot exist.
+    private static string BubbleName(uint entityId) => $"PokerBubble{entityId}";
+
+    private void RemoveBubblesFor(uint entityId)
+    {
+        RemoveChild(BubbleName(entityId));
+        Bubbles.RemoveAll(bubble => bubble.EntityId == entityId);
+    }
+
+    private void ClearBubbles()
+    {
+        foreach (var bubble in Bubbles)
+            RemoveChild(bubble.Name);
+
+        Bubbles.Clear();
+    }
+
     public override void Update(GameTime gameTime)
     {
         base.Update(gameTime);
@@ -711,6 +1271,39 @@ public sealed class PokerTableControl : FramedDialogPanelBase
             RejectHoldRemaining = Math.Max(0f, RejectHoldRemaining - deltaSeconds);
 
         TickShotClock(deltaSeconds);
+
+        //emote frames advance every frame in WorldScreen.Update, far more often than a snapshot arrives, so the
+        //portraits are polled here rather than repainted from server state.
+        foreach (var panel in SeatPanels)
+            panel.TickEmote();
+
+        //each of these ages itself in its own Update; this only retires the ones that have finished
+        for (var i = Bubbles.Count - 1; i >= 0; i--)
+        {
+            if (!Bubbles[i].IsExpired)
+                continue;
+
+            RemoveChild(Bubbles[i].Name);
+            Bubbles.RemoveAt(i);
+        }
+
+        for (var i = ChipSlides.Count - 1; i >= 0; i--)
+        {
+            if (!ChipSlides[i].IsExpired)
+                continue;
+
+            RemoveChild(ChipSlides[i].Name);
+            ChipSlides.RemoveAt(i);
+        }
+
+        for (var i = ActionFlashes.Count - 1; i >= 0; i--)
+        {
+            if (!ActionFlashes[i].IsExpired)
+                continue;
+
+            RemoveChild(ActionFlashes[i].Name);
+            ActionFlashes.RemoveAt(i);
+        }
     }
 
     /// <summary>
@@ -784,6 +1377,10 @@ public sealed class PokerTableControl : FramedDialogPanelBase
         //a confirmation still standing when the panel goes away -- the server closing the session out from under
         //an open prompt is the case that matters -- must not be left visible or on the input stack.
         ConfirmDialog.Hide();
+        EmotePicker.Visible = false;
+        ChatPrompt.Close();
+        ClearBubbles();
+        ClearAnimations();
 
         ClockSeat = null;
         ClockRemaining = 0f;
@@ -806,6 +1403,24 @@ public sealed class PokerTableControl : FramedDialogPanelBase
     {
         if (e.Keycode == Keycode.Escape)
         {
+            //an open picker is what Escape dismisses first: closing the whole table out from under someone who
+            //only meant to back out of the emote list would forfeit their gold to the pot.
+            if (ChatPrompt.Visible)
+            {
+                ChatPrompt.Close();
+                e.Handled = true;
+
+                return;
+            }
+
+            if (EmotePicker.Visible)
+            {
+                EmotePicker.Visible = false;
+                e.Handled = true;
+
+                return;
+            }
+
             //the other player-initiated dismissal, and so the other one that has to ask first.
             RequestDismissal();
             e.Handled = true;
@@ -881,15 +1496,32 @@ public sealed class PokerTableControl : FramedDialogPanelBase
     /// </summary>
     private sealed class SeatPanel : UIPanel
     {
-        private const int PAD = 4;
-        private const int TEXT_WIDTH = 78;
-        private const int BADGE_WIDTH = 14;
-        private const int NAME_WIDTH = TEXT_WIDTH - BADGE_WIDTH;
-        private const int CARD_COLUMN_X = PAD + TEXT_WIDTH;
-        private const int CARD_GAP = 2;
+        private const int PAD = SEAT_PAD;
         private const int HOLE_CARDS = 2;
-        private const int CARD_COLUMN_WIDTH = (CardView.WIDTH * HOLE_CARDS) + CARD_GAP;
-        private const int CLOCK_TOP = PAD + CardView.HEIGHT + 4;
+
+        //three columns: portrait, details, hole cards. Nothing is stacked on top of anything else, which is the
+        //whole point -- see SEAT_WIDTH's remarks for what stacking cost.
+        private const int PORTRAIT_X = PAD;
+        private const int PORTRAIT_Y = (SEAT_HEIGHT - PORTRAIT_SIZE) / 2;
+
+        private const int TEXT_X = PORTRAIT_X + PORTRAIT_SIZE + SEAT_TEXT_GAP;
+        private const int TEXT_WIDTH = SEAT_TEXT_WIDTH;
+
+        private const int BADGE_WIDTH = 14;
+        private const int CLOCK_WIDTH = 20;
+        private const int NAME_WIDTH = TEXT_WIDTH - BADGE_WIDTH - CLOCK_WIDTH;
+
+        //four rows -- name, gold, wager, last action -- filling the plaque's height beside the cards.
+        private const int ROW_TOP = 3;
+        private const int NAME_TOP = ROW_TOP;
+        private const int GOLD_TOP = ROW_TOP + TextRenderer.CHAR_HEIGHT;
+        private const int COMMITTED_TOP = ROW_TOP + (TextRenderer.CHAR_HEIGHT * 2);
+        private const int LAST_ACTION_TOP = ROW_TOP + (TextRenderer.CHAR_HEIGHT * 3);
+
+        private const int CARD_COLUMN_X = TEXT_X + TEXT_WIDTH + SEAT_TEXT_GAP;
+        private const int CARD_GAP = SEAT_CARD_GAP;
+        private const int CARD_COLUMN_WIDTH = SEAT_CARDS_WIDTH;
+        private const int CARD_ROW_TOP = PAD;
 
         private readonly UILabel NameLabel;
         private readonly UILabel DealerBadge;
@@ -899,6 +1531,8 @@ public sealed class PokerTableControl : FramedDialogPanelBase
         private readonly UILabel ClockLabel;
         private readonly UIPanel ActingOutline;
         private readonly CardView[] Cards = new CardView[HOLE_CARDS];
+        private readonly PortraitView Portrait;
+        private readonly CreatureRenderer CreatureRenderer;
 
         private bool Occupied;
 
@@ -906,24 +1540,32 @@ public sealed class PokerTableControl : FramedDialogPanelBase
         //SetClock(null) -- still writes through to the label.
         private int? RenderedClock = -1;
 
-        public SeatPanel()
+        public SeatPanel(AislingRenderer aislingRenderer, CreatureRenderer creatureRenderer)
         {
             Width = SEAT_WIDTH;
             Height = SEAT_HEIGHT;
             Background = BuildRecessedPanel(SEAT_WIDTH, SEAT_HEIGHT);
             IsHitTestVisible = false;
+            CreatureRenderer = creatureRenderer;
+
+            Portrait = new PortraitView(aislingRenderer)
+            {
+                X = PORTRAIT_X,
+                Y = PORTRAIT_Y
+            };
+            AddChild(Portrait);
 
             NameLabel = AddRow(
-                PAD,
-                PAD,
+                TEXT_X,
+                NAME_TOP,
                 NAME_WIDTH,
                 HorizontalAlignment.Left);
 
             //the dealer button marker. Visible ONLY when the table's ButtonIndex is this seat -- a null
             //ButtonIndex leaves it hidden on every seat, which is exactly what "there is no button" looks like.
             DealerBadge = AddRow(
-                PAD + NAME_WIDTH,
-                PAD,
+                TEXT_X + NAME_WIDTH,
+                NAME_TOP,
                 BADGE_WIDTH,
                 HorizontalAlignment.Right);
             DealerBadge.ForegroundColor = LegendColors.Gold;
@@ -931,40 +1573,41 @@ public sealed class PokerTableControl : FramedDialogPanelBase
             DealerBadge.Visible = false;
 
             GoldLabel = AddRow(
-                PAD,
-                PAD + TextRenderer.CHAR_HEIGHT,
+                TEXT_X,
+                GOLD_TOP,
                 TEXT_WIDTH,
                 HorizontalAlignment.Left);
 
             CommittedLabel = AddRow(
-                PAD,
-                PAD + (TextRenderer.CHAR_HEIGHT * 2),
+                TEXT_X,
+                COMMITTED_TOP,
                 TEXT_WIDTH,
                 HorizontalAlignment.Left);
 
             LastActionLabel = AddRow(
-                PAD,
-                PAD + (TextRenderer.CHAR_HEIGHT * 3),
+                TEXT_X,
+                LAST_ACTION_TOP,
                 TEXT_WIDTH,
                 HorizontalAlignment.Left);
 
             for (var i = 0; i < Cards.Length; i++)
             {
-                var card = new CardView
+                var card = new CardView(creatureRenderer)
                 {
                     X = CARD_COLUMN_X + (i * (CardView.WIDTH + CARD_GAP)),
-                    Y = PAD,
+                    Y = CARD_ROW_TOP,
                     Visible = false
                 };
                 Cards[i] = card;
                 AddChild(card);
             }
 
+            //shares the name row with the dealer badge: the plaque has four rows and all four are spoken for.
             ClockLabel = AddRow(
-                CARD_COLUMN_X,
-                CLOCK_TOP,
-                CARD_COLUMN_WIDTH,
-                HorizontalAlignment.Center);
+                TEXT_X + NAME_WIDTH + BADGE_WIDTH,
+                NAME_TOP,
+                CLOCK_WIDTH,
+                HorizontalAlignment.Right);
             ClockLabel.Visible = false;
 
             //added last so it draws over the seat's own contents rather than under them.
@@ -984,6 +1627,12 @@ public sealed class PokerTableControl : FramedDialogPanelBase
             };
             AddChild(ActingOutline);
         }
+
+        /// <summary>Advances this seat's portrait emote. Driven from the control's own per-frame Update.</summary>
+        public void TickEmote() => Portrait.Tick();
+
+        /// <summary>The world id of the player sitting here, or null when the seat is empty or they are out of view.</summary>
+        public uint? SubjectId => Portrait.SubjectId;
 
         private UILabel AddRow(
             int x,
@@ -1040,6 +1689,13 @@ public sealed class PokerTableControl : FramedDialogPanelBase
 
             if (!Occupied)
             {
+                //an empty plaque has no portrait and no columns to line up with, so the word sits in the middle
+                //of the whole box rather than in the name slot beside a face that is not there
+                NameLabel.X = 0;
+                NameLabel.Y = (SEAT_HEIGHT - TextRenderer.CHAR_HEIGHT) / 2;
+                NameLabel.Width = SEAT_WIDTH;
+                NameLabel.HorizontalAlignment = HorizontalAlignment.Center;
+
                 NameLabel.Text = "Empty";
                 NameLabel.ForegroundColor = LegendColors.DarkGray;
                 GoldLabel.Text = string.Empty;
@@ -1047,6 +1703,7 @@ public sealed class PokerTableControl : FramedDialogPanelBase
                 LastActionLabel.Text = string.Empty;
                 ClockLabel.Visible = false;
                 RenderedClock = -1;
+                Portrait.ShowPlayer(null);
 
                 foreach (var card in Cards)
                     card.ShowNothing();
@@ -1055,6 +1712,15 @@ public sealed class PokerTableControl : FramedDialogPanelBase
             }
 
             var seat = info!;
+
+            //back to the name slot beside the portrait: the empty branch above moves this label to the centre of
+            //the plaque, and a seat that fills up has to put it back
+            NameLabel.X = TEXT_X;
+            NameLabel.Y = NAME_TOP;
+            NameLabel.Width = NAME_WIDTH;
+            NameLabel.HorizontalAlignment = HorizontalAlignment.Left;
+
+            Portrait.ShowPlayer(seat.Name);
 
             //dimmed the moment a seat is out of the hand, by either route the server reports it. The dimming is
             //the seat's whole "not in this one" signal, so it covers every line at once rather than one label.
@@ -1155,8 +1821,57 @@ public sealed class PokerTableControl : FramedDialogPanelBase
     /// </remarks>
     private sealed class CardView : UIPanel
     {
-        public const int WIDTH = 20;
-        public const int HEIGHT = 28;
+        public const int WIDTH = 32;
+        public const int HEIGHT = 50;
+
+        /// <summary>Rank glyphs are drawn at double size; the bitmap font stays crisp at integer scales.</summary>
+        private const int RANK_SCALE = 2;
+
+        private const int CORNER_INSET = 3;
+
+        /// <summary>Edge of the square the suit pip is drawn into, in the card's top-right corner.</summary>
+        private const int PIP_SIZE = 14;
+
+        /// <summary>
+        ///     Edge of the large pip filling a number card's body.
+        /// </summary>
+        /// <remarks>
+        ///     The corner pip alone is not enough to tell a spade from a club at this size -- both are a dark blob
+        ///     with a stem once they are 14 pixels across. A number card has nothing else in its body (the court
+        ///     cards' monster art goes there), so the suit is drawn again, large, where there is room for the
+        ///     shape to actually read.
+        /// </remarks>
+        private const int BODY_PIP_SIZE = 20;
+
+        /// <summary>Resolution the pip paths are rasterised at before being scaled down to <see cref="PIP_SIZE" />.</summary>
+        private const int PIP_SOURCE_SIZE = 32;
+
+        /// <summary>
+        ///     The four suit pips, indexed by the server's suit ordering: clubs, diamonds, hearts, spades.
+        /// </summary>
+        /// <remarks>
+        ///     Real shapes rather than the letters C/D/H/S this drew first -- the Dark Ages bitmap font has no
+        ///     glyphs for the pips, so they are rasterised from Skia paths instead of typed.
+        ///     <para>
+        ///         Shared across every card and deliberately never disposed. They are four small textures held for
+        ///         the life of the process, and the alternative -- one set per <see cref="CardView" /> -- would
+        ///         build sixty-eight of them for seventeen card slots. Nothing assigns them to
+        ///         <see cref="UIPanel.Background" />, which is the one field the base class disposes, so the
+        ///         hazard the per-instance face and back textures exist to avoid does not apply here.
+        ///     </para>
+        /// </remarks>
+        private static readonly Texture2D[] SuitPips = BuildSuitPips();
+
+        /// <summary>The art window the face-card monster is fitted into, below the rank strip.</summary>
+        private const int ART_TOP = CORNER_INSET + (TextRenderer.CHAR_HEIGHT * RANK_SCALE);
+
+        private const int ART_INSET = 2;
+
+        /// <summary>Which monster stands in for each court card. Number cards carry no art.</summary>
+        private const int SPRITE_JACK = 1263; //Red Mantis
+        private const int SPRITE_QUEEN = 1264; //Dark Mantis
+        private const int SPRITE_KING = 1265; //Blue Mantis
+        private const int SPRITE_ACE = 1266; //Kobold -- the slot machine's jackpot symbol, for the highest card
 
         private static readonly Color FaceColor = new(232, 224, 200, 255);
         private static readonly Color EdgeColor = new(24, 20, 14, 255);
@@ -1169,39 +1884,115 @@ public sealed class PokerTableControl : FramedDialogPanelBase
         //shared across seventeen card slots would be torn down by whichever slot was disposed first.
         private readonly Texture2D FaceTexture;
         private readonly Texture2D BackTexture;
-        private readonly UILabel RankLabel;
-        private readonly UILabel SuitLabel;
 
-        public CardView()
+        /// <summary>Resolves the court-card monsters. Null on the board's cards only if none was supplied.</summary>
+        private readonly CreatureRenderer? CreatureRenderer;
+
+        //face-up state, drawn by Draw rather than held in child labels: the rank is scaled, and UILabel has no
+        //scale. Everything here is set only by ShowFace.
+        private string RankText = string.Empty;
+        private int Suit;
+        private Color Ink = BlackSuitInk;
+        private int ArtSpriteId;
+        private bool FaceUp;
+
+        public CardView(CreatureRenderer? creatureRenderer = null)
         {
             Width = WIDTH;
             Height = HEIGHT;
             IsHitTestVisible = false;
+            CreatureRenderer = creatureRenderer;
 
             FaceTexture = BuildFace();
             BackTexture = BuildBack();
             Background = BackTexture;
-
-            RankLabel = AddGlyphRow(2);
-            SuitLabel = AddGlyphRow(2 + TextRenderer.CHAR_HEIGHT);
         }
 
-        private UILabel AddGlyphRow(int y)
-        {
-            var label = new UILabel
-            {
-                X = 0,
-                Y = y,
-                Width = WIDTH,
-                Height = TextRenderer.CHAR_HEIGHT,
-                HorizontalAlignment = HorizontalAlignment.Center,
-                ForegroundColor = BlackSuitInk,
-                IsHitTestVisible = false,
-                Visible = false
-            };
-            AddChild(label);
+        private static Texture2D[] BuildSuitPips()
+            => [BuildPip(DrawClub), BuildPip(DrawDiamond), BuildPip(DrawHeart), BuildPip(DrawSpade)];
 
-            return label;
+        private static Texture2D BuildPip(Action<SKCanvas, SKPaint> draw)
+        {
+            var info = new SKImageInfo(PIP_SOURCE_SIZE, PIP_SOURCE_SIZE, SKColorType.Rgba8888, SKAlphaType.Premul);
+            using var surface = SKSurface.Create(info);
+
+            surface.Canvas.Clear(SKColors.Transparent);
+
+            using (var paint = new SKPaint())
+            {
+                paint.IsAntialias = true;
+                paint.Style = SKPaintStyle.Fill;
+
+                //white so the draw-time tint decides the ink colour
+                paint.Color = SKColors.White;
+
+                draw(surface.Canvas, paint);
+            }
+
+            using var snapshot = surface.Snapshot();
+
+            return TextureConverter.ToTexture2D(snapshot);
+        }
+
+        private static void DrawDiamond(SKCanvas canvas, SKPaint paint)
+        {
+            using var path = new SKPath();
+            path.MoveTo(16, 1);
+            path.LineTo(29, 16);
+            path.LineTo(16, 31);
+            path.LineTo(3, 16);
+            path.Close();
+            canvas.DrawPath(path, paint);
+        }
+
+        private static void DrawHeart(SKCanvas canvas, SKPaint paint)
+        {
+            using var path = new SKPath();
+            path.MoveTo(16, 30);
+            path.CubicTo(2, 19, 2, 7, 9, 4);
+            path.CubicTo(13, 2, 16, 5, 16, 9);
+            path.CubicTo(16, 5, 19, 2, 23, 4);
+            path.CubicTo(30, 7, 30, 19, 16, 30);
+            path.Close();
+            canvas.DrawPath(path, paint);
+        }
+
+        private static void DrawSpade(SKCanvas canvas, SKPaint paint)
+        {
+            using var path = new SKPath();
+
+            //a sharp apex and wide low lobes: the point at the top is the only thing separating a spade from a
+            //club once both are a dark blob on a stem, so it is drawn tall and narrow rather than rounded.
+            path.MoveTo(16, 2);
+            path.CubicTo(26, 12, 31, 18, 26, 23);
+            path.CubicTo(22, 26, 18, 24, 16, 21);
+            path.CubicTo(14, 24, 10, 26, 6, 23);
+            path.CubicTo(1, 18, 6, 12, 16, 2);
+            path.Close();
+            canvas.DrawPath(path, paint);
+
+            //a flared foot, wider than the club's, so the two silhouettes differ below as well as above
+            using var stem = new SKPath();
+            stem.MoveTo(16, 19);
+            stem.CubicTo(18, 26, 20, 28, 23, 31);
+            stem.LineTo(9, 31);
+            stem.CubicTo(12, 28, 14, 26, 16, 19);
+            stem.Close();
+            canvas.DrawPath(stem, paint);
+        }
+
+        private static void DrawClub(SKCanvas canvas, SKPaint paint)
+        {
+            canvas.DrawCircle(16, 9, 7, paint);
+            canvas.DrawCircle(8, 20, 7, paint);
+            canvas.DrawCircle(24, 20, 7, paint);
+
+            using var stem = new SKPath();
+            stem.MoveTo(16, 18);
+            stem.LineTo(20, 31);
+            stem.LineTo(12, 31);
+            stem.Close();
+            canvas.DrawPath(stem, paint);
         }
 
         private static Texture2D BuildFace()
@@ -1331,24 +2122,21 @@ public sealed class PokerTableControl : FramedDialogPanelBase
                 _  => rank.ToString()
             };
 
-            //letters rather than the Unicode pips: the Dark Ages bitmap font has no glyphs for the suit symbols.
-            var suitText = suit switch
+            Background = FaceTexture;
+            RankText = rankText;
+            Suit = suit;
+            Ink = suit is 1 or 2 ? RedSuitInk : BlackSuitInk;
+
+            ArtSpriteId = rank switch
             {
-                0 => "C",
-                1 => "D",
-                2 => "H",
-                _ => "S"
+                11 => SPRITE_JACK,
+                12 => SPRITE_QUEEN,
+                13 => SPRITE_KING,
+                14 => SPRITE_ACE,
+                _  => 0
             };
 
-            var ink = suit is 1 or 2 ? RedSuitInk : BlackSuitInk;
-
-            Background = FaceTexture;
-            RankLabel.Text = rankText;
-            RankLabel.ForegroundColor = ink;
-            RankLabel.Visible = true;
-            SuitLabel.Text = suitText;
-            SuitLabel.ForegroundColor = ink;
-            SuitLabel.Visible = true;
+            FaceUp = true;
             Visible = true;
         }
 
@@ -1356,9 +2144,115 @@ public sealed class PokerTableControl : FramedDialogPanelBase
         public void ShowBack()
         {
             Background = BackTexture;
-            RankLabel.Visible = false;
-            SuitLabel.Visible = false;
+            FaceUp = false;
             Visible = true;
+        }
+
+        /// <inheritdoc />
+        /// <remarks>
+        ///     The rank is drawn here rather than held in a <see cref="UILabel" /> because it is drawn at
+        ///     <see cref="RANK_SCALE" /> and UILabel has no scale. The court monster is drawn under the glyphs so
+        ///     the rank stays readable over it.
+        /// </remarks>
+        public override void Draw(SpriteBatch spriteBatch)
+        {
+            base.Draw(spriteBatch);
+
+            if (!Visible || !FaceUp)
+                return;
+
+            if (ArtSpriteId != 0)
+                DrawCourtArt(spriteBatch);
+            else
+                spriteBatch.Draw(
+                    SuitPips[Suit],
+                    new Rectangle(
+                        ScreenX + ((WIDTH - BODY_PIP_SIZE) / 2),
+                        ScreenY + ART_TOP,
+                        BODY_PIP_SIZE,
+                        BODY_PIP_SIZE),
+                    Ink);
+
+            TextRenderer.DrawText(
+                spriteBatch,
+                new Vector2(ScreenX + CORNER_INSET, ScreenY + CORNER_INSET),
+                RankText,
+                Ink,
+                false,
+                1f,
+                false,
+                RANK_SCALE);
+
+            //the pip is drawn white and tinted here, so one texture per suit serves both ink colours
+            var pip = SuitPips[Suit];
+
+            spriteBatch.Draw(
+                pip,
+                new Rectangle(
+                    ScreenX + WIDTH - 2 - PIP_SIZE,
+                    ScreenY + CORNER_INSET + 1,
+                    PIP_SIZE,
+                    PIP_SIZE),
+                Ink);
+        }
+
+        /// <summary>
+        ///     Fits the court card's monster into the art window, scaled down to fit rather than cropped.
+        /// </summary>
+        /// <remarks>
+        ///     A missing renderer, sprite or frame simply leaves the card without art -- a court card still reads
+        ///     correctly from its rank and suit, so there is nothing here worth failing a draw over.
+        /// </remarks>
+        private void DrawCourtArt(SpriteBatch spriteBatch)
+        {
+            if (CreatureRenderer is null)
+                return;
+
+            var (frameIndex, flip) = CreatureRenderer.GetAnimInfo(ArtSpriteId) is { } info
+                ? AnimationSystem.GetCreatureIdleFrame(in info, Direction.Down)
+                : (0, false);
+
+            if (CreatureRenderer.GetFrame(ArtSpriteId, frameIndex) is not { } frame)
+                return;
+
+            var texture = frame.Texture;
+
+            if (texture is null)
+                return;
+
+            var dest = new Rectangle(
+                ScreenX + ART_INSET,
+                ScreenY + ART_TOP,
+                WIDTH - (ART_INSET * 2),
+                HEIGHT - ART_TOP - ART_INSET);
+
+            var visible = Rectangle.Intersect(dest, ClipRect);
+
+            if (visible is not { Width: > 0, Height: > 0 })
+                return;
+
+            Texture2D actual;
+            Rectangle source;
+
+            if (texture is CachedTexture2D { AtlasRegion: { } region })
+            {
+                actual = region.Atlas;
+                source = region.SourceRect;
+            } else
+            {
+                actual = texture;
+                source = new Rectangle(0, 0, texture.Width, texture.Height);
+            }
+
+            spriteBatch.Draw(
+                actual,
+                visible,
+                source,
+                Color.White,
+                0f,
+                Vector2.Zero,
+                flip ? SpriteEffects.FlipHorizontally : SpriteEffects.None,
+                0f);
         }
 
         /// <summary>Draws no card at all — this slot holds nothing.</summary>
@@ -1372,6 +2266,496 @@ public sealed class PokerTableControl : FramedDialogPanelBase
             BackTexture.Dispose();
 
             base.Dispose();
+        }
+    }
+
+    /// <summary>
+    ///     A seated player's head-and-shoulders portrait, cropped out of their full front-facing idle figure.
+    /// </summary>
+    /// <remarks>
+    ///     <para>
+    ///         <b>The appearance does not come from the poker protocol.</b> <c>PokerSeatEntry</c> carries a name and
+    ///         nothing about how anyone looks, and it was not extended to: every player seated at this table is
+    ///         standing on a tile beside the merchant, two squares away at most, so they are already tracked in
+    ///         <see cref="WorldState" /> with a full <see cref="AislingAppearance" />. Reading it from there costs
+    ///         no packet and cannot disagree with what is drawn on the floor.
+    ///     </para>
+    ///     <para>
+    ///         Matched by name because that is the only identity the snapshot carries. A player who is somehow not
+    ///         in view, or who is morphed into a creature form (which clears
+    ///         <see cref="WorldEntity.Appearance" />), simply gets no portrait -- the plaque still names them, so
+    ///         nothing is lost but the picture.
+    ///     </para>
+    /// </remarks>
+    private sealed class PortraitView : UIPanel
+    {
+        /// <summary>The front-facing idle pose, matching what <c>AvatarCapture</c> uses for the launcher card.</summary>
+        private const int FRONT_IDLE_FRAME = 5;
+
+        private const string IDLE_ANIM = "04";
+
+        /// <summary>How much of the figure's width to keep, centred on the canvas's own centre line.</summary>
+        /// <remarks>
+        ///     Kept close to the head's own width. A wider window is not a bigger portrait -- it is the same head
+        ///     with more empty canvas around it, scaled down to fit the same box, which is what made the first
+        ///     attempt look tiny.
+        /// </remarks>
+        private const int CROP_WIDTH = 30;
+
+        /// <summary>How far down from the top of the head to keep -- head and shoulders, not the body.</summary>
+        private const int CROP_HEIGHT = 30;
+
+        private readonly AislingRenderer Renderer;
+
+        private Texture2D? Figure;
+        private string? RenderedFor;
+        private AislingAppearance? RenderedAppearance;
+        private int FaceTop;
+
+        //the world entity this portrait is following, so the per-frame emote check is a field read rather than a
+        //scan of every visible entity six times a frame
+        private WorldEntity? Subject;
+        private int RenderedEmoteFrame = -1;
+
+        /// <summary>The world id of whoever this portrait is showing, used to match incoming speech to a seat.</summary>
+        public uint? SubjectId => Subject?.Id;
+
+        public PortraitView(AislingRenderer renderer)
+        {
+            ArgumentNullException.ThrowIfNull(renderer);
+
+            Renderer = renderer;
+            Width = PORTRAIT_SIZE;
+            Height = PORTRAIT_SIZE;
+            IsHitTestVisible = false;
+        }
+
+        /// <summary>
+        ///     Points this portrait at <paramref name="name" />, re-rendering only when the player or their
+        ///     appearance actually changed.
+        /// </summary>
+        /// <remarks>
+        ///     <see cref="AislingRenderer.Render" /> composites a fresh texture on every call -- the renderer's own
+        ///     cache is keyed by entity id and serves world drawing, not this -- so calling it once per snapshot
+        ///     per seat would allocate and leak a texture several times a second. The appearance is compared as
+        ///     well as the name so a player who re-dyes or re-equips still refreshes.
+        /// </remarks>
+        public void ShowPlayer(string? name)
+        {
+            Subject = string.IsNullOrEmpty(name) ? null : FindEntity(name);
+
+            var appearance = Subject?.Appearance;
+
+            if (string.Equals(name, RenderedFor, StringComparison.Ordinal) && Nullable.Equals(appearance, RenderedAppearance))
+                return;
+
+            RenderedFor = name;
+            RenderedAppearance = appearance;
+
+            MeasureFace();
+            Render();
+        }
+
+        /// <summary>
+        ///     Finds the top of the head, from a render with no emote on it.
+        /// </summary>
+        /// <remarks>
+        ///     Measured separately, and only when the player or their appearance changes, because an emote is
+        ///     drawn ABOVE the head: with one playing it becomes the topmost content, and anchoring on "first row
+        ///     with pixels" would frame the emote instead of the face. That is exactly what it did -- a bubble
+        ///     emote replaced the portrait for as long as it lasted.
+        ///     <para>
+        ///         The picker now offers only face emotes, which draw on the face and add nothing above the
+        ///         hairline, so in practice the two measurements agree. This stays anyway: it costs one render per
+        ///         appearance change and it is the only thing standing between a future bubble emote and that bug
+        ///         coming back.
+        ///     </para>
+        /// </remarks>
+        private void MeasureFace()
+        {
+            FaceTop = 0;
+
+            if (RenderedAppearance is not { } value)
+                return;
+
+            using var plain = Renderer.Render(
+                in value,
+                FRONT_IDLE_FRAME,
+                out _,
+                out _,
+                IDLE_ANIM,
+                false,
+                true);
+
+            if (plain is not null)
+                FaceTop = FindContentTop(plain);
+        }
+
+        /// <summary>
+        ///     Follows the seated player's emote, re-rendering only on the frames it actually changes.
+        /// </summary>
+        /// <remarks>
+        ///     The emote plays over the character's head in the world, which nobody at this table can see -- the
+        ///     panel covers it. Drawing it on the portrait is what makes the feature visible to the people it is
+        ///     for. Gated on an actual frame change because each render composites a fresh texture; an emote is a
+        ///     second or two of animation, so this is a short burst rather than steady churn.
+        /// </remarks>
+        public void Tick()
+        {
+            var frame = Subject?.ActiveEmoteFrame ?? -1;
+
+            if (frame == RenderedEmoteFrame)
+                return;
+
+            RenderedEmoteFrame = frame;
+            Render();
+        }
+
+        private void Render()
+        {
+            Figure?.Dispose();
+            Figure = null;
+
+            if (RenderedAppearance is not { } value)
+                return;
+
+            Figure = Renderer.Render(
+                in value,
+                FRONT_IDLE_FRAME,
+                out _,
+                out var topPadding,
+                IDLE_ANIM,
+                false,
+                true,
+                RenderedEmoteFrame);
+
+            //Neither out-parameter locates the top of the head. topPadding is extra canvas added above the
+            //standard body for tall headwear (height minus COMPOSITE_HEIGHT), and cropping from it started below
+            //the hairline; cropping from zero instead left the head sitting in the bottom of the frame, because
+            //a composite is mostly empty above the figure. So measure it: find the first row that actually has
+            //pixels in it. Exact for every body, hat and hairstyle, and it runs only when the portrait changes.
+            //the head's position comes from MeasureFace, which looks at a figure with no emote on it; measuring
+            //this one would anchor to whatever the emote drew above the hairline
+            _ = topPadding;
+        }
+
+        /// <summary>
+        ///     The first row of <paramref name="texture" /> holding any pixel worth seeing.
+        /// </summary>
+        /// <remarks>
+        ///     Reads the composite back once per portrait change, which is rare -- a seat has to gain a player or
+        ///     that player has to change how they look. Cheaper than it sounds and exact, which the two offsets
+        ///     the renderer hands out are not: neither of them marks the top of the head.
+        /// </remarks>
+        private static int FindContentTop(Texture2D texture)
+        {
+            using var scope = new PixelBufferScope(texture);
+
+            var pixels = scope.AsSpan();
+
+            for (var y = 0; y < scope.Height; y++)
+            {
+                var row = y * scope.Width;
+
+                for (var x = 0; x < scope.Width; x++)
+                    //a threshold rather than zero: the composite's edges are antialiased, and a stray one-alpha
+                    //pixel above the hairline would anchor the crop to nothing.
+                    if (pixels[row + x].A > 16)
+                        return y;
+            }
+
+            return 0;
+        }
+
+        private static WorldEntity? FindEntity(string name)
+        {
+            foreach (var entity in WorldState.GetEntities())
+                if ((entity.Appearance is not null) && string.Equals(entity.Name, name, StringComparison.OrdinalIgnoreCase))
+                    return entity;
+
+            return null;
+        }
+
+        /// <inheritdoc />
+        public override void Draw(SpriteBatch spriteBatch)
+        {
+            base.Draw(spriteBatch);
+
+            if (!Visible || (Figure is null))
+                return;
+
+            var top = Math.Clamp(FaceTop, 0, Math.Max(0, Figure.Height - 1));
+
+            var source = new Rectangle(
+                Math.Max(0, AislingRenderer.CANVAS_CENTER_X - (CROP_WIDTH / 2)),
+                top,
+                Math.Min(CROP_WIDTH, Figure.Width),
+                Math.Min(CROP_HEIGHT, Figure.Height - top));
+
+            if (source is { Width: <= 0 } or { Height: <= 0 })
+                return;
+
+            var dest = new Rectangle(ScreenX, ScreenY, Width, Height);
+            var visible = Rectangle.Intersect(dest, ClipRect);
+
+            if (visible is not { Width: > 0, Height: > 0 })
+                return;
+
+            spriteBatch.Draw(Figure, visible, source, Color.White);
+        }
+
+        public override void Dispose()
+        {
+            Figure?.Dispose();
+            Figure = null;
+
+            base.Dispose();
+        }
+    }
+
+    /// <summary>
+    ///     The say-something prompt: a single line and a Send button.
+    /// </summary>
+    /// <remarks>
+    ///     Built here rather than reusing the HUD's <c>ChatInputControl</c>, which is a channel-switching console
+    ///     wired to the chat panel and its history. This needs one line of public speech and nothing else, and it
+    ///     has to live inside the poker panel so it is not clipped by it.
+    /// </remarks>
+    private sealed class ChatPromptPanel : UIPanel
+    {
+        private readonly UITextBox Input;
+
+        /// <summary>Raised with the typed text when the player sends it. Never raised with blank text.</summary>
+        public event Action<string>? Submitted;
+
+        public ChatPromptPanel(
+            int width,
+            int sendWidth,
+            int pad,
+            int maxLength)
+        {
+            Width = width;
+            Height = CustomButton.HEIGHT + (pad * 2);
+            Background = BuildRecessedPanel(width, CustomButton.HEIGHT + (pad * 2));
+
+            Input = new UITextBox
+            {
+                X = pad,
+                Y = pad + ((CustomButton.HEIGHT - TextRenderer.CHAR_HEIGHT) / 2),
+                Width = width - (pad * 3) - sendWidth,
+                Height = TextRenderer.CHAR_HEIGHT,
+                MaxLength = maxLength,
+                ForegroundColor = LegendColors.White
+            };
+            AddChild(Input);
+
+            var send = new CustomButton("Send", sendWidth)
+            {
+                X = width - pad - sendWidth,
+                Y = pad
+            };
+            send.Clicked += Submit;
+            AddChild(send);
+        }
+
+        public void Open()
+        {
+            Input.Text = string.Empty;
+            Visible = true;
+
+            //focused on open so the player can just type -- the button press was the decision to speak
+            Input.IsFocused = true;
+        }
+
+        public void Close()
+        {
+            //dropped explicitly: a focused box left behind would keep swallowing keystrokes meant for the table
+            Input.IsFocused = false;
+            Input.Text = string.Empty;
+            Visible = false;
+        }
+
+        /// <inheritdoc />
+        /// <remarks>
+        ///     Enter sends. A single-line <see cref="UITextBox" /> deliberately lets Enter bubble up rather than
+        ///     handling it, which is what makes this possible from the parent.
+        /// </remarks>
+        public override void OnKeyDown(KeyDownEvent e)
+        {
+            if (e.Keycode == Keycode.Enter)
+            {
+                Submit();
+                e.Handled = true;
+
+                return;
+            }
+
+            base.OnKeyDown(e);
+        }
+
+        private void Submit()
+        {
+            var text = Input.Text.Trim();
+
+            //an empty send is a mis-click, not a message: close without broadcasting silence
+            if (text.Length > 0)
+                Submitted?.Invoke(text);
+
+            Close();
+        }
+    }
+
+    /// <summary>
+    ///     A single gold piece travelling from a seat to the pot.
+    /// </summary>
+    /// <remarks>
+    ///     Spawned when a seat's committed total goes UP, which is the only way gold reaches the pot -- calls,
+    ///     bets, raises and the blinds all land there. It is a presentation of a number the server already sent,
+    ///     never a source of one: the pot readout and the seat's wager line are both painted from the snapshot,
+    ///     and this only travels between them.
+    /// </remarks>
+    private sealed class ChipSlide : UIElement
+    {
+        private const float DURATION_MS = 520f;
+        private const int COIN_SIZE = 10;
+
+        private readonly float FromX;
+        private readonly float FromY;
+        private readonly float ToX;
+        private readonly float ToY;
+
+        private float Elapsed;
+
+        public bool IsExpired => Elapsed >= DURATION_MS;
+
+        public ChipSlide(
+            string name,
+            int fromX,
+            int fromY,
+            int toX,
+            int toY)
+        {
+            Name = name;
+            FromX = fromX;
+            FromY = fromY;
+            ToX = toX;
+            ToY = toY;
+            Width = COIN_SIZE;
+            Height = COIN_SIZE;
+            IsHitTestVisible = false;
+            X = fromX;
+            Y = fromY;
+        }
+
+        public override void Update(GameTime gameTime)
+        {
+            Elapsed += (float)gameTime.ElapsedGameTime.TotalMilliseconds;
+
+            var t = Math.Clamp(Elapsed / DURATION_MS, 0f, 1f);
+
+            //eased so the piece leaves the seat briskly and settles into the pot rather than arriving at speed
+            var eased = 1f - ((1f - t) * (1f - t));
+
+            X = (int)float.Lerp(FromX, ToX, eased);
+            Y = (int)float.Lerp(FromY, ToY, eased);
+        }
+
+        public override void Draw(SpriteBatch spriteBatch)
+        {
+            if (!Visible || IsExpired)
+                return;
+
+            //fades over the last third rather than the whole trip, so it reads as landing rather than dissolving
+            var t = Math.Clamp(Elapsed / DURATION_MS, 0f, 1f);
+            var alpha = t < 0.66f ? 1f : 1f - ((t - 0.66f) / 0.34f);
+
+            spriteBatch.Draw(
+                CoinTexture,
+                new Rectangle(ScreenX, ScreenY, COIN_SIZE, COIN_SIZE),
+                Color.White * alpha);
+        }
+    }
+
+    /// <summary>
+    ///     A seat's action, drifting toward the middle of the table and fading.
+    /// </summary>
+    /// <remarks>
+    ///     The seat plaque already carries the action as a static line; this is the part that catches the eye when
+    ///     it happens. Fold, Check, Call, Bet and Raise all get one -- the two that move gold get a
+    ///     <see cref="ChipSlide" /> as well.
+    /// </remarks>
+    private sealed class ActionFlash : UIElement
+    {
+        private const float DURATION_MS = 950f;
+
+        /// <summary>How far it travels toward the table's centre over its life.</summary>
+        private const int DRIFT = 14;
+
+        private readonly string Text;
+        private readonly Color Tint;
+        private readonly int OriginX;
+        private readonly int OriginY;
+        private readonly int DriftX;
+        private readonly int DriftY;
+
+        private float Elapsed;
+
+        public bool IsExpired => Elapsed >= DURATION_MS;
+
+        public ActionFlash(
+            string name,
+            string text,
+            Color tint,
+            int originX,
+            int originY,
+            int towardX,
+            int towardY)
+        {
+            Name = name;
+            Text = text;
+            Tint = tint;
+            OriginX = originX;
+            OriginY = originY;
+            IsHitTestVisible = false;
+
+            //a unit step toward the table centre, so every seat's action drifts inward rather than every one of
+            //them drifting up and off the panel
+            var dx = towardX - originX;
+            var dy = towardY - originY;
+            var length = MathF.Max(1f, MathF.Sqrt((dx * dx) + (dy * dy)));
+
+            DriftX = (int)(dx / length * DRIFT);
+            DriftY = (int)(dy / length * DRIFT);
+
+            Width = TextRenderer.MeasureWidth(text);
+            Height = TextRenderer.CHAR_HEIGHT;
+            X = originX;
+            Y = originY;
+        }
+
+        public override void Update(GameTime gameTime) => Elapsed += (float)gameTime.ElapsedGameTime.TotalMilliseconds;
+
+        public override void Draw(SpriteBatch spriteBatch)
+        {
+            if (!Visible || IsExpired)
+                return;
+
+            var t = Math.Clamp(Elapsed / DURATION_MS, 0f, 1f);
+
+            //holds at full strength for the first half so it is readable, then fades
+            var alpha = t < 0.5f ? 1f : 1f - ((t - 0.5f) / 0.5f);
+
+            X = OriginX + (int)(DriftX * t);
+            Y = OriginY + (int)(DriftY * t);
+
+            TextRenderer.DrawText(
+                spriteBatch,
+                new Vector2(ScreenX, ScreenY),
+                Text,
+                Tint,
+                false,
+                alpha,
+                false);
         }
     }
 }
