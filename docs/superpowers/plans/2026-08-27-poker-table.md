@@ -652,7 +652,14 @@ public readonly record struct HandRank(HandCategory Category, int Tiebreak) : IC
 }
 ```
 
-Create `Chaos-Server/Chaos/Services/Poker/HandEvaluator.cs`:
+Create `Chaos-Server/Chaos/Services/Poker/HandEvaluator.cs`.
+
+> **Superseded during execution.** The code below decides `Flush` inside the suit loop, which returns it
+> *before* four-of-a-kind and full house are ruled out, and leaves the later flush loop unreachable. That is
+> safe only by an undocumented invariant — verified exhaustively true, but unwritten. The shipped
+> implementation restructures this into strict category order (straight flush → quads → boat → flush →
+> straight → trips → two pair → pair → high card) with the flush suit resolved once, making the ordering
+> correct by construction. Read the committed `HandEvaluator.cs` rather than reproducing the block below.
 
 ```csharp
 namespace Chaos.Services.Poker;
