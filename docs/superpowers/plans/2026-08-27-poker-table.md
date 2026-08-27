@@ -667,7 +667,9 @@ namespace Chaos.Services.Poker;
 /// </remarks>
 public static class HandEvaluator
 {
-    private const int ACE_LOW_STRAIGHT_MASK = 0b1_0000_0000_1111; //A,5,4,3,2
+    //bits 14,5,4,3,2 -- A,5,4,3,2 under `1 << (int)rank` with Rank.Ace = 14 and Rank.Two = 2.
+    //Note bits 0 and 1 are unreachable: no card sets them, so a mask that includes them can never match.
+    private const int ACE_LOW_STRAIGHT_MASK = 0b100_0000_0011_1100;
 
     public static HandRank Evaluate(ReadOnlySpan<Card> cards)
     {
