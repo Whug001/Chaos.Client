@@ -10,7 +10,7 @@ Branch: `feature/poker-table` in all three repos
 
 ## 0. What is already proven, so you do not re-test it
 
-94 poker tests pass on the server. Hand evaluation, betting-round legality, blind posting,
+81 poker tests pass on the server. Hand evaluation, betting-round legality, blind posting,
 rake, side-potless settlement, departure settlement and gold conservation are all covered
 there and do not need a human. **Do not** spend your session re-checking that a flush beats
 a straight.
@@ -115,6 +115,10 @@ the class of defect this branch has already produced twice.
 ### Run C — showdown, and the check that matters
 
 Play a hand to showdown. Both call to the river, both check it down.
+
+The settled hand stands for **4 seconds** before the next is dealt. That pause exists only
+because this review found it missing — before it, the reveal lived about 33 ms and this run
+was literally impossible to perform.
 
 **The hole-card privacy check.** Before the river is turned, look at client 2's panel and
 confirm it shows nothing for client 1's hole cards, and vice versa. At showdown both hands

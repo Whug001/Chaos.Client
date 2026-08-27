@@ -1,4 +1,4 @@
-#region
+﻿#region
 using Chaos.Client.Collections;
 using Chaos.Client.Controls.Components;
 using Chaos.Client.Controls.Generic;
@@ -969,6 +969,7 @@ public sealed partial class WorldScreen : IScreen
         Game.Connection.OnBankDisplay -= HandleBankDisplay;
         Game.Connection.OnSlotMachineDisplay -= HandleSlotMachineDisplay;
         Game.Connection.OnWheelDisplay -= HandleWheelDisplay;
+        Game.Connection.OnPokerTableDisplay -= HandlePokerTableDisplay;
 
         //unwire panel click-to-use events
         WorldHud.Inventory.OnSlotClicked -= HandleInventorySlotClicked;
