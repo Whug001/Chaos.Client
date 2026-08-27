@@ -1512,6 +1512,43 @@ public sealed partial class WorldScreen
         }
     }
 
+    //--- poker ---
+
+    /// <summary>
+    ///     Dispatches a poker table display packet. Open and Snapshot apply to
+    ///     <see cref="WorldState.PokerTable" /> (the authoritative state) first, then tell <see cref="Poker" />
+    ///     to repaint from it -- the control reads the view model rather than the packet, so there is exactly
+    ///     one copy of the truth.
+    /// </summary>
+    private void HandlePokerTableDisplay(PokerTableDisplayArgs args)
+    {
+        switch (args.Type)
+        {
+            case PokerDisplayType.Open:
+                WorldState.PokerTable.ApplyOpen(args);
+                Poker.Show();
+
+                break;
+
+            case PokerDisplayType.Snapshot:
+                WorldState.PokerTable.ApplySnapshot(args);
+                Poker.OnSnapshot();
+
+                break;
+
+            case PokerDisplayType.Rejected:
+                Poker.OnRejected(args.Reason);
+
+                break;
+
+            case PokerDisplayType.Close:
+                Poker.Hide();
+                WorldState.PokerTable.Clear();
+
+                break;
+        }
+    }
+
     //--- gilded spindle wheel ---
 
     /// <summary>

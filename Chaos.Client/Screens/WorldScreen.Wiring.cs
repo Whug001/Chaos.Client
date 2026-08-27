@@ -198,6 +198,28 @@ public sealed partial class WorldScreen
     }
     #endregion
 
+    #region Poker Wiring
+    private void WirePoker()
+    {
+        Game.Connection.OnPokerTableDisplay += HandlePokerTableDisplay;
+
+        Poker.ActionRequested += action => Game.Connection.SendPokerAct(action);
+
+        //standing up from the table: mid-hand this folds the player and forfeits gold already committed to the
+        //pot. Deliberately NOT the same send as Closed -- see Closed's remark below.
+        Poker.LeaveRequested += () => Game.Connection.SendPokerLeave();
+
+        Poker.SitOutRequested += () => Game.Connection.SendPokerSitOut();
+        Poker.SitInRequested += () => Game.Connection.SendPokerSitIn();
+
+        //mirrors Slots.Closed -> SendSlotClose: the session is the server's, so it needs to be told the window is
+        //gone whether the player clicked Close/Escape or the server itself pushed the Close display that led here.
+        //The player stays seated and still owed snapshots -- this is NOT SendPokerLeave, which stands them up and
+        //forfeits committed gold.
+        Poker.Closed += () => Game.Connection.SendPokerClose();
+    }
+    #endregion
+
     #region NPC Session Wiring
     private void WireNpcSession()
     {
