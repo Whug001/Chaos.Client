@@ -1,4 +1,4 @@
-#region
+﻿#region
 using Chaos.Client.Collections;
 using Chaos.Client.Controls.Components;
 using Chaos.Client.Controls.Custom;
@@ -130,20 +130,7 @@ public sealed class BankControl : FramedDialogPanelBase, IInventoryDropTarget
         this.CenterOnScreen();
         Y = TOP_MARGIN;
 
-        OkButton = CreateButton("OK"); //the prefab's button (correctly sized + wired into the frame); re-skinned as Close
-
-        if (OkButton is not null)
-        {
-            OkButton.NormalTexture = UiRenderer.Instance!.GetSpfTexture("_nbtn.spf");
-            OkButton.PressedTexture = UiRenderer.Instance!.GetSpfTexture("_nbtn.spf", 1);
-            OkButton.HoverTexture = null;
-            OkButton.SelectedTexture = null;
-            OkButton.DisabledTexture = null;
-
-            OkButton.Clicked += Hide;
-            OkButton.X = Width - OkButton.Width - OK_RIGHT_MARGIN;
-            OkButton.Y = Height - OkButton.Height - OK_BOTTOM_MARGIN;
-        }
+        OkButton = CreateCloseButton(Hide, OK_RIGHT_MARGIN, OK_BOTTOM_MARGIN);
 
         var contentWidth = Width - CONTENT_LEFT - CONTENT_RIGHT;
         var listX = CONTENT_LEFT + RAIL_WIDTH + COLUMN_GAP;

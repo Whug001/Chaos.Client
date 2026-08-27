@@ -1,4 +1,4 @@
-#region
+﻿#region
 using Chaos.Client.Data;
 using Chaos.Client.Data.Models;
 using Chaos.Client.Data.Utilities;
@@ -355,7 +355,13 @@ public static class WorldState
         //GildedSpindle.Clear() below -- it resets the wheel ViewModel's fields only, not panel visibility.
         SlotMachine.Clear();
         GildedSpindle.Clear();
-        PokerTable.Clear();
+
+        //deliberately NOT PokerTable.Clear(): unlike the two above, the poker session is not transient to a
+        //same-map refresh. The server still holds the seat and the pot, does not know the client refreshed, and
+        //only re-sends a snapshot when the table's state changes -- so wiping the view model here would leave
+        //the still-open panel reading "no gold at risk" from an empty roster and let Escape close it without
+        //the forfeit confirmation, which is a real gold loss. The server's own Close display clears it
+        //(WorldScreen.ServerHandlers), and ResetAll() below clears it on logout.
     }
 
     /// <summary>

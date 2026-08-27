@@ -1,4 +1,4 @@
-#region
+﻿#region
 using Chaos.Client.Controls.Components;
 using Chaos.Client.Controls.Custom;
 using Chaos.Client.Controls.World.Popups.Dialog;
@@ -79,23 +79,7 @@ public sealed class MarketControl : FramedDialogPanelBase, IInventoryDropTarget
         this.CenterOnScreen();
         Y = TOP_MARGIN;
 
-        OkButton = CreateButton("OK"); //the prefab's button (correctly sized + wired into the frame); re-skinned below
-
-        if (OkButton is not null)
-        {
-            //re-skin the inherited "Ok" button as "Close" (_nbtn.spf frame 0 normal / 1 pressed). It already just hides
-            //the panel; clear the hover/selected/disabled states (they still pointed at the prefab's "Ok" art) so only
-            //the Close normal + pressed frames ever show.
-            OkButton.NormalTexture = UiRenderer.Instance!.GetSpfTexture("_nbtn.spf");
-            OkButton.PressedTexture = UiRenderer.Instance!.GetSpfTexture("_nbtn.spf", 1);
-            OkButton.HoverTexture = null;
-            OkButton.SelectedTexture = null;
-            OkButton.DisabledTexture = null;
-
-            OkButton.Clicked += Hide;
-            OkButton.X = Width - OkButton.Width - OK_RIGHT_MARGIN;
-            OkButton.Y = Height - OkButton.Height - OK_BOTTOM_MARGIN;
-        }
+        OkButton = CreateCloseButton(Hide, OK_RIGHT_MARGIN, OK_BOTTOM_MARGIN);
 
         //the tab strip is centered at the top; a separator rests directly beneath it (tabs sit on top, no gap).
         var tabStripWidth = TabDefs.Length * TAB_WIDTH;

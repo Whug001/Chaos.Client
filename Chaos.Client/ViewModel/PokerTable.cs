@@ -1,4 +1,4 @@
-#region
+﻿#region
 using Chaos.Networking.Entities.Server;
 #endregion
 
@@ -13,6 +13,9 @@ public sealed class PokerSeatInfo
     ///     The table-seat index this entry describes (not a hand-space index).
     /// </summary>
     public required int SeatIndex { get; init; }
+
+    /// <summary>The world entity id of the player in this seat, or 0 when it is empty. See <c>PokerSeatEntry.EntityId</c>.</summary>
+    public required uint EntityId { get; init; }
 
     /// <summary>
     ///     Empty when this seat is unoccupied.
@@ -190,6 +193,7 @@ public sealed class PokerTable
                     seat => new PokerSeatInfo
                     {
                         SeatIndex = seat.SeatIndex,
+                        EntityId = seat.EntityId,
                         Name = seat.Name,
                         Gold = seat.Gold,
                         IsSittingOut = seat.IsSittingOut,

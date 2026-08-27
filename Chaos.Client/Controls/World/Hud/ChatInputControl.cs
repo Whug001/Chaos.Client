@@ -1,4 +1,4 @@
-#region
+﻿#region
 using Chaos.Client.Collections;
 using Chaos.Client.Controls.Components;
 using Chaos.Client.Data.Models;
@@ -207,7 +207,7 @@ public sealed class ChatInputControl : UIPanel
     ///     Room in "Name: message" (or "Name! message" for a shout): 57 characters for an eight-character name, one
     ///     more for each character shorter, up to 62 for the three-character minimum.
     /// </summary>
-    private static int PublicMessageMaxLength()
+    internal static int PublicMessageMaxLength()
         => Clamp(MAX_MESSAGE_LINE_LENGTH - NAME_SEPARATOR_LENGTH - PlayerNameLength);
 
     /// <summary>

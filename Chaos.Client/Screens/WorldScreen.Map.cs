@@ -1,4 +1,4 @@
-#region
+﻿#region
 using Chaos.Client.Collections;
 using Chaos.Client.Data;
 using Chaos.Client.Systems;
@@ -65,6 +65,15 @@ public sealed partial class WorldScreen
 
         //same reasoning as Slots.Hide() immediately above, for the gilded spindle wheel.
         Spindle.Hide();
+
+        //and for the poker table, with one difference that matters: PokerTableControl.Hide() fires Closed, which
+        //sends the server a Close. That is right for a map change -- the seat tile has already lost this player
+        //and will stand them up on its next poll, so the server either does that a tick early or answers
+        //NotSeated to a panel that is already gone. It is NOT right for the same-map refresh above: the player
+        //is still on the tile and still seated, and a Close there would forfeit whatever they have in the pot.
+        //That branch leaves the panel alone, and WorldState.Clear() leaves WorldState.PokerTable alone for the
+        //same reason.
+        Poker.Hide();
         MapRenderer.Dispose();
         MapRenderer = new MapRenderer();
 

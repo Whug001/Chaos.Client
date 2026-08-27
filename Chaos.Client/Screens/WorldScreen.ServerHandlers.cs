@@ -239,15 +239,19 @@ public sealed partial class WorldScreen
         if (!isNpc || ClientSettings.NpcRecordChat)
             WorldState.Chat.AddMessage(args.Message, color);
 
+        var isShout = args.PublicMessageType == PublicMessageType.Shout;
+
+        //over the speaker's portrait if they are sitting at the poker table, whose panel is covering the floor
+        //the bubble below would be drawn on. Ahead of the entity check on purpose: the panel resolves seats by
+        //entity id, not by presence in WorldState, so a seated speaker whose entity is momentarily absent (the
+        //list being rebuilt by a same-map refresh) still gets their bubble on the table. Ignored outright when
+        //they are not seated there.
+        Poker.ShowChatBubble(args.SourceId, args.Message, isShout);
+
         if (entity is null)
             return;
 
-        var isShout = args.PublicMessageType == PublicMessageType.Shout;
         Overlays.AddChatBubble(args.SourceId, args.Message, isShout);
-
-        //and again over the speaker's portrait if they are sitting at the poker table, whose panel is covering
-        //the bubble that was just added to the floor. Ignored outright when they are not seated there.
-        Poker.ShowChatBubble(args.SourceId, args.Message, isShout);
     }
 
     /// <summary>

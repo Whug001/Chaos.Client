@@ -3,6 +3,7 @@ using Chaos.Client.Collections;
 using Chaos.Client.Controls.Components;
 using Chaos.Client.Controls.Custom;
 using Chaos.Client.Controls.Generic;
+using Chaos.Client.Controls.World.Hud;
 using Chaos.Client.Controls.World.Popups.Dialog;
 using Chaos.Client.Controls.World.ViewPort;
 using Chaos.Client.Extensions;
@@ -216,9 +217,6 @@ public sealed class PokerTableControl : FramedDialogPanelBase
     private const int CHAT_PROMPT_WIDTH = 300;
     private const int CHAT_PROMPT_PAD = 6;
     private const int CHAT_SEND_WIDTH = 60;
-
-    /// <summary>How long a player has to type before the prompt is not worth keeping open. Matches the bubble's own life.</summary>
-    private const int CHAT_MAX_LENGTH = 90;
 
     /// <summary>Gap between a seat's plaque and the speech bubble pointing at it.</summary>
     private const int BUBBLE_GAP = 3;
@@ -449,22 +447,9 @@ public sealed class PokerTableControl : FramedDialogPanelBase
 
         //borrowed _nsett prefab button, re-skinned as Close -- see SlotMachineControl's remarks on why this
         //feature has no control file of its own
-        OkButton = CreateButton("OK");
-
-        if (OkButton is not null)
-        {
-            OkButton.NormalTexture = UiRenderer.Instance!.GetSpfTexture("_nbtn.spf");
-            OkButton.PressedTexture = UiRenderer.Instance!.GetSpfTexture("_nbtn.spf", 1);
-            OkButton.HoverTexture = null;
-            OkButton.SelectedTexture = null;
-            OkButton.DisabledTexture = null;
-
-            //RequestDismissal, not Hide: this is a PLAYER-initiated close, and the player is the only one who ever
-            //gets asked to confirm. See Hide's own remarks.
-            OkButton.Clicked += RequestDismissal;
-            OkButton.X = Width - OkButton.Width - OK_RIGHT_MARGIN;
-            OkButton.Y = Height - OkButton.Height - OK_BOTTOM_MARGIN;
-        }
+        //RequestDismissal, not Hide: this is a PLAYER-initiated close, and the player is the only one who ever
+        //gets asked to confirm. See Hide's own remarks.
+        OkButton = CreateCloseButton(RequestDismissal, OK_RIGHT_MARGIN, OK_BOTTOM_MARGIN);
 
         TitleLabel = new UILabel
         {
@@ -612,12 +597,26 @@ public sealed class PokerTableControl : FramedDialogPanelBase
 
         //wired after the picker exists rather than beside the button: the handler captures it, and the field is
         //still null at the point the button is created.
-        EmoteButton.Clicked += () => EmotePicker.Visible = !EmotePicker.Visible;
+        EmoteButton.Clicked += () =>
+        {
+            if (EmotePicker.Visible)
+            {
+                EmotePicker.Visible = false;
+
+                return;
+            }
+
+            //only one of the two overlays at a time -- the mirror of ChatButton's handler below. Both sit at the
+            //same ZIndex over the same middle of the felt, and the prompt, added later, would draw over the
+            //picker and take the clicks meant for it.
+            ChatPrompt.Close();
+            EmotePicker.Visible = true;
+        };
 
         ChatButton = CreateTableButton("Chat", 4);
 
         //── the say-something prompt ──
-        ChatPrompt = new ChatPromptPanel(CHAT_PROMPT_WIDTH, CHAT_SEND_WIDTH, CHAT_PROMPT_PAD, CHAT_MAX_LENGTH)
+        ChatPrompt = new ChatPromptPanel(CHAT_PROMPT_WIDTH, CHAT_SEND_WIDTH, CHAT_PROMPT_PAD)
         {
             X = FELT_CENTER_X - (CHAT_PROMPT_WIDTH / 2),
             Y = FELT_CENTER_Y - 16,
@@ -638,7 +637,10 @@ public sealed class PokerTableControl : FramedDialogPanelBase
 
             //only one of the two overlays at a time -- they occupy the same middle of the felt
             EmotePicker.Visible = false;
-            ChatPrompt.Open();
+            //the same budget the HUD's own say box uses: what fits in "Name: message" on one 67-character line.
+            //Anything past it is not rejected by the server, it is silently cut off for everyone who hears it,
+            //and the budget depends on this player's name so it is read at open time rather than fixed up front.
+            ChatPrompt.Open(ChatInputControl.PublicMessageMaxLength());
         };
 
         //── the leave-the-hand confirmation ──
@@ -821,21 +823,7 @@ public sealed class PokerTableControl : FramedDialogPanelBase
     ///     surfaces, so every recessed surface in this control family comes from one place.
     /// </summary>
     private static Texture2D BuildRecessedPanel(int width, int height)
-    {
-        using var frame = DialogFrame.Composite(RecessedFillColor, width, height);
-
-        var info = new SKImageInfo(width, height, SKColorType.Rgba8888, SKAlphaType.Premul);
-        using var surface = SKSurface.Create(info);
-
-        if (frame is not null)
-            surface.Canvas.DrawImage(frame, 0, 0);
-        else
-            surface.Canvas.Clear(RecessedFillColor); //fallback if dlgframe.epf failed to load
-
-        using var snapshot = surface.Snapshot();
-
-        return TextureConverter.ToTexture2D(snapshot);
-    }
+        => DialogFrame.BuildRecessedTexture(RecessedFillColor, width, height);
 
     /// <summary>
     ///     Builds a transparent-interior border of <paramref name="color" />. Border-only rather than a filled
@@ -1067,6 +1055,11 @@ public sealed class PokerTableControl : FramedDialogPanelBase
     /// </summary>
     public void OnRejected(PokerRejectReason reason)
     {
+        //a rejection can arrive for a panel that is already gone: the Closed echo of a server-pushed Close is
+        //answered NotSeated (see WorldScreen.Wiring). There is nothing to show it on and nothing to hold.
+        if (!Visible)
+            return;
+
         var text = reason switch
         {
             PokerRejectReason.NotSeated        => "You are not seated at this table.",
@@ -1345,6 +1338,11 @@ public sealed class PokerTableControl : FramedDialogPanelBase
 
         base.Show();
         OnSnapshot();
+
+        //that repaint primed the animation baseline from whatever the view model held -- on a fresh open, an
+        //empty roster. Un-prime so the first snapshot the SERVER sends after opening seeds it instead; otherwise
+        //every seat's last action from the previous hand flashes the moment the player sits down.
+        AnimationsPrimed = false;
     }
 
     /// <summary>
@@ -1372,7 +1370,12 @@ public sealed class PokerTableControl : FramedDialogPanelBase
     /// </remarks>
     public override void Hide()
     {
-        var wasVisible = Visible;
+        //already hidden: nothing below has anything to tear down, and base.Hide() is not a no-op on a hidden
+        //control -- InputDispatcher.RemoveControl falls through to re-focusing whatever is now on top, which
+        //would take the keyboard away from a textbox the player has since clicked into. The server's Close
+        //display arrives after every player-initiated close and lands exactly here.
+        if (!Visible)
+            return;
 
         //a confirmation still standing when the panel goes away -- the server closing the session out from under
         //an open prompt is the case that matters -- must not be left visible or on the input stack.
@@ -1394,9 +1397,7 @@ public sealed class PokerTableControl : FramedDialogPanelBase
             panel.SetClock(null);
 
         base.Hide();
-
-        if (wasVisible)
-            Closed?.Invoke();
+        Closed?.Invoke();
     }
 
     public override void OnKeyDown(KeyDownEvent e)
@@ -1703,7 +1704,7 @@ public sealed class PokerTableControl : FramedDialogPanelBase
                 LastActionLabel.Text = string.Empty;
                 ClockLabel.Visible = false;
                 RenderedClock = -1;
-                Portrait.ShowPlayer(null);
+                Portrait.ShowPlayer(0);
 
                 foreach (var card in Cards)
                     card.ShowNothing();
@@ -1720,7 +1721,7 @@ public sealed class PokerTableControl : FramedDialogPanelBase
             NameLabel.Width = NAME_WIDTH;
             NameLabel.HorizontalAlignment = HorizontalAlignment.Left;
 
-            Portrait.ShowPlayer(seat.Name);
+            Portrait.ShowPlayer(seat.EntityId);
 
             //dimmed the moment a seat is out of the hand, by either route the server reports it. The dimming is
             //the seat's whole "not in this one" signal, so it covers every line at once rather than one label.
@@ -2281,10 +2282,13 @@ public sealed class PokerTableControl : FramedDialogPanelBase
     ///         no packet and cannot disagree with what is drawn on the floor.
     ///     </para>
     ///     <para>
-    ///         Matched by name because that is the only identity the snapshot carries. A player who is somehow not
-    ///         in view, or who is morphed into a creature form (which clears
-    ///         <see cref="WorldEntity.Appearance" />), simply gets no portrait -- the plaque still names them, so
-    ///         nothing is lost but the picture.
+    ///         Followed by entity id -- the one <c>PokerSeatEntry.EntityId</c> carries, which is the same id the
+    ///         floor tracks the player under -- and re-resolved every frame, because the entity behind an id is not
+    ///         stable: a same-map refresh rebuilds the whole list, and a player can morph or change clothes while
+    ///         seated. A lookup by id is a dictionary read, cheap enough to do six times a frame where a name scan
+    ///         was not. A player who is momentarily not in view keeps their last figure; one morphed into a
+    ///         creature form (which clears <see cref="WorldEntity.Appearance" />) gets no portrait -- the plaque
+    ///         still names them, so nothing is lost but the picture.
     ///     </para>
     /// </remarks>
     private sealed class PortraitView : UIPanel
@@ -2308,17 +2312,20 @@ public sealed class PokerTableControl : FramedDialogPanelBase
         private readonly AislingRenderer Renderer;
 
         private Texture2D? Figure;
-        private string? RenderedFor;
         private AislingAppearance? RenderedAppearance;
         private int FaceTop;
 
         //the world entity this portrait is following, so the per-frame emote check is a field read rather than a
         //scan of every visible entity six times a frame
         private WorldEntity? Subject;
+
+        //the id this portrait follows, kept apart from Subject so a seat keeps its identity through the moments
+        //its entity is not in the list -- that is what lets a chat bubble still find the seat then
+        private uint SubjectEntityId;
         private int RenderedEmoteFrame = -1;
 
-        /// <summary>The world id of whoever this portrait is showing, used to match incoming speech to a seat.</summary>
-        public uint? SubjectId => Subject?.Id;
+        /// <summary>The world id of whoever this portrait is following, used to match incoming speech to a seat.</summary>
+        public uint? SubjectId => SubjectEntityId == 0 ? null : SubjectEntityId;
 
         public PortraitView(AislingRenderer renderer)
         {
@@ -2340,18 +2347,49 @@ public sealed class PokerTableControl : FramedDialogPanelBase
         ///     per seat would allocate and leak a texture several times a second. The appearance is compared as
         ///     well as the name so a player who re-dyes or re-equips still refreshes.
         /// </remarks>
-        public void ShowPlayer(string? name)
+        /// <summary>Follows the player with world entity id <paramref name="entityId" />, or nobody for 0.</summary>
+        public void ShowPlayer(uint entityId)
         {
-            Subject = string.IsNullOrEmpty(name) ? null : FindEntity(name);
+            if (entityId != SubjectEntityId)
+            {
+                SubjectEntityId = entityId;
+                Subject = null;
+                RenderedAppearance = null;
+                RenderedEmoteFrame = -1;
 
-            var appearance = Subject?.Appearance;
+                //a new subject must never be shown wearing the old one's face, even for the frames before it
+                //resolves
+                Render();
+            }
 
-            if (string.Equals(name, RenderedFor, StringComparison.Ordinal) && Nullable.Equals(appearance, RenderedAppearance))
+            SyncSubject();
+        }
+
+        /// <summary>
+        ///     Re-resolves the followed entity and repaints if how they look has changed.
+        /// </summary>
+        private void SyncSubject()
+        {
+            if (SubjectEntityId == 0)
                 return;
 
-            RenderedFor = name;
-            RenderedAppearance = appearance;
+            var current = WorldState.GetEntity(SubjectEntityId);
 
+            //absent for a moment -- the entity list being rebuilt underneath us -- keep following the id and keep
+            //the last figure: the plaque still names them, and a blank for one refresh is worse than a stale face
+            if (current is null)
+            {
+                Subject = null;
+
+                return;
+            }
+
+            Subject = current;
+
+            if (Nullable.Equals(current.Appearance, RenderedAppearance))
+                return;
+
+            RenderedAppearance = current.Appearance;
             MeasureFace();
             Render();
         }
@@ -2402,6 +2440,8 @@ public sealed class PokerTableControl : FramedDialogPanelBase
         /// </remarks>
         public void Tick()
         {
+            SyncSubject();
+
             var frame = Subject?.ActiveEmoteFrame ?? -1;
 
             if (frame == RenderedEmoteFrame)
@@ -2467,15 +2507,6 @@ public sealed class PokerTableControl : FramedDialogPanelBase
             return 0;
         }
 
-        private static WorldEntity? FindEntity(string name)
-        {
-            foreach (var entity in WorldState.GetEntities())
-                if ((entity.Appearance is not null) && string.Equals(entity.Name, name, StringComparison.OrdinalIgnoreCase))
-                    return entity;
-
-            return null;
-        }
-
         /// <inheritdoc />
         public override void Draw(SpriteBatch spriteBatch)
         {
@@ -2528,11 +2559,7 @@ public sealed class PokerTableControl : FramedDialogPanelBase
         /// <summary>Raised with the typed text when the player sends it. Never raised with blank text.</summary>
         public event Action<string>? Submitted;
 
-        public ChatPromptPanel(
-            int width,
-            int sendWidth,
-            int pad,
-            int maxLength)
+        public ChatPromptPanel(int width, int sendWidth, int pad)
         {
             Width = width;
             Height = CustomButton.HEIGHT + (pad * 2);
@@ -2544,7 +2571,6 @@ public sealed class PokerTableControl : FramedDialogPanelBase
                 Y = pad + ((CustomButton.HEIGHT - TextRenderer.CHAR_HEIGHT) / 2),
                 Width = width - (pad * 3) - sendWidth,
                 Height = TextRenderer.CHAR_HEIGHT,
-                MaxLength = maxLength,
                 ForegroundColor = LegendColors.White
             };
             AddChild(Input);
@@ -2558,8 +2584,10 @@ public sealed class PokerTableControl : FramedDialogPanelBase
             AddChild(send);
         }
 
-        public void Open()
+        /// <param name="maxLength">The most characters the message may carry and still arrive whole.</param>
+        public void Open(int maxLength)
         {
+            Input.MaxLength = maxLength;
             Input.Text = string.Empty;
             Visible = true;
 

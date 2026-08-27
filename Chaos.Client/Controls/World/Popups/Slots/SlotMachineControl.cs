@@ -1,4 +1,4 @@
-#region
+﻿#region
 using Chaos.Client.Collections;
 using Chaos.Client.Controls.Components;
 using Chaos.Client.Controls.Custom;
@@ -338,20 +338,7 @@ public sealed class SlotMachineControl : FramedDialogPanelBase
         this.CenterOnScreen();
         Y = TOP_MARGIN;
 
-        OkButton = CreateButton("OK"); //the prefab's button (correctly sized + wired into the frame); re-skinned as Close
-
-        if (OkButton is not null)
-        {
-            OkButton.NormalTexture = UiRenderer.Instance!.GetSpfTexture("_nbtn.spf");
-            OkButton.PressedTexture = UiRenderer.Instance!.GetSpfTexture("_nbtn.spf", 1);
-            OkButton.HoverTexture = null;
-            OkButton.SelectedTexture = null;
-            OkButton.DisabledTexture = null;
-
-            OkButton.Clicked += Hide;
-            OkButton.X = Width - OkButton.Width - OK_RIGHT_MARGIN;
-            OkButton.Y = Height - OkButton.Height - OK_BOTTOM_MARGIN;
-        }
+        OkButton = CreateCloseButton(Hide, OK_RIGHT_MARGIN, OK_BOTTOM_MARGIN);
 
         //spans the full panel and centers within it -- the machine's name is the window's heading, so it is
         //centered on the window rather than left-aligned to the reel window's edge.
@@ -548,21 +535,7 @@ public sealed class SlotMachineControl : FramedDialogPanelBase
     ///     rather than two lookalikes.
     /// </summary>
     private static Texture2D BuildRecessedPanel(int width, int height)
-    {
-        using var frame = DialogFrame.Composite(RecessedFillColor, width, height);
-
-        var info = new SKImageInfo(width, height, SKColorType.Rgba8888, SKAlphaType.Premul);
-        using var surface = SKSurface.Create(info);
-
-        if (frame is not null)
-            surface.Canvas.DrawImage(frame, 0, 0);
-        else
-            surface.Canvas.Clear(RecessedFillColor); //fallback if dlgframe.epf failed to load
-
-        using var snapshot = surface.Snapshot();
-
-        return TextureConverter.ToTexture2D(snapshot);
-    }
+        => DialogFrame.BuildRecessedTexture(RecessedFillColor, width, height);
 
     /// <summary>
     ///     Builds a transparent-interior gold border the width/height of the payline row. Border-only (rather than

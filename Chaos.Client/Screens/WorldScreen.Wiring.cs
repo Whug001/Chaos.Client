@@ -227,9 +227,11 @@ public sealed partial class WorldScreen
         //trap") -- so closing the panel DOES stand the player up and DOES forfeit anything already committed to
         //a live hand, exactly like Leave. Closed and LeaveRequested still stay wired to different sends here: they
         //are distinct interaction types, and the server converging their effect is the server's call to make, not
-        //ours to pre-empt on the client. The resulting double-send on a server-pushed Close is deliberate and
-        //harmless: Poker.Hide() fires Closed, which sends SendPokerClose right back, but ReleaseSeat early-returns
-        //once the seat is no longer held by this aisling -- do not "fix" this into a conditional.
+        //ours to pre-empt on the client. The resulting echo on a server-pushed Close is deliberate and harmless,
+        //though not for the reason one might guess: by the time it arrives the server has already run Table.Leave,
+        //so WorldServer.OnPokerTableInteraction finds no table seated by this player and answers Rejected(NotSeated),
+        //which PokerTableControl.OnRejected drops because the panel is no longer visible. Do not "fix" this into a
+        //conditional -- a Close the server never hears about is the gold trap above.
         Poker.Closed += () => Game.Connection.SendPokerClose();
     }
     #endregion

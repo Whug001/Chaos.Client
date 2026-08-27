@@ -1,4 +1,4 @@
-#region
+﻿#region
 using Chaos.Client.Controls.Components;
 using Chaos.Client.Utilities;
 using Microsoft.Xna.Framework;
@@ -81,27 +81,7 @@ public sealed class CustomTextBox : UITextBox
         BuiltHeight = Height;
     }
 
-    private static Texture2D BuildFrame(int w, int h)
-    {
-        using var frame = DialogFrame.Composite(FillColor, w, h); //SKImage? — may be null
-
-        var info = new SKImageInfo(
-            w,
-            h,
-            SKColorType.Rgba8888,
-            SKAlphaType.Premul);
-        using var surface = SKSurface.Create(info);
-        var canvas = surface.Canvas;
-
-        if (frame is not null)
-            canvas.DrawImage(frame, 0, 0);
-        else
-            canvas.Clear(FillColor); //fallback if dlgframe.epf failed to load
-
-        using var snapshot = surface.Snapshot();
-
-        return TextureConverter.ToTexture2D(snapshot); //uses static TextureConverter.Device
-    }
+    private static Texture2D BuildFrame(int w, int h) => DialogFrame.BuildRecessedTexture(FillColor, w, h);
 
     public override void Dispose()
     {

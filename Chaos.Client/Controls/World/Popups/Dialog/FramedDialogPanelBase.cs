@@ -1,6 +1,8 @@
-#region
+﻿#region
 using Chaos.Client.Controls.Components;
 using Chaos.Client.Controls.Generic;
+using Chaos.Client.Definitions;
+using Chaos.Client.Rendering;
 using Microsoft.Xna.Framework;
 using Microsoft.Xna.Framework.Graphics;
 #endregion
@@ -43,6 +45,38 @@ public abstract class FramedDialogPanelBase : PrefabPanel
     protected FramedDialogPanelBase(string prefabName, bool center = true)
         : base(prefabName, center)
         => Background = null;
+
+    /// <summary>
+    ///     The prefab's "OK" button re-skinned as Close (<c>_nbtn.spf</c> frame 0 normal, 1 pressed), wired to
+    ///     <paramref name="onClick" /> and anchored to the bottom-right corner by the given margins. Null when the
+    ///     prefab has no OK button, same as <see cref="PrefabPanel.CreateButton(string)" />.
+    /// </summary>
+    /// <remarks>
+    ///     Every popup in this family borrows its prefab's OK button because none of them has a control file of
+    ///     its own (see <c>SlotMachineControl</c>'s remarks). The hover, selected and disabled states are cleared
+    ///     because they still point at the prefab's "OK" art -- only the Close normal and pressed frames ever show.
+    /// </remarks>
+    protected UIButton? CreateCloseButton(ClickedHandler onClick, int rightMargin, int bottomMargin)
+    {
+        ArgumentNullException.ThrowIfNull(onClick);
+
+        var button = CreateButton("OK");
+
+        if (button is null)
+            return null;
+
+        button.NormalTexture = UiRenderer.Instance!.GetSpfTexture("_nbtn.spf");
+        button.PressedTexture = UiRenderer.Instance!.GetSpfTexture("_nbtn.spf", 1);
+        button.HoverTexture = null;
+        button.SelectedTexture = null;
+        button.DisabledTexture = null;
+
+        button.Clicked += onClick;
+        button.X = Width - button.Width - rightMargin;
+        button.Y = Height - button.Height - bottomMargin;
+
+        return button;
+    }
 
     public override void Draw(SpriteBatch spriteBatch)
     {

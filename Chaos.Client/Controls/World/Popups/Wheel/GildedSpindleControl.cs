@@ -1,4 +1,4 @@
-#region
+﻿#region
 using Chaos.Client.Collections;
 using Chaos.Client.Controls.Components;
 using Chaos.Client.Controls.Custom;
@@ -249,20 +249,7 @@ public sealed class GildedSpindleControl : FramedDialogPanelBase
         this.CenterOnScreen();
         Y = TOP_MARGIN;
 
-        OkButton = CreateButton("OK"); //borrowed _nsett prefab button, re-skinned as Close -- see SlotMachineControl's own remarks on why there is no dedicated control file for this feature
-
-        if (OkButton is not null)
-        {
-            OkButton.NormalTexture = UiRenderer.Instance!.GetSpfTexture("_nbtn.spf");
-            OkButton.PressedTexture = UiRenderer.Instance!.GetSpfTexture("_nbtn.spf", 1);
-            OkButton.HoverTexture = null;
-            OkButton.SelectedTexture = null;
-            OkButton.DisabledTexture = null;
-
-            OkButton.Clicked += Hide;
-            OkButton.X = Width - OkButton.Width - OK_RIGHT_MARGIN;
-            OkButton.Y = Height - OkButton.Height - OK_BOTTOM_MARGIN;
-        }
+        OkButton = CreateCloseButton(Hide, OK_RIGHT_MARGIN, OK_BOTTOM_MARGIN);
 
         TitleLabel = new UILabel
         {
@@ -401,21 +388,7 @@ public sealed class GildedSpindleControl : FramedDialogPanelBase
     ///     since the two controls have no common base for it.
     /// </summary>
     private static Texture2D BuildRecessedPanel(int width, int height)
-    {
-        using var frame = DialogFrame.Composite(RecessedFillColor, width, height);
-
-        var info = new SKImageInfo(width, height, SKColorType.Rgba8888, SKAlphaType.Premul);
-        using var surface = SKSurface.Create(info);
-
-        if (frame is not null)
-            surface.Canvas.DrawImage(frame, 0, 0);
-        else
-            surface.Canvas.Clear(RecessedFillColor); //fallback if dlgframe.epf failed to load
-
-        using var snapshot = surface.Snapshot();
-
-        return TextureConverter.ToTexture2D(snapshot);
-    }
+        => DialogFrame.BuildRecessedTexture(RecessedFillColor, width, height);
 
     /// <summary>
     ///     Builds a small downward-pointing gold triangle marking the wheel's fixed landing position.

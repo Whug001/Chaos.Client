@@ -1,5 +1,7 @@
-#region
+﻿#region
 using Chaos.Client.Data;
+using Chaos.Client.Rendering;
+using Microsoft.Xna.Framework.Graphics;
 using SkiaSharp;
 #endregion
 
@@ -72,6 +74,36 @@ public static class DialogFrame
         DrawBorder(canvas, totalWidth, totalHeight);
 
         return surface.Snapshot();
+    }
+
+    /// <summary>
+    ///     A solid <paramref name="fill" /> surface inside the 8-piece border, falling back to the bare fill if
+    ///     dlgframe.epf failed to load. The one primitive every recessed surface in the client is cut from --
+    ///     text boxes, buttons, and the inset panels of the casino popups -- so their look is changed in one place.
+    /// </summary>
+    public static SKImage BuildRecessedImage(SKColor fill, int width, int height)
+    {
+        using var frame = Composite(fill, width, height);
+
+        var info = new SKImageInfo(width, height, SKColorType.Rgba8888, SKAlphaType.Premul);
+        using var surface = SKSurface.Create(info);
+
+        if (frame is not null)
+            surface.Canvas.DrawImage(frame, 0, 0);
+        else
+            surface.Canvas.Clear(fill);
+
+        return surface.Snapshot();
+    }
+
+    /// <summary>
+    ///     <see cref="BuildRecessedImage" /> uploaded as a texture. The caller owns and disposes it.
+    /// </summary>
+    public static Texture2D BuildRecessedTexture(SKColor fill, int width, int height)
+    {
+        using var image = BuildRecessedImage(fill, width, height);
+
+        return TextureConverter.ToTexture2D(image);
     }
 
     /// <summary>

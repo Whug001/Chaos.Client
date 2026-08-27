@@ -162,6 +162,32 @@ seat that keeps being dealt in behind a closed panel is a gold trap. I got this 
 earlier in the build and said closing kept you seated — it does not, and the confirmation
 prompt exists precisely because it does not.
 
+### Run F — the second audit's fixes
+
+Each of these was a confirmed defect in the UI overhaul and is now fixed; re-check the fix, not the
+feature.
+
+1. **Refresh mid-hand.** With gold committed, press F5 (same-map refresh) with the panel open.
+   The panel must stay open and keep showing the hand, and Escape must still show the
+   "bet stays in the pot" confirmation. Before the fix the refresh wiped the view model under the
+   panel and Escape closed it silently — forfeiting the pot with no prompt.
+2. **Warp out mid-hand.** Have one player warp/log to another map while seated. Their panel must
+   close on the map change (not sit painted over the new map), and the other client must see
+   "*Name* leaves the table." within a tick or two.
+3. **Disconnect between hands.** Kill one client (not Leave — close the window) between hands.
+   The other client must see "*Name* leaves the table." and the seat go empty. Before, the
+   table stood them up silently.
+4. **Sit down between hands.** After a hand completes, have a third character sit. Their panel
+   must open without a burst of action flashes replaying the previous hand's last street.
+5. **Chat length.** Open the table's Chat prompt and hold a key: the box must stop accepting
+   input at the same length the HUD's own say box does (57 for an 8-character name), not 90.
+   What you send must arrive whole on the other client.
+6. **Emote then Chat.** Click Chat, then Emote: the prompt must close and the picker open, not
+   both stack. Then the reverse.
+7. **Portraits survive a refresh.** With two seated, press F5 on one client. The other seat's
+   portrait must still be there afterwards and its emotes must still animate on the portrait.
+   Before, the portrait held a dead entity after the refresh and emotes stopped.
+
 ---
 
 ## 4. Known, already triaged — not worth reporting
