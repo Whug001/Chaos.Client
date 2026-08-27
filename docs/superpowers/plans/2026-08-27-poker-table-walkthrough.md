@@ -1,0 +1,174 @@
+# Poker table: two-client manual walkthrough
+
+The properties on this branch that no agent could verify. Everything here needs a running
+server, two clients, and two characters — which is why it is a script for you and not a test.
+
+Branch: `feature/poker-table` in all three repos
+(`Chaos.Client` @ `740fdb5`, `Chaos-Server` @ `1f37d1050`, `Unora` @ `10cc2b3b2`).
+
+---
+
+## 0. What is already proven, so you do not re-test it
+
+94 poker tests pass on the server. Hand evaluation, betting-round legality, blind posting,
+rake, side-potless settlement, departure settlement and gold conservation are all covered
+there and do not need a human. **Do not** spend your session re-checking that a flush beats
+a straight.
+
+What is unproven is everything that only exists when two real clients are attached:
+tile walkability, seat claim/release, the wire format, and hole-card privacy.
+
+---
+
+## 1. Setup
+
+### Server — local, Debug, repointed
+
+`appsettings.local.json` only loads under `#if DEBUG`; a Release boot silently runs against
+an empty scaffold and proves nothing.
+
+1. In `Chaos-Server/Chaos/appsettings.local.json`, set `StagingDirectory` to
+   `C:\Users\mikeb\Documents\GitHub\Unora`. **Do not commit this** — the file is tracked.
+2. `dotnet run -c Debug` from `Chaos-Server/Chaos`.
+3. Wait for `WorldServer: Listening` (~7 s).
+
+**Watch the boot log.** `PokerCatalogValidationService` runs at startup and logs (never throws).
+A line matching `Poker table catalog problem:` means the catalog is misconfigured — fix that
+before going further, because the table will behave in ways this script does not predict.
+Silence from that service is the pass condition.
+
+### Clients — two, both built from this branch, both pointed at localhost
+
+The new opcodes (client `118`, server `120`) exist only on this branch. A stock client will
+not render the table, and the live server has no poker. Both halves must be branch builds.
+
+```powershell
+$env:DA_LOBBY_HOST = '127.0.0.1'
+$env:DA_LOBBY_PORT = '4200'          # local lobby, not 6900
+$env:DA_PATH       = 'C:\Users\mikeb\Documents\Chaos\Unora'   # the .dat archives
+Start-Process 'C:\Users\mikeb\Documents\GitHub\Chaos.Client\Chaos.Client\bin\Debug\net10.0\Chaos.Client.exe'
+```
+
+Run it twice. Log in as two different characters.
+
+### Characters — gold matters
+
+`MinimumBuyIn` is **48,000** and the eligibility gate is `Gold >= MinimumBuyIn`, re-checked
+before every hand. Give both characters comfortably more — say 200,000 — or they will be
+silently skipped when the button comes round and you will think the table is broken.
+
+48,000 is `MaxExposure`: four bets a street at 2000/2000/4000/4000. Requiring it to be dealt
+in is what makes all-ins structurally impossible, which is what lets the design work with no
+chips and no side pots.
+
+---
+
+## 2. The floor
+
+Rucesion Casino. Table merchant at **(9, 27)**, facing down. Six seat reactors:
+
+```
+        (8,26)   (9,26)   (10,26)        <- seats 0, 1, 2
+                 (9,27)                  <- the table
+        (8,28)   (9,28)   (10,28)        <- seats 3, 4, 5
+```
+
+**Step 1 is a walkability check and it fails fast.** Walk one character onto each of the six
+tiles. Tile passability lives in the compiled `.map` binary and cannot be read from JSON, so
+this is the first thing that can be wrong. If a tile blocks you, that seat is unreachable and
+the content needs moving — stop and say so.
+
+Every seat is within 2 tiles (Manhattan) of the table, inside the script's search range.
+
+---
+
+## 3. The runs
+
+### Run A — seat, claim, release
+
+1. Character 1 walks onto **(8, 26)**. The poker panel should open, showing seat 0 occupied
+   by their name and the table idle (one player is not enough to deal).
+2. Walk them off the tile. The seat should release — the reactor polls on Update, so allow a
+   tick. Panel closes.
+3. Step back on. Seat re-claimed.
+
+Then, with character 1 seated, walk character 2 onto **the same tile**. Known gap, already
+triaged: the second claimant is **refused silently**. No message. If that bothers you it is a
+one-line fix, but it is deliberate for now and not a defect to report.
+
+### Run B — the cheapest complete hand
+
+Both characters seated (say seats 0 and 1). **Write down both gold totals before you start.**
+
+The table deals automatically once two eligible players are seated. Blinds are **1000 / 2000**.
+
+Play the simplest possible hand: the small blind folds preflop.
+
+Expected, exactly:
+- No flop was dealt, so **no rake** ("no flop no drop").
+- Pot 3000 goes to the big blind.
+- SB net **−1000**. BB net **+1000**. Total gold across both characters **unchanged**.
+
+If total gold moved on a hand that never saw a flop, stop — that is a rake bug and it is
+the class of defect this branch has already produced twice.
+
+### Run C — showdown, and the check that matters
+
+Play a hand to showdown. Both call to the river, both check it down.
+
+**The hole-card privacy check.** Before the river is turned, look at client 2's panel and
+confirm it shows nothing for client 1's hole cards, and vice versa. At showdown both hands
+should appear.
+
+Be honest about what that proves. **Seeing nothing rendered is not proof nothing was sent.**
+The guard is server-side — `PokerTableScript.cs:872`, where `maySee` requires the seat to be
+yours or the hand to have reached `Showdown` — and snapshots are built per recipient. The
+visual check confirms the rendering agrees with the guard; it does not confirm the wire is
+clean.
+
+If you want the wire-level answer, say so and I will add a temporary `#if DEBUG` assertion in
+the client view model that screams when a snapshot arrives carrying hole cards for a seat that
+is not yours and the street is not Showdown. That turns "looks right" into "cannot happen
+without a log line." It is about ten minutes of work and I would rather do it than have you
+accept a visual as a proof.
+
+Also worth recording during this run: **rake**. Pot × 5%, capped at 12,000. Total gold across
+both characters should drop by exactly the rake and no more — that gold is destroyed, by design.
+
+### Run D — timeouts and the shot clock
+
+Seat both, let a hand start, and simply do not act. Expect:
+- **20 seconds** per decision, then the actor is timed out (folded / checked).
+- **2 timeouts** and that player is set to sit out.
+- **3 sit-out hands** and they are released from the seat entirely.
+
+### Run E — closing mid-hand
+
+With gold committed to a live pot, hit the panel's Close button or Escape.
+
+You should get a confirmation prompt first. Confirm it, and the seat is released and the
+committed gold is forfeit to the pot.
+
+**Close and Leave are the same thing.** Both route to `ReleaseSeat`. This is deliberate: a
+seat that keeps being dealt in behind a closed panel is a gold trap. I got this backwards
+earlier in the build and said closing kept you seated — it does not, and the confirmation
+prompt exists precisely because it does not.
+
+---
+
+## 4. Known, already triaged — not worth reporting
+
+- **Sprite `1310`** collides with `twentyOneTable.json`. The Hold'em table will look identical
+  to a twenty-one table on the same floor. Cosmetic, and your call.
+- Second claimant on an occupied tile is refused silently (Run A).
+- `SeatRegistry` is not self-healing across unloaded map instances.
+- The seat reactor re-resolves its table every tick.
+- 4+-handed play is untested. If you can get four characters seated, that is genuinely new
+  coverage — everything to date is heads-up and three-handed.
+
+## 5. What to bring back
+
+Per run: pass, or what you saw. For anything involving gold, **the before and after totals** —
+not an impression. Gold conservation is the invariant this whole design is built around, and
+every real defect found so far showed up as a number that did not add up, never as something
+that looked wrong on screen.
