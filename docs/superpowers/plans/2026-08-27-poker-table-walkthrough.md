@@ -3,14 +3,14 @@
 The properties on this branch that no agent could verify. Everything here needs a running
 server, two clients, and two characters — which is why it is a script for you and not a test.
 
-Branch: `feature/poker-table` in all three repos
-(`Chaos.Client` @ `740fdb5`, `Chaos-Server` @ `1f37d1050`, `Unora` @ `10cc2b3b2`).
+Branch: `feature/poker-table` in all three repos. Run `git submodule update --init` in
+`Chaos.Client` first — the branch pins `Chaos-Server` to the commit this was tested against.
 
 ---
 
 ## 0. What is already proven, so you do not re-test it
 
-81 poker tests pass on the server. Hand evaluation, betting-round legality, blind posting,
+84 poker tests pass on the server. Hand evaluation, betting-round legality, blind posting,
 rake, side-potless settlement, departure settlement and gold conservation are all covered
 there and do not need a human. **Do not** spend your session re-checking that a flush beats
 a straight.
@@ -100,6 +100,10 @@ one-line fix, but it is deliberate for now and not a defect to report.
 
 Both characters seated (say seats 0 and 1). **Write down both gold totals before you start.**
 
+Note the panel shows `Gold:` only for **your own** seat; every other seat reads `-`. That is
+deliberate — a player's purse is their whole net worth here, not a table stack — so take the
+totals from each client's own HUD, not from the poker panel's view of the other player.
+
 The table deals automatically once two eligible players are seated. Blinds are **1000 / 2000**.
 
 Play the simplest possible hand: the small blind folds preflop.
@@ -162,6 +166,10 @@ prompt exists precisely because it does not.
 
 ## 4. Known, already triaged — not worth reporting
 
+- **A player holding near the 500,000,000 gold cap is sat out**, with the reason "You are
+  holding too much gold to be dealt in". That is the fix for a defect where such a winner
+  could not be paid and the whole pot was destroyed; the seat is refused rather than the pot
+  lost. You will not hit this unless you deliberately set a character near the cap.
 - **Sprite `1310`** collides with `twentyOneTable.json`. The Hold'em table will look identical
   to a twenty-one table on the same floor. Cosmetic, and your call.
 - Second claimant on an occupied tile is refused silently (Run A).
