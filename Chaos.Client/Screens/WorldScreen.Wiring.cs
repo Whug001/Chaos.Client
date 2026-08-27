@@ -214,8 +214,14 @@ public sealed partial class WorldScreen
 
         //mirrors Slots.Closed -> SendSlotClose: the session is the server's, so it needs to be told the window is
         //gone whether the player clicked Close/Escape or the server itself pushed the Close display that led here.
-        //The player stays seated and still owed snapshots -- this is NOT SendPokerLeave, which stands them up and
-        //forfeits committed gold.
+        //On the server, PokerTableScript.HandleInteraction routes PokerInteractionType.Close into the same
+        //ReleaseSeat as Leave, on purpose ("a seat that keeps being dealt in behind a closed panel is a gold
+        //trap") -- so closing the panel DOES stand the player up and DOES forfeit anything already committed to
+        //a live hand, exactly like Leave. Closed and LeaveRequested still stay wired to different sends here: they
+        //are distinct interaction types, and the server converging their effect is the server's call to make, not
+        //ours to pre-empt on the client. The resulting double-send on a server-pushed Close is deliberate and
+        //harmless: Poker.Hide() fires Closed, which sends SendPokerClose right back, but ReleaseSeat early-returns
+        //once the seat is no longer held by this aisling -- do not "fix" this into a conditional.
         Poker.Closed += () => Game.Connection.SendPokerClose();
     }
     #endregion
