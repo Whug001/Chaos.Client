@@ -147,6 +147,12 @@ public static class WorldState
     public static GildedSpindle GildedSpindle { get; } = new();
 
     /// <summary>
+    ///     Authoritative poker table state (table properties, seat roster, board, pot, whose turn it is, legal
+    ///     actions).
+    /// </summary>
+    public static PokerTable PokerTable { get; } = new();
+
+    /// <summary>
     ///     Authoritative spell book state with cooldown timers.
     /// </summary>
     public static SpellBook SpellBook { get; } = new();
@@ -349,6 +355,7 @@ public static class WorldState
         //GildedSpindle.Clear() below -- it resets the wheel ViewModel's fields only, not panel visibility.
         SlotMachine.Clear();
         GildedSpindle.Clear();
+        PokerTable.Clear();
     }
 
     /// <summary>
@@ -378,6 +385,7 @@ public static class WorldState
         UserOptions.ClearServerSettings();
         SlotMachine.Clear();
         GildedSpindle.Clear();
+        PokerTable.Clear();
     }
 
     /// <summary>

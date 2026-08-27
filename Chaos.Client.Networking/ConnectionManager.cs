@@ -541,6 +541,11 @@ public sealed class ConnectionManager : IDisposable
     public event WheelDisplayHandler? OnWheelDisplay;
 
     /// <summary>
+    ///     Fired when a poker table display packet is received from the server.
+    /// </summary>
+    public event PokerTableDisplayHandler? OnPokerTableDisplay;
+
+    /// <summary>
     ///     Fired when door states are updated.
     /// </summary>
     public event DoorHandler? OnDoor;
@@ -1163,6 +1168,33 @@ public sealed class ConnectionManager : IDisposable
     public void SendWheelClose() => SendIfWorld(new WheelInteractionArgs { Type = WheelInteractionType.Close });
 
     /// <summary>
+    ///     Takes the given poker action at the table this character currently occupies.
+    /// </summary>
+    /// <param name="action">The <c>PokerAction</c> byte value being taken.</param>
+    public void SendPokerAct(byte action)
+        => SendIfWorld(new PokerTableInteractionArgs { Type = PokerInteractionType.Act, Action = action });
+
+    /// <summary>
+    ///     Tells the server this character is leaving the poker table they occupy.
+    /// </summary>
+    public void SendPokerLeave() => SendIfWorld(new PokerTableInteractionArgs { Type = PokerInteractionType.Leave });
+
+    /// <summary>
+    ///     Tells the server this character is sitting out of the current hand at the poker table they occupy.
+    /// </summary>
+    public void SendPokerSitOut() => SendIfWorld(new PokerTableInteractionArgs { Type = PokerInteractionType.SitOut });
+
+    /// <summary>
+    ///     Tells the server this character is sitting back in at the poker table they occupy.
+    /// </summary>
+    public void SendPokerSitIn() => SendIfWorld(new PokerTableInteractionArgs { Type = PokerInteractionType.SitIn });
+
+    /// <summary>
+    ///     Tells the server this character is done with the poker table they occupy.
+    /// </summary>
+    public void SendPokerClose() => SendIfWorld(new PokerTableInteractionArgs { Type = PokerInteractionType.Close });
+
+    /// <summary>
     ///     Sends a market buy request for a specific listing.
     /// </summary>
     /// <param name="listingId">The listing ID to buy.</param>
@@ -1548,6 +1580,7 @@ public sealed class ConnectionManager : IDisposable
         PacketHandlers[(byte)ServerOpCode.BankDisplay] = HandleBankDisplay;
         PacketHandlers[(byte)ServerOpCode.SlotMachineDisplay] = HandleSlotMachineDisplay;
         PacketHandlers[(byte)ServerOpCode.WheelDisplay] = HandleWheelDisplay;
+        PacketHandlers[(byte)ServerOpCode.PokerTableDisplay] = HandlePokerTableDisplay;
         PacketHandlers[(byte)ServerOpCode.DisplayAisling] = HandleDisplayAisling;
 
         //world entities
@@ -1922,6 +1955,12 @@ public sealed class ConnectionManager : IDisposable
     {
         var args = Client.Deserialize<WheelDisplayArgs>(in pkt);
         OnWheelDisplay?.Invoke(args);
+    }
+
+    private void HandlePokerTableDisplay(ServerPacket pkt)
+    {
+        var args = Client.Deserialize<PokerTableDisplayArgs>(in pkt);
+        OnPokerTableDisplay?.Invoke(args);
     }
 
     private void HandleDisplayAisling(ServerPacket pkt)

@@ -378,4 +378,9 @@ public delegate void SlotMachineDisplayHandler(SlotMachineDisplayArgs args);
 ///     Fired when a wheel (Gilded Spindle) display packet is received.
 /// </summary>
 public delegate void WheelDisplayHandler(WheelDisplayArgs args);
+
+/// <summary>
+///     Fired when a poker table display packet is received.
+/// </summary>
+public delegate void PokerTableDisplayHandler(PokerTableDisplayArgs args);
 #endregion
