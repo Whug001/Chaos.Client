@@ -2,6 +2,7 @@
 using Chaos.Client.Collections;
 using Chaos.Client.Controls.Components;
 using Chaos.Client.Controls.Custom;
+using Chaos.Client.Controls.Generic;
 using Chaos.Client.Controls.World.Popups.Dialog;
 using Chaos.Client.Extensions;
 using Chaos.Client.Rendering.Utility;
@@ -76,10 +77,22 @@ public sealed class PokerTableControl : FramedDialogPanelBase
     private const byte ACTION_BET = 3;
     private const byte ACTION_RAISE = 4;
 
-    /// <summary>The table's fixed seat count -- six, matching the shipped hold-em table's <c>seatCount</c>.</summary>
-    private const int SEAT_COUNT = 6;
-
     private const int SEATS_PER_ROW = 3;
+
+    /// <summary>The number of seat rows this layout draws -- one above the board and one below it.</summary>
+    private const int SEAT_ROWS = 2;
+
+    /// <summary>
+    ///     The table's fixed seat count -- six, matching the shipped hold-em table's <c>seatCount</c>.
+    /// </summary>
+    /// <remarks>
+    ///     DERIVED from the row geometry rather than written as a literal 6, so the two can never drift apart.
+    ///     <see cref="SeatScreenSlot" />'s arithmetic is only correct while the seats fill exactly
+    ///     <see cref="SEAT_ROWS" /> rows of <see cref="SEATS_PER_ROW" />; when this was an independent literal, a
+    ///     seventh seat would have been placed at column -1 -- silently off the left edge of the panel -- rather
+    ///     than reported. Raising the count now means changing the geometry that actually draws it.
+    /// </remarks>
+    private const int SEAT_COUNT = SEATS_PER_ROW * SEAT_ROWS;
 
     /// <summary>The community board never exceeds five cards (flop, turn, river).</summary>
     private const int BOARD_SIZE = 5;
@@ -182,6 +195,14 @@ public sealed class PokerTableControl : FramedDialogPanelBase
     private readonly CustomButton SitOutButton;
     private readonly CustomButton SitInButton;
 
+    /// <summary>
+    ///     The "leave the hand?" confirmation, shown only by <see cref="RequestDismissal" />. A stock
+    ///     <see cref="OkPopupMessageControl" /> with its Cancel button enabled -- the same yes/no dialog
+    ///     <c>MarketBuyConfirm</c>, <c>DeleteConfirm</c> and the group-invite prompt already use, rather than a
+    ///     bespoke one.
+    /// </summary>
+    private readonly OkPopupMessageControl ConfirmDialog;
+
     //scratch, cleared and rebuilt on every snapshot -- never read before it is written, so nothing from the
     //previous snapshot can survive into this one. See OnSnapshot.
     private readonly PokerSeatInfo?[] SeatLookup = new PokerSeatInfo?[SEAT_COUNT];
@@ -219,9 +240,19 @@ public sealed class PokerTableControl : FramedDialogPanelBase
     ///     display). Mirrors <see cref="Slots.SlotMachineControl.Closed" /> and
     ///     <see cref="Wheel.GildedSpindleControl.Closed" />, and exists for the same reason: without it the panel
     ///     can be dismissed with nothing telling the server, so <c>ConnectionManager.SendPokerClose</c> would have
-    ///     no trigger at all. Closing the window is deliberately NOT the same as leaving the table -- leaving moves
-    ///     gold, so it stays behind its own button and its own event.
+    ///     no trigger at all.
     /// </summary>
+    /// <remarks>
+    ///     <b>Closing this window stands the player up and can cost them gold.</b> <c>PokerTableScript</c> routes
+    ///     <c>PokerInteractionType.Close</c> and <c>PokerInteractionType.Leave</c> into the same <c>ReleaseSeat</c>
+    ///     call, on purpose -- its own comment calls a seat that keeps being dealt in behind a closed panel "a gold
+    ///     trap", where the player goes on paying blinds and timing out with nothing on screen. Mid-hand,
+    ///     <c>ReleaseSeat</c> forfeits everything that seat has already committed, and that is the same outcome for
+    ///     every way of leaving. Close is still the right interaction type to send -- it names what the player
+    ///     actually did, and the server converging the two is its decision, not an accident -- but nothing here
+    ///     should be read as saying that closing the panel keeps the seat. It does not, which is precisely why
+    ///     <see cref="RequestDismissal" /> asks first when there is gold in the pot.
+    /// </remarks>
     public event Action? Closed;
 
     public PokerTableControl(SoundSystem soundSystem)
@@ -252,7 +283,9 @@ public sealed class PokerTableControl : FramedDialogPanelBase
             OkButton.SelectedTexture = null;
             OkButton.DisabledTexture = null;
 
-            OkButton.Clicked += Hide;
+            //RequestDismissal, not Hide: this is a PLAYER-initiated close, and the player is the only one who ever
+            //gets asked to confirm. See Hide's own remarks.
+            OkButton.Clicked += RequestDismissal;
             OkButton.X = Width - OkButton.Width - OK_RIGHT_MARGIN;
             OkButton.Y = Height - OkButton.Height - OK_BOTTOM_MARGIN;
         }
@@ -352,6 +385,32 @@ public sealed class PokerTableControl : FramedDialogPanelBase
 
         SitInButton = CreateTableButton("Sit In", 2);
         SitInButton.Clicked += () => SitInRequested?.Invoke();
+
+        //── the leave-the-hand confirmation ──
+        //Owned by this panel and parented to it, rather than living on Root the way MarketBuyConfirm does. That
+        //popup is on Root because it must not be clipped inside the Market window; this one comfortably fits
+        //inside the poker panel (it is far smaller in both dimensions), and keeping it here is what lets the whole
+        //confirmation ship without touching a file outside this folder. Added last, and given a ZIndex above
+        //every other child, so it draws over the table rather than under it.
+        ConfirmDialog = new OkPopupMessageControl(true)
+        {
+            Name = "PokerLeaveConfirm",
+            ZIndex = 100
+        };
+
+        //re-centred within THIS panel: the constructor centred it on the screen, which is the wrong frame of
+        //reference now that its coordinates are relative to a parent.
+        ConfirmDialog.X = (PANEL_WIDTH - ConfirmDialog.Width) / 2;
+        ConfirmDialog.Y = (PANEL_HEIGHT - ConfirmDialog.Height) / 2;
+
+        ConfirmDialog.OnOk += () =>
+        {
+            ConfirmDialog.Hide();
+            Hide();
+        };
+
+        ConfirmDialog.OnCancel += () => ConfirmDialog.Hide();
+        AddChild(ConfirmDialog);
     }
 
     /// <summary>
@@ -360,10 +419,22 @@ public sealed class PokerTableControl : FramedDialogPanelBase
     ///     the way round the table -- the order the button and the action actually move in. Laying the bottom row
     ///     out left-to-right instead would make the step from seat 2 to seat 3 jump across the whole panel.
     /// </summary>
+    /// <exception cref="ArgumentOutOfRangeException">
+    ///     <paramref name="seat" /> is outside 0..<see cref="SEAT_COUNT" />-1. Thrown rather than tolerated: the
+    ///     column arithmetic below goes negative past the last seat, so an out-of-range index used to place a seat
+    ///     box off the left edge of the panel with nothing said about it. A layout that cannot draw a seat has to
+    ///     say so. Server-sent seat indices never reach here -- <see cref="OnSnapshot" /> range-checks and logs
+    ///     those instead, because a wider table is the server's news to deliver, not a crash.
+    /// </exception>
     private static (int Column, int Row) SeatScreenSlot(int seat)
-        => seat < SEATS_PER_ROW
+    {
+        ArgumentOutOfRangeException.ThrowIfNegative(seat);
+        ArgumentOutOfRangeException.ThrowIfGreaterThanOrEqual(seat, SEAT_COUNT);
+
+        return seat < SEATS_PER_ROW
             ? (seat, 0)
             : (SEATS_PER_ROW - 1 - (seat - SEATS_PER_ROW), 1);
+    }
 
     /// <summary>
     ///     Builds a recessed dark-fill panel bordered by dlgframe.epf's 8-piece border — the same primitive
@@ -684,24 +755,46 @@ public sealed class PokerTableControl : FramedDialogPanelBase
     }
 
     /// <summary>
-    ///     Hides the panel and fires <see cref="Closed" /> on any path that actually hid a visible window.
+    ///     Hides the panel, unconditionally and immediately, and fires <see cref="Closed" /> on any path that
+    ///     actually hid a visible window.
     /// </summary>
     /// <remarks>
-    ///     Deliberately does NOT clear <see cref="WorldState.PokerTable" />, which is where this differs from
-    ///     <see cref="Slots.SlotMachineControl.Hide" />. Closing the slots window ends that session; closing this
-    ///     one does not -- the player is still seated, still in the hand, and still owed the next snapshot. Wiping
-    ///     the view model here would throw away live state the server is still updating. Staleness is covered
-    ///     instead by <see cref="Show" /> repainting from the view model on the way back in, and by
-    ///     <see cref="WorldState" />'s own Clear calls on the paths that really do end the session.
+    ///     <para>
+    ///         <b>Never prompts.</b> The "your bet stays in the pot" confirmation lives in
+    ///         <see cref="RequestDismissal" />, which only the player's own Close button and Escape key go through.
+    ///         The server calls this method too -- <c>WorldScreen.ServerHandlers</c> answers a Close display with
+    ///         <c>Poker.Hide()</c> followed by <c>WorldState.PokerTable.Clear()</c> -- and putting the dialog in
+    ///         here would show a player a confirmation for a session the SERVER just ended, and could leave the
+    ///         panel standing open against the server's wishes. So the prompt sits strictly above this, never
+    ///         inside it.
+    ///     </para>
+    ///     <para>
+    ///         Deliberately does NOT clear <see cref="WorldState.PokerTable" />, which is where this differs from
+    ///         <see cref="Slots.SlotMachineControl.Hide" />. It does not need to: the server answers every close by
+    ///         pushing its own Close display, and the handler for that clears the view model itself. Clearing here
+    ///         as well would only race the dispatcher for the same job, and would wipe the state mid-teardown on
+    ///         the very paths where the server is the one closing the panel. <see cref="Show" /> repaints from the
+    ///         view model on the way back in, so nothing stale survives a reopen either way.
+    ///     </para>
     /// </remarks>
     public override void Hide()
     {
         var wasVisible = Visible;
 
+        //a confirmation still standing when the panel goes away -- the server closing the session out from under
+        //an open prompt is the case that matters -- must not be left visible or on the input stack.
+        ConfirmDialog.Hide();
+
         ClockSeat = null;
         ClockRemaining = 0f;
         RejectHoldRemaining = 0f;
         WasYourTurn = false;
+
+        //nulling ClockSeat is not enough on its own: TickShotClock is what actually writes "no clock" to the seat
+        //panels, and it does not run while the panel is hidden. Without this the next Show() would paint one frame
+        //of the countdown this hide was ending.
+        foreach (var panel in SeatPanels)
+            panel.SetClock(null);
 
         base.Hide();
 
@@ -713,13 +806,70 @@ public sealed class PokerTableControl : FramedDialogPanelBase
     {
         if (e.Keycode == Keycode.Escape)
         {
-            Hide();
+            //the other player-initiated dismissal, and so the other one that has to ask first.
+            RequestDismissal();
             e.Handled = true;
 
             return;
         }
 
         base.OnKeyDown(e);
+    }
+
+    /// <summary>
+    ///     The single entry point for a dismissal the PLAYER asked for -- the Close button and the Escape key, and
+    ///     nothing else. Confirms first when there is gold at stake, and closes immediately when there is not.
+    /// </summary>
+    /// <remarks>
+    ///     This exists because closing the panel is not the harmless act it looks like: the server routes Close and
+    ///     Leave into the same <c>ReleaseSeat</c>, which mid-hand forfeits everything the seat has committed (see
+    ///     <see cref="Closed" />). Escape used to hand the pot away on a single keystroke with no warning.
+    ///     <para>
+    ///         It is deliberately NOT reachable from <see cref="Hide" />. The server calls <see cref="Hide" /> too,
+    ///         on its own Close display, and a confirmation dialog raised there would be asking the player to
+    ///         approve something that has already happened -- and could hold the panel open against the server.
+    ///     </para>
+    /// </remarks>
+    private void RequestDismissal()
+    {
+        if (!Visible)
+            return;
+
+        //nothing in the pot from this seat: nothing to warn about, so do not make the player click twice to close
+        //a window. The prompt only earns its interruption when it is guarding something.
+        if (!HasGoldAtRisk())
+        {
+            Hide();
+
+            return;
+        }
+
+        ConfirmDialog.Show("Leave the hand? Your bet stays in the pot.");
+    }
+
+    /// <summary>
+    ///     Whether closing right now would cost the player gold: a hand is running and this player's own seat has
+    ///     chips committed to it that it has not already forfeited.
+    /// </summary>
+    /// <remarks>
+    ///     Every term is read straight from the current snapshot, and all of them are server-sent. A folded seat is
+    ///     excluded on purpose -- its committed chips are already gone whether it leaves or stays, so warning about
+    ///     them would be warning about a loss the player cannot avoid, which teaches them to click through the
+    ///     dialog without reading it.
+    /// </remarks>
+    private static bool HasGoldAtRisk()
+    {
+        var vm = WorldState.PokerTable;
+
+        //the same two server-sent scalars the card backs are gated on -- see OnSnapshot.
+        if (!vm.ActorIndex.HasValue && (vm.Pot <= 0))
+            return false;
+
+        foreach (var seat in vm.Seats)
+            if (seat.SeatIndex == vm.YourSeatIndex)
+                return !string.IsNullOrEmpty(seat.Name) && !seat.HasFolded && (seat.Committed > 0);
+
+        return false;
     }
 
     /// <summary>
