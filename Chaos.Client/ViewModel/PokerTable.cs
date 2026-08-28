@@ -55,6 +55,9 @@ public sealed class PokerSeatInfo
     ///     <see cref="PokerTable.ApplySnapshot" /> replaces every seat wholesale for that reason.
     /// </summary>
     public IReadOnlyList<byte> HoleCards { get; init; } = [];
+
+    /// <summary>The five cards that won this seat the pot at showdown; empty otherwise.</summary>
+    public IReadOnlyList<byte> WinningCards { get; init; } = [];
 }
 
 /// <summary>
@@ -208,7 +211,8 @@ public sealed class PokerTable
                         HasFolded = seat.HasFolded,
                         Committed = seat.Committed,
                         LastAction = seat.LastAction,
-                        HoleCards = seat.HoleCards.ToList()
+                        HoleCards = seat.HoleCards.ToList(),
+                        WinningCards = seat.WinningCards.ToList()
                     })
                 .ToList();
     }

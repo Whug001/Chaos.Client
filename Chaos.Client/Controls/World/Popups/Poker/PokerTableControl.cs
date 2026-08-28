@@ -814,6 +814,14 @@ public sealed class PokerTableControl : FramedDialogPanelBase
         };
     }
 
+    /// <summary>Framed if it is one of the winning five, dimmed if there is a winning five it is not part of, plain when there is no reveal.</summary>
+    private static CardView.CardEmphasis EmphasisFor(byte cardIndex, IReadOnlySet<byte> winning)
+        => winning.Count == 0
+            ? CardView.CardEmphasis.Plain
+            : winning.Contains(cardIndex)
+                ? CardView.CardEmphasis.Winning
+                : CardView.CardEmphasis.Dimmed;
+
     /// <summary>
     ///     Paints the table: an antialiased felt ellipse ringed by a darker rail, on a transparent background so
     ///     the ornate frame's own backdrop still shows in the corners the table does not reach.
@@ -1062,6 +1070,13 @@ public sealed class PokerTableControl : FramedDialogPanelBase
 
         DetectActionAnimations();
 
+        //the union of every winner's five: on a split, both winners' hole cards and the board cards they share
+        var winning = new HashSet<byte>();
+
+        foreach (var seatInfo in vm.Seats)
+            foreach (var card in seatInfo.WinningCards)
+                winning.Add(card);
+
         for (var seat = 0; seat < SEAT_COUNT; seat++)
             SeatPanels[seat]
                 .Apply(
@@ -1070,7 +1085,8 @@ public sealed class PokerTableControl : FramedDialogPanelBase
                     actorIndex.HasValue && (actorIndex.Value == seat),
                     seat == vm.YourSeatIndex,
                     handInProgress,
-                    vm.WinnerSeats.Contains(seat));
+                    vm.WinnerSeats.Contains(seat),
+                    winning);
 
         //── community board: exactly what the server revealed, nothing more ──
         var board = vm.Board;
@@ -1078,9 +1094,12 @@ public sealed class PokerTableControl : FramedDialogPanelBase
 
         for (var i = 0; i < BoardCards.Length; i++)
             if (i < board.Count)
+            {
                 BoardCards[i]
                     .ShowFace(board[i]);
-            else
+
+                BoardCards[i].Emphasis = EmphasisFor(board[i], winning);
+            } else
                 BoardCards[i]
                     .ShowNothing();
 
@@ -1859,13 +1878,19 @@ public sealed class PokerTableControl : FramedDialogPanelBase
         ///     unfolded seat holding no visible cards is drawn face-down or empty. It never decides what a card is.
         /// </param>
         /// <param name="isWinner">Whether the server lists this seat among the hand's winners; shown for the reveal.</param>
+        /// <param name="winningCards">
+        ///     The union of every winning seat's five cards this hand, or empty when there is no reveal. Passed
+        ///     through to <see cref="ApplyCards" /> so a face-up hole card can be framed or dimmed the same way the
+        ///     board is.
+        /// </param>
         public void Apply(
             PokerSeatInfo? info,
             bool isButton,
             bool isActor,
             bool isYou,
             bool handInProgress,
-            bool isWinner)
+            bool isWinner,
+            IReadOnlySet<byte> winningCards)
         {
             DealerBadge.Visible = isButton;
             ActingOutline.Visible = isActor && !isWinner;
@@ -1933,7 +1958,7 @@ public sealed class PokerTableControl : FramedDialogPanelBase
                 seat.HasFolded ? "Folded" : seat.LastAction;
             LastActionLabel.ForegroundColor = inactive ? dimmed : LegendColors.LightGray;
 
-            ApplyCards(seat, inactive, handInProgress);
+            ApplyCards(seat, inactive, handInProgress, winningCards);
         }
 
         /// <summary>
@@ -1946,15 +1971,18 @@ public sealed class PokerTableControl : FramedDialogPanelBase
         ///     per-recipient filtering is the security model of the whole feature, and a client that reconstructed
         ///     around it would hand every player everyone else's holdings.
         /// </remarks>
-        private void ApplyCards(PokerSeatInfo seat, bool inactive, bool handInProgress)
+        private void ApplyCards(PokerSeatInfo seat, bool inactive, bool handInProgress, IReadOnlySet<byte> winningCards)
         {
             var cards = seat.HoleCards;
 
             for (var i = 0; i < Cards.Length; i++)
                 if (i < cards.Count)
+                {
                     Cards[i]
                         .ShowFace(cards[i]);
-                else if (!inactive && handInProgress)
+
+                    Cards[i].Emphasis = EmphasisFor(cards[i], winningCards);
+                } else if (!inactive && handInProgress)
 
                     //occupied, in the hand, and the server sent nothing for it: face-down is what "nothing sent"
                     //renders as. A folded or sitting-out seat has no cards in front of it, and between hands
@@ -2081,6 +2109,19 @@ public sealed class PokerTableControl : FramedDialogPanelBase
         private Color Ink = BlackSuitInk;
         private int ArtSpriteId;
         private bool FaceUp;
+
+        /// <summary>How a face-up card is drawn during the reveal: framed as one of the winning five, dimmed as not, or plainly.</summary>
+        public enum CardEmphasis
+        {
+            Plain,
+            Winning,
+            Dimmed
+        }
+
+        private static readonly Color DimColor = Color.Black * 0.55f;
+        private const int WIN_FRAME = 2;
+
+        public CardEmphasis Emphasis { get; set; }
 
         public CardView(CreatureRenderer? creatureRenderer = null)
         {
@@ -2332,6 +2373,7 @@ public sealed class PokerTableControl : FramedDialogPanelBase
             Background = BackTexture;
             FaceUp = false;
             Visible = true;
+            Emphasis = CardEmphasis.Plain;
         }
 
         /// <inheritdoc />
@@ -2380,6 +2422,21 @@ public sealed class PokerTableControl : FramedDialogPanelBase
                     PIP_SIZE,
                     PIP_SIZE),
                 Ink);
+
+            switch (Emphasis)
+            {
+                case CardEmphasis.Winning:
+                    DrawRectClipped(spriteBatch, new Rectangle(ScreenX, ScreenY, WIDTH, WIN_FRAME), WinnerSeatColor);
+                    DrawRectClipped(spriteBatch, new Rectangle(ScreenX, ScreenY + HEIGHT - WIN_FRAME, WIDTH, WIN_FRAME), WinnerSeatColor);
+                    DrawRectClipped(spriteBatch, new Rectangle(ScreenX, ScreenY, WIN_FRAME, HEIGHT), WinnerSeatColor);
+                    DrawRectClipped(spriteBatch, new Rectangle(ScreenX + WIDTH - WIN_FRAME, ScreenY, WIN_FRAME, HEIGHT), WinnerSeatColor);
+
+                    break;
+                case CardEmphasis.Dimmed:
+                    DrawRectClipped(spriteBatch, new Rectangle(ScreenX, ScreenY, WIDTH, HEIGHT), DimColor);
+
+                    break;
+            }
         }
 
         /// <summary>
@@ -2442,7 +2499,11 @@ public sealed class PokerTableControl : FramedDialogPanelBase
         }
 
         /// <summary>Draws no card at all — this slot holds nothing.</summary>
-        public void ShowNothing() => Visible = false;
+        public void ShowNothing()
+        {
+            Visible = false;
+            Emphasis = CardEmphasis.Plain;
+        }
 
         public override void Dispose()
         {
