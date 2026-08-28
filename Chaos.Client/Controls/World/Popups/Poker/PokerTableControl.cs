@@ -1190,6 +1190,11 @@ public sealed class PokerTableControl : FramedDialogPanelBase
         var potX = FELT_CENTER_X;
         var potY = POT_TOP + (POT_BOX_HEIGHT / 2);
 
+        //captured before the loop below sets it: a payout, like a wager slide, only animates a change the panel
+        //actually watched happen. Opening onto a finished hand (or re-opening during its reveal) paints the
+        //winners and the reason, but does not replay coins the player did not see leave the pot.
+        var wasPrimed = AnimationsPrimed;
+
         for (var seat = 0; seat < SEAT_COUNT; seat++)
         {
             var info = SeatLookup[seat];
@@ -1215,7 +1220,12 @@ public sealed class PokerTableControl : FramedDialogPanelBase
 
         AnimationsPrimed = true;
 
-        DetectPayoutAnimation(potX, potY);
+        if (wasPrimed)
+            DetectPayoutAnimation(potX, potY);
+        else if (WorldState.PokerTable.WinnerSeats.Count > 0)
+
+            //opened onto a reveal already in progress: the winners are painted, the coins are not replayed
+            PayoutAnimated = true;
     }
 
     /// <summary>
