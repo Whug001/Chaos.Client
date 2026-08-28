@@ -120,7 +120,7 @@ the class of defect this branch has already produced twice.
 
 Play a hand to showdown. Both call to the river, both check it down.
 
-The settled hand stands for **4 seconds** before the next is dealt. That pause exists only
+The settled hand stands for **8 seconds** before the next is dealt. That pause exists only
 because this review found it missing — before it, the reveal lived about 33 ms and this run
 was literally impossible to perform.
 
@@ -227,7 +227,8 @@ feature.
 1. **Showdown.** Check a hand down to the river. For the ~8 s the result stays up, exactly five
    cards on the felt must wear a gold frame — the winner's two hole cards on their plaque plus
    three board cards, or fewer hole cards and more board cards when the board plays — and every
-   other face-up card must be dimmed. Count them: five framed, never more.
+   other face-up card must be dimmed. With a single winner, count them: five framed, never more.
+   (On a split where both winners' hole cards play, each plaque frames its own two, so up to seven.)
 2. **Split pot.** If you can force a tie (both play the board), the five board cards frame once
    and both plaques' hole cards are dimmed; if the hole cards play for both, each plaque frames
    its own.
