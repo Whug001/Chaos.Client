@@ -222,6 +222,18 @@ feature.
    live, just note whether a split ever happens). Both plaques must get coins and outlines.
 4. **New hand clears it.** On the next deal the second line and the outline must be gone.
 
+### Run I — the winning five
+
+1. **Showdown.** Check a hand down to the river. For the ~8 s the result stays up, exactly five
+   cards on the felt must wear a gold frame — the winner's two hole cards on their plaque plus
+   three board cards, or fewer hole cards and more board cards when the board plays — and every
+   other face-up card must be dimmed. Count them: five framed, never more.
+2. **Split pot.** If you can force a tie (both play the board), the five board cards frame once
+   and both plaques' hole cards are dimmed; if the hole cards play for both, each plaque frames
+   its own.
+3. **Fold win.** Nothing frames, nothing dims.
+4. **Next deal** clears both, and the pause before it is noticeably longer than before (8 s).
+
 ---
 
 ## 4. Known, already triaged — not worth reporting
