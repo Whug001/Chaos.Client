@@ -188,6 +188,27 @@ feature.
    portrait must still be there afterwards and its emotes must still animate on the portrait.
    Before, the portrait held a dead entity after the refresh and emotes stopped.
 
+### Run G — the gold audit's fixes
+
+Three findings from the gold-duplication audit. None minted in-process; re-check the fix, not the
+feature.
+
+1. **Leave on the river, having already acted.** Three-handed, everyone checks to the river. The
+   seat that opens the river checks and then stands up (walk off the tile). The other two check.
+   The leaver must NOT be announced as the winner and must be exactly their committed gold down —
+   even if they held the best hand. Before, they were paid at showdown; on a disconnect that payout
+   went into a dead object and vanished.
+2. **Hand result is durable at once.** Play one hand to completion, then kill the server process
+   (not a clean shutdown) within a minute. Restart. Both characters must log in at their post-hand
+   balances. Before, either side could roll back to its last 5-minute save — minting or destroying
+   the pot depending on which side happened to be saved. Watch the log for
+   `Failed to force-save`; silence is the pass.
+3. **Winner at the gold cap.** Admin-set one character to a few thousand under `MaxGoldHeld`
+   (500,000,000) so the deal-time gate still passes, have a bystander drop gold on them mid-hand
+   (exchange), then let them win. The table must NOT break down; the payout must land in their
+   **bank** with "gold was sent to your bank as overflow". Before, the payout threw and the whole
+   pot was destroyed.
+
 ---
 
 ## 4. Known, already triaged — not worth reporting
