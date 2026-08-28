@@ -209,6 +209,19 @@ feature.
    **bank** with "gold was sent to your bank as overflow". Before, the payout threw and the whole
    pot was destroyed.
 
+### Run H — the reveal
+
+1. **Showdown.** Play a hand to the river with two live players and check it down. Under
+   "Name wins N gold." a second gold line must name the category — e.g. "Full House",
+   "Two Pair". Eight coins must stream from the
+   pot box to the winner's plaque, and that plaque must wear a gold outline until the next deal.
+2. **Fold win.** Next hand, fold to the other player at once. The second line must read
+   "everyone else folded"; coins and outline as above.
+3. **Split pot.** Force a tie if you can (both players playing the board — check every street on a
+   board like `A K Q J T` of one suit is easiest with `ForceBoardForTesting` in a test, not live;
+   live, just note whether a split ever happens). Both plaques must get coins and outlines.
+4. **New hand clears it.** On the next deal the second line and the outline must be gone.
+
 ---
 
 ## 4. Known, already triaged — not worth reporting
