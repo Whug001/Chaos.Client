@@ -240,6 +240,9 @@ public sealed class PokerTableControl : FramedDialogPanelBase
     private const int EVENT_WIDTH = 300;
     private const int EVENT_LEFT = FELT_CENTER_X - (EVENT_WIDTH / 2);
 
+    /// <summary>The "why" line sits directly under the event text, inside the felt, clear of the board above it.</summary>
+    private const int WIN_REASON_TOP = EVENT_TOP + TextRenderer.CHAR_HEIGHT + 2;
+
     //-- button rows, below the felt --
     private const int ACTION_ROW_TOP = FELT_BOTTOM + 8;
     private const int ACTION_BUTTON_COUNT = 5;
@@ -293,11 +296,30 @@ public sealed class PokerTableControl : FramedDialogPanelBase
     /// <summary>Warm gold outline marking the seat on the clock. Border-only, so it never recolors the seat's own text.</summary>
     private static readonly Color ActingSeatColor = new(255, 200, 60, 220);
 
+    /// <summary>
+    ///     Names for <c>PokerTableDisplayArgs.WinningHand</c>, indexed by the wire byte. Index 0 is the
+    ///     no-showdown case. Kept client-side so the server sends one byte rather than a string per client.
+    /// </summary>
+    private static readonly string[] WinningHandNames =
+    [
+        "everyone else folded",
+        "High Card",
+        "One Pair",
+        "Two Pair",
+        "Three of a Kind",
+        "Straight",
+        "Flush",
+        "Full House",
+        "Four of a Kind",
+        "Straight Flush"
+    ];
+
     private readonly SoundSystem SoundSystem;
 
     private readonly UILabel TitleLabel;
     private readonly UILabel PotLabel;
     private readonly UILabel EventLabel;
+    private readonly UILabel WinReasonLabel;
 
     //indexed by TABLE seat index, not by ring position -- SeatAnchor maps one to the other.
     private readonly UIPanel FeltPanel;
@@ -539,6 +561,21 @@ public sealed class PokerTableControl : FramedDialogPanelBase
             IsHitTestVisible = false
         };
         AddChild(EventLabel);
+
+        //the second line of the result banner: why the pot went where it did. Painted only while the server
+        //reports winners, which is exactly the settle pause, so it needs no timer of its own.
+        WinReasonLabel = new UILabel
+        {
+            X = EVENT_LEFT,
+            Y = WIN_REASON_TOP,
+            Width = EVENT_WIDTH,
+            Height = TextRenderer.CHAR_HEIGHT,
+            HorizontalAlignment = HorizontalAlignment.Center,
+            ForegroundColor = LegendColors.Gold,
+            IsHitTestVisible = false,
+            Visible = false
+        };
+        AddChild(WinReasonLabel);
 
         //── action buttons: always visible, enabled only per LegalActions (see RefreshActionButtons). Greyed
         //   rather than hidden so the row never reflows under the cursor mid-hand. ──
@@ -1010,6 +1047,14 @@ public sealed class PokerTableControl : FramedDialogPanelBase
             EventLabel.ForegroundColor = LegendColors.White;
         }
 
+        //── result banner, line two: present exactly when the server reports winners ──
+        if (vm.WinnerSeats.Count > 0)
+        {
+            WinReasonLabel.Text = vm.WinningHand < WinningHandNames.Length ? WinningHandNames[vm.WinningHand] : "a winning hand";
+            WinReasonLabel.Visible = true;
+        } else
+            WinReasonLabel.Visible = false;
+
         //── turn alert: fires on the transition into the local player's turn, not on every repaint ──
         var yourTurn = actorIndex.HasValue && (actorIndex.Value == vm.YourSeatIndex);
 
@@ -1384,6 +1429,7 @@ public sealed class PokerTableControl : FramedDialogPanelBase
         ChatPrompt.Close();
         ClearBubbles();
         ClearAnimations();
+        WinReasonLabel.Visible = false;
 
         ClockSeat = null;
         ClockRemaining = 0f;

@@ -152,6 +152,12 @@ public sealed class PokerTable
     /// </summary>
     public string EventText { get; private set; } = string.Empty;
 
+    /// <summary>The seats paid by the hand that just completed. Empty until a hand completes; empty again on the next hand's first snapshot.</summary>
+    public IReadOnlyList<int> WinnerSeats { get; private set; } = [];
+
+    /// <summary>The winning hand's category byte (1–9), or 0 when the hand was won by everyone else folding. See <c>PokerTableDisplayArgs.WinningHand</c>.</summary>
+    public byte WinningHand { get; private set; }
+
     /// <summary>
     ///     Applies an Open display: the table's fixed properties (name, bet sizes, minimum buy-in).
     /// </summary>
@@ -184,6 +190,8 @@ public sealed class PokerTable
         Board = args.Board?.ToList() ?? [];
         LegalActions = args.LegalActions?.ToList() ?? [];
         EventText = args.EventText ?? string.Empty;
+        WinnerSeats = (args.WinnerSeats ?? []).Select(seat => (int)seat).ToList();
+        WinningHand = args.WinningHand;
 
         //defensive copy -- Seats and each entry's HoleCards come straight off the wire and are owned by the
         //caller, not this view model. Every seat is rebuilt from this snapshot alone; nothing here reads or
@@ -228,5 +236,7 @@ public sealed class PokerTable
         Seats = [];
         LegalActions = [];
         EventText = string.Empty;
+        WinnerSeats = [];
+        WinningHand = 0;
     }
 }
