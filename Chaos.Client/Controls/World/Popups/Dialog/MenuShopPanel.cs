@@ -470,7 +470,8 @@ public sealed class MenuShopPanel : PrefabPanel
                     meta?.Description ?? string.Empty,
                     meta?.Level,
                     meta?.Class,
-                    meta?.Weight));
+                    meta?.Weight,
+                    meta?.LevelText ?? string.Empty));
         }
     }
 
@@ -513,7 +514,8 @@ public sealed class MenuShopPanel : PrefabPanel
                     meta?.Description ?? string.Empty,
                     meta?.Level,
                     meta?.Class,
-                    meta?.Weight));
+                    meta?.Weight,
+                    meta?.LevelText ?? string.Empty));
         }
     }
 
@@ -609,8 +611,14 @@ public sealed class MenuShopPanel : PrefabPanel
             ? (BaseClass)cls == BaseClass.Peasant ? "all class" : ((BaseClass)cls).ToString()
             : string.Empty;
 
+        //LevelText is the field as the server wrote it. A recipe past master arrives as "AB20" or "Master",
+        //which is shown as-is; anything numeric falls back to the parsed level.
         DescLevelLabel?.Text = entry.Level is { } lvl
-            ? lvl == 0 ? "no limit" : lvl.ToString()
+            ? !string.IsNullOrEmpty(entry.LevelText) && !int.TryParse(entry.LevelText, out _)
+                ? entry.LevelText
+                : lvl == 0
+                    ? "no limit"
+                    : lvl.ToString()
             : string.Empty;
 
         DescWeightLabel?.Text = entry.Weight?.ToString() ?? string.Empty;
@@ -780,7 +788,8 @@ public sealed class MenuShopPanel : PrefabPanel
         string Description = "",
         int? Level = null,
         byte? Class = null,
-        int? Weight = null);
+        int? Weight = null,
+        string LevelText = "");
 
     /// <summary>
     ///     A single row in the merchant listing. Renders an icon and name text with a selection highlight.

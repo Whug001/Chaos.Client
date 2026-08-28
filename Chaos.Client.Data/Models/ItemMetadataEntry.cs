@@ -13,6 +13,12 @@ public sealed record ItemMetadataEntry
     public byte Class { get; init; }
     public string Description { get; init; } = string.Empty;
     public int Level { get; init; }
+
+    /// <summary>
+    ///     The level field exactly as the server wrote it. Usually a number, but a recipe past master arrives as
+    ///     "AB20" or "Master", which <see cref="Level" /> cannot hold.
+    /// </summary>
+    public string LevelText { get; init; } = string.Empty;
     public required string Name { get; init; }
     public int Weight { get; init; }
 
@@ -56,6 +62,7 @@ public sealed record ItemMetadataEntry
         {
             Name = name,
             Level = level,
+            LevelText = properties[0],
             Class = cls,
             Weight = weight,
             Category = properties[3],
