@@ -259,6 +259,11 @@ public sealed class PokerTableControl : FramedDialogPanelBase
 
     /// <summary>Breathing room between the action buttons and the outline that frames them on the player's turn.</summary>
     private const int TURN_OUTLINE_PAD = 4;
+
+    /// <summary>One blink of the your-turn frame: on for the first part of the period, off for the rest.</summary>
+    private const float TURN_BLINK_PERIOD_SECONDS = 0.8f;
+
+    private const float TURN_BLINK_ON_SECONDS = 0.5f;
     private const int TABLE_BUTTON_COUNT = 5;
     private const int TABLE_BUTTON_WIDTH = 96;
     private const int TABLE_BUTTON_GAP = 8;
@@ -404,6 +409,11 @@ public sealed class PokerTableControl : FramedDialogPanelBase
     //whether the local player was already on the clock at the previous snapshot, so the turn alert fires on the
     //transition rather than on every repaint.
     private bool WasYourTurn;
+
+    //the blink runs from the panel's own Update, far more often than snapshots arrive; armed by the snapshot
+    //that puts the action on this seat, and phase-reset there so the frame always starts lit
+    private bool TurnOutlineArmed;
+    private float TurnBlinkElapsed;
 
     private float RejectHoldRemaining;
 
@@ -1100,7 +1110,12 @@ public sealed class PokerTableControl : FramedDialogPanelBase
         if (yourTurn && !WasYourTurn && Visible)
             SoundSystem.PlaySound(SOUND_YOUR_TURN);
 
-        //the frame follows the same predicate as the sound, so the two can never disagree about whose turn it is
+        //the frame follows the same predicate as the sound, so the two can never disagree about whose turn it is.
+        //It blinks from Update; the snapshot only arms it, and restarts the phase on the way in so it starts lit
+        if (yourTurn && !WasYourTurn)
+            TurnBlinkElapsed = 0f;
+
+        TurnOutlineArmed = yourTurn;
         TurnOutline.Visible = yourTurn;
 
         WasYourTurn = yourTurn;
@@ -1405,6 +1420,12 @@ public sealed class PokerTableControl : FramedDialogPanelBase
 
         TickShotClock(deltaSeconds);
 
+        if (TurnOutlineArmed)
+        {
+            TurnBlinkElapsed = (TurnBlinkElapsed + deltaSeconds) % TURN_BLINK_PERIOD_SECONDS;
+            TurnOutline.Visible = TurnBlinkElapsed < TURN_BLINK_ON_SECONDS;
+        }
+
         //emote frames advance every frame in WorldScreen.Update, far more often than a snapshot arrives, so the
         //portraits are polled here rather than repainted from server state.
         foreach (var panel in SeatPanels)
@@ -1525,6 +1546,7 @@ public sealed class PokerTableControl : FramedDialogPanelBase
         ClearBubbles();
         ClearAnimations();
         WinReasonLabel.Visible = false;
+        TurnOutlineArmed = false;
         TurnOutline.Visible = false;
 
         ClockSeat = null;
