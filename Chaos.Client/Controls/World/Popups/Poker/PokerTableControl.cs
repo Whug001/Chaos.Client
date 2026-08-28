@@ -296,6 +296,7 @@ public sealed class PokerTableControl : FramedDialogPanelBase
     /// <summary>Warm gold outline marking the seat on the clock. Border-only, so it never recolors the seat's own text.</summary>
     private static readonly Color ActingSeatColor = new(255, 200, 60, 220);
 
+    /// <summary>Gold, brighter and more opaque than the acting outline: the winner's plaque for the reveal.</summary>
     private static readonly Color WinnerSeatColor = new(255, 215, 0, 240);
 
     /// <summary>
@@ -369,6 +370,7 @@ public sealed class PokerTableControl : FramedDialogPanelBase
     /// <summary>Coins in the stream from the pot to each winner. Enough to read as a pot, few enough to land inside the reveal.</summary>
     private const int PAYOUT_COINS = 8;
 
+    /// <summary>Stagger between coins in the payout stream. Eight at this gap plus one flight is under a second, well inside the settle pause.</summary>
     private const float PAYOUT_COIN_GAP_MS = 60f;
 
     /// <summary>The gold piece a <see cref="ChipSlide" /> carries. Shared, and never disposed -- one small texture for the process.</summary>
@@ -1053,19 +1055,20 @@ public sealed class PokerTableControl : FramedDialogPanelBase
 
         //the action log yields to a rejection the player has not had time to read yet -- see
         //REJECT_MESSAGE_HOLD_SECONDS. Only this one label is held; everything above repainted regardless.
+        //The reason line rides with it: a rejection held on screen must not have "Full House" painted under it.
         if (RejectHoldRemaining <= 0f)
         {
             EventLabel.Text = vm.EventText;
             EventLabel.ForegroundColor = LegendColors.White;
-        }
 
-        //── result banner, line two: present exactly when the server reports winners ──
-        if (vm.WinnerSeats.Count > 0)
-        {
-            WinReasonLabel.Text = vm.WinningHand < WinningHandNames.Length ? WinningHandNames[vm.WinningHand] : "a winning hand";
-            WinReasonLabel.Visible = true;
-        } else
-            WinReasonLabel.Visible = false;
+            //── result banner, line two: present exactly when the server reports winners ──
+            if (vm.WinnerSeats.Count > 0)
+            {
+                WinReasonLabel.Text = vm.WinningHand < WinningHandNames.Length ? WinningHandNames[vm.WinningHand] : "a winning hand";
+                WinReasonLabel.Visible = true;
+            } else
+                WinReasonLabel.Visible = false;
+        }
 
         //── turn alert: fires on the transition into the local player's turn, not on every repaint ──
         var yourTurn = actorIndex.HasValue && (actorIndex.Value == vm.YourSeatIndex);
