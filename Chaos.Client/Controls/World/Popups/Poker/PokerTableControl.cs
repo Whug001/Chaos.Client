@@ -256,6 +256,9 @@ public sealed class PokerTableControl : FramedDialogPanelBase
         = (PANEL_WIDTH - ((ACTION_BUTTON_WIDTH * ACTION_BUTTON_COUNT) + (ACTION_BUTTON_GAP * (ACTION_BUTTON_COUNT - 1)))) / 2;
 
     private const int TABLE_ROW_TOP = ACTION_ROW_TOP + CustomButton.HEIGHT + 6;
+
+    /// <summary>Breathing room between the action buttons and the outline that frames them on the player's turn.</summary>
+    private const int TURN_OUTLINE_PAD = 4;
     private const int TABLE_BUTTON_COUNT = 5;
     private const int TABLE_BUTTON_WIDTH = 96;
     private const int TABLE_BUTTON_GAP = 8;
@@ -336,6 +339,9 @@ public sealed class PokerTableControl : FramedDialogPanelBase
     private readonly CustomButton CallButton;
     private readonly CustomButton BetButton;
     private readonly CustomButton RaiseButton;
+
+    //the gold frame around the whole action row while the action is on this player
+    private readonly UIPanel TurnOutline;
     private readonly CustomButton LeaveButton;
     private readonly CustomButton SitOutButton;
     private readonly CustomButton SitInButton;
@@ -597,6 +603,24 @@ public sealed class PokerTableControl : FramedDialogPanelBase
         CallButton = CreateActionButton("Call", 2, ACTION_CALL);
         BetButton = CreateActionButton("Bet", 3, ACTION_BET);
         RaiseButton = CreateActionButton("Raise", 4, ACTION_RAISE);
+
+        //── your-turn frame: the row is the thing the player has to use, so it is the thing that lights up.
+        //   Whole row rather than per button, so the greyed-out illegal actions still read as one prompt. ──
+        TurnOutline = new UIPanel
+        {
+            X = ACTION_ROW_LEFT - TURN_OUTLINE_PAD,
+            Y = ACTION_ROW_TOP - TURN_OUTLINE_PAD,
+            Width = (ACTION_BUTTON_WIDTH * ACTION_BUTTON_COUNT) + (ACTION_BUTTON_GAP * (ACTION_BUTTON_COUNT - 1)) + (TURN_OUTLINE_PAD * 2),
+            Height = CustomButton.HEIGHT + (TURN_OUTLINE_PAD * 2),
+            Background = BuildBorder(
+                (ACTION_BUTTON_WIDTH * ACTION_BUTTON_COUNT) + (ACTION_BUTTON_GAP * (ACTION_BUTTON_COUNT - 1)) + (TURN_OUTLINE_PAD * 2),
+                CustomButton.HEIGHT + (TURN_OUTLINE_PAD * 2),
+                WinnerSeatColor,
+                2),
+            IsHitTestVisible = false,
+            Visible = false
+        };
+        AddChild(TurnOutline);
 
         //── table controls: leaving and sitting out/in are not betting actions, so they are not gated on
         //   LegalActions -- they sit on their own row and answer to the local seat's own state. ──
@@ -1076,6 +1100,9 @@ public sealed class PokerTableControl : FramedDialogPanelBase
         if (yourTurn && !WasYourTurn && Visible)
             SoundSystem.PlaySound(SOUND_YOUR_TURN);
 
+        //the frame follows the same predicate as the sound, so the two can never disagree about whose turn it is
+        TurnOutline.Visible = yourTurn;
+
         WasYourTurn = yourTurn;
     }
 
@@ -1498,6 +1525,7 @@ public sealed class PokerTableControl : FramedDialogPanelBase
         ClearBubbles();
         ClearAnimations();
         WinReasonLabel.Visible = false;
+        TurnOutline.Visible = false;
 
         ClockSeat = null;
         ClockRemaining = 0f;
