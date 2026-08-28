@@ -296,6 +296,8 @@ public sealed class PokerTableControl : FramedDialogPanelBase
     /// <summary>Warm gold outline marking the seat on the clock. Border-only, so it never recolors the seat's own text.</summary>
     private static readonly Color ActingSeatColor = new(255, 200, 60, 220);
 
+    private static readonly Color WinnerSeatColor = new(255, 215, 0, 240);
+
     /// <summary>
     ///     Names for <c>PokerTableDisplayArgs.WinningHand</c>, indexed by the wire byte. Index 0 is the
     ///     no-showdown case. Kept client-side so the server sends one byte rather than a string per client.
@@ -357,8 +359,17 @@ public sealed class PokerTableControl : FramedDialogPanelBase
     //already in progress would replay every wager and action that had happened before the player sat down.
     private bool AnimationsPrimed;
 
+    //the winners the last snapshot reported, so the payout stream fires once per completed hand rather than on
+    //every repaint of the reveal
+    private bool PayoutAnimated;
+
     //makes each animation's control name unique; RemoveChild matches on name
     private int AnimationSequence;
+
+    /// <summary>Coins in the stream from the pot to each winner. Enough to read as a pot, few enough to land inside the reveal.</summary>
+    private const int PAYOUT_COINS = 8;
+
+    private const float PAYOUT_COIN_GAP_MS = 60f;
 
     /// <summary>The gold piece a <see cref="ChipSlide" /> carries. Shared, and never disposed -- one small texture for the process.</summary>
     private static readonly Texture2D CoinTexture = BuildCoin(10);
@@ -1022,7 +1033,8 @@ public sealed class PokerTableControl : FramedDialogPanelBase
                     buttonIndex.HasValue && (buttonIndex.Value == seat),
                     actorIndex.HasValue && (actorIndex.Value == seat),
                     seat == vm.YourSeatIndex,
-                    handInProgress);
+                    handInProgress,
+                    vm.WinnerSeats.Contains(seat));
 
         //── community board: exactly what the server revealed, nothing more ──
         var board = vm.Board;
@@ -1202,20 +1214,62 @@ public sealed class PokerTableControl : FramedDialogPanelBase
         }
 
         AnimationsPrimed = true;
+
+        DetectPayoutAnimation(potX, potY);
+    }
+
+    /// <summary>
+    ///     Runs the coin stream from the pot to every winner, once, on the first snapshot that reports winners.
+    /// </summary>
+    /// <remarks>
+    ///     Keyed on the server's <c>WinnerSeats</c>, never on the event text. The winners stay in every
+    ///     snapshot of the reveal, so <see cref="PayoutAnimated" /> is what stops the stream re-firing on each
+    ///     repaint; the next hand's first snapshot reports no winners and re-arms it.
+    /// </remarks>
+    private void DetectPayoutAnimation(int potX, int potY)
+    {
+        var winners = WorldState.PokerTable.WinnerSeats;
+
+        if (winners.Count == 0)
+        {
+            PayoutAnimated = false;
+
+            return;
+        }
+
+        if (PayoutAnimated)
+            return;
+
+        PayoutAnimated = true;
+
+        foreach (var seat in winners)
+        {
+            if ((seat < 0) || (seat >= SEAT_COUNT))
+                continue;
+
+            var (seatX, seatY) = SeatAnchor(seat);
+            var targetX = seatX + (SEAT_WIDTH / 2);
+            var targetY = seatY + (SEAT_HEIGHT / 2);
+
+            for (var coin = 0; coin < PAYOUT_COINS; coin++)
+                SpawnChipSlide(potX, potY, targetX, targetY, coin * PAYOUT_COIN_GAP_MS);
+        }
     }
 
     private void SpawnChipSlide(
         int fromX,
         int fromY,
         int toX,
-        int toY)
+        int toY,
+        float delayMs = 0f)
     {
         var slide = new ChipSlide(
             $"PokerChip{AnimationSequence++}",
             fromX,
             fromY,
             toX,
-            toY)
+            toY,
+            delayMs)
         {
             //over the felt and the plaques, under the pickers and the confirmation
             ZIndex = 45
@@ -1270,6 +1324,7 @@ public sealed class PokerTableControl : FramedDialogPanelBase
         Array.Clear(PreviousCommitted);
         Array.Clear(PreviousAction);
         AnimationsPrimed = false;
+        PayoutAnimated = false;
     }
 
     private int SeatOfEntity(uint entityId)
@@ -1577,6 +1632,7 @@ public sealed class PokerTableControl : FramedDialogPanelBase
         private readonly UILabel LastActionLabel;
         private readonly UILabel ClockLabel;
         private readonly UIPanel ActingOutline;
+        private readonly UIPanel WinnerOutline;
         private readonly CardView[] Cards = new CardView[HOLE_CARDS];
         private readonly PortraitView Portrait;
         private readonly CreatureRenderer CreatureRenderer;
@@ -1673,6 +1729,23 @@ public sealed class PokerTableControl : FramedDialogPanelBase
                 Visible = false
             };
             AddChild(ActingOutline);
+
+            //thicker and brighter than the acting outline, and drawn over it: for the reveal, this is the seat
+            WinnerOutline = new UIPanel
+            {
+                X = 0,
+                Y = 0,
+                Width = SEAT_WIDTH,
+                Height = SEAT_HEIGHT,
+                Background = BuildBorder(
+                    SEAT_WIDTH,
+                    SEAT_HEIGHT,
+                    WinnerSeatColor,
+                    3),
+                IsHitTestVisible = false,
+                Visible = false
+            };
+            AddChild(WinnerOutline);
         }
 
         /// <summary>Advances this seat's portrait emote. Driven from the control's own per-frame Update.</summary>
@@ -1722,15 +1795,18 @@ public sealed class PokerTableControl : FramedDialogPanelBase
         ///     Whether a hand is actually running, which is the only thing that decides whether an occupied,
         ///     unfolded seat holding no visible cards is drawn face-down or empty. It never decides what a card is.
         /// </param>
+        /// <param name="isWinner">Whether the server lists this seat among the hand's winners; shown for the reveal.</param>
         public void Apply(
             PokerSeatInfo? info,
             bool isButton,
             bool isActor,
             bool isYou,
-            bool handInProgress)
+            bool handInProgress,
+            bool isWinner)
         {
             DealerBadge.Visible = isButton;
-            ActingOutline.Visible = isActor;
+            ActingOutline.Visible = isActor && !isWinner;
+            WinnerOutline.Visible = isWinner;
 
             Occupied = info is not null && !string.IsNullOrEmpty(info.Name);
 
@@ -2698,6 +2774,8 @@ public sealed class PokerTableControl : FramedDialogPanelBase
         private readonly float ToX;
         private readonly float ToY;
 
+        //negative while the coin is waiting its turn: a pot paid out as one blob reads as a glitch, a stream of
+        //coins reads as gold changing hands
         private float Elapsed;
 
         public bool IsExpired => Elapsed >= DURATION_MS;
@@ -2707,13 +2785,15 @@ public sealed class PokerTableControl : FramedDialogPanelBase
             int fromX,
             int fromY,
             int toX,
-            int toY)
+            int toY,
+            float delayMs = 0f)
         {
             Name = name;
             FromX = fromX;
             FromY = fromY;
             ToX = toX;
             ToY = toY;
+            Elapsed = -delayMs;
             Width = COIN_SIZE;
             Height = COIN_SIZE;
             IsHitTestVisible = false;
@@ -2727,7 +2807,7 @@ public sealed class PokerTableControl : FramedDialogPanelBase
 
             var t = Math.Clamp(Elapsed / DURATION_MS, 0f, 1f);
 
-            //eased so the piece leaves the seat briskly and settles into the pot rather than arriving at speed
+            //eased so the piece leaves briskly and settles rather than arriving at speed
             var eased = 1f - ((1f - t) * (1f - t));
 
             X = (int)float.Lerp(FromX, ToX, eased);
@@ -2736,7 +2816,7 @@ public sealed class PokerTableControl : FramedDialogPanelBase
 
         public override void Draw(SpriteBatch spriteBatch)
         {
-            if (!Visible || IsExpired)
+            if (!Visible || IsExpired || (Elapsed < 0f))
                 return;
 
             //fades over the last third rather than the whole trip, so it reads as landing rather than dissolving
