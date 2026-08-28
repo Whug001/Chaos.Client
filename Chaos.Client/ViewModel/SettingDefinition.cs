@@ -1,4 +1,4 @@
-#region
+﻿#region
 using Chaos.Client.Networking;
 using Chaos.Client.Systems;
 using Chaos.DarkAges.Definitions;
@@ -209,7 +209,7 @@ public static class SettingDefinitions
         new(SettingKey.WhisperSound, "Sound on whisper", SettingSection.Sound, SettingCategory.ServerOption, UserOption.WhisperSound),
 
         //── Interaction ──
-        new(SettingKey.LockHands, "Lock hands", SettingSection.Interaction, SettingCategory.ServerOption, UserOption.LockHands),
+        new(SettingKey.LockHands, "Lock hands", SettingSection.Interaction, SettingCategory.ServerOption, UserOption.LockGear),
         new(SettingKey.AllowExchanges, "Allow exchanges", SettingSection.Interaction, SettingCategory.ServerOption, UserOption.AllowExchange),
         new(
             SettingKey.AutoAcceptGroupInvites,

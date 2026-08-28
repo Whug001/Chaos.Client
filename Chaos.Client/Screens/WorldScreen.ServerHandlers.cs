@@ -358,7 +358,7 @@ public sealed partial class WorldScreen
         userOptions.Apply(SettingKey.ShowBodyAnimations, args.ShowBodyAnimations);
         userOptions.Apply(SettingKey.ListenToHitSounds, args.ListenToHitSounds);
         userOptions.Apply(SettingKey.PriorityAnimations, args.PriorityAnimations);
-        userOptions.Apply(SettingKey.LockHands, args.LockHands);
+        userOptions.Apply(SettingKey.LockHands, args.LockGear);
         userOptions.Apply(SettingKey.WhisperSound, args.WhisperSound);
         userOptions.Apply(SettingKey.AllowExchanges, args.AllowExchange);
         userOptions.Apply(SettingKey.HideEnemyHealthBars, args.HideEnemyHealthBars);
