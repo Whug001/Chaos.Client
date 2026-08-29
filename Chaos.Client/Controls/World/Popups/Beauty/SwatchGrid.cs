@@ -15,8 +15,8 @@ namespace Chaos.Client.Controls.World.Popups.Beauty;
 /// </summary>
 public sealed class SwatchGrid : UIPanel
 {
-    public const int SWATCH = 14;
-    public const int GAP = 3;
+    public const int SWATCH = 12;
+    public const int GAP = 2;
     public const int COLUMNS = 10;
 
     private readonly List<Swatch> Swatches = [];

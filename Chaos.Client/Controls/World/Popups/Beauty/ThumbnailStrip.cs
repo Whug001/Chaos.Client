@@ -11,27 +11,27 @@ using Microsoft.Xna.Framework.Graphics;
 namespace Chaos.Client.Controls.World.Popups.Beauty;
 
 /// <summary>
-///     A single page of picker cells with page arrows and an "n / N" label. Holds no state of its own beyond the
-///     items it was last given: the panel calls <see cref="SetItems" /> on every refresh and reacts to the events.
+///     A single page of picker cells with page arrows. Holds no state of its own beyond the items it was last
+///     given: the panel calls <see cref="SetItems" /> on every refresh and reacts to the events. The page/index
+///     text (e.g. "Hairstyle   12 / 101" and "page 2/17") is the panel's caption label, not this strip -- there
+///     is no room for a label beside the arrows once the cells are wide enough to read as thumbnails.
 /// </summary>
 public sealed class ThumbnailStrip<T> : UIPanel where T : notnull
 {
-    public const int CELL = 36;
-    public const int GAP = 4;
-    private const int ARROW_WIDTH = 22;
-    private const int LABEL_WIDTH = 60;
+    public const int CELL = 32;
+    public const int GAP = 3;
+    private const int ARROW_WIDTH = 20;
 
     private readonly Cell[] Cells;
     private readonly CustomButton Left;
     private readonly CustomButton Right;
-    private readonly UILabel PageLabel;
 
     public event Action<T>? Hovered;
     public event Action? HoverCleared;
     public event Action<T>? Selected;
     public event Action<int>? PageStepped;
 
-    public static int WidthFor(int cellCount) => ARROW_WIDTH + GAP + (cellCount * (CELL + GAP)) + ARROW_WIDTH + GAP + LABEL_WIDTH;
+    public static int WidthFor(int cellCount) => ARROW_WIDTH + GAP + (cellCount * (CELL + GAP)) + ARROW_WIDTH;
 
     public ThumbnailStrip(int cellCount)
     {
@@ -58,24 +58,13 @@ public sealed class ThumbnailStrip<T> : UIPanel where T : notnull
         Right = new CustomButton(">", ARROW_WIDTH) { X = ARROW_WIDTH + GAP + (cellCount * (CELL + GAP)), Y = Left.Y };
         Right.Clicked += () => PageStepped?.Invoke(+1);
         AddChild(Right);
-
-        PageLabel = new UILabel
-        {
-            X = Right.X + ARROW_WIDTH + GAP,
-            Y = (CELL - TextRenderer.CHAR_HEIGHT) / 2,
-            Width = LABEL_WIDTH,
-            Height = TextRenderer.CHAR_HEIGHT,
-            ForegroundColor = LegendColors.Gray,
-            IsHitTestVisible = false
-        };
-        AddChild(PageLabel);
     }
 
     /// <summary>
     ///     Shows one page. <paramref name="selected" /> is compared with <see cref="object.Equals(object)" />;
     ///     <paramref name="thumbFor" /> may return null (cell draws its border only).
     /// </summary>
-    public void SetItems(IReadOnlyList<T> items, T? selected, string pageLabel, Func<T, Texture2D?> thumbFor)
+    public void SetItems(IReadOnlyList<T> items, T? selected, Func<T, Texture2D?> thumbFor)
     {
         for (var i = 0; i < Cells.Length; i++)
         {
@@ -95,8 +84,6 @@ public sealed class ThumbnailStrip<T> : UIPanel where T : notnull
                 cell.IsSelected = false;
             }
         }
-
-        PageLabel.Text = pageLabel;
     }
 
     /// <summary>
