@@ -1492,7 +1492,7 @@ public sealed class GenderSwapService(IItemFactory itemFactory, ILogger<GenderSw
 }
 ```
 
-`ApplyGenderChange` in the script already does `source.Gender = toGender; source.BodySprite = ...; if (source is { FaceSprite: 18, Gender: Gender.Male }) source.FaceSprite = 1; source.Refresh(true); source.Display();` — keep it exactly.
+`ApplyGenderChange` in the script does `source.Gender = toGender; source.BodySprite = ...; if (source is { FaceSprite: 18, Gender: Gender.Male }) source.FaceSprite = 1; source.Refresh(true); source.Display();` — keep the mutations, but **drop the `Refresh(true)`/`Display()` pair** (the checkout refreshes once after all fields are applied; refreshing here too resends a half-applied look) and replace the literal `1` with `public const int DEFAULT_FACE_SPRITE = 1;` on the service, which the checkout's free-reset rule also reads.
 
 - [ ] **Step 3: Register**
 
@@ -1774,10 +1774,17 @@ public sealed class BeautyShopCheckout(BeautyShopCatalog catalog, GenderSwapServ
         if (bodyColorChanged)
             total += catalog.BodyDyePrice;
 
-        if (faceChanged)
+        //a female-only face forced off by a swap to male is reset to the default face for free -- but only the
+        //default face; choosing any other face in the same transaction is a purchase
+        var faceForcedByGenderSwap = genderChanged
+                                     && !catalog.TryGetFace(selection.Gender, source.FaceSprite, out _)
+                                     && (selection.FaceSprite == GenderSwapService.DEFAULT_FACE_SPRITE);
+        var chargeForFace = faceChanged && !faceForcedByGenderSwap;
+
+        if (chargeForFace)
             total += face!.Price;
 
-        //── charge once, before anything changes ──
+        //── charge once, before anything changes; the total is logged here so a failure inside Swap still leaves a record ──
         if (!source.TryTakeGold(total))
         {
             logger.WithTopics(Topics.Entities.Aisling, Topics.Entities.Gold)
