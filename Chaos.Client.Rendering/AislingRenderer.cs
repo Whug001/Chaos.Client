@@ -78,7 +78,7 @@ public readonly record struct AislingDrawParams(
 /// </summary>
 public sealed class AislingRenderer : IDisposable
 {
-    private const int BODY_ID = 1;
+    public const int BODY_ID = 1;
 
     /// <summary>
     ///     The head form ("005" in the khanmim/khanwim archives) — a floating head with no body beneath it.
@@ -93,7 +93,7 @@ public sealed class AislingRenderer : IDisposable
     private const int MAX_FEMALE_HAIR_STYLE = 17;
     private const int MAX_HAIR_COLOR = 13;
     private const string WALK_ANIM = "01";
-    private const string IDLE_ANIM = "04";
+    public const string IDLE_ANIM = "04";
     public const int BODY_WIDTH = 57;
     public const int BODY_HEIGHT = 85;
     public const int LAYER_OFFSET_PADDING = 27;
