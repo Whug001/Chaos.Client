@@ -50,6 +50,26 @@ Log in, and walk to the Mileth Beauty Shop (Josephine at `(5,6)`).
 | H1 | Server boots against the data branch and loads the beauty shop catalog | Log contains `Beauty shop catalog loaded: 101 male styles, 102 female styles, 18 faces` and `WorldServer: Listening`; no error/warning mentioning `josephine`, `beautyShop`, `BeautyShop`, or dialog-template failures | PASS | See "H1 — Headless live check" below for exact log lines and counts |
 | H2 | Automated suites | Server `BeautyShop*` filter: 29 passed. Client suite: 7 passed | PASS | See "H2 — Automated suites" below for exact summaries |
 
+## v2 panel (2026-08-29)
+
+Task 5 of `.superpowers/sdd/2026-08-29-beauty-shop-panel-v2/task-5-brief.md`. Client repo `C:\Users\mikeb\Documents\GitHub\Chaos.Client`, branch `feature/beauty-shop-v2` (HEAD `668c22c`). Server (`Chaos.exe`) was already running locally against 127.0.0.1:4201 and was left running throughout. All rows below are recorded as `PENDING (user)` and must be run through the client by hand before the v2 panel is considered verified end-to-end.
+
+| # | Check | Expected | Result | Notes |
+|---|-------|----------|--------|-------|
+| 1 | Open the mirror panel | Panel opens at 600×470 with the title "JOSEPHINE'S MIRROR" and its subtitle; no "* Unsaved changes" indicator yet | PENDING (user) | Requires interactive client session |
+| 2 | Preview pedestal, 2x toggle, facing, gear | Preview shows the sprite at 2x scale standing on the pedestal; the "2x" button toggles the preview to 1x and back; ◀ ▶ cycle through all four facings; "Show gear" layers equipped armor/weapon onto the preview | PENDING (user) | Requires interactive client session |
+| 3 | Hover a hairstyle thumbnail | Hovering changes the preview sprite to that hairstyle and shows "if chosen: TOTAL n"; moving off the thumbnail reverts both the sprite and the total | PENDING (user) | Requires interactive client session |
+| 4 | Click a hairstyle thumbnail | Selects it (gold border + badge); "* Unsaved changes" appears; the purchase summary lists a "Hairstyle 1,000" line | PENDING (user) | Requires interactive client session |
+| 5 | Hairstyle strip paging | ◀ ▶ page arrows move the hairstyle strip; the caption's "page p/P" updates; thumbnails do not flicker while paging | PENDING (user) | Requires interactive client session |
+| 6 | Dye swatch grid | Hovering a swatch previews the dye; clicking selects it (gold border); the caption shows the colour name | PENDING (user) | Requires interactive client session |
+| 7 | Skin and face strips | Behave like the hairstyle strip (hover preview, click select, paging); the face caption shows the face name | PENDING (user) | Requires interactive client session |
+| 8 | MALE \| FEMALE segmented selector | Switching gender remaps the hairstyle and face strips to the new gender's options; a gender line appears in the purchase summary | PENDING (user) | Requires interactive client session |
+| 9 | Randomize | Changes hairstyle, dye, skin, and face; never changes the selected gender | PENDING (user) | Requires interactive client session |
+| 10 | Discard Changes | Disabled with no pending changes; becomes enabled after any change; clicking it restores hairstyle/dye/skin/face/gender to the values on open | PENDING (user) | Requires interactive client session |
+| 11 | Unaffordable total | When the running TOTAL exceeds the player's gold, the TOTAL text turns red and the APPLY button disables | PENDING (user) | Requires interactive client session |
+| 12 | Apply | Charges exactly the TOTAL shown, closes the panel, and produces a server orange-bar confirmation message | PENDING (user) | Requires interactive client session |
+| 13 | Esc / Close, then reopen | Esc or Close discards pending changes without charging gold; reopening the mirror shows the player's current (saved) look at 2x with gear off | PENDING (user) | Requires interactive client session |
+
 ## H1 — Headless live check
 
 - `Chaos-Server/Chaos/appsettings.local.json` `StagingDirectory`: `C:\Users\mikeb\Documents\GitHub\Unora` (already correct; not edited).
