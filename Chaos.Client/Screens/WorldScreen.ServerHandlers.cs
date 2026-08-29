@@ -1557,6 +1557,33 @@ public sealed partial class WorldScreen
         }
     }
 
+    /// <summary>
+    ///     Dispatches a beauty shop display packet: apply to <see cref="WorldState.BeautyShop" /> first, then tell
+    ///     <see cref="BeautyShop" /> to repaint from it -- one copy of the truth, same as poker.
+    /// </summary>
+    private void HandleBeautyShopDisplay(BeautyShopDisplayArgs args)
+    {
+        switch (args.Type)
+        {
+            case BeautyShopDisplayType.Open:
+                WorldState.BeautyShop.ApplyOpen(args);
+                BeautyShop.Show();
+
+                break;
+
+            case BeautyShopDisplayType.Rejected:
+                BeautyShop.OnRejected(args.Reason);
+
+                break;
+
+            case BeautyShopDisplayType.Close:
+                BeautyShop.Hide();
+                WorldState.BeautyShop.Clear();
+
+                break;
+        }
+    }
+
     //--- gilded spindle wheel ---
 
     /// <summary>

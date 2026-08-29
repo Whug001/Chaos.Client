@@ -6,6 +6,7 @@ using Chaos.Client.Controls.World.Hud;
 using Chaos.Client.Controls.World.Hud.Panel.Slots;
 using Chaos.Client.Controls.World.Popups;
 using Chaos.Client.Controls.World.Popups.Bank;
+using Chaos.Client.Controls.World.Popups.Beauty;
 using Chaos.Client.Controls.World.Popups.Boards;
 using Chaos.Client.Controls.World.Popups.Dialog;
 using Chaos.Client.Controls.World.Popups.Exchange;
@@ -169,6 +170,9 @@ public sealed partial class WorldScreen : IScreen
 
     //poker table window — opened by the server's poker Open display when the player sits at a table's stool
     private PokerTableControl Poker = null!;
+
+    //beauty shop mirror — opened by the server's BeautyShop Open display from Josephine's dialog
+    private BeautyShopControl BeautyShop = null!;
 
     //ordered inventory drop-target registry (Exchange → Market → equipment); each target owns its eligibility/drop-zone,
     //WorldScreen owns the paired networking action (so all Game.Connection.* calls stay here).
@@ -773,6 +777,12 @@ public sealed partial class WorldScreen : IScreen
         };
         WirePoker();
 
+        BeautyShop = new BeautyShopControl(Game.AislingRenderer)
+        {
+            ZIndex = 2
+        };
+        WireBeautyShop();
+
         //buy-confirm popup for the market: lives on Root (it centers on-screen and must not be clipped inside the Market
         //panel) and draws above the Market window (ZIndex 3 > 2). Shown when the Results tab raises BuyRequested.
         MarketBuyConfirm = new OkPopupMessageControl(true)
@@ -845,6 +855,7 @@ public sealed partial class WorldScreen : IScreen
         Root.AddChild(Slots);
         Root.AddChild(Spindle);
         Root.AddChild(Poker);
+        Root.AddChild(BeautyShop);
         Root.AddChild(MainOptions);
         Root.AddChild(SettingsDialog);
         Root.AddChild(MacrosList);
@@ -970,6 +981,7 @@ public sealed partial class WorldScreen : IScreen
         Game.Connection.OnSlotMachineDisplay -= HandleSlotMachineDisplay;
         Game.Connection.OnWheelDisplay -= HandleWheelDisplay;
         Game.Connection.OnPokerTableDisplay -= HandlePokerTableDisplay;
+        Game.Connection.OnBeautyShopDisplay -= HandleBeautyShopDisplay;
 
         //unwire panel click-to-use events
         WorldHud.Inventory.OnSlotClicked -= HandleInventorySlotClicked;

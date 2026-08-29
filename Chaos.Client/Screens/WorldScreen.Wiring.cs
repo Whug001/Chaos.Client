@@ -236,6 +236,28 @@ public sealed partial class WorldScreen
     }
     #endregion
 
+    #region Beauty Shop Wiring
+    private void WireBeautyShop()
+    {
+        Game.Connection.OnBeautyShopDisplay += HandleBeautyShopDisplay;
+
+        BeautyShop.ApplyRequested += () =>
+        {
+            var vm = WorldState.BeautyShop;
+
+            Game.Connection.SendBeautyShopApply(
+                vm.Gender,
+                (ushort)vm.HairStyle,
+                vm.HairColor,
+                vm.BodyColor,
+                (byte)vm.FaceSprite);
+        };
+
+        //nothing is escrowed, so Close is informational; the server holds no session for the mirror
+        BeautyShop.Closed += () => Game.Connection.SendBeautyShopClose();
+    }
+    #endregion
+
     #region NPC Session Wiring
     private void WireNpcSession()
     {
