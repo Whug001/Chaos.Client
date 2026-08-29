@@ -84,10 +84,7 @@ public sealed class BeautyShopControl : FramedDialogPanelBase
     private readonly ThumbnailStrip<BeautyShopFaceEntry> FaceStrip;
     private readonly HeadThumbnailRenderer Thumbnails;
 
-    private readonly UILabel TitleLabel;
-    private readonly UILabel SubtitleLabel;
     private readonly UILabel UnsavedLabel;
-    private readonly UILabel PreviewCaption;
     private readonly UILabel HairstyleCaption;
     private readonly UILabel DyeCaption;
     private readonly UILabel SkinCaption;
@@ -128,13 +125,13 @@ public sealed class BeautyShopControl : FramedDialogPanelBase
 
         OkButton = CreateCloseButton(RequestDismissal, OK_RIGHT_MARGIN, OK_BOTTOM_MARGIN);
 
-        TitleLabel = Caption("JOSEPHINE'S MIRROR", 0, TITLE_TOP, PANEL_WIDTH, HorizontalAlignment.Center, LegendColors.Gold);
-        SubtitleLabel = Caption("Customize your appearance", PREVIEW_LEFT, SUBTITLE_TOP, 300, HorizontalAlignment.Left, LegendColors.LightGray);
-        UnsavedLabel = Caption("● Unsaved changes", PANEL_WIDTH - 20 - 160, SUBTITLE_TOP, 160, HorizontalAlignment.Right, LegendColors.Gold);
+        Caption("JOSEPHINE'S MIRROR", 0, TITLE_TOP, PANEL_WIDTH, HorizontalAlignment.Center, LegendColors.Gold);
+        Caption("Customize your appearance", PREVIEW_LEFT, SUBTITLE_TOP, 300, HorizontalAlignment.Left, LegendColors.LightGray);
+        UnsavedLabel = Caption("* Unsaved changes", PANEL_WIDTH - 20 - 160, SUBTITLE_TOP, 160, HorizontalAlignment.Right, LegendColors.Gold);
         UnsavedLabel.Visible = false;
 
         //── preview column ──
-        PreviewCaption = Caption("PREVIEW", PREVIEW_LEFT, PREVIEW_TOP, PREVIEW_WIDTH, HorizontalAlignment.Center, LegendColors.Gray);
+        Caption("PREVIEW", PREVIEW_LEFT, PREVIEW_TOP, PREVIEW_WIDTH, HorizontalAlignment.Center, LegendColors.Gray);
 
         Preview = new PreviewView(renderer)
         {
@@ -209,7 +206,7 @@ public sealed class BeautyShopControl : FramedDialogPanelBase
         HairstyleStrip.Hovered += h => Hover(v => v.SetHoverHairStyle(h.Sprite));
         HairstyleStrip.HoverCleared += () => Hover(v => v.ClearHover());
         HairstyleStrip.Selected += h => Select(v => v.SelectHairStyle(h.Sprite));
-        HairstyleStrip.PageStepped += d => Select(v => v.StepHairstylePage(d));
+        HairstyleStrip.PageStepped += d => Select(v => v.StepHairstylePage(d), clearThumbnails: false);
         AddChild(HairstyleStrip);
         y += ThumbnailStrip<BeautyShopHairstyleEntry>.CELL + SECTION_GAP;
 
@@ -228,7 +225,7 @@ public sealed class BeautyShopControl : FramedDialogPanelBase
         SkinStrip.Hovered += c => Hover(v => v.SetHoverBodyColor(c));
         SkinStrip.HoverCleared += () => Hover(v => v.ClearHover());
         SkinStrip.Selected += c => Select(v => v.SelectBodyColor(c));
-        SkinStrip.PageStepped += d => Select(v => v.StepBodyColorPage(d));
+        SkinStrip.PageStepped += d => Select(v => v.StepBodyColorPage(d), clearThumbnails: false);
         AddChild(SkinStrip);
         y += ThumbnailStrip<BodyColor>.CELL + SECTION_GAP;
 
@@ -238,7 +235,7 @@ public sealed class BeautyShopControl : FramedDialogPanelBase
         FaceStrip.Hovered += f => Hover(v => v.SetHoverFace(f.Sprite));
         FaceStrip.HoverCleared += () => Hover(v => v.ClearHover());
         FaceStrip.Selected += f => Select(v => v.SelectFace(f.Sprite));
-        FaceStrip.PageStepped += d => Select(v => v.StepFacePage(d));
+        FaceStrip.PageStepped += d => Select(v => v.StepFacePage(d), clearThumbnails: false);
         AddChild(FaceStrip);
 
         //── purchase summary band ──
@@ -320,6 +317,9 @@ public sealed class BeautyShopControl : FramedDialogPanelBase
     {
         FacingIndex = 0;
         GearToggle.Checked = false;
+        Zoomed = true;
+        Preview.Zoomed = true;
+        ZoomButton.Caption = "2x";
         StatusLabel.Text = string.Empty;
         base.Show();
         Refresh();
@@ -483,13 +483,22 @@ public sealed class BeautyShopControl : FramedDialogPanelBase
                 return;
 
             var scale = Zoomed ? 2 : 1;
+
+            //DrawTextureFitted culls when the destination rect doesn't intersect ClipRect at all -- it does not
+            //clip to it -- so a tall composite (e.g. Show gear on with a tall equip layer) at 2x can push the
+            //top of the figure above ScreenY and paint over whatever sits above the pedestal. Fall back to 1x
+            //for this draw alone (the toggle state itself is untouched) whenever it wouldn't fit, and clamp the
+            //top edge as a second line of defense.
+            if ((Figure.Height * scale) > (Height - 12))
+                scale = 1;
+
             var w = Figure.Width * scale;
             var h = Figure.Height * scale;
 
             //anchored on the body centre, not the pedestal centre, so the figure doesn't drift sideways between
             //poses whose padded canvases differ in width
             var x = ScreenX + (Width / 2) - (AislingRenderer.CANVAS_CENTER_X * scale);
-            var y = ScreenY + Height - h - 12;
+            var y = Math.Max(ScreenY + 2, ScreenY + Height - h - 12);
 
             DrawTextureFitted(spriteBatch, Figure, new Rectangle(x, y, w, h), Color.White);
         }
@@ -502,8 +511,13 @@ public sealed class BeautyShopControl : FramedDialogPanelBase
         }
     }
 
-    /// <summary>Every selection/page change goes through here: tear down a stale confirm, mutate, repaint.</summary>
-    private void Select(Action<ViewModel.BeautyShop> mutate)
+    /// <summary>
+    ///     Every selection/page change goes through here: tear down a stale confirm, mutate, repaint.
+    ///     <paramref name="clearThumbnails" /> is false for the three page-step handlers -- paging never changes
+    ///     the base look, so there is nothing in <see cref="Thumbnails" /> to invalidate, and clearing it anyway
+    ///     would force six needless head re-renders (twelve GPU readbacks) on every arrow click.
+    /// </summary>
+    private void Select(Action<ViewModel.BeautyShop> mutate, bool clearThumbnails = true)
     {
         //any change while the gender-reshape prompt is up invalidates what it was about to confirm
         if (ConfirmDialog.Visible)
@@ -511,7 +525,10 @@ public sealed class BeautyShopControl : FramedDialogPanelBase
 
         mutate(WorldState.BeautyShop);
         StatusLabel.Text = string.Empty;
-        Thumbnails.Clear(); //the base look may have changed; visible cells re-render on Refresh
+
+        if (clearThumbnails)
+            Thumbnails.Clear(); //the base look may have changed; visible cells re-render on Refresh
+
         Refresh();
     }
 
@@ -539,19 +556,17 @@ public sealed class BeautyShopControl : FramedDialogPanelBase
             vm.Hairstyles.FirstOrDefault(h => h.Sprite == vm.HairStyle),
             h => Thumbnails.Get(baseLook with { HeadSprite = h.Sprite }));
 
+        DyeCaption.Text = $"Hair dye   {vm.HairColor}";
         DyeGrid.SetColors(vm.HairColors, vm.HairColor, SwatchColorFor);
 
-        SkinCaption.Text = CaptionLine(
-            $"Skin   {IndexLabel(vm.BodyColors, c => c == vm.BodyColor)} / {vm.BodyColors.Count}",
-            $"page {vm.BodyColorPage + 1}/{vm.BodyColorPageCount}");
+        SkinCaption.Text = CaptionLine($"Skin   {vm.BodyColor}", $"page {vm.BodyColorPage + 1}/{vm.BodyColorPageCount}");
         SkinStrip.SetItems(
             vm.VisibleBodyColors,
             vm.BodyColor,
             c => Thumbnails.Get(baseLook with { BodyColor = (int)c }));
 
-        FaceCaption.Text = CaptionLine(
-            $"Face   {IndexLabel(vm.AvailableFaces, f => f.Sprite == vm.FaceSprite)} / {vm.AvailableFaces.Count}",
-            $"page {vm.FacePage + 1}/{vm.FacePageCount}");
+        var faceName = vm.Faces.FirstOrDefault(f => f.Sprite == vm.FaceSprite)?.Name ?? $"Face {vm.FaceSprite}";
+        FaceCaption.Text = CaptionLine($"Face   {faceName}", $"page {vm.FacePage + 1}/{vm.FacePageCount}");
         FaceStrip.SetItems(
             vm.VisibleFaces,
             vm.Faces.FirstOrDefault(f => f.Sprite == vm.FaceSprite),
@@ -579,7 +594,7 @@ public sealed class BeautyShopControl : FramedDialogPanelBase
         if (vm.FaceCharged)
             parts.Add($"Face {vm.FacePrice:N0}");
 
-        SummaryLabel.Text = parts.Count == 0 ? "No changes" : string.Join("  ·  ", parts);
+        SummaryLabel.Text = parts.Count == 0 ? "No changes" : string.Join("  |  ", parts);
 
         TotalLabel.Text = $"TOTAL {vm.Total:N0}";
         TotalLabel.ForegroundColor = vm.CanAfford ? LegendColors.Gold : LegendColors.Red;
@@ -595,10 +610,15 @@ public sealed class BeautyShopControl : FramedDialogPanelBase
         ApplyButton.Enabled = vm.CanApply;
     }
 
-    /// <summary>Right-pads <paramref name="left" /> with spaces (the font is fixed-width) so <paramref name="right" /> lands near the caption row's right edge.</summary>
+    /// <summary>
+    ///     Right-pads <paramref name="left" /> with spaces (the font is fixed-width) so <paramref name="right" />
+    ///     lands near the caption row's right edge. One character short of the label's full inner width on
+    ///     purpose -- padding to exactly that width leaves no margin at all, so the last character of
+    ///     <paramref name="right" /> would clip the instant either string grew by a character.
+    /// </summary>
     private static string CaptionLine(string left, string right)
     {
-        var totalChars = Math.Max(1, APPEARANCE_WIDTH / TextRenderer.CHAR_WIDTH);
+        var totalChars = Math.Max(1, (APPEARANCE_WIDTH / TextRenderer.CHAR_WIDTH) - 1);
         var padCount = Math.Max(1, totalChars - left.Length - right.Length);
 
         return left + new string(' ', padCount) + right;
