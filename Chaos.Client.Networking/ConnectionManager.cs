@@ -546,6 +546,11 @@ public sealed class ConnectionManager : IDisposable
     public event PokerTableDisplayHandler? OnPokerTableDisplay;
 
     /// <summary>
+    ///     Fired when a beauty shop display packet is received from the server.
+    /// </summary>
+    public event BeautyShopDisplayHandler? OnBeautyShopDisplay;
+
+    /// <summary>
     ///     Fired when door states are updated.
     /// </summary>
     public event DoorHandler? OnDoor;
@@ -1195,6 +1200,26 @@ public sealed class ConnectionManager : IDisposable
     public void SendPokerClose() => SendIfWorld(new PokerTableInteractionArgs { Type = PokerInteractionType.Close });
 
     /// <summary>
+    ///     Asks Josephine to apply the chosen look. Values only -- the server prices and validates everything.
+    /// </summary>
+    public void SendBeautyShopApply(Gender gender, ushort hairStyle, DisplayColor hairColor, BodyColor bodyColor, byte faceSprite)
+        => SendIfWorld(
+            new BeautyShopInteractionArgs
+            {
+                Type = BeautyShopInteractionType.Apply,
+                Gender = gender,
+                HairStyle = hairStyle,
+                HairColor = hairColor,
+                BodyColor = bodyColor,
+                FaceSprite = faceSprite
+            });
+
+    /// <summary>
+    ///     Tells the server the mirror was closed without applying.
+    /// </summary>
+    public void SendBeautyShopClose() => SendIfWorld(new BeautyShopInteractionArgs { Type = BeautyShopInteractionType.Close });
+
+    /// <summary>
     ///     Sends a market buy request for a specific listing.
     /// </summary>
     /// <param name="listingId">The listing ID to buy.</param>
@@ -1581,6 +1606,7 @@ public sealed class ConnectionManager : IDisposable
         PacketHandlers[(byte)ServerOpCode.SlotMachineDisplay] = HandleSlotMachineDisplay;
         PacketHandlers[(byte)ServerOpCode.WheelDisplay] = HandleWheelDisplay;
         PacketHandlers[(byte)ServerOpCode.PokerTableDisplay] = HandlePokerTableDisplay;
+        PacketHandlers[(byte)ServerOpCode.BeautyShopDisplay] = HandleBeautyShopDisplay;
         PacketHandlers[(byte)ServerOpCode.DisplayAisling] = HandleDisplayAisling;
 
         //world entities
@@ -1961,6 +1987,12 @@ public sealed class ConnectionManager : IDisposable
     {
         var args = Client.Deserialize<PokerTableDisplayArgs>(in pkt);
         OnPokerTableDisplay?.Invoke(args);
+    }
+
+    private void HandleBeautyShopDisplay(ServerPacket pkt)
+    {
+        var args = Client.Deserialize<BeautyShopDisplayArgs>(in pkt);
+        OnBeautyShopDisplay?.Invoke(args);
     }
 
     private void HandleDisplayAisling(ServerPacket pkt)

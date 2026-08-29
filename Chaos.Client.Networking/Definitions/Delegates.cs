@@ -383,4 +383,9 @@ public delegate void WheelDisplayHandler(WheelDisplayArgs args);
 ///     Fired when a poker table display packet is received.
 /// </summary>
 public delegate void PokerTableDisplayHandler(PokerTableDisplayArgs args);
+
+/// <summary>
+///     Fired when a beauty shop display packet is received.
+/// </summary>
+public delegate void BeautyShopDisplayHandler(BeautyShopDisplayArgs args);
 #endregion
