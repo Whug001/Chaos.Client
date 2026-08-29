@@ -289,4 +289,87 @@ public class BeautyShopViewModelTests
 
         await Task.CompletedTask;
     }
+
+    private static BeautyShop OpenedWithManyHairstyles()
+    {
+        var args = Open();
+        args.MaleHairstyles = Enumerable.Range(0, 14).Select(i => new BeautyShopHairstyleEntry { Sprite = (ushort)i, Price = 1_000 }).ToList();
+        var vm = new BeautyShop();
+        vm.ApplyOpen(args);
+
+        return vm;
+    }
+
+    [Test]
+    public async Task Pages_slice_the_list_and_wrap()
+    {
+        var vm = OpenedWithManyHairstyles();            // 14 styles → 3 pages of 6
+
+        vm.HairstylePageCount.Should().Be(3);
+        vm.HairstylePage.Should().Be(0);                // selection (1) is on page 0
+        vm.VisibleHairstyles.Select(h => (int)h.Sprite).Should().Equal(0, 1, 2, 3, 4, 5);
+
+        vm.StepHairstylePage(+1);
+        vm.VisibleHairstyles.Select(h => (int)h.Sprite).Should().Equal(6, 7, 8, 9, 10, 11);
+        vm.StepHairstylePage(+1);
+        vm.VisibleHairstyles.Select(h => (int)h.Sprite).Should().Equal(12, 13);
+        vm.StepHairstylePage(+1);
+        vm.HairstylePage.Should().Be(0);
+
+        await Task.CompletedTask;
+    }
+
+    [Test]
+    public async Task Selecting_moves_the_page_to_the_selection()
+    {
+        var vm = OpenedWithManyHairstyles();
+
+        vm.SelectHairStyle(13);
+        vm.HairStyle.Should().Be(13);
+        vm.HairstylePage.Should().Be(2);
+
+        vm.StepHairstyle(+1);                           // wraps to 0
+        vm.HairstylePage.Should().Be(0);
+
+        vm.SelectHairStyle(999);                        // not in the list: ignored
+        vm.HairStyle.Should().Be(0);
+
+        await Task.CompletedTask;
+    }
+
+    [Test]
+    public async Task Randomize_picks_valid_values_and_keeps_gender()
+    {
+        var vm = Opened();
+        var rng = new Random(1234);
+
+        for (var i = 0; i < 50; i++)
+        {
+            vm.Randomize(rng);
+
+            vm.Gender.Should().Be(Gender.Male);
+            vm.Hairstyles.Select(h => (int)h.Sprite).Should().Contain(vm.HairStyle);
+            vm.HairColors.Should().Contain(vm.HairColor);
+            vm.BodyColors.Should().Contain(vm.BodyColor);
+            vm.AvailableFaces.Select(f => (int)f.Sprite).Should().Contain(vm.FaceSprite);
+            vm.FaceSprite.Should().NotBe(18);           // female-only never appears for a male
+            vm.IsHovering.Should().BeFalse();
+        }
+
+        await Task.CompletedTask;
+    }
+
+    [Test]
+    public async Task Randomize_is_deterministic_for_a_seed()
+    {
+        var a = Opened();
+        var b = Opened();
+
+        a.Randomize(new Random(7));
+        b.Randomize(new Random(7));
+
+        (a.HairStyle, a.HairColor, a.BodyColor, a.FaceSprite).Should().Be((b.HairStyle, b.HairColor, b.BodyColor, b.FaceSprite));
+
+        await Task.CompletedTask;
+    }
 }

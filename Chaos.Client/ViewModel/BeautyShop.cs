@@ -154,6 +154,7 @@ public sealed class BeautyShop
         CurrentHairColor = HairColor = DisplayColor.Default;
         CurrentBodyColor = BodyColor = BodyColor.White;
         CurrentFaceSprite = FaceSprite = 0;
+        HairstylePage = FacePage = BodyColorPage = 0;
     }
 
     public void Reset()
@@ -164,6 +165,7 @@ public sealed class BeautyShop
         HairColor = CurrentHairColor;
         BodyColor = CurrentBodyColor;
         FaceSprite = CurrentFaceSprite;
+        SyncPages();
     }
 
     /// <summary>
@@ -185,18 +187,22 @@ public sealed class BeautyShop
 
         if (AvailableFaces.All(f => f.Sprite != FaceSprite))
             FaceSprite = AvailableFaces.Count > 0 ? AvailableFaces[0].Sprite : 0;
+
+        SyncPages();
     }
 
     public void StepHairstyle(int delta)
     {
         ClearHover();
         HairStyle = StepEntry(Hairstyles, h => h.Sprite == HairStyle, delta)?.Sprite ?? HairStyle;
+        SyncPages();
     }
 
     public void StepFace(int delta)
     {
         ClearHover();
         FaceSprite = StepEntry(AvailableFaces, f => f.Sprite == FaceSprite, delta)?.Sprite ?? FaceSprite;
+        SyncPages();
     }
 
     public void StepHairColor(int delta)
@@ -206,6 +212,8 @@ public sealed class BeautyShop
 
         if (next.HasValue)
             HairColor = next.Value;
+
+        SyncPages();
     }
 
     public void StepBodyColor(int delta)
@@ -215,7 +223,107 @@ public sealed class BeautyShop
 
         if (next.HasValue)
             BodyColor = next.Value;
+
+        SyncPages();
     }
+
+    public const int HAIRSTYLE_PAGE_SIZE = 6;
+    public const int FACE_PAGE_SIZE = 6;
+    public const int BODY_COLOR_PAGE_SIZE = 5;
+
+    public int HairstylePage { get; private set; }
+    public int FacePage { get; private set; }
+    public int BodyColorPage { get; private set; }
+
+    public int HairstylePageCount => PageCount(Hairstyles.Count, HAIRSTYLE_PAGE_SIZE);
+    public int FacePageCount => PageCount(AvailableFaces.Count, FACE_PAGE_SIZE);
+    public int BodyColorPageCount => PageCount(BodyColors.Count, BODY_COLOR_PAGE_SIZE);
+
+    public IReadOnlyList<BeautyShopHairstyleEntry> VisibleHairstyles => Page(Hairstyles, HairstylePage, HAIRSTYLE_PAGE_SIZE);
+    public IReadOnlyList<BeautyShopFaceEntry> VisibleFaces => Page(AvailableFaces, FacePage, FACE_PAGE_SIZE);
+    public IReadOnlyList<BodyColor> VisibleBodyColors => Page(BodyColors, BodyColorPage, BODY_COLOR_PAGE_SIZE);
+
+    public void StepHairstylePage(int delta) => HairstylePage = WrapIndex(HairstylePage, delta, HairstylePageCount);
+    public void StepFacePage(int delta) => FacePage = WrapIndex(FacePage, delta, FacePageCount);
+    public void StepBodyColorPage(int delta) => BodyColorPage = WrapIndex(BodyColorPage, delta, BodyColorPageCount);
+
+    public void SelectHairStyle(int sprite)
+    {
+        if (Hairstyles.All(h => h.Sprite != sprite))
+            return;
+
+        ClearHover();
+        HairStyle = sprite;
+        SyncPages();
+    }
+
+    public void SelectHairColor(DisplayColor color)
+    {
+        if (!HairColors.Contains(color))
+            return;
+
+        ClearHover();
+        HairColor = color;
+    }
+
+    public void SelectBodyColor(BodyColor color)
+    {
+        if (!BodyColors.Contains(color))
+            return;
+
+        ClearHover();
+        BodyColor = color;
+        SyncPages();
+    }
+
+    public void SelectFace(int sprite)
+    {
+        if (AvailableFaces.All(f => f.Sprite != sprite))
+            return;
+
+        ClearHover();
+        FaceSprite = sprite;
+        SyncPages();
+    }
+
+    public void Randomize() => Randomize(Random.Shared);
+
+    /// <summary>A random valid hairstyle, dye, skin and face for the current gender. Gender is deliberately never randomized -- it is the expensive, gear-reshaping change.</summary>
+    public void Randomize(Random rng)
+    {
+        ClearHover();
+
+        if (Hairstyles.Count > 0)
+            HairStyle = Hairstyles[rng.Next(Hairstyles.Count)].Sprite;
+
+        if (HairColors.Count > 0)
+            HairColor = HairColors[rng.Next(HairColors.Count)];
+
+        if (BodyColors.Count > 0)
+            BodyColor = BodyColors[rng.Next(BodyColors.Count)];
+
+        var faces = AvailableFaces;
+
+        if (faces.Count > 0)
+            FaceSprite = faces[rng.Next(faces.Count)].Sprite;
+
+        SyncPages();
+    }
+
+    /// <summary>Moves every page to the one holding its selection.</summary>
+    private void SyncPages()
+    {
+        HairstylePage = PageOf(IndexOfCurrent(Hairstyles, h => h.Sprite == HairStyle), HAIRSTYLE_PAGE_SIZE);
+        FacePage = PageOf(IndexOfCurrent(AvailableFaces, f => f.Sprite == FaceSprite), FACE_PAGE_SIZE);
+        BodyColorPage = PageOf(IndexOfCurrent(BodyColors, c => c == BodyColor), BODY_COLOR_PAGE_SIZE);
+    }
+
+    private static int PageOf(int index, int pageSize) => index < 0 ? 0 : index / pageSize;
+
+    private static int PageCount(int count, int pageSize) => Math.Max(1, (count + pageSize - 1) / pageSize);
+
+    private static IReadOnlyList<T> Page<T>(IReadOnlyList<T> list, int page, int pageSize)
+        => list.Skip(page * pageSize).Take(pageSize).ToList();
 
     /// <summary>Wrapping step through <paramref name="list" /> from the entry matching <paramref name="isCurrent" /> (or from the start when none matches).</summary>
     private static T? StepEntry<T>(IReadOnlyList<T> list, Func<T, bool> isCurrent, int delta) where T: class
