@@ -53,12 +53,20 @@ public sealed class BeautyShop
     public int HairstylePrice => Hairstyles.FirstOrDefault(h => h.Sprite == HairStyle)?.Price ?? 0;
     public int FacePrice => Faces.FirstOrDefault(f => f.Sprite == FaceSprite)?.Price ?? 0;
 
+    /// <summary>
+    ///     Whether the face difference is actually charged. Mirrors the server's free forced-face-reset rule in
+    ///     BeautyShopCheckout.TryApply: switching gender away from a face the new gender can't wear forces a reset
+    ///     to the default face (the catalog's first entry) for free -- picking any other face is still a purchase.
+    /// </summary>
+    public bool FaceCharged
+        => FaceChanged && !(GenderChanged && !IsFaceAvailable(Gender, CurrentFaceSprite) && (Faces.Count > 0) && (FaceSprite == Faces[0].Sprite));
+
     public int Total
         => (GenderChanged ? GenderPrice : 0)
            + (HairstyleChanged ? HairstylePrice : 0)
            + (HairColorChanged ? HairDyePrice : 0)
            + (BodyColorChanged ? BodyDyePrice : 0)
-           + (FaceChanged ? FacePrice : 0);
+           + (FaceCharged ? FacePrice : 0);
 
     public bool CanAfford => Total <= Gold;
     public bool CanApply => (Total > 0) && CanAfford;
@@ -173,6 +181,14 @@ public sealed class BeautyShop
         var next = WrapIndex(index, delta, list.Count);
 
         return list[next];
+    }
+
+    /// <summary>Whether <paramref name="sprite" /> is a face <paramref name="gender" /> may wear -- exists in the catalog and isn't female-only on a male.</summary>
+    private bool IsFaceAvailable(Gender gender, int sprite)
+    {
+        var entry = Faces.FirstOrDefault(f => f.Sprite == sprite);
+
+        return (entry != null) && !(entry.FemaleOnly && (gender == Gender.Male));
     }
 
     private static int IndexOfCurrent<T>(IReadOnlyList<T> list, Func<T, bool> isCurrent)

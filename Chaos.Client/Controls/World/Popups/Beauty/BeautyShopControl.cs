@@ -570,7 +570,7 @@ public sealed class BeautyShopControl : FramedDialogPanelBase
         BodyColorRow.Set(vm.BodyColor.ToString(), vm.BodyDyePrice, vm.BodyColorChanged);
 
         var face = vm.Faces.FirstOrDefault(f => f.Sprite == vm.FaceSprite);
-        FaceRow.Set(face?.Name ?? $"Face {vm.FaceSprite}", vm.FacePrice, vm.FaceChanged);
+        FaceRow.Set(face?.Name ?? $"Face {vm.FaceSprite}", vm.FacePrice, vm.FaceCharged);
 
         RefreshSwatch(vm.HairColor);
 

@@ -32,6 +32,16 @@ public class BeautyShopViewModelTests
             BodyColors = [BodyColor.Brown, BodyColor.Tan, BodyColor.White]
         };
 
+    private static BeautyShopDisplayArgs OpenAsFemaleWithRestingFace()
+    {
+        var args = Open();
+        args.Gender = Gender.Female;
+        args.FaceSprite = 18;
+        args.HairStyle = 1;
+
+        return args;
+    }
+
     private static BeautyShop Opened()
     {
         var vm = new BeautyShop();
@@ -139,6 +149,30 @@ public class BeautyShopViewModelTests
         vm.HairStyle.Should().Be(0);
         vm.FaceSprite.Should().Be(1);
         vm.AvailableFaces.Should().OnlyContain(f => !f.FemaleOnly);
+
+        await Task.CompletedTask;
+    }
+
+    [Test]
+    public async Task Forced_face_reset_on_gender_switch_is_free()
+    {
+        //female with the female-only "Resting" face; switching to male forces a reset to the default face
+        //(sprite 1, the catalog's first entry) -- BeautyShopCheckout does this for free, so the VM total must
+        //not charge for it either
+        var vm = new BeautyShop();
+        vm.ApplyOpen(OpenAsFemaleWithRestingFace());
+
+        vm.SetGender(Gender.Male);
+
+        vm.FaceSprite.Should().Be(1);
+        vm.FaceCharged.Should().BeFalse();
+        vm.Total.Should().Be(50_000);
+
+        vm.StepFace(+1);                // 1 -> 10: a deliberate choice, not the forced reset -- it's a purchase
+
+        vm.FaceSprite.Should().Be(10);
+        vm.FaceCharged.Should().BeTrue();
+        vm.Total.Should().Be(100_000);
 
         await Task.CompletedTask;
     }
