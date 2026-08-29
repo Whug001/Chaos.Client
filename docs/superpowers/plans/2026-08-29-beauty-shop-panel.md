@@ -1736,7 +1736,8 @@ public sealed class BeautyShopCheckout(BeautyShopCatalog catalog, GenderSwapServ
     public BeautyShopRejectReason? TryApply(Aisling source, BeautyShopSelection selection)
     {
         //── validate against the catalog for the REQUESTED gender ──
-        if (!Enum.IsDefined(selection.Gender) || !Enum.IsDefined(selection.HairColor) || !Enum.IsDefined(selection.BodyColor))
+        //Gender is a flags enum: None (0) and Unisex (3) are "defined" but must never be bought
+        if (selection.Gender is not (Gender.Male or Gender.Female) || !Enum.IsDefined(selection.HairColor) || !Enum.IsDefined(selection.BodyColor))
             return BeautyShopRejectReason.InvalidSelection;
 
         if (!catalog.TryGetHairstyle(selection.Gender, selection.HairStyle, out var hairstyle))
