@@ -19,7 +19,7 @@ dotnet run --project Chaos.Client/Chaos.Client.csproj
 
 The client requires a Dark Ages game-data directory (the folder containing `*.dat` archives). Point `GlobalSettings.DataPath` at that directory before running; `LobbyHost`/`LobbyPort` and `ClientVersion` also live in `GlobalSettings`.
 
-No test projects exist currently.
+Tests live in `Tests/Chaos.Client.Tests` (TUnit). Run with `dotnet run --project Tests/Chaos.Client.Tests/Chaos.Client.Tests.csproj -- --no-ansi`; `dotnet test` does not work with this SDK.
 
 ## Solution Structure
 

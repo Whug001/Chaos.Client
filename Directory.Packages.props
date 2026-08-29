@@ -11,5 +11,7 @@
     <PackageVersion Include="TextCopy" Version="6.2.1" />
     <PackageVersion Include="MonoGame.Framework.DesktopGL" Version="3.8.4.1" />
     <PackageVersion Include="Nerdbank.GitVersioning" Version="3.6.133" />
+    <PackageVersion Include="TUnit" Version="1.1.10" />
+    <PackageVersion Include="FluentAssertions" Version="8.8.0" />
   </ItemGroup>
 </Project>

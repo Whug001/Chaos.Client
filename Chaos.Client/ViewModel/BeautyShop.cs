@@ -1,0 +1,196 @@
+#region
+using Chaos.DarkAges.Definitions;
+using Chaos.Networking.Entities.Server;
+#endregion
+
+namespace Chaos.Client.ViewModel;
+
+/// <summary>
+///     Authoritative beauty shop state: the catalog and prices the server sent on Open, the player's current look,
+///     and the look they are trying on. Pure -- no textures, no packets -- so the arithmetic is unit-tested and the
+///     control only reads from it.
+/// </summary>
+public sealed class BeautyShop
+{
+    public bool IsOpen { get; private set; }
+
+    //catalog
+    public IReadOnlyList<BeautyShopHairstyleEntry> MaleHairstyles { get; private set; } = [];
+    public IReadOnlyList<BeautyShopHairstyleEntry> FemaleHairstyles { get; private set; } = [];
+    public IReadOnlyList<BeautyShopFaceEntry> Faces { get; private set; } = [];
+    public IReadOnlyList<DisplayColor> HairColors { get; private set; } = [];
+    public IReadOnlyList<BodyColor> BodyColors { get; private set; } = [];
+    public int GenderPrice { get; private set; }
+    public int HairDyePrice { get; private set; }
+    public int BodyDyePrice { get; private set; }
+    public int Gold { get; private set; }
+
+    //current look (what the server says the player has now)
+    public Gender CurrentGender { get; private set; }
+    public int CurrentHairStyle { get; private set; }
+    public DisplayColor CurrentHairColor { get; private set; }
+    public BodyColor CurrentBodyColor { get; private set; }
+    public int CurrentFaceSprite { get; private set; }
+
+    //selection (what the preview shows)
+    public Gender Gender { get; private set; }
+    public int HairStyle { get; private set; }
+    public DisplayColor HairColor { get; private set; }
+    public BodyColor BodyColor { get; private set; }
+    public int FaceSprite { get; private set; }
+
+    public IReadOnlyList<BeautyShopHairstyleEntry> Hairstyles => Gender == Gender.Male ? MaleHairstyles : FemaleHairstyles;
+
+    public IReadOnlyList<BeautyShopFaceEntry> AvailableFaces
+        => Gender == Gender.Male ? Faces.Where(f => !f.FemaleOnly).ToList() : Faces;
+
+    public bool GenderChanged => Gender != CurrentGender;
+    public bool HairstyleChanged => HairStyle != CurrentHairStyle;
+    public bool HairColorChanged => HairColor != CurrentHairColor;
+    public bool BodyColorChanged => BodyColor != CurrentBodyColor;
+    public bool FaceChanged => FaceSprite != CurrentFaceSprite;
+
+    public int HairstylePrice => Hairstyles.FirstOrDefault(h => h.Sprite == HairStyle)?.Price ?? 0;
+    public int FacePrice => Faces.FirstOrDefault(f => f.Sprite == FaceSprite)?.Price ?? 0;
+
+    public int Total
+        => (GenderChanged ? GenderPrice : 0)
+           + (HairstyleChanged ? HairstylePrice : 0)
+           + (HairColorChanged ? HairDyePrice : 0)
+           + (BodyColorChanged ? BodyDyePrice : 0)
+           + (FaceChanged ? FacePrice : 0);
+
+    public bool CanAfford => Total <= Gold;
+    public bool CanApply => (Total > 0) && CanAfford;
+
+    public void ApplyOpen(BeautyShopDisplayArgs args)
+    {
+        MaleHairstyles = args.MaleHairstyles;
+        FemaleHairstyles = args.FemaleHairstyles;
+        Faces = args.Faces;
+        HairColors = args.HairColors;
+        BodyColors = args.BodyColors;
+        GenderPrice = args.GenderPrice;
+        HairDyePrice = args.HairDyePrice;
+        BodyDyePrice = args.BodyDyePrice;
+        Gold = args.Gold;
+
+        CurrentGender = args.Gender;
+        CurrentHairStyle = args.HairStyle;
+        CurrentHairColor = args.HairColor;
+        CurrentBodyColor = args.BodyColor;
+        CurrentFaceSprite = args.FaceSprite;
+
+        Reset();
+        IsOpen = true;
+    }
+
+    public void Clear()
+    {
+        IsOpen = false;
+        MaleHairstyles = [];
+        FemaleHairstyles = [];
+        Faces = [];
+        HairColors = [];
+        BodyColors = [];
+        GenderPrice = HairDyePrice = BodyDyePrice = Gold = 0;
+        CurrentGender = Gender = Gender.Male;
+        CurrentHairStyle = HairStyle = 0;
+        CurrentHairColor = HairColor = DisplayColor.Default;
+        CurrentBodyColor = BodyColor = BodyColor.White;
+        CurrentFaceSprite = FaceSprite = 0;
+    }
+
+    public void Reset()
+    {
+        Gender = CurrentGender;
+        HairStyle = CurrentHairStyle;
+        HairColor = CurrentHairColor;
+        BodyColor = CurrentBodyColor;
+        FaceSprite = CurrentFaceSprite;
+    }
+
+    /// <summary>
+    ///     Switches gender. The hairstyle keeps its id if the other list has it (most ids exist for both), else
+    ///     falls back to the first entry; a female-only face falls back to the first face a male may wear -- the
+    ///     same rules the server applies, so the preview never shows something Apply would refuse.
+    /// </summary>
+    public void SetGender(Gender gender)
+    {
+        if (Gender == gender)
+            return;
+
+        Gender = gender;
+
+        if (Hairstyles.All(h => h.Sprite != HairStyle))
+            HairStyle = Hairstyles.Count > 0 ? Hairstyles[0].Sprite : 0;
+
+        if (AvailableFaces.All(f => f.Sprite != FaceSprite))
+            FaceSprite = AvailableFaces.Count > 0 ? AvailableFaces[0].Sprite : 0;
+    }
+
+    public void StepHairstyle(int delta)
+        => HairStyle = StepEntry(Hairstyles, h => h.Sprite == HairStyle, delta)?.Sprite ?? HairStyle;
+
+    public void StepFace(int delta)
+        => FaceSprite = StepEntry(AvailableFaces, f => f.Sprite == FaceSprite, delta)?.Sprite ?? FaceSprite;
+
+    public void StepHairColor(int delta)
+    {
+        var next = StepValue(HairColors, c => c == HairColor, delta);
+
+        if (next.HasValue)
+            HairColor = next.Value;
+    }
+
+    public void StepBodyColor(int delta)
+    {
+        var next = StepValue(BodyColors, c => c == BodyColor, delta);
+
+        if (next.HasValue)
+            BodyColor = next.Value;
+    }
+
+    /// <summary>Wrapping step through <paramref name="list" /> from the entry matching <paramref name="isCurrent" /> (or from the start when none matches).</summary>
+    private static T? StepEntry<T>(IReadOnlyList<T> list, Func<T, bool> isCurrent, int delta) where T: class
+    {
+        if (list.Count == 0)
+            return null;
+
+        var index = IndexOfCurrent(list, isCurrent);
+        var next = WrapIndex(index, delta, list.Count);
+
+        return list[next];
+    }
+
+    /// <summary>Wrapping step through <paramref name="list" /> from the entry matching <paramref name="isCurrent" /> (or from the start when none matches).</summary>
+    private static T? StepValue<T>(IReadOnlyList<T> list, Func<T, bool> isCurrent, int delta) where T: struct
+    {
+        if (list.Count == 0)
+            return null;
+
+        var index = IndexOfCurrent(list, isCurrent);
+        var next = WrapIndex(index, delta, list.Count);
+
+        return list[next];
+    }
+
+    private static int IndexOfCurrent<T>(IReadOnlyList<T> list, Func<T, bool> isCurrent)
+    {
+        for (var i = 0; i < list.Count; i++)
+            if (isCurrent(list[i]))
+                return i;
+
+        return -1;
+    }
+
+    private static int WrapIndex(int index, int delta, int count)
+    {
+        var next = index < 0 ? 0 : (index + delta) % count;
+
+        if (next < 0)
+            next += count;
+
+        return next;
+    }
+}

@@ -153,6 +153,11 @@ public static class WorldState
     public static PokerTable PokerTable { get; } = new();
 
     /// <summary>
+    ///     Authoritative beauty shop state (catalog, prices, current look, and the look being tried on).
+    /// </summary>
+    public static BeautyShop BeautyShop { get; } = new();
+
+    /// <summary>
     ///     Authoritative spell book state with cooldown timers.
     /// </summary>
     public static SpellBook SpellBook { get; } = new();
@@ -392,6 +397,7 @@ public static class WorldState
         SlotMachine.Clear();
         GildedSpindle.Clear();
         PokerTable.Clear();
+        BeautyShop.Clear();
     }
 
     /// <summary>
