@@ -1740,12 +1740,6 @@ public sealed class BeautyShopCheckout(BeautyShopCatalog catalog, GenderSwapServ
         if (selection.Gender is not (Gender.Male or Gender.Female) || !Enum.IsDefined(selection.HairColor) || !Enum.IsDefined(selection.BodyColor))
             return BeautyShopRejectReason.InvalidSelection;
 
-        if (!catalog.TryGetHairstyle(selection.Gender, selection.HairStyle, out var hairstyle))
-            return BeautyShopRejectReason.InvalidSelection;
-
-        if (!catalog.TryGetFace(selection.Gender, selection.FaceSprite, out var face))
-            return BeautyShopRejectReason.InvalidSelection;
-
         //── diff ──
         var genderChanged = selection.Gender != source.Gender;
         var hairstyleChanged = selection.HairStyle != source.HairStyle;
@@ -1755,6 +1749,19 @@ public sealed class BeautyShopCheckout(BeautyShopCatalog catalog, GenderSwapServ
 
         if (!genderChanged && !hairstyleChanged && !hairColorChanged && !bodyColorChanged && !faceChanged)
             return BeautyShopRejectReason.NothingChanged;
+
+        //── validate only what is being bought (or what a gender change re-lists): an UNCHANGED value that
+        //is off-catalog -- e.g. a creation-time head sprite with no shop template -- must not lock the
+        //player out of the other four categories ──
+        BeautyShopHairstyle? hairstyle = null;
+
+        if ((hairstyleChanged || genderChanged) && !catalog.TryGetHairstyle(selection.Gender, selection.HairStyle, out hairstyle))
+            return BeautyShopRejectReason.InvalidSelection;
+
+        BeautyShopFace? face = null;
+
+        if ((faceChanged || genderChanged) && !catalog.TryGetFace(selection.Gender, selection.FaceSprite, out face))
+            return BeautyShopRejectReason.InvalidSelection;
 
         if (genderChanged && !genderSwap.CanSwap(source.UserStatSheet.BaseClass))
             return BeautyShopRejectReason.GenderSwapUnavailable;
@@ -1905,7 +1912,7 @@ namespace Chaos.Scripting.MerchantScripts;
 public sealed class BeautyShopScript(Merchant subject, BeautyShopCatalog catalog, BeautyShopCheckout checkout) : MerchantScriptBase(subject)
 {
     /// <summary>How far a player may stand from the merchant and still apply. Matches how far away a dialog can be answered from.</summary>
-    public const int INTERACTION_RANGE = 12;
+    public const int INTERACTION_RANGE = 15;
 
     /// <summary>Sends the Open display built from the catalog and the player's current look.</summary>
     public void Open(Aisling source) => source.Client.SendBeautyShopOpen(catalog.BuildOpenArgs(source));
@@ -2541,12 +2548,23 @@ public sealed class BeautyShop
     public int HairstylePrice => Hairstyles.FirstOrDefault(h => h.Sprite == HairStyle)?.Price ?? 0;
     public int FacePrice => Faces.FirstOrDefault(f => f.Sprite == FaceSprite)?.Price ?? 0;
 
+    /// <summary>
+    ///     Mirrors the server's free forced-reset rule: a face pushed off by a swap to male is free when the
+    ///     selection is the default (first) face; any other face is a purchase.
+    /// </summary>
+    public bool FaceCharged
+        => FaceChanged
+           && !(GenderChanged && !IsFaceAvailable(Gender, CurrentFaceSprite) && (Faces.Count > 0) && (FaceSprite == Faces[0].Sprite));
+
     public int Total
         => (GenderChanged ? GenderPrice : 0)
            + (HairstyleChanged ? HairstylePrice : 0)
            + (HairColorChanged ? HairDyePrice : 0)
            + (BodyColorChanged ? BodyDyePrice : 0)
-           + (FaceChanged ? FacePrice : 0);
+           + (FaceCharged ? FacePrice : 0);
+
+    private bool IsFaceAvailable(Gender gender, int sprite)
+        => Faces.Any(f => (f.Sprite == sprite) && !(f.FemaleOnly && (gender == Gender.Male)));
 
     public bool CanAfford => Total <= Gold;
     public bool CanApply => (Total > 0) && CanAfford;

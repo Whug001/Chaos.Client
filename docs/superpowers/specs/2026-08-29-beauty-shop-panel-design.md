@@ -133,13 +133,17 @@ false when the class has no map (today's "couldn't find your class-specific equi
 **`BeautyShopScript`** (merchant script on Josephine's template; `showdialog` stays for the
 greeting). `HandleApply(Aisling, BeautyShopInteractionArgs)`:
 
-1. Validate: hairstyle and face against the catalog **for the requested gender**; colors are
-   enum-defined. Any failure → `Rejected(InvalidSelection)`.
+1. Validate: gender must be Male or Female; colors are enum-defined; hairstyle and face are checked
+   against the catalog **for the requested gender** — but only when that category (or the gender)
+   changed. An unchanged value that is off-catalog (e.g. a creation-time head sprite with no shop
+   template) must not block buying the other categories. Any failure → `Rejected(InvalidSelection)`.
 2. Diff against the Aisling's current values → set of changed categories. Empty →
    `Rejected(NothingChanged)`.
 3. If gender changed and `GenderSwapService` has no map for the class → 
    `Rejected(GenderSwapUnavailable)`.
-4. Total = sum of changed categories. `TryTakeGold(total)` **once**; failure →
+4. Total = sum of changed categories, except that a face forced off by a swap to male (current
+   face female-only) is free when the selected face is the default face — choosing any other face is
+   a purchase. The client's total applies the same rule. `TryTakeGold(total)` **once**; failure →
    `Rejected(InsufficientGold)` with nothing applied.
 5. Apply in order: gender (via `GenderSwapService`), hairstyle, hair color, body color, face.
    `Refresh(true)`; `Display()`.
