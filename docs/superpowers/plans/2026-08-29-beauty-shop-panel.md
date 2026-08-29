@@ -1080,9 +1080,12 @@ public class BeautyShopCatalogLoaderTests
 
     private static ISimpleCache<ItemTemplate> Cache(params ItemTemplate[] templates)
     {
+        //models ExpiringFileCache: Exists sees nothing until ForceLoad has run
         var byKey = templates.ToDictionary(t => t.TemplateKey, StringComparer.OrdinalIgnoreCase);
+        var loaded = false;
         var mock = new Mock<ISimpleCache<ItemTemplate>>();
-        mock.Setup(c => c.Exists(It.IsAny<string>())).Returns((string k) => byKey.ContainsKey(k));
+        mock.Setup(c => c.ForceLoad()).Callback(() => loaded = true);
+        mock.Setup(c => c.Exists(It.IsAny<string>())).Returns((string k) => loaded && byKey.ContainsKey(k));
         mock.Setup(c => c.Get(It.IsAny<string>())).Returns((string k) => byKey[k]);
 
         return mock.Object;
@@ -1196,6 +1199,10 @@ public static class BeautyShopCatalogLoader
 
     public static BeautyShopCatalog Load(ISimpleCache<ItemTemplate> templates)
     {
+        //ExpiringFileCache.Exists only reports entries already resident in memory -- nothing preloads the item
+        //cache at boot, so every probe below would be false on a cold start without this
+        templates.ForceLoad();
+
         var male = LoadHairstyles(templates, "male");
         var female = LoadHairstyles(templates, "female");
 
