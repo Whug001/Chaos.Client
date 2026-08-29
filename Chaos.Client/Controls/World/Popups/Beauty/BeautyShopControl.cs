@@ -56,7 +56,9 @@ public sealed class BeautyShopControl : FramedDialogPanelBase
     private const int CAPTION_ROW_HEIGHT = TextRenderer.CHAR_HEIGHT + 2;
 
     //the dye grid's vertical budget is fixed at construction time (a design assumption -- 8 rows), not the live
-    //color count, because every other row below it is placed once and never moves
+    //color count, because every other row below it is placed once and never moves. The server sends every
+    //DisplayColor (71 today, at SwatchGrid's 10-per-row layout that's 8 rows); more than 80 values would push
+    //the grid down into the Skin row, so this constant must grow if the DisplayColor enum does.
     private const int DYE_GRID_ROWS = 8;
     private const int DYE_GRID_HEIGHT = (DYE_GRID_ROWS * SwatchGrid.SWATCH) + ((DYE_GRID_ROWS - 1) * SwatchGrid.GAP);
 
@@ -488,8 +490,10 @@ public sealed class BeautyShopControl : FramedDialogPanelBase
             //clip to it -- so a tall composite (e.g. Show gear on with a tall equip layer) at 2x can push the
             //top of the figure above ScreenY and paint over whatever sits above the pedestal. Fall back to 1x
             //for this draw alone (the toggle state itself is untouched) whenever it wouldn't fit, and clamp the
-            //top edge as a second line of defense.
-            if ((Figure.Height * scale) > (Height - 12))
+            //top edge as a second line of defense. The width side of the same fallback: the 111px canvas at 2x
+            //is 222px, wider than the 180px pedestal, so a wide gear layer overhangs it (bare looks are narrow
+            //enough to stay clear).
+            if (((Figure.Height * scale) > (Height - 12)) || ((Figure.Width * scale) > Width))
                 scale = 1;
 
             var w = Figure.Width * scale;
@@ -519,6 +523,10 @@ public sealed class BeautyShopControl : FramedDialogPanelBase
     /// </summary>
     private void Select(Action<ViewModel.BeautyShop> mutate, bool clearThumbnails = true)
     {
+        //InputDispatcher doesn't forget a hovered element across Hide(); ignore any late callback from it
+        if (!Visible)
+            return;
+
         //any change while the gender-reshape prompt is up invalidates what it was about to confirm
         if (ConfirmDialog.Visible)
             ConfirmDialog.Hide();
@@ -535,6 +543,10 @@ public sealed class BeautyShopControl : FramedDialogPanelBase
     /// <summary>Hover never touches the confirm dialog, the status line or the thumbnail cache -- only the preview and the hover total.</summary>
     private void Hover(Action<ViewModel.BeautyShop> mutate)
     {
+        //InputDispatcher doesn't forget a hovered element across Hide(); ignore any late callback from it
+        if (!Visible)
+            return;
+
         mutate(WorldState.BeautyShop);
         RefreshPreview();
         RefreshSummary();

@@ -372,4 +372,61 @@ public class BeautyShopViewModelTests
 
         await Task.CompletedTask;
     }
+
+    /// <summary>
+    ///     <see cref="BeautyShop.HoverTotal" /> and <see cref="BeautyShop.Total" /> price a look with the same rule
+    ///     (<see cref="BeautyShop" />'s private PriceOf) -- hovering a value and selecting the same value must
+    ///     always land on the same number, including the free forced-face-reset waiver.
+    /// </summary>
+    [Test]
+    public async Task HoverTotal_matches_Total_of_the_same_selection()
+    {
+        var hairstyleHover = Opened();
+        hairstyleHover.SetHoverHairStyle(97);
+        var hairstyleSelect = Opened();
+        hairstyleSelect.SelectHairStyle(97);
+        hairstyleHover.HoverTotal.Should().Be(hairstyleSelect.Total);
+
+        var hairColorHover = Opened();
+        hairColorHover.SetHoverHairColor(DisplayColor.Scarlet);
+        var hairColorSelect = Opened();
+        hairColorSelect.SelectHairColor(DisplayColor.Scarlet);
+        hairColorHover.HoverTotal.Should().Be(hairColorSelect.Total);
+
+        var bodyColorHover = Opened();
+        bodyColorHover.SetHoverBodyColor(BodyColor.Tan);
+        var bodyColorSelect = Opened();
+        bodyColorSelect.SelectBodyColor(BodyColor.Tan);
+        bodyColorHover.HoverTotal.Should().Be(bodyColorSelect.Total);
+
+        var faceHover = Opened();
+        faceHover.SetHoverFace(10);
+        var faceSelect = Opened();
+        faceSelect.SelectFace(10);
+        faceHover.HoverTotal.Should().Be(faceSelect.Total);
+
+        //waiver case: female with the female-only "Resting" face, switching to male forces a free reset to
+        //face 1 (see Forced_face_reset_on_gender_switch_is_free) -- hovering/selecting away from that waived
+        //face must price identically, and hovering/selecting the still-waived face itself must stay free.
+        var waivedThenHoverAway = new BeautyShop();
+        waivedThenHoverAway.ApplyOpen(OpenAsFemaleWithRestingFace());
+        waivedThenHoverAway.SetGender(Gender.Male);        // face -> 1, waived
+        waivedThenHoverAway.SetHoverFace(10);
+        waivedThenHoverAway.HoverTotal.Should().Be(100_000);
+
+        var waivedThenSelectAway = new BeautyShop();
+        waivedThenSelectAway.ApplyOpen(OpenAsFemaleWithRestingFace());
+        waivedThenSelectAway.SetGender(Gender.Male);       // face -> 1, waived
+        waivedThenSelectAway.SelectFace(10);
+        waivedThenSelectAway.Total.Should().Be(100_000);
+
+        var waivedThenHoverSame = new BeautyShop();
+        waivedThenHoverSame.ApplyOpen(OpenAsFemaleWithRestingFace());
+        waivedThenHoverSame.SetGender(Gender.Male);        // face -> 1, waived
+        waivedThenHoverSame.SetHoverFace(1);
+        waivedThenHoverSame.HoverTotal.Should().Be(50_000);
+        waivedThenHoverSame.Total.Should().Be(50_000);
+
+        await Task.CompletedTask;
+    }
 }
