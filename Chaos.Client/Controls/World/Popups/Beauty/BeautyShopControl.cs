@@ -4,6 +4,7 @@ using Chaos.Client.Controls.Components;
 using Chaos.Client.Controls.Custom;
 using Chaos.Client.Controls.Generic;
 using Chaos.Client.Controls.World.Popups.Dialog;
+using Chaos.Client.Data;
 using Chaos.Client.Definitions;
 using Chaos.Client.Extensions;
 using Chaos.Client.Rendering;
@@ -44,13 +45,44 @@ public sealed class BeautyShopControl : FramedDialogPanelBase
     internal const int ROW_HEIGHT = 30;
     internal const int ROWS_WIDTH = PANEL_WIDTH - ROWS_LEFT - 24;
 
+    //rows
+    private const int ARROW_WIDTH = 26;
+    private const int LABEL_WIDTH = 74;
+    private const int VALUE_WIDTH = 118;
+    private const int PRICE_WIDTH = 70;
+    private const int SWATCH_SIZE = 14;
+    private const int GENDER_BUTTON_WIDTH = 64;
+
+    //footer
+    private const int FOOTER_TOP = ROWS_TOP + (ROW_HEIGHT * 5) + 12;
+    private const int FOOTER_BUTTON_WIDTH = 70;
+
     private readonly PreviewView Preview;
     private readonly CustomCheckBox GearToggle;
     private readonly UILabel TitleLabel;
     private int FacingIndex;
 
+    private CustomButton MaleButton = null!;
+    private CustomButton FemaleButton = null!;
+    private UILabel GenderPriceLabel = null!;
+    private OptionRow HairstyleRow = null!;
+    private OptionRow HairColorRow = null!;
+    private OptionRow BodyColorRow = null!;
+    private OptionRow FaceRow = null!;
+    private UIPanel HairSwatch = null!;
+    private UILabel TotalLabel = null!;
+    private UILabel GoldLabel = null!;
+    private UILabel StatusLabel = null!;
+    private CustomButton ResetButton = null!;
+    private CustomButton ApplyButton = null!;
+    private OkPopupMessageControl ConfirmDialog = null!;
+    private Texture2D? SwatchTexture;
+
     /// <summary>The player closed the panel (button or Escape). Fires once per hide.</summary>
     public event Action? Closed;
+
+    /// <summary>The player pressed Apply (and confirmed, when a gender change was involved).</summary>
+    public event Action? ApplyRequested;
 
     public BeautyShopControl(AislingRenderer renderer)
         : base("_nsett", false)
@@ -282,8 +314,296 @@ public sealed class BeautyShopControl : FramedDialogPanelBase
         }
     }
 
-    //── Task 11 fills these in ──
-    private void BuildRows() { }
-    private void BuildFooter() { }
-    private void RefreshRows() { }
+    /// <summary>One "◀ value ▶  price *" line. The row owns no state; the control feeds it text on every refresh.</summary>
+    private sealed class OptionRow : UIPanel
+    {
+        public readonly CustomButton Left;
+        public readonly CustomButton Right;
+        public readonly UILabel Caption;
+        public readonly UILabel Value;
+        public readonly UILabel Price;
+
+        public OptionRow(string caption, Action<int> step, int width)
+        {
+            Width = width;
+            Height = ROW_HEIGHT;
+            Background = null;
+
+            Caption = new UILabel
+            {
+                X = 0,
+                Y = (ROW_HEIGHT - TextRenderer.CHAR_HEIGHT) / 2,
+                Width = LABEL_WIDTH,
+                Height = TextRenderer.CHAR_HEIGHT,
+                ForegroundColor = LegendColors.White,
+                IsHitTestVisible = false,
+                Text = caption
+            };
+            AddChild(Caption);
+
+            Left = new CustomButton("<", ARROW_WIDTH) { X = LABEL_WIDTH, Y = (ROW_HEIGHT - CustomButton.HEIGHT) / 2 };
+            Left.Clicked += () => step(-1);
+            AddChild(Left);
+
+            Value = new UILabel
+            {
+                X = LABEL_WIDTH + ARROW_WIDTH + 4,
+                Y = Caption.Y,
+                Width = VALUE_WIDTH,
+                Height = TextRenderer.CHAR_HEIGHT,
+                HorizontalAlignment = HorizontalAlignment.Center,
+                ForegroundColor = LegendColors.White,
+                IsHitTestVisible = false
+            };
+            AddChild(Value);
+
+            Right = new CustomButton(">", ARROW_WIDTH) { X = Value.X + VALUE_WIDTH + 4, Y = Left.Y };
+            Right.Clicked += () => step(+1);
+            AddChild(Right);
+
+            Price = new UILabel
+            {
+                X = width - PRICE_WIDTH,
+                Y = Caption.Y,
+                Width = PRICE_WIDTH,
+                Height = TextRenderer.CHAR_HEIGHT,
+                HorizontalAlignment = HorizontalAlignment.Right,
+                ForegroundColor = LegendColors.Gold,
+                IsHitTestVisible = false
+            };
+            AddChild(Price);
+        }
+
+        public void Set(string value, int price, bool changed)
+        {
+            Value.Text = value;
+            Price.Text = changed ? $"+{price:N0} *" : $"{price:N0}";
+            Price.ForegroundColor = changed ? LegendColors.Gold : LegendColors.Gray;
+        }
+    }
+
+    private void BuildRows()
+    {
+        var vm = WorldState.BeautyShop;
+        var y = ROWS_TOP;
+
+        //── gender: two buttons, the selected one greyed ──
+        var genderCaption = new UILabel
+        {
+            X = ROWS_LEFT,
+            Y = y + ((ROW_HEIGHT - TextRenderer.CHAR_HEIGHT) / 2),
+            Width = LABEL_WIDTH,
+            Height = TextRenderer.CHAR_HEIGHT,
+            ForegroundColor = LegendColors.White,
+            IsHitTestVisible = false,
+            Text = "Gender"
+        };
+        AddChild(genderCaption);
+
+        MaleButton = new CustomButton("Male", GENDER_BUTTON_WIDTH) { X = ROWS_LEFT + LABEL_WIDTH, Y = y + ((ROW_HEIGHT - CustomButton.HEIGHT) / 2) };
+        MaleButton.Clicked += () => Select(v => v.SetGender(Gender.Male));
+        AddChild(MaleButton);
+
+        FemaleButton = new CustomButton("Female", GENDER_BUTTON_WIDTH) { X = MaleButton.X + GENDER_BUTTON_WIDTH + 6, Y = MaleButton.Y };
+        FemaleButton.Clicked += () => Select(v => v.SetGender(Gender.Female));
+        AddChild(FemaleButton);
+
+        GenderPriceLabel = new UILabel
+        {
+            X = ROWS_LEFT + ROWS_WIDTH - PRICE_WIDTH,
+            Y = genderCaption.Y,
+            Width = PRICE_WIDTH,
+            Height = TextRenderer.CHAR_HEIGHT,
+            HorizontalAlignment = HorizontalAlignment.Right,
+            ForegroundColor = LegendColors.Gray,
+            IsHitTestVisible = false
+        };
+        AddChild(GenderPriceLabel);
+        y += ROW_HEIGHT;
+
+        HairstyleRow = AddRow("Hairstyle", d => vm.StepHairstyle(d), ref y);
+        HairColorRow = AddRow("Hair dye", d => vm.StepHairColor(d), ref y);
+
+        HairSwatch = new UIPanel
+        {
+            X = HairColorRow.X + HairColorRow.Value.X - SWATCH_SIZE - 4,
+            Y = HairColorRow.Y + ((ROW_HEIGHT - SWATCH_SIZE) / 2),
+            Width = SWATCH_SIZE,
+            Height = SWATCH_SIZE,
+            IsHitTestVisible = false,
+            ZIndex = 1
+        };
+        AddChild(HairSwatch);
+
+        BodyColorRow = AddRow("Skin", d => vm.StepBodyColor(d), ref y);
+        FaceRow = AddRow("Face", d => vm.StepFace(d), ref y);
+    }
+
+    private OptionRow AddRow(string caption, Action<int> step, ref int y)
+    {
+        var row = new OptionRow(caption, delta => Select(_ => step(delta)), ROWS_WIDTH) { X = ROWS_LEFT, Y = y };
+        AddChild(row);
+        y += ROW_HEIGHT;
+
+        return row;
+    }
+
+    /// <summary>Every selection change goes through here: mutate the view model, then repaint everything.</summary>
+    private void Select(Action<ViewModel.BeautyShop> mutate)
+    {
+        mutate(WorldState.BeautyShop);
+        StatusLabel.Text = string.Empty;
+        Refresh();
+    }
+
+    private void BuildFooter()
+    {
+        TotalLabel = FooterLabel(ROWS_LEFT, FOOTER_TOP, ROWS_WIDTH / 2);
+        GoldLabel = FooterLabel(ROWS_LEFT + (ROWS_WIDTH / 2), FOOTER_TOP, ROWS_WIDTH / 2);
+        GoldLabel.HorizontalAlignment = HorizontalAlignment.Right;
+        StatusLabel = FooterLabel(ROWS_LEFT, FOOTER_TOP + TextRenderer.CHAR_HEIGHT + 4, ROWS_WIDTH);
+        StatusLabel.ForegroundColor = LegendColors.Red;
+
+        //Task 11 deviation: the brief's buttonsTop (PANEL_HEIGHT - OK_BOTTOM_MARGIN - CustomButton.HEIGHT - 4 = 294)
+        //would put the button bottom (316) inside FramedDialogPanelBase's 47px ornate bottom border
+        //(PANEL_HEIGHT - 47 = 283), so it is raised to sit flush above that border instead.
+        var buttonsTop = PANEL_HEIGHT - OK_BOTTOM_MARGIN - CustomButton.HEIGHT - 4;
+
+        if (buttonsTop + CustomButton.HEIGHT > PANEL_HEIGHT - 47)
+            buttonsTop = PANEL_HEIGHT - 47 - CustomButton.HEIGHT - 4;
+
+        ResetButton = new CustomButton("Reset", FOOTER_BUTTON_WIDTH) { X = ROWS_LEFT, Y = buttonsTop };
+        ResetButton.Clicked += () => Select(v => v.Reset());
+        AddChild(ResetButton);
+
+        ApplyButton = new CustomButton("Apply", FOOTER_BUTTON_WIDTH) { X = ROWS_LEFT + FOOTER_BUTTON_WIDTH + 8, Y = buttonsTop, Enabled = false };
+        ApplyButton.Clicked += OnApplyClicked;
+        AddChild(ApplyButton);
+
+        //parented to the panel like poker's leave confirm, drawn above everything else in it
+        ConfirmDialog = new OkPopupMessageControl(true) { Name = "BeautyShopGenderConfirm", ZIndex = 100 };
+        ConfirmDialog.X = (PANEL_WIDTH - ConfirmDialog.Width) / 2;
+        ConfirmDialog.Y = (PANEL_HEIGHT - ConfirmDialog.Height) / 2;
+
+        ConfirmDialog.OnOk += () =>
+        {
+            ConfirmDialog.Hide();
+            ApplyRequested?.Invoke();
+        };
+
+        ConfirmDialog.OnCancel += () => ConfirmDialog.Hide();
+        AddChild(ConfirmDialog);
+    }
+
+    private UILabel FooterLabel(int x, int y, int width)
+    {
+        var label = new UILabel
+        {
+            X = x,
+            Y = y,
+            Width = width,
+            Height = TextRenderer.CHAR_HEIGHT,
+            ForegroundColor = LegendColors.White,
+            IsHitTestVisible = false
+        };
+        AddChild(label);
+
+        return label;
+    }
+
+    private void OnApplyClicked()
+    {
+        var vm = WorldState.BeautyShop;
+
+        if (!vm.CanApply)
+            return;
+
+        if (vm.GenderChanged)
+        {
+            ConfirmDialog.Show(
+                $"This will reshape your Master and Grandmaster gear - equipped, banked and in inventory - for {vm.GenderPrice:N0} gold. Continue?");
+
+            return;
+        }
+
+        ApplyRequested?.Invoke();
+    }
+
+    /// <summary>Server refused the Apply; keep the panel open and say why.</summary>
+    public void OnRejected(BeautyShopRejectReason reason)
+    {
+        if (!Visible)
+            return;
+
+        StatusLabel.Text = reason switch
+        {
+            BeautyShopRejectReason.NothingChanged => "Nothing has changed.",
+            BeautyShopRejectReason.InsufficientGold => "You can't afford that.",
+            BeautyShopRejectReason.InvalidSelection => "Josephine can't do that one.",
+            BeautyShopRejectReason.GenderSwapUnavailable => "Josephine can't reshape your class's gear.",
+            BeautyShopRejectReason.NotNearShop => "Step closer to Josephine.",
+            _ => "Josephine shakes her head."
+        };
+    }
+
+    private void RefreshRows()
+    {
+        var vm = WorldState.BeautyShop;
+
+        MaleButton.Enabled = vm.Gender != Gender.Male;
+        FemaleButton.Enabled = vm.Gender != Gender.Female;
+        GenderPriceLabel.Text = vm.GenderChanged ? $"+{vm.GenderPrice:N0} *" : $"{vm.GenderPrice:N0}";
+        GenderPriceLabel.ForegroundColor = vm.GenderChanged ? LegendColors.Gold : LegendColors.Gray;
+
+        HairstyleRow.Set($"Style {vm.HairStyle}", vm.HairstylePrice, vm.HairstyleChanged);
+        HairColorRow.Set(vm.HairColor.ToString(), vm.HairDyePrice, vm.HairColorChanged);
+        BodyColorRow.Set(vm.BodyColor.ToString(), vm.BodyDyePrice, vm.BodyColorChanged);
+
+        var face = vm.Faces.FirstOrDefault(f => f.Sprite == vm.FaceSprite);
+        FaceRow.Set(face?.Name ?? $"Face {vm.FaceSprite}", vm.FacePrice, vm.FaceChanged);
+
+        RefreshSwatch(vm.HairColor);
+
+        TotalLabel.Text = $"Total: {vm.Total:N0} gold";
+        TotalLabel.ForegroundColor = vm.CanAfford ? LegendColors.White : LegendColors.Red;
+        GoldLabel.Text = $"You have: {vm.Gold:N0}";
+        ApplyButton.Enabled = vm.CanApply;
+    }
+
+    /// <summary>A flat 14x14 tile of the dye's mid-tone, rebuilt only when the colour changes.</summary>
+    private void RefreshSwatch(DisplayColor color)
+    {
+        var rgb = SwatchColorFor(color);
+
+        if (SwatchTexture is not null && (SwatchTexture.Tag is DisplayColor tagged) && (tagged == color))
+            return;
+
+        SwatchTexture?.Dispose();
+        var device = ChaosGame.Device;
+        SwatchTexture = new Texture2D(device, SWATCH_SIZE, SWATCH_SIZE) { Tag = color };
+        SwatchTexture.SetData(Enumerable.Repeat(rgb, SWATCH_SIZE * SWATCH_SIZE).ToArray());
+        HairSwatch.Background = SwatchTexture;
+    }
+
+    private static Color SwatchColorFor(DisplayColor color)
+    {
+        if (color == DisplayColor.Default)
+            return LegendColors.DeepLavender;
+
+        var table = DataContext.AislingDrawData.DyeColorTable;
+
+        if (!table.Contains((int)color))
+            return LegendColors.Gray;
+
+        var colors = table[(int)color].Colors;
+        var mid = colors[Math.Min(2, colors.Length - 1)];
+
+        return new Color(mid.Red, mid.Green, mid.Blue);
+    }
+
+    public override void Dispose()
+    {
+        SwatchTexture?.Dispose();
+        base.Dispose();
+    }
 }
