@@ -2765,6 +2765,7 @@ public sealed class BeautyShopControl : FramedDialogPanelBase
     private const int PREVIEW_HEIGHT = 170;
     private const int ROTATE_BUTTON_WIDTH = 28;
     private const int ROTATE_ROW_TOP = PREVIEW_TOP + PREVIEW_HEIGHT + 6;
+    private const int GEAR_TOGGLE_WIDTH = CustomCheckBox.CHECKBOX_SIZE + CustomCheckBox.CAPTION_GAP + (9 * TextRenderer.CHAR_WIDTH);
 
     //rows column (Task 11)
     internal const int ROWS_LEFT = PREVIEW_LEFT + PREVIEW_WIDTH + 24;
@@ -2831,14 +2832,23 @@ public sealed class BeautyShopControl : FramedDialogPanelBase
         rotateRight.Clicked += () => Rotate(+1);
         AddChild(rotateRight);
 
+        //CustomCheckBox lays itself out from consumer-set Width/Height and does NOT toggle itself on click
+        //(see MarketSearchControl) -- both are the consumer's job
         GearToggle = new CustomCheckBox
         {
             X = PREVIEW_LEFT + (ROTATE_BUTTON_WIDTH * 2) + 16,
             Y = ROTATE_ROW_TOP + ((CustomButton.HEIGHT - CustomCheckBox.CHECKBOX_SIZE) / 2),
+            Width = GEAR_TOGGLE_WIDTH,
+            Height = CustomCheckBox.CHECKBOX_SIZE,
             Text = "Show gear",
             Checked = false
         };
-        GearToggle.Clicked += () => RefreshPreview();
+
+        GearToggle.Clicked += () =>
+        {
+            GearToggle.Checked = !GearToggle.Checked;
+            RefreshPreview();
+        };
         AddChild(GearToggle);
 
         BuildRows();      //Task 11
