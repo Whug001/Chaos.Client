@@ -194,4 +194,99 @@ public class BeautyShopViewModelTests
 
         await Task.CompletedTask;
     }
+
+    [Test]
+    public async Task Hover_overrides_the_effective_look_but_not_the_selection()
+    {
+        var vm = Opened();
+
+        vm.SetHoverHairStyle(97);
+
+        vm.IsHovering.Should().BeTrue();
+        vm.EffectiveHairStyle.Should().Be(97);
+        vm.HairStyle.Should().Be(1);
+        vm.Total.Should().Be(0);
+        vm.HasUnsavedChanges.Should().BeFalse();
+
+        vm.SetHoverHairColor(DisplayColor.Apple);
+
+        vm.EffectiveHairStyle.Should().Be(1);          // only one hover at a time
+        vm.EffectiveHairColor.Should().Be(DisplayColor.Apple);
+
+        vm.ClearHover();
+
+        vm.IsHovering.Should().BeFalse();
+        vm.EffectiveHairColor.Should().Be(DisplayColor.Default);
+
+        await Task.CompletedTask;
+    }
+
+    [Test]
+    public async Task HoverTotal_prices_the_hovered_item_as_if_chosen()
+    {
+        var vm = Opened();
+        vm.StepHairColor(+1);                          // Apple: 1,000 selected
+
+        vm.HoverTotal.Should().Be(1_000);              // nothing hovered → Total
+
+        vm.SetHoverHairStyle(97);                      // +2,500 if chosen
+        vm.HoverTotal.Should().Be(3_500);
+        vm.Total.Should().Be(1_000);
+
+        vm.SetHoverHairColor(DisplayColor.Default);    // hovering "back to current" would drop the dye charge
+        vm.HoverTotal.Should().Be(0);
+
+        vm.SetHoverFace(10);                           // Beauty: +50,000
+        vm.HoverTotal.Should().Be(51_000);
+
+        await Task.CompletedTask;
+    }
+
+    [Test]
+    public async Task Selection_changes_clear_hover()
+    {
+        var vm = Opened();
+        vm.SetHoverFace(10);
+
+        vm.StepHairstyle(+1);
+        vm.IsHovering.Should().BeFalse();
+
+        vm.SetHoverFace(10);
+        vm.SetGender(Gender.Female);
+        vm.IsHovering.Should().BeFalse();
+
+        vm.SetHoverFace(10);
+        vm.Reset();
+        vm.IsHovering.Should().BeFalse();
+
+        await Task.CompletedTask;
+    }
+
+    [Test]
+    public async Task HasUnsavedChanges_tracks_any_difference()
+    {
+        var vm = Opened();
+
+        vm.HasUnsavedChanges.Should().BeFalse();
+        vm.StepBodyColor(+1);
+        vm.HasUnsavedChanges.Should().BeTrue();
+        vm.Reset();
+        vm.HasUnsavedChanges.Should().BeFalse();
+
+        await Task.CompletedTask;
+    }
+
+    [Test]
+    public async Task Hovering_the_selected_item_changes_nothing()
+    {
+        var vm = Opened();
+        vm.StepFace(+1);                               // Beauty selected, 50,000
+
+        vm.SetHoverFace(10);
+
+        vm.HoverTotal.Should().Be(50_000);
+        vm.EffectiveFaceSprite.Should().Be(10);
+
+        await Task.CompletedTask;
+    }
 }

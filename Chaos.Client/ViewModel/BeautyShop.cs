@@ -61,15 +61,61 @@ public sealed class BeautyShop
     public bool FaceCharged
         => FaceChanged && !(GenderChanged && !IsFaceAvailable(Gender, CurrentFaceSprite) && (Faces.Count > 0) && (FaceSprite == Faces[0].Sprite));
 
-    public int Total
-        => (GenderChanged ? GenderPrice : 0)
-           + (HairstyleChanged ? HairstylePrice : 0)
-           + (HairColorChanged ? HairDyePrice : 0)
-           + (BodyColorChanged ? BodyDyePrice : 0)
-           + (FaceCharged ? FacePrice : 0);
+    public int Total => PriceOf(Gender, HairStyle, HairColor, BodyColor, FaceSprite);
 
     public bool CanAfford => Total <= Gold;
     public bool CanApply => (Total > 0) && CanAfford;
+
+    //hover: at most one category at a time; the preview shows hovered ?? selected, money never does
+    public int? HoveredHairStyle { get; private set; }
+    public DisplayColor? HoveredHairColor { get; private set; }
+    public BodyColor? HoveredBodyColor { get; private set; }
+    public int? HoveredFaceSprite { get; private set; }
+
+    public bool IsHovering => HoveredHairStyle.HasValue || HoveredHairColor.HasValue || HoveredBodyColor.HasValue || HoveredFaceSprite.HasValue;
+
+    public int EffectiveHairStyle => HoveredHairStyle ?? HairStyle;
+    public DisplayColor EffectiveHairColor => HoveredHairColor ?? HairColor;
+    public BodyColor EffectiveBodyColor => HoveredBodyColor ?? BodyColor;
+    public int EffectiveFaceSprite => HoveredFaceSprite ?? FaceSprite;
+
+    public bool HasUnsavedChanges => GenderChanged || HairstyleChanged || HairColorChanged || BodyColorChanged || FaceChanged;
+
+    /// <summary>The total if the hovered item were chosen; <see cref="Total" /> when nothing is hovered.</summary>
+    public int HoverTotal
+        => PriceOf(Gender, EffectiveHairStyle, EffectiveHairColor, EffectiveBodyColor, EffectiveFaceSprite);
+
+    public void SetHoverHairStyle(int sprite) { ClearHover(); HoveredHairStyle = sprite; }
+    public void SetHoverHairColor(DisplayColor color) { ClearHover(); HoveredHairColor = color; }
+    public void SetHoverBodyColor(BodyColor color) { ClearHover(); HoveredBodyColor = color; }
+    public void SetHoverFace(int sprite) { ClearHover(); HoveredFaceSprite = sprite; }
+
+    public void ClearHover()
+    {
+        HoveredHairStyle = null;
+        HoveredHairColor = null;
+        HoveredBodyColor = null;
+        HoveredFaceSprite = null;
+    }
+
+    /// <summary>Prices an arbitrary look against the current one with the same rules as <see cref="Total" />.</summary>
+    private int PriceOf(Gender gender, int hairStyle, DisplayColor hairColor, BodyColor bodyColor, int faceSprite)
+    {
+        var genderChanged = gender != CurrentGender;
+        var faceChanged = faceSprite != CurrentFaceSprite;
+
+        var faceCharged = faceChanged
+                          && !(genderChanged && !IsFaceAvailable(gender, CurrentFaceSprite) && (Faces.Count > 0) && (faceSprite == Faces[0].Sprite));
+
+        var hairstylePrice = (gender == Gender.Male ? MaleHairstyles : FemaleHairstyles).FirstOrDefault(h => h.Sprite == hairStyle)?.Price ?? 0;
+        var facePrice = Faces.FirstOrDefault(f => f.Sprite == faceSprite)?.Price ?? 0;
+
+        return (genderChanged ? GenderPrice : 0)
+               + (hairStyle != CurrentHairStyle ? hairstylePrice : 0)
+               + (hairColor != CurrentHairColor ? HairDyePrice : 0)
+               + (bodyColor != CurrentBodyColor ? BodyDyePrice : 0)
+               + (faceCharged ? facePrice : 0);
+    }
 
     public void ApplyOpen(BeautyShopDisplayArgs args)
     {
@@ -95,6 +141,7 @@ public sealed class BeautyShop
 
     public void Clear()
     {
+        ClearHover();
         IsOpen = false;
         MaleHairstyles = [];
         FemaleHairstyles = [];
@@ -111,6 +158,7 @@ public sealed class BeautyShop
 
     public void Reset()
     {
+        ClearHover();
         Gender = CurrentGender;
         HairStyle = CurrentHairStyle;
         HairColor = CurrentHairColor;
@@ -125,6 +173,8 @@ public sealed class BeautyShop
     /// </summary>
     public void SetGender(Gender gender)
     {
+        ClearHover();
+
         if (Gender == gender)
             return;
 
@@ -138,13 +188,20 @@ public sealed class BeautyShop
     }
 
     public void StepHairstyle(int delta)
-        => HairStyle = StepEntry(Hairstyles, h => h.Sprite == HairStyle, delta)?.Sprite ?? HairStyle;
+    {
+        ClearHover();
+        HairStyle = StepEntry(Hairstyles, h => h.Sprite == HairStyle, delta)?.Sprite ?? HairStyle;
+    }
 
     public void StepFace(int delta)
-        => FaceSprite = StepEntry(AvailableFaces, f => f.Sprite == FaceSprite, delta)?.Sprite ?? FaceSprite;
+    {
+        ClearHover();
+        FaceSprite = StepEntry(AvailableFaces, f => f.Sprite == FaceSprite, delta)?.Sprite ?? FaceSprite;
+    }
 
     public void StepHairColor(int delta)
     {
+        ClearHover();
         var next = StepValue(HairColors, c => c == HairColor, delta);
 
         if (next.HasValue)
@@ -153,6 +210,7 @@ public sealed class BeautyShop
 
     public void StepBodyColor(int delta)
     {
+        ClearHover();
         var next = StepValue(BodyColors, c => c == BodyColor, delta);
 
         if (next.HasValue)
