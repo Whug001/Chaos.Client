@@ -2875,6 +2875,9 @@ public sealed class BeautyShopControl : FramedDialogPanelBase
         if (!Visible)
             return;
 
+        //a confirmation still standing when the panel goes away must not be left on the input stack, where
+        //Enter/Space would fire ApplyRequested with no panel on screen (same guard as PokerTableControl.Hide)
+        ConfirmDialog.Hide();
         base.Hide();
         Preview.Release();
     }
@@ -3073,7 +3076,7 @@ Add to the class (beside the existing fields):
     //rows
     private const int ARROW_WIDTH = 26;
     private const int LABEL_WIDTH = 74;
-    private const int VALUE_WIDTH = 118;
+    private const int VALUE_WIDTH = 94; //leaves the price column (ROWS_WIDTH - PRICE_WIDTH) clear of the right arrow
     private const int PRICE_WIDTH = 70;
     private const int SWATCH_SIZE = 14;
     private const int GENDER_BUTTON_WIDTH = 64;
@@ -3221,9 +3224,10 @@ Replace the empty `BuildRows` with:
         HairstyleRow = AddRow("Hairstyle", d => vm.StepHairstyle(d), ref y);
         HairColorRow = AddRow("Hair dye", d => vm.StepHairColor(d), ref y);
 
+        //sits between the "Hair dye" caption and the left arrow -- the only gap wide enough for it
         HairSwatch = new UIPanel
         {
-            X = HairColorRow.X + HairColorRow.Value.X - SWATCH_SIZE - 4,
+            X = HairColorRow.X + LABEL_WIDTH - SWATCH_SIZE - 4,
             Y = HairColorRow.Y + ((ROW_HEIGHT - SWATCH_SIZE) / 2),
             Width = SWATCH_SIZE,
             Height = SWATCH_SIZE,
