@@ -36,6 +36,7 @@ public sealed class BeautyShopControl : FramedDialogPanelBase
     private const int PREVIEW_HEIGHT = 170;
     private const int ROTATE_BUTTON_WIDTH = 28;
     private const int ROTATE_ROW_TOP = PREVIEW_TOP + PREVIEW_HEIGHT + 6;
+    private const int GEAR_TOGGLE_WIDTH = CustomCheckBox.CHECKBOX_SIZE + CustomCheckBox.CAPTION_GAP + (9 * TextRenderer.CHAR_WIDTH);
 
     //rows column (Task 11)
     internal const int ROWS_LEFT = PREVIEW_LEFT + PREVIEW_WIDTH + 24;
@@ -43,7 +44,6 @@ public sealed class BeautyShopControl : FramedDialogPanelBase
     internal const int ROW_HEIGHT = 30;
     internal const int ROWS_WIDTH = PANEL_WIDTH - ROWS_LEFT - 24;
 
-    private readonly AislingRenderer Renderer;
     private readonly PreviewView Preview;
     private readonly CustomCheckBox GearToggle;
     private readonly UILabel TitleLabel;
@@ -56,7 +56,6 @@ public sealed class BeautyShopControl : FramedDialogPanelBase
         : base("_nsett", false)
     {
         ArgumentNullException.ThrowIfNull(renderer);
-        Renderer = renderer;
 
         Name = "BeautyShop";
         Visible = false;
@@ -106,10 +105,17 @@ public sealed class BeautyShopControl : FramedDialogPanelBase
         {
             X = PREVIEW_LEFT + (ROTATE_BUTTON_WIDTH * 2) + 16,
             Y = ROTATE_ROW_TOP + ((CustomButton.HEIGHT - CustomCheckBox.CHECKBOX_SIZE) / 2),
+            Width = GEAR_TOGGLE_WIDTH,
+            Height = CustomCheckBox.CHECKBOX_SIZE,
             Text = "Show gear",
             Checked = false
         };
-        GearToggle.Clicked += () => RefreshPreview();
+
+        GearToggle.Clicked += () =>
+        {
+            GearToggle.Checked = !GearToggle.Checked;
+            RefreshPreview();
+        };
         AddChild(GearToggle);
 
         BuildRows();      //Task 11
@@ -207,12 +213,6 @@ public sealed class BeautyShopControl : FramedDialogPanelBase
         };
     }
 
-    public override void Dispose()
-    {
-        Preview.Dispose();
-        base.Dispose();
-    }
-
     /// <summary>
     ///     The sprite. Owns exactly one composited texture at a time -- <see cref="AislingRenderer.Render" />
     ///     allocates a fresh texture per call and caches only per world entity, so this view caches by
@@ -247,6 +247,9 @@ public sealed class BeautyShopControl : FramedDialogPanelBase
             Figure?.Dispose();
             var (frame, flip, isFront) = FACINGS[facingIndex];
             Figure = renderer.Render(in appearance, frame, AislingRenderer.IDLE_ANIM, flip, isFront);
+
+            if (Figure is null)
+                RenderedFacing = -1;
         }
 
         /// <summary>Drops the texture on hide so a closed panel holds no GPU memory; the next Show re-renders.</summary>
@@ -267,7 +270,7 @@ public sealed class BeautyShopControl : FramedDialogPanelBase
 
             //centre the body (not the padded canvas) in the box, feet a little above the bottom edge
             var x = ScreenX + (Width / 2) - AislingRenderer.CANVAS_CENTER_X;
-            var y = ScreenY + Height - AislingRenderer.COMPOSITE_HEIGHT - 12;
+            var y = ScreenY + Height - Figure.Height - 12;
 
             DrawTexture(spriteBatch, Figure, new Vector2(x, y), Color.White);
         }
