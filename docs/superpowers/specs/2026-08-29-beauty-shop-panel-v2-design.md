@@ -39,7 +39,7 @@ Panel 600×440, centred, same `FramedDialogPanelBase` frame (47px ornate bottom 
 
 ```
 ┌ JOSEPHINE'S MIRROR ──────────────────────────────────────────┐
-│ Customize your appearance                 ● Unsaved changes   │
+│ Customize your appearance                 * Unsaved changes   │
 ├── PREVIEW ───────────────┬── APPEARANCE ──────────────────────┤
 │ ┌──────────────────────┐ │ Gender    ┃ MALE ┃ FEMALE ┃        │
 │ │   recessed pedestal  │ │ Hairstyle                 12 / 101 │
@@ -108,14 +108,14 @@ frame border. Exact constants are the plan's; the proportions above are the cont
 
 - One line per **changed** category: `Hairstyle 1,000`, `Hair dye 1,000`, `Skin 1,000`,
   `Face 50,000`, `Gender 50,000` (face omitted when the forced-reset waiver applies), joined by
-  ` · `; then `TOTAL n` in gold, red when unaffordable; `You have g`.
+  ` | `; then `TOTAL n` in gold, red when unaffordable; `You have g`.
 - While hovering: a dimmed second line `if chosen: TOTAL n` from `HoverTotal`.
 - Buttons: **Discard Changes** (enabled only when `HasUnsavedChanges`; calls `Reset`) and **APPLY**
   (enabled == `CanApply`; gender confirm as v1). Status/rejection line stays red, under the total.
 
 ### Header
 
-- Title, subtitle "Customize your appearance", and `● Unsaved changes` (gold) at the right when
+- Title, subtitle "Customize your appearance", and `* Unsaved changes` (gold) at the right when
   `HasUnsavedChanges`.
 
 ## Interaction rules
@@ -137,3 +137,10 @@ frame border. Exact constants are the plan's; the proportions above are the cont
 `Chaos.Client/ViewModel/BeautyShop.cs`, `Tests/Chaos.Client.Tests/BeautyShopViewModelTests.cs`,
 `Chaos.Client/Controls/World/Popups/Beauty/{BeautyShopControl,ThumbnailStrip,SwatchGrid,GenderSelector}.cs`,
 `docs/superpowers/plans/2026-08-29-beauty-shop-walkthrough.md` (new rows). No other file changes.
+
+
+## Implementation notes (2026-08-29)
+
+- The client bitmap font only draws ASCII 33–126 (and Korean); `●`/`·` render as blanks. The unsaved indicator is `* Unsaved changes` and the summary separator is ` | `.
+- Page arrows must not flush the thumbnail cache (only base-look changes do).
+- The 2× preview is clamped inside the pedestal (tall gear composites otherwise ride over the header).
