@@ -100,10 +100,19 @@ public sealed class SwatchGrid : UIPanel
             e.Handled = true;
         }
 
+        /// <summary>Clears transient hover state when the grid (or an ancestor) is hidden.</summary>
+        public override void ResetInteractionState() => IsHovered = false;
+
         public override void Draw(SpriteBatch spriteBatch)
         {
             if (!Visible)
                 return;
+
+            //primes ClipRect -- InputDispatcher.HitTest's ContainsPoint check depends on it. Without this,
+            //ClipRect stays at its default (empty) value forever, ContainsPoint always fails, and no swatch can
+            //ever be hovered or clicked (the click falls through to the grid panel, whose default OnClick
+            //swallows it).
+            base.Draw(spriteBatch);
 
             var bounds = new Rectangle(ScreenX, ScreenY, Width, Height);
             DrawRect(spriteBatch, bounds, Fill);

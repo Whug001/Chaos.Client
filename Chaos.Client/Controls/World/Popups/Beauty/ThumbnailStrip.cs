@@ -64,11 +64,20 @@ public sealed class ThumbnailStrip<T> : UIPanel where T : notnull
     ///     Shows one page. <paramref name="selected" /> is compared with <see cref="object.Equals(object)" />;
     ///     <paramref name="thumbFor" /> may return null (cell draws its border only).
     /// </summary>
+    /// <remarks>
+    ///     There is no "no selection" sentinel for value-type <typeparamref name="T" />: <c>selected is not
+    ///     null</c> is always true when <typeparamref name="T" /> is a non-nullable value type (it can never
+    ///     actually be passed as C# <see langword="null" /> in that case), so a caller cannot signal "nothing is
+    ///     selected" by passing <c>default</c> -- that would just compare equal to whatever item happens to equal
+    ///     <c>default(T)</c>. Callers must always pass a real, currently-selected value (Task 4's
+    ///     <c>BeautyShopControl</c> does; it always has a current selection once the shop is open).
+    /// </remarks>
     public void SetItems(IReadOnlyList<T> items, T? selected, Func<T, Texture2D?> thumbFor)
     {
         for (var i = 0; i < Cells.Length; i++)
         {
             var cell = Cells[i];
+            var previousItem = cell.Item;
 
             if (i < items.Count)
             {
@@ -82,6 +91,22 @@ public sealed class ThumbnailStrip<T> : UIPanel where T : notnull
                 cell.Item = null;
                 cell.Thumbnail = null;
                 cell.IsSelected = false;
+            }
+
+            //InputDispatcher only re-runs hit-testing on cursor movement and diffs the hovered element by
+            //identity. Paging reuses these same Cell instances for different items (or hides them outright),
+            //so a cell the dispatcher still considers "hovered" gets no Enter/Leave call when its item changes
+            //out from under it -- the hover has to be re-announced here by hand, or a stale item (or a hidden
+            //cell) stays "hovered" until the mouse physically moves again.
+            if (cell.IsHovered && !Equals(previousItem, cell.Item))
+            {
+                if (cell.Item is not null)
+                    Hovered?.Invoke((T)cell.Item);
+                else
+                {
+                    HoverCleared?.Invoke();
+                    cell.IsHovered = false;
+                }
             }
         }
     }
@@ -100,7 +125,7 @@ public sealed class ThumbnailStrip<T> : UIPanel where T : notnull
         public object? Item;
         public Texture2D? Thumbnail;
         public bool IsSelected;
-        private bool IsHovered;
+        public bool IsHovered;
 
         public event Action<object>? Hovered;
         public event Action? HoverCleared;
@@ -128,19 +153,24 @@ public sealed class ThumbnailStrip<T> : UIPanel where T : notnull
             e.Handled = true;
         }
 
+        /// <summary>Clears transient hover state when the strip (or an ancestor) is hidden.</summary>
+        public override void ResetInteractionState() => IsHovered = false;
+
         public override void Draw(SpriteBatch spriteBatch)
         {
             if (!Visible)
                 return;
 
-            //required so DrawTextureFitted's clip-intersect check has a real rect to test against -- this cell
-            //draws itself directly (it is not a UIPanel and never calls base.Draw), so nothing else sets it.
-            UpdateClipRect();
+            //primes ClipRect -- used for hit-testing (ContainsPoint) and by DrawTextureFitted's clip-intersect
+            //check below. this cell draws itself directly (it is not a UIPanel), so nothing else sets it.
+            base.Draw(spriteBatch);
 
             var bounds = new Rectangle(ScreenX, ScreenY, Width, Height);
             DrawRect(spriteBatch, bounds, Slot);
 
-            if (Thumbnail is not null)
+            //HeadThumbnailRenderer.Clear() can dispose the texture this cell still references between one
+            //SetItems call and the next (e.g. the base look changed) -- guard against drawing a stale handle.
+            if (Thumbnail is { IsDisposed: false })
                 DrawTextureFitted(spriteBatch, Thumbnail, new Rectangle(bounds.X + 2, bounds.Y + 2, Width - 4, Height - 4), Color.White);
 
             if (IsSelected)
