@@ -48,7 +48,7 @@ public sealed class BeautyShopControl : FramedDialogPanelBase
     //rows
     private const int ARROW_WIDTH = 26;
     private const int LABEL_WIDTH = 74;
-    private const int VALUE_WIDTH = 118;
+    private const int VALUE_WIDTH = 94; //leaves the price column (ROWS_WIDTH - PRICE_WIDTH) clear of the right arrow
     private const int PRICE_WIDTH = 70;
     private const int SWATCH_SIZE = 14;
     private const int GENDER_BUTTON_WIDTH = 64;
@@ -77,6 +77,7 @@ public sealed class BeautyShopControl : FramedDialogPanelBase
     private CustomButton ApplyButton = null!;
     private OkPopupMessageControl ConfirmDialog = null!;
     private Texture2D? SwatchTexture;
+    private DisplayColor? SwatchColor;
 
     /// <summary>The player closed the panel (button or Escape). Fires once per hide.</summary>
     public event Action? Closed;
@@ -165,6 +166,7 @@ public sealed class BeautyShopControl : FramedDialogPanelBase
     {
         FacingIndex = 0;
         GearToggle.Checked = false;
+        StatusLabel.Text = string.Empty;
         base.Show();
         Refresh();
     }
@@ -174,6 +176,10 @@ public sealed class BeautyShopControl : FramedDialogPanelBase
         if (!Visible)
             return;
 
+        //a gender-reshape prompt still standing when the panel goes away -- the player's own X/Escape while it is
+        //up, or the server closing the session out from under it -- must not be left visible or on the input
+        //stack; see PokerTableControl.Hide for the same reasoning.
+        ConfirmDialog.Hide();
         base.Hide();
         Preview.Release();
     }
@@ -424,9 +430,10 @@ public sealed class BeautyShopControl : FramedDialogPanelBase
         HairstyleRow = AddRow("Hairstyle", d => vm.StepHairstyle(d), ref y);
         HairColorRow = AddRow("Hair dye", d => vm.StepHairColor(d), ref y);
 
+        //sits between the "Hair dye" caption and the left arrow -- the only gap wide enough for it
         HairSwatch = new UIPanel
         {
-            X = HairColorRow.X + HairColorRow.Value.X - SWATCH_SIZE - 4,
+            X = HairColorRow.X + LABEL_WIDTH - SWATCH_SIZE - 4,
             Y = HairColorRow.Y + ((ROW_HEIGHT - SWATCH_SIZE) / 2),
             Width = SWATCH_SIZE,
             Height = SWATCH_SIZE,
@@ -451,6 +458,10 @@ public sealed class BeautyShopControl : FramedDialogPanelBase
     /// <summary>Every selection change goes through here: mutate the view model, then repaint everything.</summary>
     private void Select(Action<ViewModel.BeautyShop> mutate)
     {
+        //any change while the gender-reshape prompt is up invalidates what it was about to confirm
+        if (ConfirmDialog.Visible)
+            ConfirmDialog.Hide();
+
         mutate(WorldState.BeautyShop);
         StatusLabel.Text = string.Empty;
         Refresh();
@@ -464,13 +475,9 @@ public sealed class BeautyShopControl : FramedDialogPanelBase
         StatusLabel = FooterLabel(ROWS_LEFT, FOOTER_TOP + TextRenderer.CHAR_HEIGHT + 4, ROWS_WIDTH);
         StatusLabel.ForegroundColor = LegendColors.Red;
 
-        //Task 11 deviation: the brief's buttonsTop (PANEL_HEIGHT - OK_BOTTOM_MARGIN - CustomButton.HEIGHT - 4 = 294)
-        //would put the button bottom (316) inside FramedDialogPanelBase's 47px ornate bottom border
-        //(PANEL_HEIGHT - 47 = 283), so it is raised to sit flush above that border instead.
-        var buttonsTop = PANEL_HEIGHT - OK_BOTTOM_MARGIN - CustomButton.HEIGHT - 4;
-
-        if (buttonsTop + CustomButton.HEIGHT > PANEL_HEIGHT - 47)
-            buttonsTop = PANEL_HEIGHT - 47 - CustomButton.HEIGHT - 4;
+        //kept clear of the frame's ornate bottom border rather than OK_BOTTOM_MARGIN (which is sized for the
+        //small round close button, not this row of full-width buttons)
+        var buttonsTop = PANEL_HEIGHT - BORDER_BOTTOM_HEIGHT - CustomButton.HEIGHT - 4;
 
         ResetButton = new CustomButton("Reset", FOOTER_BUTTON_WIDTH) { X = ROWS_LEFT, Y = buttonsTop };
         ResetButton.Clicked += () => Select(v => v.Reset());
@@ -488,7 +495,10 @@ public sealed class BeautyShopControl : FramedDialogPanelBase
         ConfirmDialog.OnOk += () =>
         {
             ConfirmDialog.Hide();
-            ApplyRequested?.Invoke();
+
+            //re-validate: a row change or Reset while the prompt was up must not sneak an apply through
+            if (WorldState.BeautyShop.CanApply && WorldState.BeautyShop.GenderChanged)
+                ApplyRequested?.Invoke();
         };
 
         ConfirmDialog.OnCancel += () => ConfirmDialog.Hide();
@@ -573,14 +583,15 @@ public sealed class BeautyShopControl : FramedDialogPanelBase
     /// <summary>A flat 14x14 tile of the dye's mid-tone, rebuilt only when the colour changes.</summary>
     private void RefreshSwatch(DisplayColor color)
     {
-        var rgb = SwatchColorFor(color);
-
-        if (SwatchTexture is not null && (SwatchTexture.Tag is DisplayColor tagged) && (tagged == color))
+        if (SwatchColor == color)
             return;
+
+        SwatchColor = color;
+        var rgb = SwatchColorFor(color);
 
         SwatchTexture?.Dispose();
         var device = ChaosGame.Device;
-        SwatchTexture = new Texture2D(device, SWATCH_SIZE, SWATCH_SIZE) { Tag = color };
+        SwatchTexture = new Texture2D(device, SWATCH_SIZE, SWATCH_SIZE);
         SwatchTexture.SetData(Enumerable.Repeat(rgb, SWATCH_SIZE * SWATCH_SIZE).ToArray());
         HairSwatch.Background = SwatchTexture;
     }
@@ -603,6 +614,7 @@ public sealed class BeautyShopControl : FramedDialogPanelBase
 
     public override void Dispose()
     {
+        HairSwatch.Background = null; //detach so base doesn't double-dispose
         SwatchTexture?.Dispose();
         base.Dispose();
     }

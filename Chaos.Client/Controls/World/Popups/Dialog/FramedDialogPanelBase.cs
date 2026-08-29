@@ -22,7 +22,15 @@ public abstract class FramedDialogPanelBase : PrefabPanel
     private const int CORNER_BL_H = 47;
     private const int CORNER_BR_W = 31;
     private const int CORNER_BR_H = 47;
-    private const int BORDER_BOTTOM = 47;
+
+    /// <summary>
+    ///     Thickness of the frame's ornate bottom border, in pixels — subclasses need this to keep their own
+    ///     content (e.g. a footer button row) clear of it. Named distinctly from the same-valued
+    ///     <c>BORDER_BOTTOM</c> already declared privately by <see cref="DialogOptionPanel" /> and
+    ///     <see cref="MenuListPanel" /> for their own (differing) border metrics, so promoting this doesn't shadow
+    ///     either of them.
+    /// </summary>
+    protected const int BORDER_BOTTOM_HEIGHT = 47;
 
     private Texture2D? BackgroundTile;
     private Texture2D? CornerBl;
@@ -143,7 +151,7 @@ public abstract class FramedDialogPanelBase : PrefabPanel
                 spriteBatch,
                 EdgeBottomRivets,
                 sx + CORNER_TL_W,
-                sy + h - BORDER_BOTTOM,
+                sy + h - BORDER_BOTTOM_HEIGHT,
                 rivetsWidth,
                 EdgeBottomRivets.Height);
 
@@ -152,7 +160,7 @@ public abstract class FramedDialogPanelBase : PrefabPanel
                 spriteBatch,
                 EdgeBottomOk,
                 sx + okAreaStart,
-                sy + h - BORDER_BOTTOM,
+                sy + h - BORDER_BOTTOM_HEIGHT,
                 okAreaWidth,
                 EdgeBottomOk.Height);
 
