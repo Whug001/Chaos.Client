@@ -1,6 +1,7 @@
 #region
 using Chaos.Client.Collections;
 using Chaos.Client.Controls.Components;
+using Chaos.Client.Controls.Scrolling;
 using Chaos.Client.Data;
 using Chaos.Client.ViewModel;
 using Chaos.DarkAges.Definitions;
@@ -196,11 +197,33 @@ public sealed class MenuShopPanel : PrefabPanel
         DescWeightLabel = CreateLabel("DescWeight");
         DescWeightLabel?.ForegroundColor = LegendColors.White;
         
-        DescTextLabel = CreateLabel("DescText");
-        DescTextLabel?.ForegroundColor = LegendColors.White;
+        //the description scrolls, because a crafting recipe's entry is a stat list rather than a sentence and runs
+        //past the prefab rect. Built by hand rather than with CreateLabel so it can live inside the viewer: the
+        //viewer owns the right-hand bar (rendered dormant while the text fits) and the wheel, and re-sizes the
+        //label to the leftover width. Same arrangement as AbilityMetadataDetailsControl.
+        var descRect = GetRect("DescText");
 
-        DescTextLabel?.WordWrap = true;
-        DescTextLabel?.VerticalAlignment = VerticalAlignment.Top;
+        if (descRect != Rectangle.Empty)
+        {
+            DescTextLabel = new UILabel
+            {
+                Name = "DescText",
+                Width = descRect.Width,
+                Height = descRect.Height,
+                ForegroundColor = LegendColors.White,
+                WordWrap = true,
+                VerticalAlignment = VerticalAlignment.Top
+            };
+
+            AddChild(
+                new ScrollViewerControl(DescTextLabel)
+                {
+                    X = descRect.X,
+                    Y = descRect.Y,
+                    Width = descRect.Width,
+                    Height = descRect.Height
+                });
+        }
         MoneyLabel = CreateLabel("Money", HorizontalAlignment.Right);
         MoneyLabel?.ForegroundColor = LegendColors.White;
         
@@ -268,6 +291,7 @@ public sealed class MenuShopPanel : PrefabPanel
         DescLevelLabel?.Text = string.Empty;
         DescWeightLabel?.Text = string.Empty;
         DescTextLabel?.Text = string.Empty;
+        DescTextLabel?.ScrollOffset = 0;
     }
 
     private void ClearEntries()
@@ -624,6 +648,10 @@ public sealed class MenuShopPanel : PrefabPanel
         DescWeightLabel?.Text = entry.Weight?.ToString() ?? string.Empty;
 
         DescTextLabel?.Text = hasDetails ? entry.Description : string.Empty;
+
+        //a new entry starts at the top; leaving the offset where the last one was scrolled to would open the next
+        //description part-way down, or past its end
+        DescTextLabel?.ScrollOffset = 0;
     }
 
     /// <summary>
