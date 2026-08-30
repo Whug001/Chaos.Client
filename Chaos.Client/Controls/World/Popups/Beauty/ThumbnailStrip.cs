@@ -12,9 +12,8 @@ namespace Chaos.Client.Controls.World.Popups.Beauty;
 
 /// <summary>
 ///     A single page of picker cells with page arrows. Holds no state of its own beyond the items it was last
-///     given: the panel calls <see cref="SetItems" /> on every refresh and reacts to the events. The page/index
-///     text (e.g. "Hairstyle   12 / 101" and "page 2/17") is the panel's caption label, not this strip -- there
-///     is no room for a label beside the arrows once the cells are wide enough to read as thumbnails.
+///     given: the panel calls <see cref="SetItems" /> on every refresh and reacts to the events. The page indicator
+///     (e.g. "PAGE 2/17") is a separate label on the strip row, right-aligned with the appearance column.
 /// </summary>
 public sealed class ThumbnailStrip<T> : UIPanel where T : notnull
 {

@@ -29,17 +29,16 @@ public sealed class BeautyShopControl : FramedDialogPanelBase
     private const int PANEL_WIDTH = 600;
     private const int PANEL_HEIGHT = 470;
     private const int TOP_MARGIN = 5;
-    private const int TITLE_TOP = 10;
-    private const int SUBTITLE_TOP = TITLE_TOP + TextRenderer.CHAR_HEIGHT + 2;
+    private const int HEADER_TOP = 10;
     private const int OK_RIGHT_MARGIN = 14;
     private const int OK_BOTTOM_MARGIN = 10;
 
-    //preview column
+    //preview column — pedestal must fit a 111px-wide composite at 2x (222px); the old 180px width forced 1x
     private const int PREVIEW_LEFT = 20;
-    private const int PREVIEW_TOP = 44;
-    private const int PREVIEW_WIDTH = 200;
-    private const int PEDESTAL_WIDTH = 180;
-    private const int PEDESTAL_HEIGHT = 200;
+    private const int PREVIEW_TOP = HEADER_TOP;
+    private const int PREVIEW_WIDTH = 230;
+    private const int PEDESTAL_WIDTH = 230;
+    private const int PEDESTAL_HEIGHT = 250;
     private const int PEDESTAL_LEFT = PREVIEW_LEFT + ((PREVIEW_WIDTH - PEDESTAL_WIDTH) / 2);
     private const int PEDESTAL_TOP = PREVIEW_TOP + TextRenderer.CHAR_HEIGHT + 4;
     private const int PREVIEW_CONTROLS_TOP = PEDESTAL_TOP + PEDESTAL_HEIGHT + 6;
@@ -49,8 +48,8 @@ public sealed class BeautyShopControl : FramedDialogPanelBase
     private const int GEAR_TOGGLE_WIDTH = CustomCheckBox.CHECKBOX_SIZE + CustomCheckBox.CAPTION_GAP + (9 * TextRenderer.CHAR_WIDTH);
 
     //appearance column
-    private const int APPEARANCE_LEFT = 236;
-    private const int APPEARANCE_TOP = 44;
+    private const int APPEARANCE_LEFT = PREVIEW_LEFT + PREVIEW_WIDTH + 12;
+    private const int APPEARANCE_TOP = HEADER_TOP;
     private const int APPEARANCE_WIDTH = PANEL_WIDTH - APPEARANCE_LEFT - 20;
     private const int SECTION_GAP = 6;
     private const int CAPTION_ROW_HEIGHT = TextRenderer.CHAR_HEIGHT + 2;
@@ -88,9 +87,12 @@ public sealed class BeautyShopControl : FramedDialogPanelBase
 
     private readonly UILabel UnsavedLabel;
     private readonly UILabel HairstyleCaption;
+    private readonly UILabel HairstylePageLabel;
     private readonly UILabel DyeCaption;
     private readonly UILabel SkinCaption;
+    private readonly UILabel SkinPageLabel;
     private readonly UILabel FaceCaption;
+    private readonly UILabel FacePageLabel;
     private readonly UILabel SummaryLabel;
     private readonly UILabel TotalLabel;
     private readonly UILabel HoverTotalLabel;
@@ -127,9 +129,7 @@ public sealed class BeautyShopControl : FramedDialogPanelBase
 
         OkButton = CreateCloseButton(RequestDismissal, OK_RIGHT_MARGIN, OK_BOTTOM_MARGIN);
 
-        Caption("JOSEPHINE'S MIRROR", 0, TITLE_TOP, PANEL_WIDTH, HorizontalAlignment.Center, LegendColors.Gold);
-        Caption("Customize your appearance", PREVIEW_LEFT, SUBTITLE_TOP, 300, HorizontalAlignment.Left, LegendColors.LightGray);
-        UnsavedLabel = Caption("* Unsaved changes", PANEL_WIDTH - 20 - 160, SUBTITLE_TOP, 160, HorizontalAlignment.Right, LegendColors.Gold);
+        UnsavedLabel = Caption("* Unsaved changes", PANEL_WIDTH - 20 - 160, HEADER_TOP, 160, HorizontalAlignment.Right, LegendColors.Gold);
         UnsavedLabel.Visible = false;
 
         //── preview column ──
@@ -210,6 +210,7 @@ public sealed class BeautyShopControl : FramedDialogPanelBase
         HairstyleStrip.Selected += h => Select(v => v.SelectHairStyle(h.Sprite));
         HairstyleStrip.PageStepped += d => Select(v => v.StepHairstylePage(d), clearThumbnails: false);
         AddChild(HairstyleStrip);
+        HairstylePageLabel = StripPageLabel(y);
         y += ThumbnailStrip<BeautyShopHairstyleEntry>.CELL + SECTION_GAP;
 
         DyeCaption = Caption("Hair dye", APPEARANCE_LEFT, y, APPEARANCE_WIDTH);
@@ -229,6 +230,7 @@ public sealed class BeautyShopControl : FramedDialogPanelBase
         SkinStrip.Selected += c => Select(v => v.SelectBodyColor(c));
         SkinStrip.PageStepped += d => Select(v => v.StepBodyColorPage(d), clearThumbnails: false);
         AddChild(SkinStrip);
+        SkinPageLabel = StripPageLabel(y);
         y += ThumbnailStrip<BodyColor>.CELL + SECTION_GAP;
 
         FaceCaption = Caption("Face", APPEARANCE_LEFT, y, APPEARANCE_WIDTH);
@@ -239,6 +241,7 @@ public sealed class BeautyShopControl : FramedDialogPanelBase
         FaceStrip.Selected += f => Select(v => v.SelectFace(f.Sprite));
         FaceStrip.PageStepped += d => Select(v => v.StepFacePage(d), clearThumbnails: false);
         AddChild(FaceStrip);
+        FacePageLabel = StripPageLabel(y);
 
         //── purchase summary band ──
         SummaryLabel = Caption("No changes", SUMMARY_LEFT, SUMMARY_TOP, SUMMARY_WIDTH);
@@ -305,6 +308,16 @@ public sealed class BeautyShopControl : FramedDialogPanelBase
 
         return label;
     }
+
+    /// <summary>Right-aligned page indicator on the thumbnail strip row, vertically centred with the arrow buttons.</summary>
+    private UILabel StripPageLabel(int stripY)
+    {
+        var y = stripY + ((ThumbnailStrip<BeautyShopHairstyleEntry>.CELL - TextRenderer.CHAR_HEIGHT) / 2);
+
+        return Caption(string.Empty, APPEARANCE_LEFT, y, APPEARANCE_WIDTH, HorizontalAlignment.Right);
+    }
+
+    private static string PageLabelText(int page, int pageCount) => $"PAGE {page}/{pageCount}";
 
     /// <summary>Repaints the preview, every picker and the summary band from the view model.</summary>
     public void Refresh()
@@ -487,22 +500,19 @@ public sealed class BeautyShopControl : FramedDialogPanelBase
             var scale = Zoomed ? 2 : 1;
 
             //DrawTextureFitted culls when the destination rect doesn't intersect ClipRect at all -- it does not
-            //clip to it -- so a tall composite (e.g. Show gear on with a tall equip layer) at 2x can push the
-            //top of the figure above ScreenY and paint over whatever sits above the pedestal. Fall back to 1x
-            //for this draw alone (the toggle state itself is untouched) whenever it wouldn't fit, and clamp the
-            //top edge as a second line of defense. The width side of the same fallback: the 111px canvas at 2x
-            //is 222px, wider than the 180px pedestal, so a wide gear layer overhangs it (bare looks are narrow
-            //enough to stay clear).
+            //clip to it -- so an oversized composite (e.g. Show gear on with a tall equip layer) can paint outside
+            //the pedestal. Fall back to 1x for this draw alone (the toggle state itself is untouched) when 2x
+            //wouldn't fit.
             if (((Figure.Height * scale) > (Height - 12)) || ((Figure.Width * scale) > Width))
                 scale = 1;
 
             var w = Figure.Width * scale;
             var h = Figure.Height * scale;
 
-            //anchored on the body centre, not the pedestal centre, so the figure doesn't drift sideways between
-            //poses whose padded canvases differ in width
+            //anchor on the body centre so the figure stays centred in the pedestal at 1x and 2x and doesn't drift
+            //sideways between poses whose padded canvases differ in width
             var x = ScreenX + (Width / 2) - (AislingRenderer.CANVAS_CENTER_X * scale);
-            var y = Math.Max(ScreenY + 2, ScreenY + Height - h - 12);
+            var y = ScreenY + (Height / 2) - (AislingRenderer.BODY_CENTER_Y * scale);
 
             DrawTextureFitted(spriteBatch, Figure, new Rectangle(x, y, w, h), Color.White);
         }
@@ -560,9 +570,8 @@ public sealed class BeautyShopControl : FramedDialogPanelBase
         //keyed on the selected (not hovered) look so thumbnails never flicker while the player hovers other cells
         var baseLook = BareAppearance(vm.Gender, vm.HairStyle, vm.HairColor, vm.BodyColor, vm.FaceSprite);
 
-        HairstyleCaption.Text = CaptionLine(
-            $"Hairstyle   {IndexLabel(vm.Hairstyles, h => h.Sprite == vm.HairStyle)} / {vm.Hairstyles.Count}",
-            $"page {vm.HairstylePage + 1}/{vm.HairstylePageCount}");
+        HairstyleCaption.Text = $"Hairstyle   {IndexLabel(vm.Hairstyles, h => h.Sprite == vm.HairStyle)} / {vm.Hairstyles.Count}";
+        HairstylePageLabel.Text = PageLabelText(vm.HairstylePage + 1, vm.HairstylePageCount);
         HairstyleStrip.SetItems(
             vm.VisibleHairstyles,
             vm.Hairstyles.FirstOrDefault(h => h.Sprite == vm.HairStyle),
@@ -571,14 +580,16 @@ public sealed class BeautyShopControl : FramedDialogPanelBase
         DyeCaption.Text = $"Hair dye   {vm.HairColor}";
         DyeGrid.SetColors(vm.HairColors, vm.HairColor, SwatchColorFor);
 
-        SkinCaption.Text = CaptionLine($"Skin   {vm.BodyColor}", $"page {vm.BodyColorPage + 1}/{vm.BodyColorPageCount}");
+        SkinCaption.Text = $"Skin   {vm.BodyColor}";
+        SkinPageLabel.Text = PageLabelText(vm.BodyColorPage + 1, vm.BodyColorPageCount);
         SkinStrip.SetItems(
             vm.VisibleBodyColors,
             vm.BodyColor,
             c => Thumbnails.Get(baseLook with { BodyColor = (int)c }));
 
         var faceName = vm.Faces.FirstOrDefault(f => f.Sprite == vm.FaceSprite)?.Name ?? $"Face {vm.FaceSprite}";
-        FaceCaption.Text = CaptionLine($"Face   {faceName}", $"page {vm.FacePage + 1}/{vm.FacePageCount}");
+        FaceCaption.Text = $"Face   {faceName}";
+        FacePageLabel.Text = PageLabelText(vm.FacePage + 1, vm.FacePageCount);
         FaceStrip.SetItems(
             vm.VisibleFaces,
             vm.Faces.FirstOrDefault(f => f.Sprite == vm.FaceSprite),
@@ -622,19 +633,6 @@ public sealed class BeautyShopControl : FramedDialogPanelBase
         ApplyButton.Enabled = vm.CanApply;
     }
 
-    /// <summary>
-    ///     Right-pads <paramref name="left" /> with spaces (the font is fixed-width) so <paramref name="right" />
-    ///     lands near the caption row's right edge. One character short of the label's full inner width on
-    ///     purpose -- padding to exactly that width leaves no margin at all, so the last character of
-    ///     <paramref name="right" /> would clip the instant either string grew by a character.
-    /// </summary>
-    private static string CaptionLine(string left, string right)
-    {
-        var totalChars = Math.Max(1, (APPEARANCE_WIDTH / TextRenderer.CHAR_WIDTH) - 1);
-        var padCount = Math.Max(1, totalChars - left.Length - right.Length);
-
-        return left + new string(' ', padCount) + right;
-    }
 
     /// <summary>1-based position of the matching entry in <paramref name="items" />, or "-" when none matches.</summary>
     private static string IndexLabel<T>(IReadOnlyList<T> items, Func<T, bool> isCurrent)
