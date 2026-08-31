@@ -1176,8 +1176,18 @@ public sealed class ConnectionManager : IDisposable
     ///     Takes the given poker action at the table this character currently occupies.
     /// </summary>
     /// <param name="action">The <c>PokerAction</c> byte value being taken.</param>
-    public void SendPokerAct(byte action)
-        => SendIfWorld(new PokerTableInteractionArgs { Type = PokerInteractionType.Act, Action = action });
+    /// <param name="amount">
+    ///     For a bet or a raise, the gold to add to the outstanding bet. Zero means the street's fixed size.
+    ///     The server re-checks this against its own ceiling, so an over-large number is refused, not obeyed.
+    /// </param>
+    public void SendPokerAct(byte action, int amount = 0)
+        => SendIfWorld(
+            new PokerTableInteractionArgs
+            {
+                Type = PokerInteractionType.Act,
+                Action = action,
+                Amount = amount
+            });
 
     /// <summary>
     ///     Tells the server this character is leaving the poker table they occupy.

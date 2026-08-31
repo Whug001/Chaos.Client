@@ -1,7 +1,9 @@
-﻿#region
+#region
 using Chaos.Client.Collections;
 using Chaos.Client.Controls.Components;
 using Chaos.Client.Controls.Custom;
+using Chaos.Client.Controls.Generic;
+using Chaos.Client.Controls.Scrolling;
 using Chaos.Client.Controls.World.Popups.Dialog;
 using Chaos.Client.Extensions;
 using Chaos.Client.Rendering.Utility;
@@ -65,7 +67,7 @@ public sealed class SlotMachineControl : FramedDialogPanelBase
     //Width  = reel block + paytable rail, plus their gap and side margins.
     //Height = the footer's message line (driven by the taller of the reel window and a TYPICAL paytable render)
     //         plus the ornate frame's own bottom border.
-    private const int PANEL_WIDTH = RAIL_RIGHT + CONTENT_RIGHT;
+    private const int PANEL_WIDTH = LOG_RIGHT + CONTENT_RIGHT;
     private const int PANEL_HEIGHT = MESSAGE_TOP + TextRenderer.CHAR_HEIGHT + 1 + FRAME_BOTTOM_BORDER;
 
     //FramedDialogPanelBase paints a 47px-tall ornate bottom border over the panel's last 47 rows (it carries the
@@ -127,6 +129,17 @@ public sealed class SlotMachineControl : FramedDialogPanelBase
     private const int RAIL_WIDTH = RAIL_LABEL_WIDTH + MULT_COL_GAP + MULT_COL_WIDTH;
     private const int RAIL_RIGHT = RAIL_X + RAIL_WIDTH;
 
+    //── spin log ──
+    //a third column, right of the paytable rail. Wide enough for three 16px icons, a gap, a payout up to
+    //"+999,999,999", and the scrollbar gutter the viewer reserves out of its own width.
+    private const int LOG_GAP = 12;
+    private const int LOG_X = RAIL_RIGHT + LOG_GAP;
+    private const int LOG_WIDTH = 150;
+    private const int LOG_RIGHT = LOG_X + LOG_WIDTH;
+
+    /// <summary>How many settled spins the log keeps. Older rows fall off the top.</summary>
+    private const int LOG_MAX_ENTRIES = 60;
+
     //grew from 14 to 18 (+4) to fit PaytableIconRow.ICON_SIZE (16px, +1px padding top/bottom) -- a plain text
     //row only needed CHAR_HEIGHT(12)+2, but a legible creature icon needs more room than that.
     private const int PAYTABLE_ROW_HEIGHT = 18;
@@ -159,13 +172,28 @@ public sealed class SlotMachineControl : FramedDialogPanelBase
     //expression, hence the ternary -- the point is that this stays const so PANEL_HEIGHT can derive from it.
     private const int FOOTER_GAP = 8;
     private const int FOOTER_TOP = (REEL_WINDOW_BOTTOM > PAYTABLE_TYPICAL_BOTTOM ? REEL_WINDOW_BOTTOM : PAYTABLE_TYPICAL_BOTTOM) + FOOTER_GAP;
+    //the log runs from the reel window's top edge down to just above the footer, so it fills the panel's full
+    //working height rather than only the paytable's
+    private const int LOG_VIEW_TOP = REEL_WINDOW_TOP;
+    private const int LOG_VIEW_HEIGHT = FOOTER_TOP - FOOTER_GAP - LOG_VIEW_TOP;
+
     private const int MESSAGE_TOP_GAP = 4;
-    private const int MESSAGE_TOP = FOOTER_TOP + CustomButton.HEIGHT + MESSAGE_TOP_GAP;
+
+    //the auto-spin toggle gets its own row rather than sharing the footer: the footer's usable width runs from
+    //CONTENT_LEFT to RAIL_X, and Bet + Spin already leave only 14px of it, which is not a button.
+    private const int FOOTER_ROW_GAP = 4;
+    private const int FOOTER2_TOP = FOOTER_TOP + CustomButton.HEIGHT + FOOTER_ROW_GAP;
+    private const int MESSAGE_TOP = FOOTER2_TOP + CustomButton.HEIGHT + MESSAGE_TOP_GAP;
 
     //narrowed from 100: "Bet: 1,000" measures well under this, and the surplus only pushed the Spin button
     //rightwards until it met the paytable rail's column.
     private const int BET_LABEL_WIDTH = 84;
     private const int SPIN_BUTTON_WIDTH = 90;
+
+    //sits directly under Spin, at its width, so the two read as one control stack
+    private const int AUTO_BUTTON_WIDTH = SPIN_BUTTON_WIDTH;
+    private const string AUTO_CAPTION_OFF = "Auto Spin";
+    private const string AUTO_CAPTION_ON = "Stop Auto";
 
     //── payout audio ──
     //Fired from ShowResultMessage, which runs AFTER RevealDeferredState -- the same reveal gate the gold and
@@ -242,6 +270,9 @@ public sealed class SlotMachineControl : FramedDialogPanelBase
     private readonly UILabel MessageLabel;
     private readonly CustomButton SpinButton;
 
+    /// <summary>Toggles <see cref="AutoSpinning" />. Stays enabled during a spin, so a run can always be stopped.</summary>
+    private readonly CustomButton AutoButton;
+
     //the player's own purse, beside the bet. Without it the panel asks for gold every pull while never saying
     //whether there is any left -- the player had to close the window to find out, or spin and eat a rejection.
     private readonly UILabel GoldLabel;
@@ -257,6 +288,18 @@ public sealed class SlotMachineControl : FramedDialogPanelBase
     //PaytableRows is now the *fallback* label -- shown only for the overflow marker, or when a row's sprites
     //fail to resolve (see RefreshPaytableRows) -- with PaytableIcons the normal, primary rendering. A row is
     //never left with neither visible: a bad sprite id must degrade to readable text, not a silent blank line.
+    /// <summary>Settled spins, oldest first. Rebuilt into <see cref="SpinLogList" /> on every append.</summary>
+    private readonly List<SpinLogEntry> SpinLog = [];
+
+    private readonly VirtualizedRowList<SpinLogEntry> SpinLogList;
+    private readonly UILabel SpinLogHeader;
+
+    /// <summary>
+    ///     The Open payload's symbol table flattened to sprite ids, so a log row can resolve its icons without
+    ///     rebuilding the list per row. Refreshed with the rest of the panel in RefreshFromViewModel.
+    /// </summary>
+    private IReadOnlyList<int> LogSpriteIds = [];
+
     private readonly UILabel[] PaytableRows = new UILabel[MAX_PAYTABLE_ROWS];
 
     //the multiplier/"JACKPOT" figure for each pooled row, held in its own fixed-width right-aligned column so it
@@ -290,6 +333,13 @@ public sealed class SlotMachineControl : FramedDialogPanelBase
     //counts down from SERVER_SPIN_COOLDOWN_SECONDS from the moment a spin is REQUESTED. The spin controls come
     //back only once this has expired and the reels have settled, whichever is later.
     private float SpinCooldownRemaining;
+
+    /// <summary>
+    ///     Whether the panel is re-requesting a spin on its own each time the machine comes ready. Purely a client
+    ///     convenience -- every spin it fires is the same request the Spin button sends, so the server sees an
+    ///     ordinary sequence of spins and its own cooldown still paces them.
+    /// </summary>
+    private bool AutoSpinning;
 
     //── jackpot count-up ──
     //the figure currently ON SCREEN, eased toward the view model's authoritative pot. Only the display lags;
@@ -476,6 +526,38 @@ public sealed class SlotMachineControl : FramedDialogPanelBase
             AddChild(mult);
         }
 
+        //── spin log rail: what the last spins landed on and what they paid ──
+        SpinLogHeader = new UILabel
+        {
+            X = LOG_X,
+            Y = JACKPOT_TOP + ((JACKPOT_BOX_HEIGHT - TextRenderer.CHAR_HEIGHT) / 2),
+            Width = LOG_WIDTH,
+            Height = TextRenderer.CHAR_HEIGHT,
+            ForegroundColor = LegendColors.White,
+            IsHitTestVisible = false,
+            Text = "Recent Spins"
+        };
+        AddChild(SpinLogHeader);
+
+        //rows are bound, not owned, by the list: it pools SpinLogRow instances for the visible window and rebinds
+        //them as the view scrolls, so a long session costs the same as a short one
+        SpinLogList = new VirtualizedRowList<SpinLogEntry>(
+            LOG_WIDTH - ScrollBarControl.DEFAULT_WIDTH,
+            LOG_VIEW_HEIGHT,
+            SpinLogRow.HEIGHT,
+            () => new SpinLogRow(creatureRenderer, LOG_WIDTH - ScrollBarControl.DEFAULT_WIDTH),
+            (row, entry, _) => ((SpinLogRow)row).Bind(entry, LogSpriteIds),
+            pinToBottom: true);
+
+        AddChild(
+            new ScrollViewerControl(SpinLogList)
+            {
+                X = LOG_X,
+                Y = LOG_VIEW_TOP,
+                Width = LOG_WIDTH,
+                Height = LOG_VIEW_HEIGHT
+            });
+
         //── footer: bet + spin button on one row, result message centered beneath (see FOOTER_TOP) ──
         BetLabel = new UILabel
         {
@@ -495,6 +577,14 @@ public sealed class SlotMachineControl : FramedDialogPanelBase
         };
         SpinButton.Clicked += RequestSpin;
         AddChild(SpinButton);
+
+        AutoButton = new CustomButton(AUTO_CAPTION_OFF, AUTO_BUTTON_WIDTH)
+        {
+            X = CONTENT_LEFT + BET_LABEL_WIDTH,
+            Y = FOOTER2_TOP
+        };
+        AutoButton.Clicked += ToggleAutoSpin;
+        AddChild(AutoButton);
 
         //right-aligned into the rail's own column, so the footer reads "what a pull costs / spin / what you have"
         //left to right. Turns red once the purse is short of the bet -- the panel's answer to the one question it
@@ -610,6 +700,10 @@ public sealed class SlotMachineControl : FramedDialogPanelBase
         TitleLabel.Text = vm.MachineName;
         BetLabel.Text = $"Bet: {vm.Bet:N0}";
 
+        //the log's rows resolve their icons through this, so it has to be current before any row is bound
+        LogSpriteIds = spriteIds;
+        ClearSpinLog();
+
         //cleared BEFORE the refreshes below, not after: both of them defer while a spin is in flight (see the
         //reveal gate on RefreshGold/RefreshJackpot), so a panel reopened while AwaitingResult was still set from
         //an abandoned spin would otherwise skip its own repaint and open showing stale figures.
@@ -623,6 +717,7 @@ public sealed class SlotMachineControl : FramedDialogPanelBase
         //first pull earns an honest "Give the reels a moment." That is a better opening state than a dead Spin
         //button with no explanation attached to it.
         SpinCooldownRemaining = 0f;
+        StopAutoSpin();
 
         //a fresh Open/Show has no result to protect yet, and nothing to celebrate
         SetMessage("Spin to play!", LegendColors.White, false);
@@ -909,6 +1004,9 @@ public sealed class SlotMachineControl : FramedDialogPanelBase
 
         SpinButton.Enabled = SpinCooldownRemaining <= 0f;
 
+        //the server refused this spin, and a run that kept going would only collect the same refusal
+        StopAutoSpin();
+
         foreach (var reel in Reels)
             reel.LandOn(0);
 
@@ -930,6 +1028,135 @@ public sealed class SlotMachineControl : FramedDialogPanelBase
         //red, and held: this is the player's own outcome, protected from an unrelated jackpot broadcast the same
         //way ShowResultMessage's win/loss text is.
         SetMessage(text, LegendColors.Red, true);
+    }
+
+    private void ToggleAutoSpin()
+    {
+        if (AutoSpinning)
+        {
+            StopAutoSpin();
+            SetMessage("Auto spin off.", LegendColors.White, false);
+
+            return;
+        }
+
+        //refused rather than started, so the first thing auto spin does is never a rejection
+        if (WorldState.Inventory.Gold < (uint)Math.Max(0, WorldState.SlotMachine.Bet))
+        {
+            SetMessage("Not enough gold to spin.", LegendColors.Red, true);
+
+            return;
+        }
+
+        AutoSpinning = true;
+        AutoButton.Caption = AUTO_CAPTION_ON;
+
+        //the run starts on the next ready machine rather than here, so a press mid-cooldown does not jump the
+        //server's gate -- TickAutoSpin owns every spin the run fires, including its first
+    }
+
+    /// <summary>
+    ///     Ends an auto-spin run and restores the button caption. Safe to call when no run is going.
+    /// </summary>
+    private void StopAutoSpin()
+    {
+        if (!AutoSpinning)
+            return;
+
+        AutoSpinning = false;
+        AutoButton.Caption = AUTO_CAPTION_OFF;
+    }
+
+    /// <summary>
+    ///     Fires the next spin of a run once the machine is idle and off cooldown.
+    /// </summary>
+    /// <remarks>
+    ///     Paced by <see cref="SpinCooldownRemaining" /> alone, not by the result-message hold: the hold exists to
+    ///     protect an outcome from an unrelated jackpot broadcast, and waiting it out would idle the machine for a
+    ///     second after every spin. A run therefore turns at the server's own cooldown, which is the fastest a
+    ///     player clicking Spin could manage anyway.
+    ///     <para>
+    ///         Stops itself when the purse can no longer cover the bet, so a run ends on a message rather than on
+    ///         a rejection.
+    ///     </para>
+    /// </remarks>
+    private void TickAutoSpin()
+    {
+        if (AwaitingResult || (SpinCooldownRemaining > 0f))
+            return;
+
+        if (WorldState.Inventory.Gold < (uint)Math.Max(0, WorldState.SlotMachine.Bet))
+        {
+            StopAutoSpin();
+            SetMessage("Out of gold. Auto spin stopped.", LegendColors.Red, true);
+
+            return;
+        }
+
+        RequestSpin();
+    }
+
+    /// <summary>
+    ///     Records a settled spin. Called at the reveal, not on the server's answer: the payout and the symbols
+    ///     both arrive while the reels are still turning, and writing them into a visible log then would announce
+    ///     the outcome ahead of the animation -- the same reason the gold and jackpot figures sit behind
+    ///     <see cref="RevealDeferredState" />.
+    /// </summary>
+    /// <param name="stops">
+    ///     The stop each reel landed on, captured before the settle block cleared it.
+    /// </param>
+    private void AppendSpinLog(byte[]? stops)
+    {
+        var vm = WorldState.SlotMachine;
+        var indices = new int[REEL_COUNT];
+
+        for (var i = 0; i < REEL_COUNT; i++)
+        {
+            var strip = i < vm.Reels.Count ? vm.Reels[i] : null;
+
+            if (strip is not { Count: > 0 })
+            {
+                //-1 renders as the wildcard tile. A malformed strip should cost one wrong-looking icon, never a throw
+                indices[i] = -1;
+
+                continue;
+            }
+
+            var stop = (stops is not null) && (i < stops.Length) ? stops[i] : 0;
+            indices[i] = strip[stop % strip.Count];
+        }
+
+        SpinLog.Add(
+            new SpinLogEntry
+            {
+                SymbolIndices = indices,
+                Payout = vm.LastPayout,
+                WasJackpot = vm.LastWasJackpot
+            });
+
+        //trimmed from the front, and the list told about it, so the view does not slide by a row every time an
+        //old spin falls off the top
+        if (SpinLog.Count > LOG_MAX_ENTRIES)
+        {
+            var removed = SpinLog.Count - LOG_MAX_ENTRIES;
+            SpinLog.RemoveRange(0, removed);
+            SpinLogList.NotifyRemovedFromFront(removed);
+        }
+
+        SpinLogList.SetItems(SpinLog);
+    }
+
+    /// <summary>
+    ///     Empties the log. The history belongs to the sitting, so leaving the stool -- or being retargeted at
+    ///     another machine -- starts a fresh one rather than mixing two machines' spins in one list.
+    /// </summary>
+    private void ClearSpinLog()
+    {
+        if (SpinLog.Count == 0)
+            return;
+
+        SpinLog.Clear();
+        SpinLogList.SetItems(SpinLog);
     }
 
     private void RequestSpin()
@@ -1055,6 +1282,9 @@ public sealed class SlotMachineControl : FramedDialogPanelBase
                 if (Reels.All(r => r.IsSettled))
                 {
                     AwaitingResult = false;
+
+                    //captured before the clear: the log needs the stops that were just revealed
+                    var landedStops = PendingStops;
                     PendingStops = null;
 
                     //the server's own cooldown is usually still running at this point -- the block at the top of
@@ -1065,9 +1295,14 @@ public sealed class SlotMachineControl : FramedDialogPanelBase
                     //the gold and pot the player looks at at the moment they read "JACKPOT!" already agree with it.
                     RevealDeferredState();
                     ShowResultMessage();
+                    AppendSpinLog(landedStops);
                 }
             }
         }
+
+        //last, so a spin that settled this very frame can start the next one without idling a frame first
+        if (AutoSpinning)
+            TickAutoSpin();
 
         foreach (var reel in Reels)
             reel.Update(deltaSeconds);
@@ -1122,7 +1357,10 @@ public sealed class SlotMachineControl : FramedDialogPanelBase
         Array.Clear(ReelLanded);
         ResultMessageHoldRemaining = 0f;
         SpinCooldownRemaining = 0f;
+        StopAutoSpin();
         EndCelebration();
+
+        ClearSpinLog();
 
         base.Hide();
         WorldState.SlotMachine.Clear();

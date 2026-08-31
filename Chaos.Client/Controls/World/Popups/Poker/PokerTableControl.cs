@@ -1,8 +1,9 @@
-﻿#region
+#region
 using Chaos.Client.Collections;
 using Chaos.Client.Controls.Components;
 using Chaos.Client.Controls.Custom;
 using Chaos.Client.Controls.Generic;
+using Chaos.Client.Controls.Scrolling;
 using Chaos.Client.Controls.World.Hud;
 using Chaos.Client.Controls.World.Popups.Dialog;
 using Chaos.Client.Controls.World.ViewPort;
@@ -243,37 +244,82 @@ public sealed class PokerTableControl : FramedDialogPanelBase
     /// <summary>The "why" line sits directly under the event text, inside the felt, clear of the board above it.</summary>
     private const int WIN_REASON_TOP = EVENT_TOP + TextRenderer.CHAR_HEIGHT + 2;
 
-    //-- button rows, below the felt --
-    private const int ACTION_ROW_TOP = FELT_BOTTOM + 8;
-    private const int ACTION_BUTTON_COUNT = 5;
-    private const int ACTION_BUTTON_GAP = 6;
-    private const int ACTION_ROW_WIDTH = 400;
+    //-- button block, below the felt --
+    //Three rows in the bottom-right corner, narrow enough to leave the whole left half of the strip to the chat
+    //log. Every button is one width, so the rows stack as a single column of three regardless of how many
+    //buttons each holds.
+    private const int BUTTON_WIDTH = 78;
+    private const int BUTTON_GAP = 6;
+    private const int BUTTON_COLUMNS = 3;
 
-    private const int ACTION_BUTTON_WIDTH
-        = (ACTION_ROW_WIDTH - (ACTION_BUTTON_GAP * (ACTION_BUTTON_COUNT - 1))) / ACTION_BUTTON_COUNT;
+    private const int BUTTON_BLOCK_WIDTH = (BUTTON_WIDTH * BUTTON_COLUMNS) + (BUTTON_GAP * (BUTTON_COLUMNS - 1));
 
-    private const int ACTION_ROW_LEFT
-        = (PANEL_WIDTH - ((ACTION_BUTTON_WIDTH * ACTION_BUTTON_COUNT) + (ACTION_BUTTON_GAP * (ACTION_BUTTON_COUNT - 1)))) / 2;
+    /// <summary>Right edge the block aligns to. Matches the Close button's own margin.</summary>
+    private const int BUTTON_BLOCK_RIGHT = PANEL_WIDTH - OK_RIGHT_MARGIN;
 
-    private const int TABLE_ROW_TOP = ACTION_ROW_TOP + CustomButton.HEIGHT + 6;
+    private const int BUTTON_BLOCK_LEFT = BUTTON_BLOCK_RIGHT - BUTTON_BLOCK_WIDTH;
+
+    private const int BUTTON_ROW_GAP = 6;
+    private const int BUTTON_ROW_PITCH = CustomButton.HEIGHT + BUTTON_ROW_GAP;
+
+    /// <summary>Row 1: Bet and Raise -- the two that put gold in, kept apart from the three that do not.</summary>
+    private const int BUTTON_ROW_1_TOP = FELT_BOTTOM + 8;
+
+    /// <summary>Row 2: Fold, Call and Check.</summary>
+    private const int BUTTON_ROW_2_TOP = BUTTON_ROW_1_TOP + BUTTON_ROW_PITCH;
+
+    /// <summary>Row 3: Emote on the left, the Sit Out / Sit In toggle on the right.</summary>
+    private const int BUTTON_ROW_3_TOP = BUTTON_ROW_2_TOP + BUTTON_ROW_PITCH;
+
+    private const int BUTTON_BLOCK_BOTTOM = BUTTON_ROW_3_TOP + CustomButton.HEIGHT;
 
     /// <summary>Breathing room between the action buttons and the outline that frames them on the player's turn.</summary>
     private const int TURN_OUTLINE_PAD = 4;
+
+    /// <summary>The pre-select frame hugs its one button more tightly than the turn frame hugs the two rows.</summary>
+    private const int PRESELECT_OUTLINE_PAD = 2;
+
+    /// <summary>What the custom-size button reads when no amount is armed.</summary>
+    private const string RAISE_AMOUNT_CAPTION = "Bet Amt";
+
+    /// <summary>Digits the amount box accepts. Nine covers any figure the world's gold cap allows.</summary>
+    private const int RAISE_AMOUNT_MAX_DIGITS = 9;
 
     /// <summary>One blink of the your-turn frame: on for the first part of the period, off for the rest.</summary>
     private const float TURN_BLINK_PERIOD_SECONDS = 0.8f;
 
     private const float TURN_BLINK_ON_SECONDS = 0.5f;
-    private const int TABLE_BUTTON_COUNT = 5;
-    private const int TABLE_BUTTON_WIDTH = 96;
-    private const int TABLE_BUTTON_GAP = 8;
 
-    private const int TABLE_ROW_WIDTH
-        = (TABLE_BUTTON_WIDTH * TABLE_BUTTON_COUNT) + (TABLE_BUTTON_GAP * (TABLE_BUTTON_COUNT - 1));
+    //── table chat log, bottom-left ──
+    //Takes everything the button block leaves, which is now most of the strip.
+    private const int CHAT_LOG_LEFT = 12;
+    private const int CHAT_LOG_GAP = 10;
+    private const int CHAT_LOG_TOP = BUTTON_ROW_1_TOP - TURN_OUTLINE_PAD;
+    private const int CHAT_LOG_WIDTH = BUTTON_BLOCK_LEFT - CHAT_LOG_GAP - TURN_OUTLINE_PAD - CHAT_LOG_LEFT;
+    private const int CHAT_LOG_HEIGHT = BUTTON_BLOCK_BOTTOM - CHAT_LOG_TOP;
 
-    private const int TABLE_ROW_LEFT = (PANEL_WIDTH - TABLE_ROW_WIDTH) / 2;
+    //── the hand-ranking window ──
+    private const int RANKS_PAD = 8;
+    private const int RANKS_NAME_WIDTH = 116;
+    private const int RANKS_COL_GAP = 8;
+    private const int RANKS_MEANING_WIDTH = 268;
+    private const int RANKS_ROW_HEIGHT = TextRenderer.CHAR_HEIGHT + 4;
+    private const int RANKS_WIDTH = (RANKS_PAD * 2) + RANKS_NAME_WIDTH + RANKS_COL_GAP + RANKS_MEANING_WIDTH;
 
-    private const int PANEL_HEIGHT = TABLE_ROW_TOP + CustomButton.HEIGHT + 4 + FRAME_BOTTOM_BORDER;
+    /// <summary>Two lines under the ladder: the one rank people expect to see, and where five cards come from.</summary>
+    private const int RANKS_FOOTNOTE_LINES = 2;
+
+    /// <summary>How many spoken lines the log keeps. Older lines fall off the top.</summary>
+    private const int CHAT_LOG_MAX_LINES = 80;
+
+    private const int PANEL_HEIGHT = BUTTON_BLOCK_BOTTOM + 4 + FRAME_BOTTOM_BORDER;
+
+    //the your-turn frame covers rows 1 and 2 -- both hold betting actions, and framing only one of them would
+    //say the other is not part of the prompt
+    private const int TURN_OUTLINE_WIDTH = BUTTON_BLOCK_WIDTH + (TURN_OUTLINE_PAD * 2);
+
+    private const int TURN_OUTLINE_HEIGHT
+        = (CustomButton.HEIGHT * 2) + BUTTON_ROW_GAP + (TURN_OUTLINE_PAD * 2);
 
     /// <summary>
     ///     How long a rejection message resists being overwritten by the next snapshot's <c>EventText</c> -- long
@@ -307,10 +353,31 @@ public sealed class PokerTableControl : FramedDialogPanelBase
     /// <summary>Gold, brighter and more opaque than the acting outline: the winner's plaque for the reveal.</summary>
     private static readonly Color WinnerSeatColor = new(255, 215, 0, 240);
 
+    /// <summary>The pre-select frame -- a cool blue, so it never reads as the gold your-turn frame.</summary>
+    private static readonly Color PreselectColor = new(120, 180, 255, 240);
+
     /// <summary>
     ///     Names for <c>PokerTableDisplayArgs.WinningHand</c>, indexed by the wire byte. Index 0 is the
     ///     no-showdown case. Kept client-side so the server sends one byte rather than a string per client.
     /// </summary>
+    /// <summary>
+    ///     What beats what, best first, with the ladder read off <see cref="WinningHandNames" /> so the two can
+    ///     never disagree. There is deliberately no separate Royal Flush row: the server's ladder does not have
+    ///     one, and listing a tenth rank here would teach the player a hand the game does not score.
+    /// </summary>
+    private static readonly (string Name, string Meaning)[] HandRanks =
+    [
+        ("Straight Flush", "Five in a row, all the same suit"),
+        ("Four of a Kind", "Four cards of the same rank"),
+        ("Full House", "Three of a kind and a pair"),
+        ("Flush", "Five of the same suit, in any order"),
+        ("Straight", "Five in a row, in any suits"),
+        ("Three of a Kind", "Three cards of the same rank"),
+        ("Two Pair", "Two separate pairs"),
+        ("One Pair", "Two cards of the same rank"),
+        ("High Card", "None of the above. Your highest card plays")
+    ];
+
     private static readonly string[] WinningHandNames =
     [
         "everyone else folded",
@@ -347,12 +414,65 @@ public sealed class PokerTableControl : FramedDialogPanelBase
 
     //the gold frame around the whole action row while the action is on this player
     private readonly UIPanel TurnOutline;
-    private readonly CustomButton LeaveButton;
-    private readonly CustomButton SitOutButton;
-    private readonly CustomButton SitInButton;
+    /// <summary>Opens and closes <see cref="RanksWindow" />.</summary>
+    private readonly CustomButton HandsButton;
+
+    /// <summary>The what-beats-what window. An overlay on the felt, like the emote picker.</summary>
+    private readonly UIPanel RanksWindow;
+
+    /// <summary>Sits the player out, or back in, depending on which they currently are.</summary>
+    private readonly CustomButton SitToggleButton;
+
+    /// <summary>What the toggle above means right now, from the local seat's own server-sent state.</summary>
+    private bool SittingOut;
     private readonly CustomButton EmoteButton;
     private readonly UIPanel EmotePicker;
-    private readonly CustomButton ChatButton;
+    /// <summary>Frames the action the player has chosen to take when their turn arrives. Hidden when none is.</summary>
+    private readonly UIPanel PreselectOutline;
+
+    /// <summary>
+    ///     The action queued for this player's next turn, or null. Sent, and cleared, on the transition into their
+    ///     turn -- see <see cref="OnSnapshot" />. Only ever set while it is NOT their turn; a click on their own
+    ///     turn acts immediately instead.
+    /// </summary>
+    private byte? PendingAction;
+
+    /// <summary>Whether the action row is currently live, which is what decides click-acts-now vs click-queues.</summary>
+    private bool ActionRowLive;
+
+    /// <summary>Arms, and disarms, an oversized bet size for the next Bet or Raise.</summary>
+    private readonly CustomButton RaiseAmountButton;
+
+    /// <summary>
+    ///     The gold the player has chosen to raise by, or 0 to use the street's fixed size.
+    /// </summary>
+    /// <remarks>
+    ///     Armed rather than spent: it stays set across several bets so a player who wants to keep betting the
+    ///     same oversized amount does not retype it every street. Cleared by the button, by an empty answer to
+    ///     the prompt, and whenever the table stops offering an oversized bet at all.
+    /// </remarks>
+    private int CustomRaiseAmount;
+
+    /// <summary>The street's fixed bet size, from the last snapshot. The floor on a custom amount.</summary>
+    private int MinRaise;
+
+    /// <summary>
+    ///     The most the last snapshot said this player could add to the outstanding bet, or 0 for none.
+    /// </summary>
+    /// <remarks>
+    ///     A hint, not the rule. The server re-derives this when the action lands, because the ceiling moves
+    ///     every time anybody else's gold does -- so this is only ever used to grey the button and to refuse an
+    ///     obviously impossible number before it costs a round trip.
+    /// </remarks>
+    private int MaxRaise;
+
+    /// <summary>Whether the shared prompt is currently asking for a raise amount rather than a chat line.</summary>
+    private bool PromptIsRaiseAmount;
+
+    /// <summary>Spoken lines at this table, oldest first.</summary>
+    private readonly List<ChatLogLine> ChatLog = [];
+
+    private readonly VirtualizedRowList<ChatLogLine> ChatLogList;
     private readonly ChatPromptPanel ChatPrompt;
 
     //live speech bubbles, one entry per seat that is currently saying something
@@ -418,13 +538,15 @@ public sealed class PokerTableControl : FramedDialogPanelBase
     private float RejectHoldRemaining;
 
     /// <summary>
-    ///     Raised with a <c>PokerAction</c> byte when the player clicks an enabled action button. WorldScreen wires
-    ///     this to <c>ConnectionManager.SendPokerAct</c>.
+    ///     Raised with a <c>PokerAction</c> byte, and the gold to size it at, when the player clicks an enabled
+    ///     action button. WorldScreen wires this to <c>ConnectionManager.SendPokerAct</c>.
     /// </summary>
-    public event Action<byte>? ActionRequested;
-
-    /// <summary>Raised when the player clicks Leave. Wired to <c>ConnectionManager.SendPokerLeave</c>.</summary>
-    public event Action? LeaveRequested;
+    /// <remarks>
+    ///     The second value is 0 for everything but an oversized bet or raise, and 0 there too unless the player
+    ///     has armed an amount with <see cref="RaiseAmountButton" />. Zero means "use the street's fixed size",
+    ///     which is what every action was before custom sizing existed.
+    /// </remarks>
+    public event Action<byte, int>? ActionRequested;
 
     /// <summary>Raised when the player clicks Sit Out. Wired to <c>ConnectionManager.SendPokerSitOut</c>.</summary>
     public event Action? SitOutRequested;
@@ -608,23 +730,34 @@ public sealed class PokerTableControl : FramedDialogPanelBase
 
         //── action buttons: always visible, enabled only per LegalActions (see RefreshActionButtons). Greyed
         //   rather than hidden so the row never reflows under the cursor mid-hand. ──
-        FoldButton = CreateActionButton("Fold", 0, ACTION_FOLD);
-        CheckButton = CreateActionButton("Check", 1, ACTION_CHECK);
-        CallButton = CreateActionButton("Call", 2, ACTION_CALL);
-        BetButton = CreateActionButton("Bet", 3, ACTION_BET);
-        RaiseButton = CreateActionButton("Raise", 4, ACTION_RAISE);
+        BetButton = CreateActionButton("Bet", ACTION_BET);
+        RaiseButton = CreateActionButton("Raise", ACTION_RAISE);
+
+        //row 1, column 0 -- the slot Bet and Raise leave empty. Not an action button: it sets the SIZE the
+        //next Bet or Raise is sent at, and sends nothing itself.
+        RaiseAmountButton = new CustomButton(RAISE_AMOUNT_CAPTION, BUTTON_WIDTH)
+        {
+            X = BUTTON_BLOCK_LEFT,
+            Y = BUTTON_ROW_1_TOP,
+            Enabled = false
+        };
+        RaiseAmountButton.Clicked += OnRaiseAmountClicked;
+        AddChild(RaiseAmountButton);
+        FoldButton = CreateActionButton("Fold", ACTION_FOLD);
+        CallButton = CreateActionButton("Call", ACTION_CALL);
+        CheckButton = CreateActionButton("Check", ACTION_CHECK);
 
         //── your-turn frame: the row is the thing the player has to use, so it is the thing that lights up.
         //   Whole row rather than per button, so the greyed-out illegal actions still read as one prompt. ──
         TurnOutline = new UIPanel
         {
-            X = ACTION_ROW_LEFT - TURN_OUTLINE_PAD,
-            Y = ACTION_ROW_TOP - TURN_OUTLINE_PAD,
-            Width = (ACTION_BUTTON_WIDTH * ACTION_BUTTON_COUNT) + (ACTION_BUTTON_GAP * (ACTION_BUTTON_COUNT - 1)) + (TURN_OUTLINE_PAD * 2),
-            Height = CustomButton.HEIGHT + (TURN_OUTLINE_PAD * 2),
+            X = BUTTON_BLOCK_LEFT - TURN_OUTLINE_PAD,
+            Y = BUTTON_ROW_1_TOP - TURN_OUTLINE_PAD,
+            Width = TURN_OUTLINE_WIDTH,
+            Height = TURN_OUTLINE_HEIGHT,
             Background = BuildBorder(
-                (ACTION_BUTTON_WIDTH * ACTION_BUTTON_COUNT) + (ACTION_BUTTON_GAP * (ACTION_BUTTON_COUNT - 1)) + (TURN_OUTLINE_PAD * 2),
-                CustomButton.HEIGHT + (TURN_OUTLINE_PAD * 2),
+                TURN_OUTLINE_WIDTH,
+                TURN_OUTLINE_HEIGHT,
                 WinnerSeatColor,
                 2),
             IsHitTestVisible = false,
@@ -632,18 +765,66 @@ public sealed class PokerTableControl : FramedDialogPanelBase
         };
         AddChild(TurnOutline);
 
+        //── pre-select frame: a second, thinner outline that sits around ONE button rather than the whole row.
+        //   Distinct from TurnOutline on purpose -- that one says "act now", this one says "this is what you
+        //   have chosen to do when it is your turn", and both can be on screen at once for one frame. ──
+        PreselectOutline = new UIPanel
+        {
+            Width = BUTTON_WIDTH + (PRESELECT_OUTLINE_PAD * 2),
+            Height = CustomButton.HEIGHT + (PRESELECT_OUTLINE_PAD * 2),
+            Background = BuildBorder(
+                BUTTON_WIDTH + (PRESELECT_OUTLINE_PAD * 2),
+                CustomButton.HEIGHT + (PRESELECT_OUTLINE_PAD * 2),
+                PreselectColor,
+                2),
+            IsHitTestVisible = false,
+            Visible = false
+        };
+        AddChild(PreselectOutline);
+
+        //── table chat log, bottom-left ──
+        ChatLogList = new VirtualizedRowList<ChatLogLine>(
+            CHAT_LOG_WIDTH - ScrollBarControl.DEFAULT_WIDTH,
+            CHAT_LOG_HEIGHT,
+            TextRenderer.CHAR_HEIGHT,
+            static () => new UILabel
+            {
+                PaddingLeft = 0,
+                PaddingTop = 0
+            },
+            static (row, line, _) =>
+            {
+                var label = (UILabel)row;
+                label.Text = line.Text;
+                label.ForegroundColor = line.Color;
+            },
+            pinToBottom: true);
+
+        AddChild(
+            new ScrollViewerControl(ChatLogList)
+            {
+                X = CHAT_LOG_LEFT,
+                Y = CHAT_LOG_TOP,
+                Width = CHAT_LOG_WIDTH,
+                Height = CHAT_LOG_HEIGHT
+            });
+
         //── table controls: leaving and sitting out/in are not betting actions, so they are not gated on
         //   LegalActions -- they sit on their own row and answer to the local seat's own state. ──
-        LeaveButton = CreateTableButton("Leave", 0);
-        LeaveButton.Clicked += () => LeaveRequested?.Invoke();
+        HandsButton = CreateTableButton("Hands", 0);
+        EmoteButton = CreateTableButton("Emote", 1);
 
-        SitOutButton = CreateTableButton("Sit Out", 1);
-        SitOutButton.Clicked += () => SitOutRequested?.Invoke();
+        //one button for both, because they are the two halves of one state and only ever one of them applied.
+        //Which one it is now is read from the seat on every snapshot -- see RefreshTableButtons.
+        SitToggleButton = CreateTableButton("Sit Out", 2);
 
-        SitInButton = CreateTableButton("Sit In", 2);
-        SitInButton.Clicked += () => SitInRequested?.Invoke();
-
-        EmoteButton = CreateTableButton("Emote", 3);
+        SitToggleButton.Clicked += () =>
+        {
+            if (SittingOut)
+                SitInRequested?.Invoke();
+            else
+                SitOutRequested?.Invoke();
+        };
 
         //── the emote picker, hidden until asked for ──
         EmotePicker = new UIPanel
@@ -690,16 +871,121 @@ public sealed class PokerTableControl : FramedDialogPanelBase
                 return;
             }
 
-            //only one of the two overlays at a time -- the mirror of ChatButton's handler below. Both sit at the
-            //same ZIndex over the same middle of the felt, and the prompt, added later, would draw over the
-            //picker and take the clicks meant for it.
+            //only one of the two overlays at a time -- both sit at the same ZIndex over the same middle of the
+            //felt, and the prompt, added later, would draw over the picker and take the clicks meant for it.
             ChatPrompt.Close();
+            RanksWindow.Visible = false;
             EmotePicker.Visible = true;
         };
 
-        ChatButton = CreateTableButton("Chat", 4);
+        //── the hand-ranking window ──
+        //Built from HandRanks so the ladder shown and the ladder the server scores are one list. Sized from the
+        //row count rather than a fixed height, so adding a rank cannot silently overflow the panel.
+        var ranksHeight = (RANKS_PAD * 2)
+                          + TextRenderer.CHAR_HEIGHT
+                          + 6
+                          + (HandRanks.Length * RANKS_ROW_HEIGHT)
+                          + 6
+                          + (RANKS_FOOTNOTE_LINES * TextRenderer.CHAR_HEIGHT);
+
+        RanksWindow = new UIPanel
+        {
+            X = FELT_CENTER_X - (RANKS_WIDTH / 2),
+            Y = FELT_CENTER_Y - (ranksHeight / 2),
+            Width = RANKS_WIDTH,
+            Height = ranksHeight,
+            Background = BuildRecessedPanel(RANKS_WIDTH, ranksHeight),
+            Visible = false,
+
+            //the same layer as the emote picker: above the table, below the leave confirmation
+            ZIndex = 50
+        };
+        AddChild(RanksWindow);
+
+        RanksWindow.AddChild(
+            new UILabel
+            {
+                X = RANKS_PAD,
+                Y = RANKS_PAD,
+                Width = RANKS_WIDTH - (RANKS_PAD * 2),
+                Height = TextRenderer.CHAR_HEIGHT,
+                HorizontalAlignment = HorizontalAlignment.Center,
+                ForegroundColor = LegendColors.Gold,
+                IsHitTestVisible = false,
+                Text = "What beats what, best first"
+            });
+
+        var ranksTop = RANKS_PAD + TextRenderer.CHAR_HEIGHT + 6;
+
+        for (var i = 0; i < HandRanks.Length; i++)
+        {
+            var (name, meaning) = HandRanks[i];
+            var rowY = ranksTop + (i * RANKS_ROW_HEIGHT);
+
+            RanksWindow.AddChild(
+                new UILabel
+                {
+                    X = RANKS_PAD,
+                    Y = rowY,
+                    Width = RANKS_NAME_WIDTH,
+                    Height = TextRenderer.CHAR_HEIGHT,
+                    ForegroundColor = LegendColors.White,
+                    IsHitTestVisible = false,
+                    Text = name
+                });
+
+            RanksWindow.AddChild(
+                new UILabel
+                {
+                    X = RANKS_PAD + RANKS_NAME_WIDTH + RANKS_COL_GAP,
+                    Y = rowY,
+                    Width = RANKS_MEANING_WIDTH,
+                    Height = TextRenderer.CHAR_HEIGHT,
+                    ForegroundColor = LegendColors.Gray,
+                    IsHitTestVisible = false,
+                    Text = meaning
+                });
+        }
+
+        var footnoteTop = ranksTop + (HandRanks.Length * RANKS_ROW_HEIGHT) + 6;
+
+        string[] footnotes =
+        [
+            "A royal flush is just the best straight flush: A K Q J 10.",
+            "You make your best five from your two cards and the five shown."
+        ];
+
+        for (var i = 0; i < footnotes.Length; i++)
+            RanksWindow.AddChild(
+                new UILabel
+                {
+                    X = RANKS_PAD,
+                    Y = footnoteTop + (i * TextRenderer.CHAR_HEIGHT),
+                    Width = RANKS_WIDTH - (RANKS_PAD * 2),
+                    Height = TextRenderer.CHAR_HEIGHT,
+                    ForegroundColor = LegendColors.Gray,
+                    IsHitTestVisible = false,
+                    Text = footnotes[i]
+                });
+
+        HandsButton.Clicked += () =>
+        {
+            if (RanksWindow.Visible)
+            {
+                RanksWindow.Visible = false;
+
+                return;
+            }
+
+            //one overlay at a time -- all three sit at the same ZIndex over the same middle of the felt
+            EmotePicker.Visible = false;
+            ChatPrompt.Close();
+            RanksWindow.Visible = true;
+        };
 
         //── the say-something prompt ──
+        //no longer has a button of its own. Kept because the panel still owns the send path, and because
+        //ChatPrompt.Close() is called from Hide and from the emote picker.
         ChatPrompt = new ChatPromptPanel(CHAT_PROMPT_WIDTH, CHAT_SEND_WIDTH, CHAT_PROMPT_PAD)
         {
             X = FELT_CENTER_X - (CHAT_PROMPT_WIDTH / 2),
@@ -707,25 +993,11 @@ public sealed class PokerTableControl : FramedDialogPanelBase
             Visible = false,
             ZIndex = 50
         };
-        ChatPrompt.Submitted += text => ChatRequested?.Invoke(text);
+        ChatPrompt.Submitted += OnPromptSubmitted;
+
+        //backing out must not disturb an amount that was already armed, so the mode flag is simply dropped
+        ChatPrompt.Cancelled += () => PromptIsRaiseAmount = false;
         AddChild(ChatPrompt);
-
-        ChatButton.Clicked += () =>
-        {
-            if (ChatPrompt.Visible)
-            {
-                ChatPrompt.Close();
-
-                return;
-            }
-
-            //only one of the two overlays at a time -- they occupy the same middle of the felt
-            EmotePicker.Visible = false;
-            //the same budget the HUD's own say box uses: what fits in "Name: message" on one 67-character line.
-            //Anything past it is not rejected by the server, it is silently cut off for everyone who hears it,
-            //and the budget depends on this player's name so it is read at open time rather than fixed up front.
-            ChatPrompt.Open(ChatInputControl.PublicMessageMaxLength());
-        };
 
         //── the leave-the-hand confirmation ──
         //Owned by this panel and parented to it, rather than living on Root the way MarketBuyConfirm does. That
@@ -975,17 +1247,41 @@ public sealed class PokerTableControl : FramedDialogPanelBase
         return texture;
     }
 
-    private CustomButton CreateActionButton(string caption, int column, byte action)
+    /// <summary>
+    ///     The top-left corner of the button belonging to <paramref name="action" />.
+    /// </summary>
+    /// <remarks>
+    ///     Row 1 holds Bet and Raise, right-aligned into the block's last two columns. Row 2 holds Fold, Call and
+    ///     Check across all three. Read by the buttons themselves and by the pre-select frame, so there is one
+    ///     answer rather than two that can drift apart.
+    /// </remarks>
+    private static (int X, int Y) ActionButtonSlot(byte action)
     {
-        var button = new CustomButton(caption, ACTION_BUTTON_WIDTH)
+        var (column, top) = action switch
         {
-            X = ACTION_ROW_LEFT + (column * (ACTION_BUTTON_WIDTH + ACTION_BUTTON_GAP)),
-            Y = ACTION_ROW_TOP,
+            ACTION_BET   => (1, BUTTON_ROW_1_TOP),
+            ACTION_RAISE => (2, BUTTON_ROW_1_TOP),
+            ACTION_FOLD  => (0, BUTTON_ROW_2_TOP),
+            ACTION_CALL  => (1, BUTTON_ROW_2_TOP),
+            _            => (2, BUTTON_ROW_2_TOP)
+        };
+
+        return (BUTTON_BLOCK_LEFT + (column * (BUTTON_WIDTH + BUTTON_GAP)), top);
+    }
+
+    private CustomButton CreateActionButton(string caption, byte action)
+    {
+        var (x, y) = ActionButtonSlot(action);
+
+        var button = new CustomButton(caption, BUTTON_WIDTH)
+        {
+            X = x,
+            Y = y,
             Enabled = false
         };
 
         //CustomButton.OnClick already refuses to fire while disabled, so a greyed button cannot send.
-        button.Clicked += () => ActionRequested?.Invoke(action);
+        button.Clicked += () => OnActionButtonClicked(action);
         AddChild(button);
 
         return button;
@@ -993,10 +1289,10 @@ public sealed class PokerTableControl : FramedDialogPanelBase
 
     private CustomButton CreateTableButton(string caption, int column)
     {
-        var button = new CustomButton(caption, TABLE_BUTTON_WIDTH)
+        var button = new CustomButton(caption, BUTTON_WIDTH)
         {
-            X = TABLE_ROW_LEFT + (column * (TABLE_BUTTON_WIDTH + TABLE_BUTTON_GAP)),
-            Y = TABLE_ROW_TOP
+            X = BUTTON_BLOCK_LEFT + (column * (BUTTON_WIDTH + BUTTON_GAP)),
+            Y = BUTTON_ROW_3_TOP
         };
         AddChild(button);
 
@@ -1103,7 +1399,23 @@ public sealed class PokerTableControl : FramedDialogPanelBase
                 BoardCards[i]
                     .ShowNothing();
 
-        RefreshActionButtons(vm.LegalActions);
+        //computed before the row is gated, because whose turn it is decides how the buttons behave
+        var yourTurn = actorIndex.HasValue && (actorIndex.Value == vm.YourSeatIndex);
+
+        //read before the row is gated: the button's caption and its greying both come off these
+        MinRaise = vm.MinRaise;
+        MaxRaise = vm.MaxRaise;
+
+        //the ceiling moves with everyone's gold, so an armed amount can stop being reachable between one
+        //snapshot and the next. Trimmed rather than dropped: the player still wants to bet big. A ceiling of
+        //zero is not a trim signal -- that is what arrives between hands, and the amount should survive one.
+        if ((CustomRaiseAmount > 0) && (MaxRaise > 0) && (CustomRaiseAmount > MaxRaise))
+        {
+            SetCustomRaiseAmount(MaxRaise);
+            AppendChatLog($"Your bet size fell to {MaxRaise} gold, the most the table can cover.", LegendColors.CanaryYellow);
+        }
+
+        RefreshActionButtons(vm.LegalActions, yourTurn);
         RefreshTableButtons(vm);
 
         //the action log yields to a rejection the player has not had time to read yet -- see
@@ -1123,9 +1435,26 @@ public sealed class PokerTableControl : FramedDialogPanelBase
                 WinReasonLabel.Visible = false;
         }
 
-        //── turn alert: fires on the transition into the local player's turn, not on every repaint ──
-        var yourTurn = actorIndex.HasValue && (actorIndex.Value == vm.YourSeatIndex);
+        //── the queued action is spent on the transition INTO the turn, not on every repaint while it lasts ──
+        if (yourTurn && !WasYourTurn && (PendingAction is { } queued))
+        {
+            var wanted = queued;
+            SetPendingAction(null);
 
+            if (vm.LegalActions.Contains(wanted))
+                ActionRequested?.Invoke(wanted, AmountFor(wanted));
+            else
+            {
+                //deliberately NOT substituted with a safe fallback. Quietly folding, or quietly calling a raise
+                //the player never saw, spends their hand or their gold on a guess. The choice is dropped, said
+                //out loud, and the turn is handed back to them with the clock still running.
+                EventLabel.Text = "Your planned move is no longer legal.";
+                EventLabel.ForegroundColor = LegendColors.Red;
+                RejectHoldRemaining = REJECT_MESSAGE_HOLD_SECONDS;
+            }
+        }
+
+        //── turn alert: fires on the transition into the local player's turn, not on every repaint ──
         if (yourTurn && !WasYourTurn && Visible)
             SoundSystem.PlaySound(SOUND_YOUR_TURN);
 
@@ -1141,12 +1470,216 @@ public sealed class PokerTableControl : FramedDialogPanelBase
     }
 
     /// <summary>
+    ///     One line of table chat, kept for the log rail.
+    /// </summary>
+    private sealed record ChatLogLine(string Text, Color Color);
+
+    /// <summary>
+    ///     Handles a click on one of the five action buttons.
+    /// </summary>
+    /// <remarks>
+    ///     Two different meanings behind one button, decided by whose turn it is. On this player's turn the click
+    ///     acts, exactly as it always did. Off their turn it queues, so the choice can be made before the action
+    ///     arrives and changed as many times as they like until it does.
+    /// </remarks>
+    private void OnActionButtonClicked(byte action)
+    {
+        if (ActionRowLive)
+        {
+            //acting now supersedes anything queued -- the queue only ever existed to answer this moment
+            SetPendingAction(null);
+            ActionRequested?.Invoke(action, AmountFor(action));
+
+            return;
+        }
+
+        //clicking the queued action again takes it back, so there is always a way to choose nothing
+        SetPendingAction(PendingAction == action ? null : action);
+    }
+
+    /// <summary>
+    ///     The gold <paramref name="action" /> should be sized at: the armed custom amount for a bet or a
+    ///     raise, and 0 -- meaning the street's fixed size -- for everything else.
+    /// </summary>
+    private int AmountFor(byte action) => action is ACTION_BET or ACTION_RAISE ? CustomRaiseAmount : 0;
+
+    /// <summary>
+    ///     Handles a click on the custom-size button: arms an amount, or gives one up.
+    /// </summary>
+    /// <remarks>
+    ///     Clicking while an amount is armed clears it in one press, with no prompt and no confirmation. That
+    ///     is the way back to ordinary fixed-size betting, and it is deliberately the cheapest thing on the
+    ///     panel to do -- a player who has changed their mind about a large bet should not have to negotiate a
+    ///     dialog to take it back.
+    /// </remarks>
+    private void OnRaiseAmountClicked()
+    {
+        if (CustomRaiseAmount > 0)
+        {
+            SetCustomRaiseAmount(0);
+            AppendChatLog($"Betting the fixed {MinRaise} gold again.", LegendColors.CanaryYellow);
+
+            return;
+        }
+
+        //one overlay at a time -- they occupy the same middle of the felt
+        EmotePicker.Visible = false;
+        RanksWindow.Visible = false;
+
+        PromptIsRaiseAmount = true;
+
+        ChatPrompt.Open(
+            RAISE_AMOUNT_MAX_DIGITS,
+            $"Bet how much? {MinRaise} to {MaxRaise} gold. Send nothing to cancel.",
+            string.Empty);
+    }
+
+    /// <summary>
+    ///     Routes a prompt answer to whichever thing asked for it.
+    /// </summary>
+    private void OnPromptSubmitted(string text)
+    {
+        if (!PromptIsRaiseAmount)
+        {
+            //an empty chat line is a mis-click, not a message: never broadcast silence
+            if (text.Length > 0)
+                ChatRequested?.Invoke(text);
+
+            return;
+        }
+
+        PromptIsRaiseAmount = false;
+
+        //nothing typed is the second way out, for a player who opened the prompt and thought better of it
+        if (text.Length == 0)
+        {
+            SetCustomRaiseAmount(0);
+
+            return;
+        }
+
+        if (!int.TryParse(text, out var amount) || (amount <= 0))
+        {
+            AppendChatLog("That is not an amount of gold.", LegendColors.Red);
+
+            return;
+        }
+
+        if (amount < MinRaise)
+        {
+            AppendChatLog($"The least you can bet is {MinRaise} gold.", LegendColors.Red);
+
+            return;
+        }
+
+        //clamped rather than refused: the player asked for as much as they could, and the table's ceiling is
+        //the answer to that. Said out loud, because a silently reduced bet is a bet they did not make.
+        if (amount > MaxRaise)
+        {
+            AppendChatLog($"Trimmed to {MaxRaise} gold, the most this table can cover.", LegendColors.CanaryYellow);
+            amount = MaxRaise;
+        }
+
+        SetCustomRaiseAmount(amount);
+        AppendChatLog($"Bet and Raise are now {amount} gold.", LegendColors.CanaryYellow);
+    }
+
+    /// <summary>Arms an amount, or clears it, and puts the button's caption in step.</summary>
+    private void SetCustomRaiseAmount(int amount)
+    {
+        CustomRaiseAmount = amount;
+
+        //the caption is the state: the armed amount reads back as a number, so there is no way to be holding
+        //a large bet without seeing it on the button that will spend it
+        RaiseAmountButton.Caption = amount > 0 ? amount.ToString() : RAISE_AMOUNT_CAPTION;
+    }
+
+    /// <summary>
+    ///     Sets the queued action and moves the frame that shows it.
+    /// </summary>
+    private void SetPendingAction(byte? action)
+    {
+        PendingAction = action;
+
+        if (action is null)
+        {
+            PreselectOutline.Visible = false;
+
+            return;
+        }
+
+        //the action byte is also its column, which is what lets the frame find its button without a lookup
+        var (x, y) = ActionButtonSlot(action.Value);
+        PreselectOutline.X = x - PRESELECT_OUTLINE_PAD;
+        PreselectOutline.Y = y - PRESELECT_OUTLINE_PAD;
+        PreselectOutline.Visible = true;
+    }
+
+    /// <summary>
+    ///     Appends a spoken line to the table chat log, exactly as it arrived.
+    /// </summary>
+    private void AppendChatLog(string message) => AppendChatLog(message, LegendColors.White);
+
+    /// <summary>
+    ///     Appends a line to the table chat log in <paramref name="color" />, for the panel's own notices
+    ///     rather than for something a player said.
+    /// </summary>
+    private void AppendChatLog(string message, Color color)
+    {
+        ChatLog.Add(new ChatLogLine(message, color));
+
+        //trimmed from the front, and the list told about it, so the view does not slide by a line every time an
+        //old one falls off the top
+        if (ChatLog.Count > CHAT_LOG_MAX_LINES)
+        {
+            var removed = ChatLog.Count - CHAT_LOG_MAX_LINES;
+            ChatLog.RemoveRange(0, removed);
+            ChatLogList.NotifyRemovedFromFront(removed);
+        }
+
+        ChatLogList.SetItems(ChatLog);
+    }
+
+    /// <summary>
+    ///     Empties the chat log. The conversation belongs to the sitting, not to the table.
+    /// </summary>
+    private void ClearChatLog()
+    {
+        if (ChatLog.Count == 0)
+            return;
+
+        ChatLog.Clear();
+        ChatLogList.SetItems(ChatLog);
+    }
+
+    /// <summary>
     ///     Enables exactly the buttons whose <c>PokerAction</c> byte appears in <paramref name="legalActions" />
     ///     and greys the rest. This is the whole rule: there is no client-side legality check here to disagree with
     ///     the server, which re-validates every action it receives.
     /// </summary>
-    private void RefreshActionButtons(IReadOnlyList<byte> legalActions)
+    private void RefreshActionButtons(IReadOnlyList<byte> legalActions, bool yourTurn)
     {
+        ActionRowLive = yourTurn;
+
+        //an oversized bet needs a ceiling above the fixed size to aim at. Between hands there is none, which
+        //is why an armed amount is left alone here -- it is disarmed by its own button, or by an answer of
+        //nothing to the prompt, and never silently behind the player's back.
+        RaiseAmountButton.Enabled = (MinRaise > 0) && (MaxRaise >= MinRaise);
+
+        //off-turn every button is live, because off-turn a click chooses rather than acts, and there is nothing
+        //to be illegal about a choice. The server still re-validates whatever is finally sent, and a queued
+        //action that has become illegal by the time the turn arrives is dropped rather than sent (see OnSnapshot).
+        if (!yourTurn)
+        {
+            FoldButton.Enabled = true;
+            CheckButton.Enabled = true;
+            CallButton.Enabled = true;
+            BetButton.Enabled = true;
+            RaiseButton.Enabled = true;
+
+            return;
+        }
+
         FoldButton.Enabled = legalActions.Contains(ACTION_FOLD);
         CheckButton.Enabled = legalActions.Contains(ACTION_CHECK);
         CallButton.Enabled = legalActions.Contains(ACTION_CALL);
@@ -1164,9 +1697,12 @@ public sealed class PokerTableControl : FramedDialogPanelBase
         var yourSeat = (uint)vm.YourSeatIndex < SEAT_COUNT ? SeatLookup[vm.YourSeatIndex] : null;
         var seated = yourSeat is not null && !string.IsNullOrEmpty(yourSeat.Name);
 
-        SitOutButton.Enabled = seated && !yourSeat!.IsSittingOut;
-        SitInButton.Enabled = seated && yourSeat!.IsSittingOut;
-        LeaveButton.Enabled = true;
+        SittingOut = seated && yourSeat!.IsSittingOut;
+
+        //the caption is the state: a seated player always has exactly one of the two available, and an unseated
+        //one has neither, so the button greys out rather than offering a choice that cannot be made
+        SitToggleButton.Caption = SittingOut ? "Sit In" : "Sit Out";
+        SitToggleButton.Enabled = seated;
     }
 
     /// <summary>
@@ -1214,6 +1750,10 @@ public sealed class PokerTableControl : FramedDialogPanelBase
 
         if (seat < 0)
             return;
+
+        //logged verbatim: a public message reaches the client already formatted as "Name: text", so prefixing
+        //the speaker's name here printed it twice
+        AppendChatLog(message);
 
         //one bubble per seat: a player who talks twice replaces their own bubble rather than stacking two on top
         //of each other over the same head
@@ -1562,7 +2102,12 @@ public sealed class PokerTableControl : FramedDialogPanelBase
         ConfirmDialog.Hide();
         EmotePicker.Visible = false;
         ChatPrompt.Close();
+        PromptIsRaiseAmount = false;
+        SetCustomRaiseAmount(0);
+        RanksWindow.Visible = false;
         ClearBubbles();
+        ClearChatLog();
+        SetPendingAction(null);
         ClearAnimations();
         WinReasonLabel.Visible = false;
         TurnOutlineArmed = false;
@@ -1591,7 +2136,10 @@ public sealed class PokerTableControl : FramedDialogPanelBase
             //only meant to back out of the emote list would forfeit their gold to the pot.
             if (ChatPrompt.Visible)
             {
+                //backing out, so the mode goes with it -- otherwise the next chat line would be read as an
+                //amount of gold. An armed amount is untouched: Escape gives up the prompt, not the choice.
                 ChatPrompt.Close();
+                PromptIsRaiseAmount = false;
                 e.Handled = true;
 
                 return;
@@ -1605,8 +2153,34 @@ public sealed class PokerTableControl : FramedDialogPanelBase
                 return;
             }
 
+            if (RanksWindow.Visible)
+            {
+                RanksWindow.Visible = false;
+                e.Handled = true;
+
+                return;
+            }
+
             //the other player-initiated dismissal, and so the other one that has to ask first.
             RequestDismissal();
+            e.Handled = true;
+
+            return;
+        }
+
+        //Enter opens the say-something prompt, the way it opens the chat box everywhere else. This is the only
+        //way to reach it now that the Chat button is gone. Ignored while the prompt is already up, so its own
+        //textbox keeps Enter for submitting.
+        if ((e.Keycode == Keycode.Enter) && !ChatPrompt.Visible)
+        {
+            //one overlay at a time -- they occupy the same middle of the felt
+            EmotePicker.Visible = false;
+            RanksWindow.Visible = false;
+
+            //the same budget the HUD's own say box uses: what fits in "Name: message" on one 67-character line.
+            //Anything past it is not rejected by the server, it is silently cut off for everyone who hears it,
+            //and the budget depends on this player's name so it is read at open time rather than fixed up front.
+            ChatPrompt.Open(ChatInputControl.PublicMessageMaxLength());
             e.Handled = true;
 
             return;
@@ -2043,6 +2617,17 @@ public sealed class PokerTableControl : FramedDialogPanelBase
 
         private const int CORNER_INSET = 3;
 
+        /// <summary>
+        ///     How wide the rank may draw before it would run under the corner pip.
+        /// </summary>
+        /// <remarks>
+        ///     Every other rank is one character, but a ten is two -- and it is a ten, not the "T" this used to
+        ///     print, which is poker shorthand rather than a card face. Two characters at
+        ///     <see cref="RANK_SCALE" /> are wider than the gap between the card's left edge and its corner pip,
+        ///     so <see cref="Draw" /> steps the scale down until the text fits rather than letting it overlap.
+        /// </remarks>
+        private const int RANK_MAX_WIDTH = WIDTH - 2 - PIP_SIZE - CORNER_INSET;
+
         /// <summary>Edge of the square the suit pip is drawn into, in the card's top-right corner.</summary>
         private const int PIP_SIZE = 14;
 
@@ -2341,7 +2926,6 @@ public sealed class PokerTableControl : FramedDialogPanelBase
 
             var rankText = rank switch
             {
-                10 => "T",
                 11 => "J",
                 12 => "Q",
                 13 => "K",
@@ -2401,6 +2985,13 @@ public sealed class PokerTableControl : FramedDialogPanelBase
                         BODY_PIP_SIZE),
                     Ink);
 
+            //the largest whole scale the rank fits in. One-character ranks always take RANK_SCALE; only the ten
+            //steps down, and it does so by measurement rather than by being special-cased on its value.
+            var rankScale = RANK_SCALE;
+
+            while ((rankScale > 1) && (TextRenderer.MeasureWidth(RankText, rankScale) > RANK_MAX_WIDTH))
+                rankScale--;
+
             TextRenderer.DrawText(
                 spriteBatch,
                 new Vector2(ScreenX + CORNER_INSET, ScreenY + CORNER_INSET),
@@ -2409,7 +3000,7 @@ public sealed class PokerTableControl : FramedDialogPanelBase
                 false,
                 1f,
                 false,
-                RANK_SCALE);
+                rankScale);
 
             //the pip is drawn white and tinted here, so one texture per suit serves both ink colours
             var pip = SuitPips[Suit];
@@ -2632,13 +3223,32 @@ public sealed class PokerTableControl : FramedDialogPanelBase
 
             Subject = current;
 
-            if (Nullable.Equals(current.Appearance, RenderedAppearance))
+            var wanted = current.Appearance is { } appearance ? Bareheaded(appearance) : (AislingAppearance?)null;
+
+            if (Nullable.Equals(wanted, RenderedAppearance))
                 return;
 
-            RenderedAppearance = current.Appearance;
+            RenderedAppearance = wanted;
             MeasureFace();
             Render();
         }
+
+        /// <summary>
+        ///     Strips the head and the three accessory slots off a copy of the appearance, so the portrait shows the
+        ///     player's face rather than the brim of a hat.
+        /// </summary>
+        /// <remarks>
+        ///     The server folds helmet, over-helm and bare hairstyle into the one HeadSprite field, so the client cannot
+        ///     tell them apart. Clearing it means a player wearing a helmet shows a bare head here.
+        /// </remarks>
+        private static AislingAppearance Bareheaded(AislingAppearance appearance)
+            => appearance with
+            {
+                HeadSprite = 0,
+                Accessory1Sprite = 0,
+                Accessory2Sprite = 0,
+                Accessory3Sprite = 0
+            };
 
         /// <summary>
         ///     Finds the top of the head, from a render with no emote on it.
@@ -2800,41 +3410,88 @@ public sealed class PokerTableControl : FramedDialogPanelBase
     /// </remarks>
     private sealed class ChatPromptPanel : UIPanel
     {
+        private const int CANCEL_WIDTH = 56;
+        private const int BUTTON_GAP = 4;
+        private const int CAPTION_HEIGHT = TextRenderer.CHAR_HEIGHT + 4;
+
         private readonly UITextBox Input;
+        private readonly UILabel Caption;
 
         /// <summary>Raised with the typed text when the player sends it. Never raised with blank text.</summary>
         public event Action<string>? Submitted;
 
+        /// <summary>
+        ///     Raised when the player backs out instead of sending -- the Cancel button, or Escape.
+        /// </summary>
+        /// <remarks>
+        ///     Distinct from an empty send on purpose. An empty send means "I typed nothing", which the raise
+        ///     prompt reads as clearing the amount; backing out means "forget I opened this", which must leave
+        ///     whatever was already set exactly as it was.
+        /// </remarks>
+        public event Action? Cancelled;
+
         public ChatPromptPanel(int width, int sendWidth, int pad)
         {
+            var rowTop = pad + CAPTION_HEIGHT;
+            var height = CAPTION_HEIGHT + CustomButton.HEIGHT + (pad * 2);
+
             Width = width;
-            Height = CustomButton.HEIGHT + (pad * 2);
-            Background = BuildRecessedPanel(width, CustomButton.HEIGHT + (pad * 2));
+            Height = height;
+            Background = BuildRecessedPanel(width, height);
+
+            //blank for the chat prompt, which needs no explaining; the raise prompt fills it with its range
+            Caption = new UILabel
+            {
+                X = pad,
+                Y = pad,
+                Width = width - (pad * 2),
+                Height = TextRenderer.CHAR_HEIGHT,
+                ForegroundColor = LegendColors.CanaryYellow,
+                Text = string.Empty
+            };
+            AddChild(Caption);
 
             Input = new UITextBox
             {
                 X = pad,
-                Y = pad + ((CustomButton.HEIGHT - TextRenderer.CHAR_HEIGHT) / 2),
-                Width = width - (pad * 3) - sendWidth,
+                Y = rowTop + ((CustomButton.HEIGHT - TextRenderer.CHAR_HEIGHT) / 2),
+                Width = width - (pad * 2) - sendWidth - CANCEL_WIDTH - (BUTTON_GAP * 2),
                 Height = TextRenderer.CHAR_HEIGHT,
                 ForegroundColor = LegendColors.White
             };
             AddChild(Input);
 
+            var cancel = new CustomButton("Cancel", CANCEL_WIDTH)
+            {
+                X = width - pad - sendWidth - BUTTON_GAP - CANCEL_WIDTH,
+                Y = rowTop
+            };
+
+            cancel.Clicked += () =>
+            {
+                Close();
+                Cancelled?.Invoke();
+            };
+            AddChild(cancel);
+
             var send = new CustomButton("Send", sendWidth)
             {
                 X = width - pad - sendWidth,
-                Y = pad
+                Y = rowTop
             };
             send.Clicked += Submit;
             AddChild(send);
         }
 
         /// <param name="maxLength">The most characters the message may carry and still arrive whole.</param>
-        public void Open(int maxLength)
+        /// <param name="caption">A line above the box explaining what is being asked for. Blank for chat.</param>
+        /// <param name="initial">Text the box starts with, so an amount can be edited rather than retyped.</param>
+        public void Open(int maxLength, string caption = "", string initial = "")
         {
             Input.MaxLength = maxLength;
-            Input.Text = string.Empty;
+            Input.Text = initial;
+            Caption.Text = caption;
+            Caption.Visible = caption.Length > 0;
             Visible = true;
 
             //focused on open so the player can just type -- the button press was the decision to speak
@@ -2846,6 +3503,7 @@ public sealed class PokerTableControl : FramedDialogPanelBase
             //dropped explicitly: a focused box left behind would keep swallowing keystrokes meant for the table
             Input.IsFocused = false;
             Input.Text = string.Empty;
+            Caption.Text = string.Empty;
             Visible = false;
         }
 
@@ -2871,11 +3529,11 @@ public sealed class PokerTableControl : FramedDialogPanelBase
         {
             var text = Input.Text.Trim();
 
-            //an empty send is a mis-click, not a message: close without broadcasting silence
-            if (text.Length > 0)
-                Submitted?.Invoke(text);
-
             Close();
+
+            //an empty send still reports, because for the raise prompt "nothing" is a meaningful answer -- it
+            //is how the player goes back to the fixed size. The chat path checks for blank itself.
+            Submitted?.Invoke(text);
         }
     }
 
