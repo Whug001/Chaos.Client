@@ -19,6 +19,7 @@ internal static partial class Sdl
     public const uint MOUSEWHEEL = 0x403;
 
     public const byte BUTTON_LEFT = 1;
+    public const byte BUTTON_MIDDLE = 2;
     public const byte BUTTON_RIGHT = 3;
 
     //SDL_MouseButtonEvent field offsets:

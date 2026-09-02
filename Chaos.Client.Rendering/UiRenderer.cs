@@ -26,6 +26,8 @@ public sealed class UiRenderer : IDisposable
     private const int MAX_ATLAS_ENTRY_SIZE = 512;
 
     private readonly Dictionary<string, CachedTexture2D> Cache = new(StringComparer.OrdinalIgnoreCase);
+    private readonly Dictionary<string, Rectangle> EmoteContentBounds = new(StringComparer.OrdinalIgnoreCase);
+    private readonly Dictionary<string, Rectangle> EmoteHeadContentBounds = new(StringComparer.OrdinalIgnoreCase);
     private readonly GraphicsDevice Device;
     private readonly Dictionary<string, int> EpfFrameCounts = new(StringComparer.OrdinalIgnoreCase);
     private CachedTexture2D? MissingTextureField;
@@ -96,6 +98,8 @@ public sealed class UiRenderer : IDisposable
 
         Cache.Clear();
         EpfFrameCounts.Clear();
+        EmoteContentBounds.Clear();
+        EmoteHeadContentBounds.Clear();
 
         MissingTextureField?.ForceDispose();
         MissingTextureField = null;
@@ -145,6 +149,96 @@ public sealed class UiRenderer : IDisposable
         EpfFrameCounts[fileName] = images.Length;
 
         return Cache.GetValueOrDefault(key) ?? MissingTexture;
+    }
+
+    /// <summary>
+    ///     Loads a single EPF frame from legend.dat (e.g. emot01.epf) rendered with the appropriate GUI palette.
+    /// </summary>
+    public Texture2D GetLegendEpfTexture(string fileName, int frameIndex)
+    {
+        var key = $"legend-epf:{fileName}:{frameIndex}";
+
+        if (Cache.TryGetValue(key, out var cached))
+            return cached;
+
+        using var image = DataContext.UserControls.GetLegendEpfImage(fileName, frameIndex);
+
+        if (image is null)
+            return MissingTexture;
+
+        var texture = Convert(image);
+        Cache[key] = texture;
+
+        return texture;
+    }
+
+    /// <summary>
+    ///     Renders a face-emote frame from emot01.epf using the aisling body palette — the same source and palette
+    ///     <see cref="AislingRenderer" /> uses for in-world emotion overlays.
+    /// </summary>
+    public Texture2D GetEmoteFaceTexture(int frameIndex, int bodyColor = (int)BodyColor.White)
+    {
+        var key = $"emote-face:{frameIndex}:{bodyColor}";
+
+        if (Cache.TryGetValue(key, out var cached))
+            return cached;
+
+        var epf = DataContext.AislingDrawData.EmotionsEpf;
+
+        if (epf is null || frameIndex < 0 || frameIndex >= epf.Count)
+            return MissingTexture;
+
+        if (!DataContext.AislingDrawData.BodyPalettes.TryGetValue(bodyColor, out var palette)
+            && !DataContext.AislingDrawData.BodyPalettes.TryGetValue((int)BodyColor.White, out palette))
+            return MissingTexture;
+
+        using var image = Graphics.RenderImage(epf[frameIndex], palette);
+
+        if (image is null)
+            return MissingTexture;
+
+        var texture = Convert(image);
+        Cache[key] = texture;
+        EmoteContentBounds[key] = ImageUtil.FindOpaqueBounds(texture);
+
+        return texture;
+    }
+
+    /// <summary>
+    ///     Opaque pixel bounds within a cached emote-face texture (excludes transparent EPF padding).
+    /// </summary>
+    public Rectangle GetEmoteFaceContentRect(int frameIndex, int bodyColor = (int)BodyColor.White)
+    {
+        var key = $"emote-face:{frameIndex}:{bodyColor}";
+        _ = GetEmoteFaceTexture(frameIndex, bodyColor);
+
+        return EmoteContentBounds.TryGetValue(key, out var bounds) ? bounds : Rectangle.Empty;
+    }
+
+    /// <summary>
+    ///     Same pixels as <see cref="GetEmoteFaceTexture" /> but exposes head-only content bounds that omit the
+    ///     white speech-bubble backdrop — for emote-wheel / catalog UI previews.
+    /// </summary>
+    public Texture2D GetEmoteHeadTexture(int frameIndex, int bodyColor = (int)BodyColor.White)
+    {
+        var texture = GetEmoteFaceTexture(frameIndex, bodyColor);
+        var headKey = $"emote-head:{frameIndex}:{bodyColor}";
+
+        if (!EmoteHeadContentBounds.ContainsKey(headKey))
+            EmoteHeadContentBounds[headKey] = ImageUtil.FindHeadBounds(texture);
+
+        return texture;
+    }
+
+    /// <summary>
+    ///     Head-only pixel bounds for an emote UI icon (face without the speech bubble).
+    /// </summary>
+    public Rectangle GetEmoteHeadContentRect(int frameIndex, int bodyColor = (int)BodyColor.White)
+    {
+        var headKey = $"emote-head:{frameIndex}:{bodyColor}";
+        _ = GetEmoteHeadTexture(frameIndex, bodyColor);
+
+        return EmoteHeadContentBounds.TryGetValue(headKey, out var bounds) ? bounds : Rectangle.Empty;
     }
 
     /// <summary>

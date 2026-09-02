@@ -51,7 +51,8 @@ public static class ModifierExtensions
 public enum MouseButton
 {
     Left,
-    Right
+    Right,
+    Middle
 }
 
 public abstract class InputEvent

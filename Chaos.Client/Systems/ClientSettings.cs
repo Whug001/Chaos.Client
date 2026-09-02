@@ -1,3 +1,8 @@
+#region
+using Chaos.Client.Definitions;
+using Chaos.DarkAges.Definitions;
+#endregion
+
 namespace Chaos.Client.Systems;
 
 /// <summary>
@@ -36,6 +41,9 @@ public static class ClientSettings
 
     // --- Ground-target aim snapping (client-local; applied in WorldScreen.GroundTargetTileAt) ---
     public static bool GroundTargetSnapToEntity { get; set; } = true;
+
+    // --- Emote wheel slot assignments (client-local; middle-mouse radial wheel) ---
+    public static BodyAnimation[] EmoteWheelSlots { get; set; } = (BodyAnimation[])EmoteCatalog.DefaultWheelSlots.Clone();
 
     private static string FilePath => Path.Combine(GlobalSettings.DataPath, FILE_NAME);
 
@@ -160,6 +168,22 @@ public static class ClientSettings
                             MaxEffectAnimationsPerEntity = Math.Clamp(mea, 0, 10);
 
                         break;
+
+                    case "EmoteWheel0":
+                    case "EmoteWheel1":
+                    case "EmoteWheel2":
+                    case "EmoteWheel3":
+                    case "EmoteWheel4":
+                    case "EmoteWheel5":
+                        if (int.TryParse(value, out var ew)
+                            && Enum.IsDefined((BodyAnimation)ew)
+                            && EmoteCatalog.TryGet((BodyAnimation)ew, out _))
+                        {
+                            var idx = key[^1] - '0';
+                            EmoteWheelSlots[idx] = (BodyAnimation)ew;
+                        }
+
+                        break;
                 }
             }
         } catch
@@ -194,6 +218,9 @@ public static class ClientSettings
             writer.WriteLine($"CooldownNumbersEnabled : {(CooldownNumbersEnabled ? 1 : 0)}");
             writer.WriteLine($"GroundTargetSnapToEntity : {(GroundTargetSnapToEntity ? 1 : 0)}");
             writer.WriteLine($"MaxEffectAnimations : {MaxEffectAnimationsPerEntity}");
+
+            for (var i = 0; i < EmoteCatalog.SLOT_COUNT; i++)
+                writer.WriteLine($"EmoteWheel{i} : {(int)EmoteWheelSlots[i]}");
         } catch
         {
             //best effort — don't crash on save failure

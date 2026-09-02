@@ -932,6 +932,15 @@ public sealed partial class WorldScreen
 
         if (e.Scancode == Scancode.E)
         {
+            //middle mouse + E opens the emote wheel — don't toggle world list for that chord
+            //or for key-repeat / late keydown while E is still held after the chord ends
+            if (InputBuffer.IsMiddleButtonHeld || EmoteWheel.IsOpen || _suppressWorldListUntilERelease)
+            {
+                e.Handled = true;
+
+                return;
+            }
+
             ForceCloseOtherTogglePanels(Scancode.E);
 
             if (WorldList.Visible)

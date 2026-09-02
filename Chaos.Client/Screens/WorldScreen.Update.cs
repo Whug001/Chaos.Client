@@ -1,8 +1,11 @@
 #region
 using Chaos.Client.Collections;
 using Chaos.Client.Controls.Components;
+using Chaos.Client.Data.Utilities;
+using Chaos.Client.Definitions;
 using Chaos.Client.Models;
 using Chaos.Client.Systems;
+using Chaos.DarkAges.Definitions;
 using Chaos.Geometry.Abstractions.Definitions;
 using Microsoft.Xna.Framework;
 using Pathfinder = Chaos.Client.Systems.Pathfinder;
@@ -316,10 +319,95 @@ public sealed partial class WorldScreen
         if (!skipDispatch)
             Game.Dispatcher.ProcessInput(Root!, gameTime);
 
+        UpdateEmoteWheel();
+
         //all movement has been processed at this point — sort once and publish the frame state.
         PopulateFrameState(newHoveredId);
 
         Root!.Update(gameTime);
+    }
+
+    private void UpdateEmoteWheel()
+    {
+        if (_suppressWorldListUntilERelease && !InputBuffer.IsScancodeHeld(Scancode.E))
+            _suppressWorldListUntilERelease = false;
+
+        if (Game.Dispatcher.ControlStackCount > 0 && !EmoteWheel.IsOpen)
+            return;
+
+        var held = InputBuffer.IsMiddleButtonHeld && InputBuffer.IsScancodeHeld(Scancode.E);
+
+        if (held)
+        {
+            _suppressWorldListUntilERelease = true;
+
+            if (!EmoteWheel.IsOpen)
+            {
+                var bodyColor = WorldState.GetPlayerEntity()?.Appearance?.BodyColor ?? (int)BodyColor.White;
+                EmoteWheel.ShowAt(InputBuffer.MouseX, InputBuffer.MouseY, bodyColor);
+            }
+
+            _emoteWheelHeld = true;
+        }
+
+        if (!EmoteWheel.IsOpen)
+            return;
+
+        if (!EmoteWheel.IsCatalogOpen)
+            EmoteWheel.UpdateHover(InputBuffer.MouseX, InputBuffer.MouseY);
+
+        if (!held && _emoteWheelHeld)
+        {
+            if (EmoteWheel.IsCatalogOpen)
+            {
+                //chord release while configuring — keep the catalog open
+                _emoteWheelHeld = false;
+
+                return;
+            }
+
+            if (EmoteWheel.GetHighlightedEmote() is { } emote)
+            {
+                var player = WorldState.GetPlayerEntity();
+
+                if (player is not null && player.IsAtRest)
+                {
+                    Game.Connection.SendEmote(emote);
+                    TryPlayLocalEmote(emote);
+                }
+            }
+
+            EmoteWheel.Hide();
+            _emoteWheelHeld = false;
+        }
+    }
+
+    private void TryPlayLocalEmote(BodyAnimation anim)
+    {
+        var entity = WorldState.GetPlayerEntity();
+
+        if (entity is null || !entity.IsAtRest)
+            return;
+
+        if ((entity.AnimState == EntityAnimState.BodyAnim) || (entity.ActiveEmoteFrame >= 0))
+            return;
+
+        (_, var framesPerDir, _, _) = AnimationSystem.ResolveBodyAnimParams(anim);
+
+        if (framesPerDir > 0 || !DataUtilities.IsEmote(anim))
+            return;
+
+        (var startFrame, var frameCount, var durationMs) = AnimationSystem.ResolveEmoteFrames(anim);
+
+        if (startFrame < 0)
+            return;
+
+        entity.EmoteStartFrame = startFrame;
+        entity.EmoteFrameCount = frameCount;
+        entity.ActiveEmoteFrame = startFrame;
+        entity.EmoteDurationMs = durationMs;
+        entity.EmoteElapsedMs = 0;
+        entity.EmoteRemainingMs = durationMs;
     }
 
     /// <summary>

@@ -113,6 +113,12 @@ public static class InputBuffer
     public static bool IsRightButtonHeld { get; private set; }
 
     /// <summary>
+    ///     True while the middle mouse button is held down. Same per-window semantics as
+    ///     <see cref="IsLeftButtonHeld" />.
+    /// </summary>
+    public static bool IsMiddleButtonHeld { get; private set; }
+
+    /// <summary>
     ///     Returns true if the physical key is currently held down (event-tracked, not
     ///     polled). Keyed by scancode so it is layout-independent — the caller asks about a
     ///     physical position, not a printed label.
@@ -240,6 +246,7 @@ public static class InputBuffer
             PressedKeycodeByScancode.Clear();
             IsLeftButtonHeld = false;
             IsRightButtonHeld = false;
+            IsMiddleButtonHeld = false;
         }
 
         WasActivePreviousFrame = isActive;
@@ -428,6 +435,7 @@ public static class InputBuffer
         var mouseButton = sdlButton switch
         {
             Sdl.BUTTON_LEFT => MouseButton.Left,
+            Sdl.BUTTON_MIDDLE => MouseButton.Middle,
             Sdl.BUTTON_RIGHT => MouseButton.Right,
             _ => (MouseButton)(-1)
         };
@@ -443,6 +451,8 @@ public static class InputBuffer
             IsLeftButtonHeld = isPress;
         else if (mouseButton == MouseButton.Right)
             IsRightButtonHeld = isPress;
+        else if (mouseButton == MouseButton.Middle)
+            IsMiddleButtonHeld = isPress;
 
         //capture click position at the exact moment of the event in raw window pixels,
         //then translate to virtual coordinates via ToVirtual so polled and event

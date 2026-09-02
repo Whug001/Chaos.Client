@@ -741,4 +741,91 @@ public static class ImageUtil
 
         return TextureConverter.ToTexture2D(snapshot);
     }
+
+    /// <summary>
+    ///     Returns the tight axis-aligned bounds of pixels above <paramref name="alphaThreshold" />.
+    ///     Falls back to the full texture when no opaque pixels are found.
+    /// </summary>
+    public static Rectangle FindOpaqueBounds(Texture2D texture, byte alphaThreshold = 16)
+    {
+        using var scope = new PixelBufferScope(texture);
+        var pixels = scope.AsSpan();
+        var minX = scope.Width;
+        var minY = scope.Height;
+        var maxX = -1;
+        var maxY = -1;
+
+        for (var y = 0; y < scope.Height; y++)
+        {
+            var row = y * scope.Width;
+
+            for (var x = 0; x < scope.Width; x++)
+            {
+                if (pixels[row + x].A <= alphaThreshold)
+                    continue;
+
+                if (x < minX)
+                    minX = x;
+
+                if (y < minY)
+                    minY = y;
+
+                if (x > maxX)
+                    maxX = x;
+
+                if (y > maxY)
+                    maxY = y;
+            }
+        }
+
+        return maxX < 0
+            ? new Rectangle(0, 0, scope.Width, scope.Height)
+            : new Rectangle(minX, minY, maxX - minX + 1, maxY - minY + 1);
+    }
+
+    /// <summary>
+    ///     Bounds of non-bubble pixels in an emot01 frame — excludes the white speech-bubble backdrop so UI
+    ///     previews show only the face/head (see poker emote picker remarks on frames 11+).
+    /// </summary>
+    public static Rectangle FindHeadBounds(Texture2D texture, byte alphaThreshold = 16, byte bubbleLuminance = 220)
+    {
+        using var scope = new PixelBufferScope(texture);
+        var pixels = scope.AsSpan();
+        var minX = scope.Width;
+        var minY = scope.Height;
+        var maxX = -1;
+        var maxY = -1;
+
+        for (var y = 0; y < scope.Height; y++)
+        {
+            var row = y * scope.Width;
+
+            for (var x = 0; x < scope.Width; x++)
+            {
+                var p = pixels[row + x];
+
+                if (p.A <= alphaThreshold)
+                    continue;
+
+                if (p.R >= bubbleLuminance && p.G >= bubbleLuminance && p.B >= bubbleLuminance)
+                    continue;
+
+                if (x < minX)
+                    minX = x;
+
+                if (y < minY)
+                    minY = y;
+
+                if (x > maxX)
+                    maxX = x;
+
+                if (y > maxY)
+                    maxY = y;
+            }
+        }
+
+        return maxX < 0
+            ? FindOpaqueBounds(texture, alphaThreshold)
+            : new Rectangle(minX, minY, maxX - minX + 1, maxY - minY + 1);
+    }
 }

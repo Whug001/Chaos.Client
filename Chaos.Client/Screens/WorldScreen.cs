@@ -246,6 +246,9 @@ public sealed partial class WorldScreen : IScreen
     private WorldHudControl SmallHud = null!;
     private SystemMessagePaneControl SystemMessagePane = null!;
     private SocialStatusControl SocialStatusPicker = null!;
+    private EmoteWheelControl EmoteWheel = null!;
+    private bool _emoteWheelHeld;
+    private bool _suppressWorldListUntilERelease;
     private long LastSpacebarMs;
     private SelfProfileTabControl StatusBook = null!;
     private TabMapEntity[] TabMapEntities = [];
@@ -679,6 +682,7 @@ public sealed partial class WorldScreen : IScreen
         };
 
         SocialStatusPicker = new SocialStatusControl();
+        EmoteWheel = new EmoteWheelControl(Device);
 
         SocialStatusPicker.OnStatusSelected += status =>
         {
@@ -887,6 +891,7 @@ public sealed partial class WorldScreen : IScreen
         Root.AddChild(ChantEdit);
         Root.AddChild(WorldMap);
         Root.AddChild(SocialStatusPicker);
+        Root.AddChild(EmoteWheel);
         Root.AddChild(AislingContext);
 
         Root.AddChild(TownMapControl);
