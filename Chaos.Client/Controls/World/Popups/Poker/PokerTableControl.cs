@@ -2505,7 +2505,7 @@ public sealed class PokerTableControl : FramedDialogPanelBase
             NameLabel.Width = NAME_WIDTH;
             NameLabel.HorizontalAlignment = HorizontalAlignment.Left;
 
-            Portrait.ShowPlayer(seat.EntityId);
+            Portrait.ShowPlayer(seat.EntityId, seat.HairSprite, seat.HairColor);
 
             //dimmed the moment a seat is out of the hand, by either route the server reports it. The dimming is
             //the seat's whole "not in this one" signal, so it covers every line at once rather than one label.
@@ -3161,6 +3161,11 @@ public sealed class PokerTableControl : FramedDialogPanelBase
         private uint SubjectEntityId;
         private int RenderedEmoteFrame = -1;
 
+        //the seat's bare hairstyle, straight off the poker packet. DisplayAisling's HeadSprite is the hat when
+        //there is a hat, so it is no use for drawing the head under one
+        private ushort HairSprite;
+        private DisplayColor HairColor;
+
         /// <summary>The world id of whoever this portrait is following, used to match incoming speech to a seat.</summary>
         public uint? SubjectId => SubjectEntityId == 0 ? null : SubjectEntityId;
 
@@ -3184,9 +3189,17 @@ public sealed class PokerTableControl : FramedDialogPanelBase
         ///     per seat would allocate and leak a texture several times a second. The appearance is compared as
         ///     well as the name so a player who re-dyes or re-equips still refreshes.
         /// </remarks>
-        /// <summary>Follows the player with world entity id <paramref name="entityId" />, or nobody for 0.</summary>
-        public void ShowPlayer(uint entityId)
+        /// <summary>
+        ///     Follows the player with world entity id <paramref name="entityId" />, or nobody for 0, drawing them
+        ///     with <paramref name="hairSprite" /> on their head instead of whatever they have equipped.
+        /// </summary>
+        public void ShowPlayer(uint entityId, ushort hairSprite = 0, DisplayColor hairColor = DisplayColor.Default)
         {
+            //fed into Bareheaded below, so a re-dye or a new style shows up through the ordinary appearance
+            //comparison rather than needing a second check of its own
+            HairSprite = hairSprite;
+            HairColor = hairColor;
+
             if (entityId != SubjectEntityId)
             {
                 SubjectEntityId = entityId;
@@ -3234,17 +3247,22 @@ public sealed class PokerTableControl : FramedDialogPanelBase
         }
 
         /// <summary>
-        ///     Strips the head and the three accessory slots off a copy of the appearance, so the portrait shows the
-        ///     player's face rather than the brim of a hat.
+        ///     Takes the hat and the three accessory slots off a copy of the appearance and puts the player's own
+        ///     hair back on, so the portrait shows a face rather than the brim of a helmet.
         /// </summary>
         /// <remarks>
-        ///     The server folds helmet, over-helm and bare hairstyle into the one HeadSprite field, so the client cannot
-        ///     tell them apart. Clearing it means a player wearing a helmet shows a bare head here.
+        ///     <c>DisplayAisling</c> folds over-helm, helmet and hairstyle into its one HeadSprite field and sends
+        ///     only whichever wins, so clearing that field alone took the hair off with the hat, and took it off
+        ///     players who were not wearing one at all. The bare hairstyle rides along on the poker packet as
+        ///     <c>PokerSeatEntry.HairSprite</c> for exactly this, and is written back in here.
+        ///     <para />
+        ///     Body, face, armour, overcoat, boots, weapon and shield are all left alone.
         /// </remarks>
-        private static AislingAppearance Bareheaded(AislingAppearance appearance)
+        private AislingAppearance Bareheaded(AislingAppearance appearance)
             => appearance with
             {
-                HeadSprite = 0,
+                HeadSprite = HairSprite,
+                HeadColor = HairColor,
                 Accessory1Sprite = 0,
                 Accessory2Sprite = 0,
                 Accessory3Sprite = 0

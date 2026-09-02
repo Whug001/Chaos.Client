@@ -2,6 +2,8 @@
 using Chaos.Networking.Entities.Server;
 #endregion
 
+using Chaos.DarkAges.Definitions;
+
 namespace Chaos.Client.ViewModel;
 
 /// <summary>
@@ -26,6 +28,20 @@ public sealed class PokerSeatInfo
     ///     This seat's current gold on hand, not the amount committed to the pot this hand.
     /// </summary>
     public required int Gold { get; init; }
+
+    /// <summary>
+    ///     This seat occupant's bare hairstyle sprite, and <see cref="HairColor" /> its colour. Zero when the seat
+    ///     is empty or the player has no hair.
+    /// </summary>
+    /// <remarks>
+    ///     Needed because <c>DisplayAisling</c> reports one HeadSprite that is the over-helm, else the helmet,
+    ///     else the hair -- so the hair under a hat never reaches the client by that route. The poker portrait
+    ///     draws the head bare and puts this back on.
+    /// </remarks>
+    public ushort HairSprite { get; init; }
+
+    /// <summary>The colour of <see cref="HairSprite" />.</summary>
+    public DisplayColor HairColor { get; init; }
 
     /// <summary>
     ///     Whether this seat is occupied but sitting out of the current hand.
@@ -225,6 +241,8 @@ public sealed class PokerTable
                         HasFolded = seat.HasFolded,
                         Committed = seat.Committed,
                         LastAction = seat.LastAction,
+                        HairSprite = seat.HairSprite,
+                        HairColor = seat.HairColor,
                         HoleCards = seat.HoleCards.ToList(),
                         WinningCards = seat.WinningCards.ToList()
                     })
