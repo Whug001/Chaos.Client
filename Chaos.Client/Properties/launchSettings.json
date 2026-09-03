@@ -1,0 +1,10 @@
+{
+  "profiles": {
+    "Chaos.Client": {
+      "commandName": "Project",
+      "environmentVariables": {
+        "DA_PATH": "C:\\Users\\mewbb\\Desktop\\Unora\\Unora"
+      }
+    }
+  }
+}

@@ -131,7 +131,10 @@ public sealed class AbilityMetadataDetailsControl : PrefabPanel
             //account for the master flag, or a non-master would see the requirement in met white.
             if (entry.AbilityLevel > 0)
             {
-                LevelLabel.Text = $"ability {entry.AbilityLevel}";
+                //abbreviated, unlike the entry rows. The prefab boxes LEV between x57 and x117 and puts the STR
+                //field at x124, so there is no room to widen it -- "ability 10" already overflowed 60px and came
+                //back ellipsised. "AB 999" fits with room to spare.
+                LevelLabel.Text = $"AB {entry.AbilityLevel}";
 
                 LevelLabel.ForegroundColor = RequirementColor(
                     (attrs?.Ability >= entry.AbilityLevel) && (!entry.RequiresMaster || WorldState.IsMaster));

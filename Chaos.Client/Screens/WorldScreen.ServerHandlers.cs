@@ -999,7 +999,11 @@ public sealed partial class WorldScreen
 
         //entity-targeted effect on target
         if (args is { TargetId: > 0, TargetAnimation: > 0 })
-            CreateEffect(args.TargetAnimation, args.AnimationSpeed, args.TargetId.Value);
+            CreateEffect(
+                args.TargetAnimation,
+                args.AnimationSpeed,
+                args.TargetId.Value,
+                isBackground: args.IsBackground);
 
         //source-side effect (caster visual)
         if (args is { SourceId: > 0, SourceAnimation: > 0 })

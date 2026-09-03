@@ -561,6 +561,28 @@ public sealed partial class WorldScreen
             if (!effect.IsBackground || effect.IsComplete)
                 continue;
 
+            //a background effect may be pinned to an entity rather than a tile -- the bard songs are, so that
+            //they stay under the singer's feet while they walk instead of being left behind on the tile the
+            //server happened to fire them from
+            if (effect.TargetEntityId.HasValue)
+            {
+                var target = WorldState.GetEntity(effect.TargetEntityId.Value);
+
+                if (target is null)
+                    continue;
+
+                var targetWorld = Camera.TileToWorld(target.TileX, target.TileY, MapFile.Height);
+
+                DrawSingleEffect(
+                    scope,
+                    effect,
+                    targetWorld.X + DaLibConstants.HALF_TILE_WIDTH,
+                    targetWorld.Y + DaLibConstants.HALF_TILE_HEIGHT,
+                    target.VisualOffset);
+
+                continue;
+            }
+
             if (!effect.TileX.HasValue || !effect.TileY.HasValue)
                 continue;
 
@@ -891,7 +913,8 @@ public sealed partial class WorldScreen
 
         foreach (var effect in WorldState.ActiveEffects)
         {
-            if ((effect.TargetEntityId != entity.Id) || effect.IsComplete)
+            //the background pass already drew this one, under every entity rather than over them
+            if ((effect.TargetEntityId != entity.Id) || effect.IsComplete || effect.IsBackground)
                 continue;
 
             DrawSingleEffect(
