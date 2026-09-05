@@ -1,4 +1,4 @@
-#region
+﻿#region
 using Chaos.Client.Collections;
 using Chaos.Client.Controls.Components;
 using Chaos.Client.Controls.Custom;
@@ -279,12 +279,6 @@ public sealed class PokerTableControl : FramedDialogPanelBase
     /// <summary>The pre-select frame hugs its one button more tightly than the turn frame hugs the two rows.</summary>
     private const int PRESELECT_OUTLINE_PAD = 2;
 
-    /// <summary>What the custom-size button reads when no amount is armed.</summary>
-    private const string RAISE_AMOUNT_CAPTION = "Bet Amt";
-
-    /// <summary>Digits the amount box accepts. Nine covers any figure the world's gold cap allows.</summary>
-    private const int RAISE_AMOUNT_MAX_DIGITS = 9;
-
     /// <summary>One blink of the your-turn frame: on for the first part of the period, off for the rest.</summary>
     private const float TURN_BLINK_PERIOD_SECONDS = 0.8f;
 
@@ -440,35 +434,6 @@ public sealed class PokerTableControl : FramedDialogPanelBase
     /// <summary>Whether the action row is currently live, which is what decides click-acts-now vs click-queues.</summary>
     private bool ActionRowLive;
 
-    /// <summary>Arms, and disarms, an oversized bet size for the next Bet or Raise.</summary>
-    private readonly CustomButton RaiseAmountButton;
-
-    /// <summary>
-    ///     The gold the player has chosen to raise by, or 0 to use the street's fixed size.
-    /// </summary>
-    /// <remarks>
-    ///     Armed rather than spent: it stays set across several bets so a player who wants to keep betting the
-    ///     same oversized amount does not retype it every street. Cleared by the button, by an empty answer to
-    ///     the prompt, and whenever the table stops offering an oversized bet at all.
-    /// </remarks>
-    private int CustomRaiseAmount;
-
-    /// <summary>The street's fixed bet size, from the last snapshot. The floor on a custom amount.</summary>
-    private int MinRaise;
-
-    /// <summary>
-    ///     The most the last snapshot said this player could add to the outstanding bet, or 0 for none.
-    /// </summary>
-    /// <remarks>
-    ///     A hint, not the rule. The server re-derives this when the action lands, because the ceiling moves
-    ///     every time anybody else's gold does -- so this is only ever used to grey the button and to refuse an
-    ///     obviously impossible number before it costs a round trip.
-    /// </remarks>
-    private int MaxRaise;
-
-    /// <summary>Whether the shared prompt is currently asking for a raise amount rather than a chat line.</summary>
-    private bool PromptIsRaiseAmount;
-
     /// <summary>Spoken lines at this table, oldest first.</summary>
     private readonly List<ChatLogLine> ChatLog = [];
 
@@ -538,15 +503,13 @@ public sealed class PokerTableControl : FramedDialogPanelBase
     private float RejectHoldRemaining;
 
     /// <summary>
-    ///     Raised with a <c>PokerAction</c> byte, and the gold to size it at, when the player clicks an enabled
-    ///     action button. WorldScreen wires this to <c>ConnectionManager.SendPokerAct</c>.
+    ///     Raised with a <c>PokerAction</c> byte when the player clicks an enabled action button. WorldScreen
+    ///     wires this to <c>ConnectionManager.SendPokerAct</c>.
     /// </summary>
     /// <remarks>
-    ///     The second value is 0 for everything but an oversized bet or raise, and 0 there too unless the player
-    ///     has armed an amount with <see cref="RaiseAmountButton" />. Zero means "use the street's fixed size",
-    ///     which is what every action was before custom sizing existed.
+    ///     Betting is fixed-limit, so there is no size to carry: a Bet or a Raise is always the street's size.
     /// </remarks>
-    public event Action<byte, int>? ActionRequested;
+    public event Action<byte>? ActionRequested;
 
     /// <summary>Raised when the player clicks Sit Out. Wired to <c>ConnectionManager.SendPokerSitOut</c>.</summary>
     public event Action? SitOutRequested;
@@ -733,16 +696,6 @@ public sealed class PokerTableControl : FramedDialogPanelBase
         BetButton = CreateActionButton("Bet", ACTION_BET);
         RaiseButton = CreateActionButton("Raise", ACTION_RAISE);
 
-        //row 1, column 0 -- the slot Bet and Raise leave empty. Not an action button: it sets the SIZE the
-        //next Bet or Raise is sent at, and sends nothing itself.
-        RaiseAmountButton = new CustomButton(RAISE_AMOUNT_CAPTION, BUTTON_WIDTH)
-        {
-            X = BUTTON_BLOCK_LEFT,
-            Y = BUTTON_ROW_1_TOP,
-            Enabled = false
-        };
-        RaiseAmountButton.Clicked += OnRaiseAmountClicked;
-        AddChild(RaiseAmountButton);
         FoldButton = CreateActionButton("Fold", ACTION_FOLD);
         CallButton = CreateActionButton("Call", ACTION_CALL);
         CheckButton = CreateActionButton("Check", ACTION_CHECK);
@@ -994,9 +947,6 @@ public sealed class PokerTableControl : FramedDialogPanelBase
             ZIndex = 50
         };
         ChatPrompt.Submitted += OnPromptSubmitted;
-
-        //backing out must not disturb an amount that was already armed, so the mode flag is simply dropped
-        ChatPrompt.Cancelled += () => PromptIsRaiseAmount = false;
         AddChild(ChatPrompt);
 
         //── the leave-the-hand confirmation ──
@@ -1259,8 +1209,8 @@ public sealed class PokerTableControl : FramedDialogPanelBase
     {
         var (column, top) = action switch
         {
-            ACTION_BET   => (1, BUTTON_ROW_1_TOP),
-            ACTION_RAISE => (2, BUTTON_ROW_1_TOP),
+            ACTION_BET   => (0, BUTTON_ROW_1_TOP),
+            ACTION_RAISE => (1, BUTTON_ROW_1_TOP),
             ACTION_FOLD  => (0, BUTTON_ROW_2_TOP),
             ACTION_CALL  => (1, BUTTON_ROW_2_TOP),
             _            => (2, BUTTON_ROW_2_TOP)
@@ -1402,19 +1352,6 @@ public sealed class PokerTableControl : FramedDialogPanelBase
         //computed before the row is gated, because whose turn it is decides how the buttons behave
         var yourTurn = actorIndex.HasValue && (actorIndex.Value == vm.YourSeatIndex);
 
-        //read before the row is gated: the button's caption and its greying both come off these
-        MinRaise = vm.MinRaise;
-        MaxRaise = vm.MaxRaise;
-
-        //the ceiling moves with everyone's gold, so an armed amount can stop being reachable between one
-        //snapshot and the next. Trimmed rather than dropped: the player still wants to bet big. A ceiling of
-        //zero is not a trim signal -- that is what arrives between hands, and the amount should survive one.
-        if ((CustomRaiseAmount > 0) && (MaxRaise > 0) && (CustomRaiseAmount > MaxRaise))
-        {
-            SetCustomRaiseAmount(MaxRaise);
-            AppendChatLog($"Your bet size fell to {MaxRaise} gold, the most the table can cover.", LegendColors.CanaryYellow);
-        }
-
         RefreshActionButtons(vm.LegalActions, yourTurn);
         RefreshTableButtons(vm);
 
@@ -1442,7 +1379,7 @@ public sealed class PokerTableControl : FramedDialogPanelBase
             SetPendingAction(null);
 
             if (vm.LegalActions.Contains(wanted))
-                ActionRequested?.Invoke(wanted, AmountFor(wanted));
+                ActionRequested?.Invoke(wanted);
             else
             {
                 //deliberately NOT substituted with a safe fallback. Quietly folding, or quietly calling a raise
@@ -1488,7 +1425,7 @@ public sealed class PokerTableControl : FramedDialogPanelBase
         {
             //acting now supersedes anything queued -- the queue only ever existed to answer this moment
             SetPendingAction(null);
-            ActionRequested?.Invoke(action, AmountFor(action));
+            ActionRequested?.Invoke(action);
 
             return;
         }
@@ -1498,100 +1435,13 @@ public sealed class PokerTableControl : FramedDialogPanelBase
     }
 
     /// <summary>
-    ///     The gold <paramref name="action" /> should be sized at: the armed custom amount for a bet or a
-    ///     raise, and 0 -- meaning the street's fixed size -- for everything else.
-    /// </summary>
-    private int AmountFor(byte action) => action is ACTION_BET or ACTION_RAISE ? CustomRaiseAmount : 0;
-
-    /// <summary>
-    ///     Handles a click on the custom-size button: arms an amount, or gives one up.
-    /// </summary>
-    /// <remarks>
-    ///     Clicking while an amount is armed clears it in one press, with no prompt and no confirmation. That
-    ///     is the way back to ordinary fixed-size betting, and it is deliberately the cheapest thing on the
-    ///     panel to do -- a player who has changed their mind about a large bet should not have to negotiate a
-    ///     dialog to take it back.
-    /// </remarks>
-    private void OnRaiseAmountClicked()
-    {
-        if (CustomRaiseAmount > 0)
-        {
-            SetCustomRaiseAmount(0);
-            AppendChatLog($"Betting the fixed {MinRaise} gold again.", LegendColors.CanaryYellow);
-
-            return;
-        }
-
-        //one overlay at a time -- they occupy the same middle of the felt
-        EmotePicker.Visible = false;
-        RanksWindow.Visible = false;
-
-        PromptIsRaiseAmount = true;
-
-        ChatPrompt.Open(
-            RAISE_AMOUNT_MAX_DIGITS,
-            $"Bet how much? {MinRaise} to {MaxRaise} gold. Send nothing to cancel.",
-            string.Empty);
-    }
-
-    /// <summary>
     ///     Routes a prompt answer to whichever thing asked for it.
     /// </summary>
     private void OnPromptSubmitted(string text)
     {
-        if (!PromptIsRaiseAmount)
-        {
-            //an empty chat line is a mis-click, not a message: never broadcast silence
-            if (text.Length > 0)
-                ChatRequested?.Invoke(text);
-
-            return;
-        }
-
-        PromptIsRaiseAmount = false;
-
-        //nothing typed is the second way out, for a player who opened the prompt and thought better of it
-        if (text.Length == 0)
-        {
-            SetCustomRaiseAmount(0);
-
-            return;
-        }
-
-        if (!int.TryParse(text, out var amount) || (amount <= 0))
-        {
-            AppendChatLog("That is not an amount of gold.", LegendColors.Red);
-
-            return;
-        }
-
-        if (amount < MinRaise)
-        {
-            AppendChatLog($"The least you can bet is {MinRaise} gold.", LegendColors.Red);
-
-            return;
-        }
-
-        //clamped rather than refused: the player asked for as much as they could, and the table's ceiling is
-        //the answer to that. Said out loud, because a silently reduced bet is a bet they did not make.
-        if (amount > MaxRaise)
-        {
-            AppendChatLog($"Trimmed to {MaxRaise} gold, the most this table can cover.", LegendColors.CanaryYellow);
-            amount = MaxRaise;
-        }
-
-        SetCustomRaiseAmount(amount);
-        AppendChatLog($"Bet and Raise are now {amount} gold.", LegendColors.CanaryYellow);
-    }
-
-    /// <summary>Arms an amount, or clears it, and puts the button's caption in step.</summary>
-    private void SetCustomRaiseAmount(int amount)
-    {
-        CustomRaiseAmount = amount;
-
-        //the caption is the state: the armed amount reads back as a number, so there is no way to be holding
-        //a large bet without seeing it on the button that will spend it
-        RaiseAmountButton.Caption = amount > 0 ? amount.ToString() : RAISE_AMOUNT_CAPTION;
+        //an empty chat line is a mis-click, not a message: never broadcast silence
+        if (text.Length > 0)
+            ChatRequested?.Invoke(text);
     }
 
     /// <summary>
@@ -1660,11 +1510,6 @@ public sealed class PokerTableControl : FramedDialogPanelBase
     private void RefreshActionButtons(IReadOnlyList<byte> legalActions, bool yourTurn)
     {
         ActionRowLive = yourTurn;
-
-        //an oversized bet needs a ceiling above the fixed size to aim at. Between hands there is none, which
-        //is why an armed amount is left alone here -- it is disarmed by its own button, or by an answer of
-        //nothing to the prompt, and never silently behind the player's back.
-        RaiseAmountButton.Enabled = (MinRaise > 0) && (MaxRaise >= MinRaise);
 
         //off-turn every button is live, because off-turn a click chooses rather than acts, and there is nothing
         //to be illegal about a choice. The server still re-validates whatever is finally sent, and a queued
@@ -2102,8 +1947,6 @@ public sealed class PokerTableControl : FramedDialogPanelBase
         ConfirmDialog.Hide();
         EmotePicker.Visible = false;
         ChatPrompt.Close();
-        PromptIsRaiseAmount = false;
-        SetCustomRaiseAmount(0);
         RanksWindow.Visible = false;
         ClearBubbles();
         ClearChatLog();
@@ -2136,10 +1979,7 @@ public sealed class PokerTableControl : FramedDialogPanelBase
             //only meant to back out of the emote list would forfeit their gold to the pot.
             if (ChatPrompt.Visible)
             {
-                //backing out, so the mode goes with it -- otherwise the next chat line would be read as an
-                //amount of gold. An armed amount is untouched: Escape gives up the prompt, not the choice.
                 ChatPrompt.Close();
-                PromptIsRaiseAmount = false;
                 e.Handled = true;
 
                 return;

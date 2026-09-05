@@ -88,6 +88,19 @@ public sealed class LargeWorldHudControl : PrefabPanel, IWorldHud
 
     /// <inheritdoc />
     public Rectangle OrangeBarBounds { get; }
+
+    /// <inheritdoc />
+    /// <remarks>
+    ///     Taken from the chat input box: the strips span exactly its column and stack up from its top edge.
+    ///     The viewport's bottom edge is not usable in this layout -- it sits below the chat box, low enough
+    ///     that a strip placed against it lands on the hud frame.
+    ///     <para />
+    ///     Read fresh every frame rather than captured once. <c>ShiftCompanionElements</c> moves the chat box
+    ///     whenever a panel expands or collapses, and a value taken in the constructor kept pointing at where
+    ///     the box used to be -- which is how the strips ended up sitting too low and half behind the frame.
+    ///     <c>ScreenY</c> rather than <c>Y</c> because the strips are drawn in screen space.
+    /// </remarks>
+    public Rectangle StripAnchor => new(ChatInput.ScreenX, ChatInput.ScreenY, ChatInput.Width, 0);
     public UIButton?[] InventoryTabButtons { get; } = new UIButton?[6];
     public UIButton? LegendButton { get; }
     public MailButton? MailButton { get; }

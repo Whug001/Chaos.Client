@@ -19,6 +19,12 @@ public sealed record ItemMetadataEntry
     ///     "AB20" or "Master", which <see cref="Level" /> cannot hold.
     /// </summary>
     public string LevelText { get; init; } = string.Empty;
+
+    /// <summary>
+    ///     The class field exactly as the server wrote it. Usually the base class as a number, but gear with an
+    ///     ability level arrives as "Warlord" or "Plague Doctor", which <see cref="Class" /> cannot hold.
+    /// </summary>
+    public string ClassText { get; init; } = string.Empty;
     public required string Name { get; init; }
     public int Weight { get; init; }
 
@@ -64,6 +70,7 @@ public sealed record ItemMetadataEntry
             Level = level,
             LevelText = properties[0],
             Class = cls,
+            ClassText = properties[1],
             Weight = weight,
             Category = properties[3],
             Description = properties[4]

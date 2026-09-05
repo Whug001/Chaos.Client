@@ -1,4 +1,4 @@
-#region
+﻿#region
 using Chaos.Client.Collections;
 using Chaos.Client.Controls.Components;
 using Chaos.Client.Controls.World.Hud.Panel;
@@ -98,6 +98,13 @@ public sealed class WorldHudControl : PrefabPanel, IWorldHud
     /// <inheritdoc />
     public Rectangle OrangeBarBounds { get; }
 
+    /// <inheritdoc />
+    /// <remarks>
+    ///     The pane column, stacking up from the viewport's bottom edge. In this layout that edge lands just
+    ///     above the orange bar and clear of the hud frame, so the strips take the bottom row of the viewport.
+    /// </remarks>
+    public Rectangle StripAnchor { get; }
+
     //inventory tab buttons
     public UIButton?[] InventoryTabButtons { get; } = new UIButton?[6];
     public UIButton? LegendButton { get; }
@@ -154,6 +161,8 @@ public sealed class WorldHudControl : PrefabPanel, IWorldHud
         //a prefab without that rect would otherwise give the song strip zero width and hide it outright
         if (OrangeBarBounds == Rectangle.Empty)
             OrangeBarBounds = ViewportBounds;
+
+        StripAnchor = new Rectangle(OrangeBarBounds.X, ViewportBounds.Bottom, OrangeBarBounds.Width, 0);
 
         //hp/mp orbs
         HpOrb = CreateProgressBar("ORB_HP")!;

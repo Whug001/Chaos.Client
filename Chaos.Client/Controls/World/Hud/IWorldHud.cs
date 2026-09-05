@@ -1,4 +1,4 @@
-#region
+﻿#region
 using Chaos.Client.Controls.Components;
 using Chaos.Client.Controls.World.Hud.Panel;
 using Microsoft.Xna.Framework;
@@ -42,6 +42,21 @@ public interface IWorldHud
     ///     <see cref="ViewportBounds" />, which spans the hp/mp orbs and the pane icons as well.
     /// </summary>
     Rectangle OrangeBarBounds { get; }
+
+    /// <summary>
+    ///     Where the class-resource and Bard song strips sit: <see cref="Rectangle.X" /> and
+    ///     <see cref="Rectangle.Width" /> give the column they span, and <see cref="Rectangle.Y" /> gives the
+    ///     baseline they stack upward from. Height is unused.
+    /// </summary>
+    /// <remarks>
+    ///     Each layout answers this for itself because the right answer is not the same in both, and the
+    ///     difference is not something the draw code can see. The strips are drawn in the world pass and the
+    ///     hud frame is drawn over them in the ui pass afterwards, so any baseline that falls behind the frame
+    ///     produces a strip that is drawn and then immediately covered. <see cref="WorldHudControl" /> can use
+    ///     the viewport's bottom edge, which lands just above its orange bar; <see cref="LargeWorldHudControl" />
+    ///     cannot, because there that edge is below the chat box and behind the frame.
+    /// </remarks>
+    Rectangle StripAnchor { get; }
 
     string PlayerName { get; }
     UIButton? ScreenshotButton { get; }

@@ -196,47 +196,6 @@ public sealed partial class WorldScreen
             Overlays.Draw(spriteBatch, Camera, MapFile.Height);
             spriteBatch.End();
 
-            //class resource strip (ichor / rage / valor / malice) — screen-space overlay (no camera
-            //transform) on the bottom row of the viewport, sitting directly above the orange bar. positioned every
-            //frame against the active hud: it takes its column from WorldHud.OrangeBarBounds so it matches the
-            //panes below and stays clear of the hp/mp orbs and pane icons. the baseline comes from
-            //WorldHud.ViewportBounds rather than OrangeBarBounds.Y because only the small hud (_nbk_s) defines a
-            //SystemMessageWrap rect — the large hud falls back to OrangeBarBounds = ViewportBounds, whose Y is the
-            //TOP of the screen. viewport bottom is the one anchor that lands just above the orange bar in both
-            //layouts. the resource is server-authoritative (WorldState.ClassResource) — this only displays the
-            //last value the server reported.
-            ClassResourceBar ??= new ClassResourceBarControl();
-            ClassResourceBar.Update(gameTime);
-            ClassResourceBar.SetStripBounds(WorldHud.OrangeBarBounds.X, WorldHud.OrangeBarBounds.Width);
-            ClassResourceBar.Y = WorldHud.ViewportBounds.Bottom - ClassResourceBar.Height - 2;
-
-            if (ClassResourceBar.Visible)
-            {
-                spriteBatch.Begin(samplerState: GlobalSettings.Sampler);
-                ClassResourceBar.Draw(spriteBatch);
-                spriteBatch.End();
-            }
-
-            //bard song strip — same overlay mechanism as the class resource strip above. it takes the bottom row
-            //when that strip is hidden, and stacks one row higher when it is showing, so the two can never overlap
-            //on a character who is carrying both. must be positioned AFTER ClassResourceBar.Update, since that
-            //call is what settles ClassResourceBar.Visible for this frame. the call countdown itself is driven from
-            //WorldScreen.Update (WorldState.Song.Update) — this only refreshes visibility/label text and
-            //repositions the strip.
-            SongBar ??= new SongBarControl();
-            SongBar.Update(gameTime);
-            SongBar.SetStripBounds(WorldHud.OrangeBarBounds.X, WorldHud.OrangeBarBounds.Width);
-
-            var songBaseline = ClassResourceBar.Visible ? ClassResourceBar.Y : WorldHud.ViewportBounds.Bottom;
-            SongBar.Y = songBaseline - SongBar.Height - 2;
-
-            if (SongBar.Visible)
-            {
-                spriteBatch.Begin(samplerState: GlobalSettings.Sampler);
-                SongBar.Draw(spriteBatch);
-                spriteBatch.End();
-            }
-
             //snapshot draw count before debug draws so the reported count excludes debug visualizations
             DebugOverlay.SnapshotDrawCount();
 
@@ -319,6 +278,7 @@ public sealed partial class WorldScreen
         //pass 2: ui overlay — full screen, no transform
         spriteBatch.Begin(samplerState: GlobalSettings.Sampler);
         Root!.Draw(spriteBatch);
+        DrawStatusStrips(spriteBatch, gameTime);
         DrawDragIcon(spriteBatch);
         spriteBatch.End();
     }
@@ -994,6 +954,54 @@ public sealed partial class WorldScreen
 
         return texture;
     }
+
+    /// <summary>
+    ///     Draws the class resource strip and the bard song strip, stacked upward from the active hud's
+    ///     <see cref="IWorldHud.StripAnchor" />.
+    /// </summary>
+    /// <remarks>
+    ///     Drawn in the ui pass, after the hud. They used to be drawn in the world pass, which meant the hud frame
+    ///     was painted over them afterwards -- in the compressed layout the chat box sits low enough that the
+    ///     bottom of a strip landed on the frame and was cut off. Nothing paints over them here.
+    ///     <para />
+    ///     The anchor gives the column and the baseline. The two hud layouts do not agree on where these strips
+    ///     belong and the difference is not visible from here -- see IWorldHud. The song strip takes the bottom
+    ///     row when the resource strip is hidden and stacks one row higher when it is showing, so the two can
+    ///     never overlap on a character carrying both. It has to be positioned after the resource strip's
+    ///     <c>Update</c>, since that call is what settles its visibility for this frame.
+    /// </remarks>
+    private void DrawStatusStrips(SpriteBatch spriteBatch, GameTime gameTime)
+    {
+        if (MapFile is null || !MapPreloaded)
+            return;
+
+        var anchor = WorldHud.StripAnchor;
+
+        //ichor / rage / valor / malice. Server-authoritative (WorldState.ClassResource) -- this only displays
+        //the last value the server reported.
+        ClassResourceBar ??= new ClassResourceBarControl();
+        ClassResourceBar.Update(gameTime);
+        ClassResourceBar.SetStripBounds(anchor.X, anchor.Width);
+        ClassResourceBar.Y = anchor.Y - ClassResourceBar.Height - STRIP_GAP;
+
+        if (ClassResourceBar.Visible)
+            ClassResourceBar.Draw(spriteBatch);
+
+        //the call countdown itself is driven from WorldScreen.Update (WorldState.Song.Update) -- this only
+        //refreshes the labels and repositions the strip
+        SongBar ??= new SongBarControl();
+        SongBar.Update(gameTime);
+        SongBar.SetStripBounds(anchor.X, anchor.Width);
+
+        var songBaseline = ClassResourceBar.Visible ? ClassResourceBar.Y : anchor.Y;
+        SongBar.Y = songBaseline - SongBar.Height - STRIP_GAP;
+
+        if (SongBar.Visible)
+            SongBar.Draw(spriteBatch);
+    }
+
+    /// <summary>Pixels left between a status strip and whatever sits below it.</summary>
+    private const int STRIP_GAP = 2;
 
     private void DrawDragIcon(SpriteBatch spriteBatch)
     {

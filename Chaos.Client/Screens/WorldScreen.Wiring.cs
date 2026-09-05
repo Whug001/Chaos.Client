@@ -1,4 +1,4 @@
-#region
+﻿#region
 using Chaos.Client.Collections;
 using Chaos.Client.Controls.Components;
 using Chaos.Client.Controls.World.Hud;
@@ -203,7 +203,7 @@ public sealed partial class WorldScreen
     {
         Game.Connection.OnPokerTableDisplay += HandlePokerTableDisplay;
 
-        Poker.ActionRequested += (action, amount) => Game.Connection.SendPokerAct(action, amount);
+        Poker.ActionRequested += action => Game.Connection.SendPokerAct(action);
 
         //the emote goes to the world like any other: everyone sees it over the player's head, and the
         //seated players see it on each other's portraits because the panel hides the world behind it.

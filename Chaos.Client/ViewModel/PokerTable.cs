@@ -178,18 +178,6 @@ public sealed class PokerTable
     public byte WinningHand { get; private set; }
 
     /// <summary>
-    ///     The gold a plain Bet or Raise adds to the outstanding bet -- the street's fixed size.
-    /// </summary>
-    public int MinRaise { get; private set; }
-
-    /// <summary>
-    ///     The largest amount this player may add to the outstanding bet, or 0 when only <see cref="MinRaise" />
-    ///     is available. Like <see cref="LegalActions" />, a server hint for what to offer rather than an
-    ///     authority: the server re-derives it when the action arrives, so a stale figure costs a refused click.
-    /// </summary>
-    public int MaxRaise { get; private set; }
-
-    /// <summary>
     ///     Applies an Open display: the table's fixed properties (name, bet sizes, minimum buy-in).
     /// </summary>
     public void ApplyOpen(PokerTableDisplayArgs args)
@@ -223,8 +211,6 @@ public sealed class PokerTable
         EventText = args.EventText ?? string.Empty;
         WinnerSeats = (args.WinnerSeats ?? []).Select(seat => (int)seat).ToList();
         WinningHand = args.WinningHand;
-        MinRaise = args.MinRaise;
-        MaxRaise = args.MaxRaise;
 
         //defensive copy -- Seats and each entry's HoleCards come straight off the wire and are owned by the
         //caller, not this view model. Every seat is rebuilt from this snapshot alone; nothing here reads or
@@ -274,7 +260,5 @@ public sealed class PokerTable
         EventText = string.Empty;
         WinnerSeats = [];
         WinningHand = 0;
-        MinRaise = 0;
-        MaxRaise = 0;
     }
 }

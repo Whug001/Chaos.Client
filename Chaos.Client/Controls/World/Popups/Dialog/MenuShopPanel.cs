@@ -495,7 +495,8 @@ public sealed class MenuShopPanel : PrefabPanel
                     meta?.Level,
                     meta?.Class,
                     meta?.Weight,
-                    meta?.LevelText ?? string.Empty));
+                    meta?.LevelText ?? string.Empty,
+                    meta?.ClassText ?? string.Empty));
         }
     }
 
@@ -539,7 +540,8 @@ public sealed class MenuShopPanel : PrefabPanel
                     meta?.Level,
                     meta?.Class,
                     meta?.Weight,
-                    meta?.LevelText ?? string.Empty));
+                    meta?.LevelText ?? string.Empty,
+                    meta?.ClassText ?? string.Empty));
         }
     }
 
@@ -631,9 +633,13 @@ public sealed class MenuShopPanel : PrefabPanel
         var entry = Entries[absoluteIndex];
         var hasDetails = entry.Class is not null || entry.Level is not null || entry.Weight is not null;
 
-        DescClassLabel?.Text = entry.Class is { } cls
-            ? (BaseClass)cls == BaseClass.Peasant ? "all class" : ((BaseClass)cls).ToString()
-            : string.Empty;
+        //ClassText is the field as the server wrote it. Gear gated on ability level arrives as an advanced class
+        //name -- "Warlord", "Plague Doctor" -- which is shown as-is; a plain number falls back to the base class.
+        DescClassLabel?.Text = !string.IsNullOrEmpty(entry.ClassText) && !int.TryParse(entry.ClassText, out _)
+            ? entry.ClassText
+            : entry.Class is { } cls
+                ? (BaseClass)cls == BaseClass.Peasant ? "all class" : ((BaseClass)cls).ToString()
+                : string.Empty;
 
         //LevelText is the field as the server wrote it. A recipe past master arrives as "AB20" or "Master",
         //which is shown as-is; anything numeric falls back to the parsed level.
@@ -817,7 +823,8 @@ public sealed class MenuShopPanel : PrefabPanel
         int? Level = null,
         byte? Class = null,
         int? Weight = null,
-        string LevelText = "");
+        string LevelText = "",
+        string ClassText = "");
 
     /// <summary>
     ///     A single row in the merchant listing. Renders an icon and name text with a selection highlight.

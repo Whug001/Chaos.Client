@@ -1,4 +1,4 @@
-#region
+﻿#region
 using System.Buffers;
 using System.Net;
 using Chaos.Cryptography;
@@ -753,8 +753,12 @@ public sealed class ConnectionManager : IDisposable
             try
             {
                 HandlePacket(pkt);
-            } catch
+            } catch (Exception ex)
             {
+                //TEMP DIAGNOSTIC -- remove once the empty-poker-roster report is resolved. This catch was
+                //silent, which is why a packet that fails to parse leaves no trace at all.
+                PokerDiag($"packet opcode {pkt.OpCode} threw while handling: {ex.GetType().Name}: {ex.Message}");
+
                 //malformed packet — skip
             } finally
             {
@@ -1176,17 +1180,15 @@ public sealed class ConnectionManager : IDisposable
     ///     Takes the given poker action at the table this character currently occupies.
     /// </summary>
     /// <param name="action">The <c>PokerAction</c> byte value being taken.</param>
-    /// <param name="amount">
-    ///     For a bet or a raise, the gold to add to the outstanding bet. Zero means the street's fixed size.
-    ///     The server re-checks this against its own ceiling, so an over-large number is refused, not obeyed.
-    /// </param>
-    public void SendPokerAct(byte action, int amount = 0)
+    /// <remarks>
+    ///     Betting is fixed-limit, so a bet or a raise carries no amount -- the street's size is the only size.
+    /// </remarks>
+    public void SendPokerAct(byte action)
         => SendIfWorld(
             new PokerTableInteractionArgs
             {
                 Type = PokerInteractionType.Act,
-                Action = action,
-                Amount = amount
+                Action = action
             });
 
     /// <summary>
@@ -1683,6 +1685,24 @@ public sealed class ConnectionManager : IDisposable
 
         //poll
         PacketHandlers[(byte)ServerOpCode.Poll] = HandlePoll;
+    }
+
+    /// <summary>
+    ///     TEMP DIAGNOSTIC -- appends one line to pokerdiag.log beside the executable. Remove once the
+    ///     empty-poker-roster report is resolved. Swallows its own failures: a diagnostic must never be the
+    ///     thing that breaks a live client.
+    /// </summary>
+    public static void PokerDiag(string message)
+    {
+        try
+        {
+            File.AppendAllText(
+                Path.Combine(AppContext.BaseDirectory, "pokerdiag.log"),
+                $"{DateTime.Now:HH:mm:ss.fff} {message}{Environment.NewLine}");
+        } catch
+        {
+            //ignored
+        }
     }
 
     private void HandlePacket(ServerPacket pkt)

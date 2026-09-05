@@ -1,4 +1,4 @@
-﻿#region
+#region
 using Chaos.Client.Collections;
 using Chaos.Client.Controls.Generic;
 using Chaos.Client.Controls.World.Popups.Market;
@@ -754,7 +754,12 @@ public sealed partial class WorldScreen
 
         //the server sends the advanced class name as the display class once the player has advanced; anything else
         //(a base class name, or "Master") leaves them on AdvClass.None.
-        WorldState.AdvClass = Enum.TryParse<AdvClass>(args.DisplayClass, true, out var advClass) ? advClass : AdvClass.None;
+        //the server sends the class the way a player reads it, so "Plague Doctor" has a space the enum name does
+        //not. Strip it before parsing -- without this the parse fails and the whole ability metadata panel is
+        //empty for one class.
+        WorldState.AdvClass = Enum.TryParse<AdvClass>(args.DisplayClass?.Replace(" ", string.Empty), true, out var advClass)
+            ? advClass
+            : AdvClass.None;
 
         //nation emblem and text
         StatusBook.SetNation((byte)args.Nation);
@@ -1534,6 +1539,12 @@ public sealed partial class WorldScreen
     /// </summary>
     private void HandlePokerTableDisplay(PokerTableDisplayArgs args)
     {
+        //TEMP DIAGNOSTIC -- remove once the empty-poker-roster report is resolved
+        Chaos.Client.Networking.ConnectionManager.PokerDiag(
+            $"display type={args.Type} seats={args.Seats?.Count ?? -1} roster=["
+            + string.Join(", ", (args.Seats ?? []).Select(seat => $"{seat.SeatIndex}:'{seat.Name}':{seat.EntityId}"))
+            + $"] event='{args.EventText}'");
+
         switch (args.Type)
         {
             case PokerDisplayType.Open:
