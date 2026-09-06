@@ -4,6 +4,7 @@ using Chaos.Client.Controls.Components;
 using Chaos.Client.Data.Utilities;
 using Chaos.Client.Definitions;
 using Chaos.Client.Models;
+using Chaos.Client.Rendering;
 using Chaos.Client.Systems;
 using Chaos.DarkAges.Definitions;
 using Chaos.Geometry.Abstractions.Definitions;
@@ -89,6 +90,20 @@ public sealed partial class WorldScreen
                     entity.ActiveEmoteFrame = entity.EmoteStartFrame + frameIndex;
                 }
             }
+
+            //tick the sunglasses emote and retire it once it has run its course
+            if (entity.IsWearingSunglasses)
+            {
+                entity.SunglassesElapsedMs += elapsedMs;
+
+                if (SunglassesEmote.Resolve(entity.SunglassesElapsedMs)
+                                   .IsFinished)
+                    entity.SunglassesElapsedMs = -1f;
+            }
+
+            //tick the middle finger bubble; it is static, so it only needs a countdown
+            if (entity.IsFlippingOff)
+                entity.MiddleFingerRemainingMs = Math.Max(0f, entity.MiddleFingerRemainingMs - elapsedMs);
 
             if (entity.HitTintExpiryMs > 0)
                 entity.HitTintExpiryMs = Math.Max(0, entity.HitTintExpiryMs - elapsedMs);
@@ -389,8 +404,25 @@ public sealed partial class WorldScreen
         if (entity is null || !entity.IsAtRest)
             return;
 
-        if ((entity.AnimState == EntityAnimState.BodyAnim) || (entity.ActiveEmoteFrame >= 0))
+        if ((entity.AnimState == EntityAnimState.BodyAnim)
+            || (entity.ActiveEmoteFrame >= 0)
+            || entity.IsWearingSunglasses
+            || entity.IsFlippingOff)
             return;
+
+        //the client-side emotes have no emot01 frame of their own, so they never reach the overlay path below
+        switch ((int)anim)
+        {
+            case SunglassesEmote.BODY_ANIMATION:
+                entity.SunglassesElapsedMs = 0f;
+
+                return;
+
+            case MiddleFingerEmote.BODY_ANIMATION:
+                entity.MiddleFingerRemainingMs = MiddleFingerEmote.DURATION_MS;
+
+                return;
+        }
 
         (_, var framesPerDir, _, _) = AnimationSystem.ResolveBodyAnimParams(anim);
 

@@ -859,7 +859,45 @@ public sealed partial class WorldScreen
             entity.IsDead,
             alpha);
 
-        return Game.AislingRenderer.Draw(spriteBatch, Camera, in drawParams);
+        var textureBottomY = Game.AislingRenderer.Draw(spriteBatch, Camera, in drawParams);
+
+        //the sunglasses ride on top of the finished composite rather than inside it — see SunglassesRenderer.
+        //Only the front-facing poses show a face to drop them onto; the swimming, resting and creature-form
+        //paths have already returned above.
+        if (isFrontFacing && (textureBottomY != 0) && (entity.IsWearingSunglasses || entity.IsFlippingOff))
+        {
+            Game.AislingRenderer.TryGetCompositeTopPadding(entity.Id, out var topPadding);
+
+            if (entity.IsWearingSunglasses)
+                Game.SunglassesRenderer.Draw(
+                    spriteBatch,
+                    Camera,
+                    entity.SunglassesElapsedMs,
+                    flip,
+                    frameIndex,
+                    animSuffix,
+                    tileCenterX,
+                    tileCenterY,
+                    entity.VisualOffset,
+                    topPadding,
+                    alpha);
+
+            //the gesture bubble sits above the head rather than on the face, so unlike the glasses it does not
+            //care which walk frame is showing — the real emote bubbles do not bob with the head either.
+            if (entity.IsFlippingOff)
+                Game.MiddleFingerRenderer.Draw(
+                    spriteBatch,
+                    Camera,
+                    appearance.BodyColor,
+                    flip,
+                    tileCenterX,
+                    tileCenterY,
+                    entity.VisualOffset,
+                    topPadding,
+                    alpha);
+        }
+
+        return textureBottomY;
     }
 
     private void DrawEntityEffects(BatchBlendScope scope, WorldEntity entity)

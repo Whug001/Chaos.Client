@@ -175,9 +175,10 @@ public static class ClientSettings
                     case "EmoteWheel3":
                     case "EmoteWheel4":
                     case "EmoteWheel5":
-                        if (int.TryParse(value, out var ew)
-                            && Enum.IsDefined((BodyAnimation)ew)
-                            && EmoteCatalog.TryGet((BodyAnimation)ew, out _))
+                        //the catalog is the authority on what a slot may hold — it includes the client-side
+                        //sunglasses emote, whose byte is deliberately not a defined BodyAnimation member, so
+                        //an Enum.IsDefined check here would silently drop that slot on every restart.
+                        if (int.TryParse(value, out var ew) && EmoteCatalog.TryGet((BodyAnimation)ew, out _))
                         {
                             var idx = key[^1] - '0';
                             EmoteWheelSlots[idx] = (BodyAnimation)ew;

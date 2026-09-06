@@ -105,6 +105,11 @@ public sealed class AislingRenderer : IDisposable
     //composite canvas anchor: body center within the full padded canvas (111x85).
     //canvas is padded by LAYER_OFFSET_PADDING (27px) on each side, so body center shifts right.
     public const int CANVAS_CENTER_X = BODY_CENTER_X + LAYER_OFFSET_PADDING;
+
+    /// <summary>
+    ///     The column <see cref="Composite" /> mirrors about when it flips a sprite for the Down and Left facings.
+    /// </summary>
+    public const int FLIP_PIVOT_X = BODY_CENTER_X + LAYER_OFFSET_PADDING;
     public const int CANVAS_CENTER_Y = 70;
 
     //epfs contain frames for 2 base directions only:
@@ -410,6 +415,38 @@ public sealed class AislingRenderer : IDisposable
             "03" => frameIndex is 1 or 4 or 5 or 8 or 9,
             _    => frameIndex >= 5
         };
+
+    /// <summary>
+    ///     Where composite column <paramref name="x" /> ends up once the sprite is flipped.
+    /// </summary>
+    /// <remarks>
+    ///     The flip is <c>SKCanvas.Scale(-1, 1, FLIP_PIVOT_X, 0)</c>, which maps a coordinate u to <c>2p - u</c>. A pixel
+    ///     is not a coordinate: column x covers the half-open span [x, x+1), which maps to [2p-x-1, 2p-x) and so lands on
+    ///     column <c>2p - 1 - x</c>. Dropping that -1 puts anything drawn on top of the composite a pixel to the right of
+    ///     the sprite whenever it faces down or left. Measured against the face EPF: the head spans x50..60 unflipped and
+    ///     x49..59 flipped.
+    /// </remarks>
+    public static int MirrorX(int x) => FLIP_PIVOT_X * 2 - 1 - x;
+
+    /// <summary>
+    ///     How far <see cref="Draw" /> shifts this entity's composite up on screen to keep an oversized sprite on its tile.
+    ///     Zero for a normal-height aisling. Anything drawn on top of the composite in composite coordinates — the
+    ///     sunglasses emote, for one — has to apply the same shift or it detaches from the sprite.
+    /// </summary>
+    /// <returns>False when the entity has no cached composite yet, in which case <paramref name="topPadding" /> is 0.</returns>
+    public bool TryGetCompositeTopPadding(uint entityId, out int topPadding)
+    {
+        if (CompositeCache.TryGetValue(entityId, out var cached) && (cached.Texture is not null))
+        {
+            topPadding = cached.TopPadding;
+
+            return true;
+        }
+
+        topPadding = 0;
+
+        return false;
+    }
 
     /// <summary>
     ///     Removes a single entity's cached composite. Call when an entity leaves the map.

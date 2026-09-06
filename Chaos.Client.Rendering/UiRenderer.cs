@@ -185,23 +185,100 @@ public sealed class UiRenderer : IDisposable
 
         var epf = DataContext.AislingDrawData.EmotionsEpf;
 
-        if (epf is null || frameIndex < 0 || frameIndex >= epf.Count)
+        //the client-side emotes have no emot01 frame of their own, so each icon is built from a real frame:
+        //the sunglasses get a plain face with the glasses painted on, the middle finger gets the Stop hand
+        //with four fingers folded away.
+        var isSunglasses = frameIndex == SunglassesEmote.PREVIEW_FRAME;
+        var isMiddleFinger = frameIndex == MiddleFingerEmote.PREVIEW_FRAME;
+
+        var sourceFrame = isSunglasses ? SunglassesEmote.PREVIEW_FACE_FRAME :
+            isMiddleFinger ? MiddleFingerEmote.SOURCE_FRAME : frameIndex;
+
+        if (epf is null || sourceFrame < 0 || sourceFrame >= epf.Count)
             return MissingTexture;
 
         if (!DataContext.AislingDrawData.BodyPalettes.TryGetValue(bodyColor, out var palette)
             && !DataContext.AislingDrawData.BodyPalettes.TryGetValue((int)BodyColor.White, out palette))
             return MissingTexture;
 
-        using var image = Graphics.RenderImage(epf[frameIndex], palette);
+        using var image = Graphics.RenderImage(epf[sourceFrame], palette);
 
         if (image is null)
             return MissingTexture;
 
-        var texture = Convert(image);
+        using var reworked = isSunglasses ? StampSunglasses(image) :
+            isMiddleFinger ? FoldMiddleFinger(image) : null;
+
+        var texture = Convert(reworked ?? image);
+
         Cache[key] = texture;
         EmoteContentBounds[key] = ImageUtil.FindOpaqueBounds(texture);
 
         return texture;
+    }
+
+    /// <summary>
+    ///     Returns a copy of an emot01 face image with the settled sunglasses painted on, for the wheel and catalog icon.
+    /// </summary>
+    /// <remarks>
+    ///     An emot01 frame is composited into the aisling at an X offset of
+    ///     <see cref="AislingRenderer.LAYER_OFFSET_PADDING" />, so the glasses' composite coordinates shift left by that
+    ///     much to land on the same eyes here. The frames are cropped tight to the head — 34 pixels wide — and the glasses
+    ///     are a touch wider than the face, so the canvas grows to fit rather than losing the outer rim.
+    /// </remarks>
+    /// <summary>
+    ///     Returns a copy of the emot01 Stop frame with every finger but the middle one folded away, for the wheel and
+    ///     catalog icon. The same fold <see cref="MiddleFingerRenderer" /> applies in world, so the icon and the emote
+    ///     cannot drift apart. Returns null when the frame is the wrong shape, leaving the plain hand as the icon.
+    /// </summary>
+    private static SKImage? FoldMiddleFinger(SKImage hand)
+    {
+        using var bitmap = new SKBitmap(hand.Width, hand.Height);
+
+        using (var canvas = new SKCanvas(bitmap))
+        {
+            canvas.Clear(SKColors.Transparent);
+            canvas.DrawImage(hand, 0, 0);
+        }
+
+        return MiddleFingerEmote.TryFold(bitmap, AislingRenderer.LAYER_OFFSET_PADDING)
+            ? SKImage.FromBitmap(bitmap)
+            : null;
+    }
+
+    private static SKImage StampSunglasses(SKImage face)
+    {
+        var left = SunglassesEmote.SETTLED_LEFT_X - AislingRenderer.LAYER_OFFSET_PADDING;
+        var top = SunglassesEmote.SETTLED_TOP_Y;
+        var rows = SunglassesEmote.GlassesPixels;
+
+        var width = Math.Max(face.Width, left + SunglassesEmote.GLASSES_WIDTH);
+        var height = Math.Max(face.Height, top + SunglassesEmote.GLASSES_HEIGHT);
+
+        using var bitmap = new SKBitmap(width, height);
+
+        using (var canvas = new SKCanvas(bitmap))
+        {
+            canvas.Clear(SKColors.Transparent);
+            canvas.DrawImage(face, 0, 0);
+        }
+
+        for (var y = 0; y < rows.Count; y++)
+        for (var x = 0; x < rows[y].Length; x++)
+        {
+            if (!SunglassesEmote.TryGetColor(rows[y][x], out var color) || (color.A == 0))
+                continue;
+
+            var px = left + x;
+            var py = top + y;
+
+            if (px < 0 || px >= width || py < 0 || py >= height)
+                continue;
+
+            bitmap.SetPixel(px, py, new SKColor(color.R, color.G, color.B, color.A));
+        }
+
+        return SKImage.FromBitmap(bitmap);
     }
 
     /// <summary>

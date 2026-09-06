@@ -1,4 +1,5 @@
 using Chaos.Client.Definitions;
+using Chaos.Client.Rendering;
 using Chaos.DarkAges.Definitions;
 using FluentAssertions;
 
@@ -7,10 +8,72 @@ namespace Chaos.Client.Tests;
 public class EmoteCatalogTests
 {
     [Test]
-    public async Task All_contains_33_unique_keyboard_emotes()
+    public async Task All_contains_the_33_keyboard_emotes_plus_the_client_side_ones()
     {
-        EmoteCatalog.All.Should().HaveCount(33);
+        EmoteCatalog.All.Should().HaveCount(35);
         EmoteCatalog.All.Select(e => e.Animation).Should().OnlyHaveUniqueItems();
+        await Task.CompletedTask;
+    }
+
+    [Test]
+    public async Task The_client_side_emotes_come_last_and_are_named()
+    {
+        var sunglasses = EmoteCatalog.All[^2];
+        var middleFinger = EmoteCatalog.All[^1];
+
+        ((int)sunglasses.Animation).Should().Be(SunglassesEmote.BODY_ANIMATION);
+        sunglasses.Name.Should().Be("Sunglasses");
+
+        ((int)middleFinger.Animation).Should().Be(MiddleFingerEmote.BODY_ANIMATION);
+        middleFinger.Name.Should().Be("Middle Finger");
+        await Task.CompletedTask;
+    }
+
+    [Test]
+    public async Task Middle_finger_uses_its_own_preview_frame()
+    {
+        EmoteCatalog.TryGet((BodyAnimation)MiddleFingerEmote.BODY_ANIMATION, out var entry)
+                    .Should()
+                    .BeTrue();
+
+        entry.PreviewFrame.Should().Be(EmoteCatalog.MIDDLE_FINGER_PREVIEW_FRAME);
+
+        EmoteCatalog.All.Select(e => e.PreviewFrame)
+                    .Where(f => f >= 1000)
+                    .Should()
+                    .OnlyHaveUniqueItems();
+
+        await Task.CompletedTask;
+    }
+
+    [Test]
+    public async Task Sunglasses_uses_its_own_preview_frame_not_an_emot01_frame()
+    {
+        EmoteCatalog.TryGet((BodyAnimation)SunglassesEmote.BODY_ANIMATION, out var entry)
+                    .Should()
+                    .BeTrue();
+
+        entry.PreviewFrame.Should().Be(EmoteCatalog.SUNGLASSES_PREVIEW_FRAME);
+
+        //every other entry indexes emot01 directly, so the sentinel must not collide with a real frame
+        EmoteCatalog.All.Where(e => (int)e.Animation != SunglassesEmote.BODY_ANIMATION)
+                    .Should()
+                    .OnlyContain(e => e.PreviewFrame != EmoteCatalog.SUNGLASSES_PREVIEW_FRAME);
+
+        await Task.CompletedTask;
+    }
+
+    [Test]
+    public async Task The_sunglasses_body_animation_is_relayed_by_the_server_untouched()
+    {
+        //Chaos-Server WorldServer.OnEmote relays 1..44 and drops everything else
+        SunglassesEmote.BODY_ANIMATION.Should().BeInRange(1, 44);
+
+        //and it must not collide with a named animation the rest of the client already handles
+        Enum.IsDefined(typeof(BodyAnimation), (byte)SunglassesEmote.BODY_ANIMATION)
+            .Should()
+            .BeFalse();
+
         await Task.CompletedTask;
     }
 
