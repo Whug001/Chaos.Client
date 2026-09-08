@@ -1800,7 +1800,7 @@ public sealed class ConnectionManager : IDisposable
     {
         var args = Client.Deserialize<UserIdArgs>(in pkt);
         AislingId = args.Id;
-        OnUserId?.Invoke(args.Id);
+        OnUserId?.Invoke(args.Id, args.BaseClass);
         EntryState |= WorldEntryState.UserId;
         CheckWorldEntryComplete();
     }

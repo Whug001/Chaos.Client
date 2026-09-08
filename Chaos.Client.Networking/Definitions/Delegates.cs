@@ -86,7 +86,7 @@ public delegate void ServerTableReceivedHandler(ServerTableData data);
 /// <summary>
 ///     Fired when the server assigns the local player's entity ID during world entry.
 /// </summary>
-public delegate void UserIdHandler(uint userId);
+public delegate void UserIdHandler(uint userId, Chaos.DarkAges.Definitions.BaseClass baseClass);
 
 /// <summary>
 ///     Fired when world entry is complete and all essential data has been received.

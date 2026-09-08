@@ -761,6 +761,7 @@ public sealed partial class WorldScreen
             ? advClass
             : AdvClass.None;
 
+
         //nation emblem and text
         StatusBook.SetNation((byte)args.Nation);
 
@@ -820,6 +821,10 @@ public sealed partial class WorldScreen
                 args.EnableMasterQuestMetaData);
         } else
             StatusBook.ClearEvents();
+
+        //the class is only knowable once this packet arrives, so refresh the launcher card now that
+        //AdvClass is set. Cheap and best-effort; no-ops when the card env vars are absent.
+        Chaos.Client.Systems.AvatarCapture.SaveStats();
 
         //family info
         StatusBook.SetFamilyInfo(args.SpouseName ?? string.Empty);

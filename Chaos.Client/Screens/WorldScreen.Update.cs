@@ -32,6 +32,13 @@ public sealed partial class WorldScreen
         {
             _avatarCaptured = true;
             Chaos.Client.Systems.AvatarCapture.CaptureAndSave(Game.AislingRenderer, in selfAppearance);
+            Chaos.Client.Systems.AvatarCapture.SaveStats();
+
+            //AdvClass and master status only ride on the SelfProfile packet, which is otherwise sent
+            //only when the player opens their status book. Request it once here so the launcher card
+            //gets the real class even if they never open it. SelfProfileRequested is deliberately NOT
+            //set, so the response updates state silently without showing the book.
+            Game.Connection.RequestSelfProfile();
         }
 
         var elapsedMs = (float)gameTime.ElapsedGameTime.TotalMilliseconds;

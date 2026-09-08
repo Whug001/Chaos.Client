@@ -21,7 +21,14 @@ namespace Chaos.Client.Screens;
 public sealed partial class WorldScreen
 {
     #region Map Assembly
-    private void HandleUserId(uint id) => WorldState.PlayerEntityId = id;
+    private void HandleUserId(uint id, Chaos.DarkAges.Definitions.BaseClass baseClass)
+    {
+        WorldState.PlayerEntityId = id;
+
+        //the UserId packet arrives as part of world entry, so unlike the SelfProfile packet (which only
+        //comes when the status book is opened) this is always available for the launcher card.
+        WorldState.BaseClass = baseClass;
+    }
 
     private void HandleMapInfo(MapInfoArgs args)
     {
@@ -44,6 +51,7 @@ public sealed partial class WorldScreen
                 WeatherRenderer.OnMapChanged(CurrentMapFlags);
             }
 
+            WorldState.CurrentZoneName = args.Name ?? string.Empty;
             UpdateHuds(HudOps.SetZoneName, args.Name);
 
             return;
@@ -121,6 +129,7 @@ public sealed partial class WorldScreen
         DarknessRenderer.OnMapChanged(args.MapId, CurrentMapFlags.HasFlag(MapFlags.Darkness));
         WeatherRenderer.OnMapChanged(CurrentMapFlags);
 
+        WorldState.CurrentZoneName = args.Name ?? string.Empty;
         UpdateHuds(HudOps.SetZoneName, args.Name);
         UpdateHuds(HudOps.ShowPersistentMessage, string.Empty);
     }

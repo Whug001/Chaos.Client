@@ -930,6 +930,10 @@ public sealed partial class WorldScreen : IScreen
             Chaos.Client.Systems.AvatarCapture.CaptureAndSave(Game.AislingRenderer, in finalAppearance);
         }
 
+        //vitals are written on the way out too, and unlike the avatar this does not need an appearance —
+        //so a logout still refreshes the launcher card even if the player entity has already gone.
+        Chaos.Client.Systems.AvatarCapture.SaveStats();
+
         Game.Connection.OnUserId -= HandleUserId;
         Game.Connection.OnMapInfo -= HandleMapInfo;
         Game.Connection.OnMapData -= HandleMapData;

@@ -55,6 +55,19 @@ public static class WorldState
     public static AdvClass AdvClass { get; set; }
 
     /// <summary>
+    ///     The player's base class, from the UserId packet sent during world entry. This is the authoritative
+    ///     class source: the SelfProfile packet's display string can read "Master", which is a profile title
+    ///     rather than a class, so it must not be used to decide the class.
+    /// </summary>
+    public static BaseClass BaseClass { get; set; }
+
+    /// <summary>
+    ///     Name of the map the player is currently on, from the MapInfo packet (the same string the HUD zone label
+    ///     shows). Consumed by <see cref="Chaos.Client.Systems.AvatarCapture" /> for the launcher card.
+    /// </summary>
+    public static string CurrentZoneName { get; set; } = string.Empty;
+
+    /// <summary>
     ///     Active spell/effect animations currently playing in the world.
     /// </summary>
     public static List<Animation> ActiveEffects { get; } = [];
