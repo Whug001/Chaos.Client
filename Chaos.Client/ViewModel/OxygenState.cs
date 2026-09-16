@@ -11,9 +11,12 @@ namespace Chaos.Client.ViewModel;
 ///     state.
 ///     <para />
 ///     Zero is a value to show, not a reason to hide: an empty bar is the only standing indication that a drowning
-///     player is losing health to the water rather than to something in the room. Visibility is therefore driven by
-///     whether the server has reported a meter at all, and <see cref="Reset" /> on leaving the map is what ends it -
-///     the server applies and removes the meter as the player enters and leaves the water zone.
+///     player is losing health to the water rather than to something in the room. Surfacing is therefore reported as
+///     a value above the range a meter can hold, and that is what takes the bar down.
+///     <para />
+///     Nothing else clears it while the player is in the world. The meter belongs to the player rather than to the
+///     map they went under on, so it carries across a map change inside the water zone -- the bar holds its last
+///     reading until the server says otherwise, instead of blanking every time they cross a boundary.
 /// </remarks>
 public sealed class OxygenState
 {
@@ -24,12 +27,19 @@ public sealed class OxygenState
     public bool HasValue { get; private set; }
 
     /// <summary>
-    ///     Stores a server-reported amount. Any value shows the bar, zero included; anything above the maximum is
-    ///     clamped rather than treated as a signal, so a stray byte cannot overfill the meter.
+    ///     Stores a server-reported reading. Anything inside the meter's range shows the bar, zero included; anything
+    ///     above it is the server saying there is no meter left to show, and takes the bar down.
     /// </summary>
     public void Set(byte oxygen)
     {
-        Amount = oxygen > MAX_OXYGEN ? MAX_OXYGEN : oxygen;
+        if (oxygen > MAX_OXYGEN)
+        {
+            Reset();
+
+            return;
+        }
+
+        Amount = oxygen;
         HasValue = true;
     }
 
