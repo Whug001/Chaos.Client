@@ -1015,14 +1015,25 @@ public sealed partial class WorldScreen
 
         var anchor = WorldHud.StripAnchor;
 
+        //an expanded inventory or ability panel grows upward past the anchor, so the strips have to stack off the
+        //panel's top edge instead or they are drawn across its extra slot rows. Whichever of the two is higher wins,
+        //so collapsing the panel puts them straight back where they were
+        var expandedTop = WorldHud.ExpandedPanelTop;
+        var baselineY = (expandedTop is { } top) && (top < anchor.Y) ? top : anchor.Y;
+
         //ichor / rage / valor / malice. Server-authoritative (WorldState.ClassResource) -- this only displays
         //the last value the server reported.
         ClassResourceBar ??= new ClassResourceBarControl();
         ClassResourceBar.Update(gameTime);
         ClassResourceBar.SetStripBounds(anchor.X, anchor.Width);
-        ClassResourceBar.Y = anchor.Y - ClassResourceBar.Height - STRIP_GAP;
+        ClassResourceBar.Y = baselineY - ClassResourceBar.Height - STRIP_GAP;
 
-        if (ClassResourceBar.Visible)
+        //both strips are hidden while the world map is open. It is a full-screen overlay and these are drawn after
+        //the hud, so they would otherwise sit on top of the map art. Positioning still runs either way, so the
+        //stacking is already settled when the map closes
+        var mapOverlayOpen = WorldMap.Visible;
+
+        if (ClassResourceBar.Visible && !mapOverlayOpen)
             ClassResourceBar.Draw(spriteBatch);
 
         //the call countdown itself is driven from WorldScreen.Update (WorldState.Song.Update) -- this only
@@ -1031,10 +1042,10 @@ public sealed partial class WorldScreen
         SongBar.Update(gameTime);
         SongBar.SetStripBounds(anchor.X, anchor.Width);
 
-        var songBaseline = ClassResourceBar.Visible ? ClassResourceBar.Y : anchor.Y;
+        var songBaseline = ClassResourceBar.Visible ? ClassResourceBar.Y : baselineY;
         SongBar.Y = songBaseline - SongBar.Height - STRIP_GAP;
 
-        if (SongBar.Visible)
+        if (SongBar.Visible && !mapOverlayOpen)
             SongBar.Draw(spriteBatch);
     }
 

@@ -58,6 +58,21 @@ public interface IWorldHud
     /// </remarks>
     Rectangle StripAnchor { get; }
 
+    /// <summary>
+    ///     Screen Y of the top edge of the visible hud panel, when that panel is currently expanded. Null when
+    ///     nothing is expanded.
+    /// </summary>
+    /// <remarks>
+    ///     An expanded panel grows upward -- <see cref="ExpandablePanel.SetExpanded" /> shifts its origin up and its
+    ///     height out by the same amount -- so it reaches above the baseline <see cref="StripAnchor" /> reports and
+    ///     the strips end up drawn across the extra slot rows. The strips stack off this instead whenever it is the
+    ///     higher of the two.
+    ///     <para />
+    ///     Separate from <see cref="StripAnchor" /> because that one is fixed at construction in the compact layout
+    ///     and cannot answer a question whose answer changes every time a panel is opened.
+    /// </remarks>
+    int? ExpandedPanelTop { get; }
+
     string PlayerName { get; }
     UIButton? ScreenshotButton { get; }
     UIButton? SettingsButton { get; }

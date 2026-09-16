@@ -105,6 +105,10 @@ public sealed class WorldHudControl : PrefabPanel, IWorldHud
     /// </remarks>
     public Rectangle StripAnchor { get; }
 
+    /// <inheritdoc />
+    public int? ExpandedPanelTop
+        => TabPanels[(int)ActiveTab] is ExpandablePanel { IsExpanded: true, Visible: true } panel ? panel.ScreenY : null;
+
     //inventory tab buttons
     public UIButton?[] InventoryTabButtons { get; } = new UIButton?[6];
     public UIButton? LegendButton { get; }

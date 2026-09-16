@@ -101,6 +101,10 @@ public sealed class LargeWorldHudControl : PrefabPanel, IWorldHud
     ///     <c>ScreenY</c> rather than <c>Y</c> because the strips are drawn in screen space.
     /// </remarks>
     public Rectangle StripAnchor => new(ChatInput.ScreenX, ChatInput.ScreenY, ChatInput.Width, 0);
+
+    /// <inheritdoc />
+    public int? ExpandedPanelTop
+        => TabPanels[(int)ActiveTab] is ExpandablePanel { IsExpanded: true, Visible: true } panel ? panel.ScreenY : null;
     public UIButton?[] InventoryTabButtons { get; } = new UIButton?[6];
     public UIButton? LegendButton { get; }
     public MailButton? MailButton { get; }
