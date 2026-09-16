@@ -1060,7 +1060,16 @@ public sealed partial class WorldScreen
         SongBar.Update(gameTime);
         SongBar.SetStripBounds(anchor.X, anchor.Width);
 
-        var songBaseline = ClassResourceBar.Visible ? ClassResourceBar.Y : baselineY;
+        //the song strip stacks off whatever the highest thing below it is: the oxygen meter when it had to take a
+        //row of its own, otherwise the class strip, otherwise the baseline
+        var songBaseline = baselineY;
+
+        if (ClassResourceBar.Visible)
+            songBaseline = ClassResourceBar.Y;
+
+        if (OxygenBar is { Visible: true } && OxygenBarStacked)
+            songBaseline = Math.Min(songBaseline, OxygenBar.Y);
+
         SongBar.Y = songBaseline - SongBar.Height - STRIP_GAP;
 
         if (SongBar.Visible && !mapOverlayOpen)
@@ -1071,14 +1080,23 @@ public sealed partial class WorldScreen
     private const int STRIP_GAP = 2;
 
     /// <summary>
-    ///     Puts the oxygen meter just right of the strip column, on the class-resource row.
+    ///     True while the oxygen meter is taking a strip row of its own rather than sitting beside the column.
+    /// </summary>
+    private bool OxygenBarStacked;
+
+    /// <summary>
+    ///     Puts the oxygen meter beside the strip column on the class-resource row, or on a row of its own when the
+    ///     layout leaves no room beside it.
     /// </summary>
     /// <remarks>
-    ///     Two things it has to stay clear of, and neither is at a fixed place: the viewport's right edge, which
-    ///     differs between the two hud layouts, and the character-name readout, which is a prefab child whose rect
-    ///     comes from the control file. The bar is pulled back inside the viewport if it would hang off the end, and
-    ///     lifted a row if it would land on the name. Both are checked every frame rather than settled once, since a
-    ///     hud swap moves both of them.
+    ///     Beside the column is the intended place, but whether there is room for it there is a property of the hud
+    ///     the player is currently using -- the two layouts put the strip column in different places and give it
+    ///     different widths, and '/' swaps between them at any time. Rather than clamp the meter back over the class
+    ///     bar when it does not fit, it takes the row above instead, right-aligned to the column, and the song strip
+    ///     stacks off it. Either way it is inside the viewport and covering nothing.
+    ///     <para />
+    ///     The lift off the character-name readout only applies beside the column, which is the only place the two
+    ///     can meet: the stacked row is inside the column and above the panes, and the name is below them.
     /// </remarks>
     private void PlaceOxygenBar(Rectangle anchor, int baselineY)
     {
@@ -1086,29 +1104,36 @@ public sealed partial class WorldScreen
             return;
 
         var viewport = WorldHud.ViewportBounds;
+        var rowBottom = baselineY - STRIP_GAP;
 
         var x = anchor.Right + STRIP_GAP;
-
-        if ((x + OxygenBarControl.TOTAL_WIDTH) > viewport.Right)
-            x = viewport.Right - OxygenBarControl.TOTAL_WIDTH;
-
-        //bottom-aligned with the class-resource row, whether or not that bar is currently showing -- the meter
-        //keeps its place when a player with no class resource goes under
-        var rowBottom = baselineY - STRIP_GAP;
         var y = rowBottom - OxygenBarControl.TOTAL_HEIGHT;
 
-        var bounds = new Rectangle(
-            x,
-            y,
-            OxygenBarControl.TOTAL_WIDTH,
-            OxygenBarControl.TOTAL_HEIGHT);
+        OxygenBarStacked = (x + OxygenBarControl.TOTAL_WIDTH) > viewport.Right;
 
-        var nameBounds = WorldHud.PlayerNameBounds;
+        if (OxygenBarStacked)
+        {
+            //no room beside the column in this layout -- take the row above the class strip, right-aligned, so the
+            //meter is neither clamped on top of that bar nor pushed off the edge of the viewport
+            x = anchor.Right - OxygenBarControl.TOTAL_WIDTH;
+            y = rowBottom - ClassResourceBarControl.STRIP_HEIGHT - STRIP_GAP - OxygenBarControl.TOTAL_HEIGHT;
+        } else
+        {
+            var bounds = new Rectangle(
+                x,
+                y,
+                OxygenBarControl.TOTAL_WIDTH,
+                OxygenBarControl.TOTAL_HEIGHT);
 
-        if (bounds.Intersects(nameBounds))
-            y = nameBounds.Y - OxygenBarControl.TOTAL_HEIGHT - STRIP_GAP;
+            var nameBounds = WorldHud.PlayerNameBounds;
 
-        OxygenBar.X = x;
+            if (bounds.Intersects(nameBounds))
+                y = nameBounds.Y - OxygenBarControl.TOTAL_HEIGHT - STRIP_GAP;
+        }
+
+        //a layout narrow enough to push the meter off the left edge would be stranger than anything in the data,
+        //but the clamp costs nothing and keeps it on screen if one ever appears
+        OxygenBar.X = Math.Max(x, viewport.X);
         OxygenBar.Y = y;
     }
 
