@@ -240,6 +240,13 @@ public delegate void SetValorStateHandler(SetValorStateArgs args);
 public delegate void SetMaliceStateHandler(SetMaliceStateArgs args);
 
 /// <summary>
+///     Raised when the server reports how much Oxygen the player has left underwater. Not a fifth class resource:
+///     oxygen is orthogonal to the class bar and a player can carry both at once, so it drives a bar of its own.
+///     Zero is a value to display, not a signal to hide -- an empty bar is the drowning warning.
+/// </summary>
+public delegate void SetOxygenStateHandler(SetOxygenStateArgs args);
+
+/// <summary>
 ///     Fired when the server issues a four-note song call.
 /// </summary>
 public delegate void SongCallHandler(SongCallArgs args);

@@ -978,6 +978,7 @@ public sealed partial class WorldScreen : IScreen
         Game.Connection.OnSetRageState -= HandleSetRageState;
         Game.Connection.OnSetValorState -= HandleSetValorState;
         Game.Connection.OnSetMaliceState -= HandleSetMaliceState;
+        Game.Connection.OnSetOxygenState -= HandleSetOxygenState;
         Game.Connection.OnEffect -= HandleEffect;
         Game.Connection.OnLightLevel -= HandleLightLevel;
         Game.OnMetaDataSyncComplete -= HandleMetaDataSyncComplete;
@@ -1012,6 +1013,7 @@ public sealed partial class WorldScreen : IScreen
         Root?.Dispose();
         SongBar?.Dispose();
         ClassResourceBar?.Dispose();
+        OxygenBar?.Dispose();
         Game.AislingRenderer.ClearCompositeCache();
         Game.AislingRenderer.ClearGroupTintCache();
         Game.CreatureRenderer.ClearTintCaches();

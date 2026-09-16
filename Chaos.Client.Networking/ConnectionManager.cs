@@ -510,6 +510,8 @@ public sealed class ConnectionManager : IDisposable
 
     public event SetMaliceStateHandler? OnSetMaliceState;
 
+    public event SetOxygenStateHandler? OnSetOxygenState;
+
     /// <summary>
     ///     Fired when the server issues a song call to answer.
     /// </summary>
@@ -1611,6 +1613,7 @@ public sealed class ConnectionManager : IDisposable
         PacketHandlers[(byte)ServerOpCode.SetRageState] = HandleSetRageState;
         PacketHandlers[(byte)ServerOpCode.SetValorState] = HandleSetValorState;
         PacketHandlers[(byte)ServerOpCode.SetMaliceState] = HandleSetMaliceState;
+        PacketHandlers[(byte)ServerOpCode.SetOxygenState] = HandleSetOxygenState;
         PacketHandlers[(byte)ServerOpCode.SongCall] = HandleSongCall;
         PacketHandlers[(byte)ServerOpCode.UserOptions] = HandleUserOptions;
         PacketHandlers[(byte)ServerOpCode.MarketDisplay] = HandleMarketDisplay;
@@ -1975,6 +1978,12 @@ public sealed class ConnectionManager : IDisposable
     {
         var args = Client.Deserialize<SetMaliceStateArgs>(in pkt);
         OnSetMaliceState?.Invoke(args);
+    }
+
+    private void HandleSetOxygenState(ServerPacket pkt)
+    {
+        var args = Client.Deserialize<SetOxygenStateArgs>(in pkt);
+        OnSetOxygenState?.Invoke(args);
     }
 
     private void HandleSongCall(ServerPacket pkt)

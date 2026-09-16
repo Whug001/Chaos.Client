@@ -73,6 +73,16 @@ public interface IWorldHud
     /// </remarks>
     int? ExpandedPanelTop { get; }
 
+    /// <summary>
+    ///     Screen rect of the character-name readout, in virtual pixels.
+    /// </summary>
+    /// <remarks>
+    ///     Exposed so an overlay placed beside the status strips can keep clear of it. Both layouts put the name
+    ///     somewhere in the status area, but not in the same place, and the draw code cannot see where -- the label
+    ///     is a prefab child and its rect comes from the control file.
+    /// </remarks>
+    Rectangle PlayerNameBounds { get; }
+
     string PlayerName { get; }
     UIButton? ScreenshotButton { get; }
     UIButton? SettingsButton { get; }

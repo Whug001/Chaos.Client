@@ -187,6 +187,12 @@ public static class WorldState
     public static ClassResourceState ClassResource { get; } = new();
 
     /// <summary>
+    ///     Authoritative oxygen state -- how much air the player has left in a water zone. Its own bar rather than a
+    ///     fifth colour on the class one, since a character can carry both at once.
+    /// </summary>
+    public static OxygenState Oxygen { get; } = new();
+
+    /// <summary>
     ///     Authoritative server-controlled user option toggles.
     /// </summary>
     public static UserOptions UserOptions { get; } = new();
@@ -396,6 +402,7 @@ public static class WorldState
         SpellBook.Clear();
         Song.Reset();
         ClassResource.Reset();
+        Oxygen.Reset();
         Equipment.Clear();
         Attributes.Clear();
         Chat.Clear();

@@ -1269,6 +1269,13 @@ public sealed partial class WorldScreen
     /// </summary>
     private void HandleSetMaliceState(SetMaliceStateArgs args) => WorldState.ClassResource.SetMalice(args.Malice);
 
+    /// <summary>
+    ///     Air remaining underwater, 0-100, reported by the server. Its own bar rather than a fifth colour on the
+    ///     class strip, since both can be carried at once. Zero is displayed as an empty bar rather than hiding it --
+    ///     that bar is the drowning warning. Leaving the zone is what clears it, in <c>HandleMapInfo</c>.
+    /// </summary>
+    private void HandleSetOxygenState(SetOxygenStateArgs args) => WorldState.Oxygen.Set(args.Oxygen);
+
     private void HandleSongCall(SongCallArgs args)
         => WorldState.Song.BeginCall(
             args.CallId,

@@ -662,6 +662,14 @@ public sealed class LargeWorldHudControl : PrefabPanel, IWorldHud
         MpOrb.UpdateValue(current, max);
     }
 
+    /// <inheritdoc />
+    public Rectangle PlayerNameBounds
+        => new(
+            PlayerNameLabel.ScreenX,
+            PlayerNameLabel.ScreenY,
+            PlayerNameLabel.Width,
+            PlayerNameLabel.Height);
+
     public string PlayerName { get; private set; } = string.Empty;
 
     public void SetGroupOpen(bool groupOpen)

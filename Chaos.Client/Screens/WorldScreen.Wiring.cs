@@ -94,6 +94,7 @@ public sealed partial class WorldScreen
         Game.Connection.OnSetRageState += HandleSetRageState;
         Game.Connection.OnSetValorState += HandleSetValorState;
         Game.Connection.OnSetMaliceState += HandleSetMaliceState;
+        Game.Connection.OnSetOxygenState += HandleSetOxygenState;
 
         //status effects
         Game.Connection.OnEffect += HandleEffect;

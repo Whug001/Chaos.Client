@@ -26,6 +26,10 @@ public sealed partial class WorldScreen
     //song strip up a row when both are visible at once so the two never overlap.
     private ClassResourceBarControl? ClassResourceBar;
 
+    //oxygen meter -- beside the class strip rather than stacked with it, since a player underwater can be carrying
+    //a class resource at the same time and has to be able to read both at once. Only alive in a water zone.
+    private OxygenBarControl? OxygenBar;
+
     public void Draw(SpriteBatch spriteBatch, GameTime gameTime)
     {
         //sort once per frame — cached via dirty flag, reused by all draw sub-passes
@@ -1036,6 +1040,20 @@ public sealed partial class WorldScreen
         if (ClassResourceBar.Visible && !mapOverlayOpen)
             ClassResourceBar.Draw(spriteBatch);
 
+        //oxygen sits to the right of the class strip on the same row, outside the column the strips span. It keeps
+        //the resource row for itself rather than stacking above it, because oxygen and a class resource are carried
+        //at the same time -- stacking would push the class bar up a row every time a player entered the water.
+        OxygenBar ??= new OxygenBarControl();
+        OxygenBar.Update(gameTime);
+
+        if (OxygenBar.Visible)
+        {
+            PlaceOxygenBar(anchor, baselineY);
+
+            if (!mapOverlayOpen)
+                OxygenBar.Draw(spriteBatch);
+        }
+
         //the call countdown itself is driven from WorldScreen.Update (WorldState.Song.Update) -- this only
         //refreshes the labels and repositions the strip
         SongBar ??= new SongBarControl();
@@ -1051,6 +1069,48 @@ public sealed partial class WorldScreen
 
     /// <summary>Pixels left between a status strip and whatever sits below it.</summary>
     private const int STRIP_GAP = 2;
+
+    /// <summary>
+    ///     Puts the oxygen meter just right of the strip column, on the class-resource row.
+    /// </summary>
+    /// <remarks>
+    ///     Two things it has to stay clear of, and neither is at a fixed place: the viewport's right edge, which
+    ///     differs between the two hud layouts, and the character-name readout, which is a prefab child whose rect
+    ///     comes from the control file. The bar is pulled back inside the viewport if it would hang off the end, and
+    ///     lifted a row if it would land on the name. Both are checked every frame rather than settled once, since a
+    ///     hud swap moves both of them.
+    /// </remarks>
+    private void PlaceOxygenBar(Rectangle anchor, int baselineY)
+    {
+        if (OxygenBar is null)
+            return;
+
+        var viewport = WorldHud.ViewportBounds;
+
+        var x = anchor.Right + STRIP_GAP;
+
+        if ((x + OxygenBarControl.TOTAL_WIDTH) > viewport.Right)
+            x = viewport.Right - OxygenBarControl.TOTAL_WIDTH;
+
+        //bottom-aligned with the class-resource row, whether or not that bar is currently showing -- the meter
+        //keeps its place when a player with no class resource goes under
+        var rowBottom = baselineY - STRIP_GAP;
+        var y = rowBottom - OxygenBarControl.TOTAL_HEIGHT;
+
+        var bounds = new Rectangle(
+            x,
+            y,
+            OxygenBarControl.TOTAL_WIDTH,
+            OxygenBarControl.TOTAL_HEIGHT);
+
+        var nameBounds = WorldHud.PlayerNameBounds;
+
+        if (bounds.Intersects(nameBounds))
+            y = nameBounds.Y - OxygenBarControl.TOTAL_HEIGHT - STRIP_GAP;
+
+        OxygenBar.X = x;
+        OxygenBar.Y = y;
+    }
 
     private void DrawDragIcon(SpriteBatch spriteBatch)
     {
