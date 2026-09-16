@@ -1,4 +1,4 @@
-#region
+﻿#region
 using Chaos.Client.Collections;
 using Chaos.Client.Controls.Components;
 using Chaos.Client.Data.Utilities;
@@ -40,6 +40,9 @@ public sealed partial class WorldScreen
             //set, so the response updates state silently without showing the book.
             Game.Connection.RequestSelfProfile();
         }
+
+        //the world map is a full-screen overlay; a floating group panel over it would sit on the map art
+        GroupVitals.Suppressed = WorldMap.Visible;
 
         var elapsedMs = (float)gameTime.ElapsedGameTime.TotalMilliseconds;
 

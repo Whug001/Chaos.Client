@@ -1,4 +1,4 @@
-#region
+﻿#region
 using Chaos.Geometry.Abstractions.Definitions;
 using Chaos.Networking.Entities.Server;
 #endregion
@@ -245,6 +245,13 @@ public delegate void SetMaliceStateHandler(SetMaliceStateArgs args);
 ///     Zero is a value to display, not a signal to hide -- an empty bar is the drowning warning.
 /// </summary>
 public delegate void SetOxygenStateHandler(SetOxygenStateArgs args);
+
+/// <summary>
+///     Raised when the server sends a fresh snapshot of the player's group -- every member's name, class, vitals,
+///     look and the effects closest to expiring. A whole list every time, so a member who left is simply absent
+///     from the next one; an empty list means the player is no longer grouped.
+/// </summary>
+public delegate void SetGroupStateHandler(SetGroupStateArgs args);
 
 /// <summary>
 ///     Fired when the server issues a four-note song call.

@@ -1,4 +1,4 @@
-#region
+﻿#region
 using Chaos.Client.Collections;
 using Chaos.Client.Controls.Generic;
 using Chaos.Client.Controls.World.Popups.Market;
@@ -1275,6 +1275,8 @@ public sealed partial class WorldScreen
     ///     that bar is the drowning warning. Leaving the zone is what clears it, in <c>HandleMapInfo</c>.
     /// </summary>
     private void HandleSetOxygenState(SetOxygenStateArgs args) => WorldState.Oxygen.Set(args.Oxygen);
+
+    private static void HandleSetGroupState(SetGroupStateArgs args) => WorldState.GroupMembers.Set(args);
 
     private void HandleSongCall(SongCallArgs args)
         => WorldState.Song.BeginCall(

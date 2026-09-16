@@ -10,6 +10,7 @@ using Chaos.Client.Controls.World.Popups.Beauty;
 using Chaos.Client.Controls.World.Popups.Boards;
 using Chaos.Client.Controls.World.Popups.Dialog;
 using Chaos.Client.Controls.World.Popups.Exchange;
+using Chaos.Client.Controls.World.Popups.GroupPanels;
 using Chaos.Client.Controls.World.Popups.Market;
 using Chaos.Client.Controls.World.Popups.Options;
 using Chaos.Client.Controls.World.Popups.Poker;
@@ -111,6 +112,7 @@ public sealed partial class WorldScreen : IScreen
     private AbilityMetadataDetailsControl AbilityMetadataDetails = null!;
     private AislingContextMenu AislingContext = null!;
     private PollPanel VotePanel = null!;
+    private GroupPanelStack GroupVitals = null!;
 
     private int AnimationTick;
     private ArticleListControl ArticleList = null!;
@@ -736,6 +738,10 @@ public sealed partial class WorldScreen : IScreen
             ZIndex = 9
         };
 
+        //ZIndex 0 so the world map, at 2, draws over it; the column is also held down outright while the map is
+        //up, from WorldScreen.Update
+        GroupVitals = new GroupPanelStack(Game.AislingRenderer, viewport);
+
         AislingContext = new AislingContextMenu
         {
             ZIndex = 3
@@ -899,6 +905,7 @@ public sealed partial class WorldScreen : IScreen
         Root.AddChild(DisconnectPopup);
 
         Root.AddChild(VotePanel);
+        Root.AddChild(GroupVitals);
         VotePanel.VoteCast += (pollId, index) => Game.Connection.SendVote(pollId, index);
 
         //inventory drop-target registry: each panel owns its eligibility/drop-zone; the paired action owns the networking
@@ -979,6 +986,7 @@ public sealed partial class WorldScreen : IScreen
         Game.Connection.OnSetValorState -= HandleSetValorState;
         Game.Connection.OnSetMaliceState -= HandleSetMaliceState;
         Game.Connection.OnSetOxygenState -= HandleSetOxygenState;
+        Game.Connection.OnSetGroupState -= HandleSetGroupState;
         Game.Connection.OnEffect -= HandleEffect;
         Game.Connection.OnLightLevel -= HandleLightLevel;
         Game.OnMetaDataSyncComplete -= HandleMetaDataSyncComplete;

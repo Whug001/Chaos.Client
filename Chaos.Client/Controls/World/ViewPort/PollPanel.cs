@@ -1,4 +1,4 @@
-#region
+﻿#region
 using Chaos.Client.Collections;
 using Chaos.Client.Controls.Components;
 using Microsoft.Xna.Framework;
@@ -11,7 +11,7 @@ namespace Chaos.Client.Controls.World.ViewPort;
 ///     Top-right wooden voting panel. Renders WorldState.Poll: title, countdown, one row per option (text + vote
 ///     count + flat tally bar), with the local player's pick highlighted. Clicking a row while the poll is open raises
 ///     <see cref="VoteCast" /> (pollId, optionIndex); the packet send is wired by the owning screen. The ornate 9-slice
-///     wooden frame is drawn inline, mirroring FramedDialogPanelBase (DlgBack2.spf tiled fill + nd_f01–f08 border pieces).
+///     wooden frame comes from <see cref="OrnateFrame" /> (DlgBack2.spf tiled fill + nd_f01–f08 border pieces).
 /// </summary>
 public sealed class PollPanel : UIPanel
 {
@@ -22,15 +22,6 @@ public sealed class PollPanel : UIPanel
     private const int ROWS_TOP = 30;
     private const int ROW_H = 22;
     private const int ROWS_GAP = 5;
-
-    //frame corner/edge dimensions (mirror FramedDialogPanelBase)
-    private const int CORNER_TL_W = 31;
-    private const int CORNER_TL_H = 24;
-    private const int CORNER_TR_W = 31;
-    private const int CORNER_BL_H = 47;
-    private const int CORNER_BR_W = 31;
-    private const int CORNER_BR_H = 47;
-    private const int BORDER_BOTTOM = 47;
 
     private static readonly Color Gold = new(252, 215, 80);
     private static readonly Color White = new(255, 255, 255);
@@ -44,18 +35,6 @@ public sealed class PollPanel : UIPanel
     private static readonly Color BarHot = new(255, 201, 70);
 
     private Rectangle ViewportBounds;
-
-    private Texture2D? BackgroundTile;
-    private Texture2D? CornerBl;
-    private Texture2D? CornerBr;
-    private Texture2D? CornerTl;
-    private Texture2D? CornerTr;
-    private Texture2D? EdgeBottomOk;
-    private Texture2D? EdgeBottomRivets;
-    private Texture2D? EdgeLeft;
-    private Texture2D? EdgeRight;
-    private Texture2D? EdgeTop;
-    private bool FrameTexturesLoaded;
 
     public event Action<byte, byte>? VoteCast;
 
@@ -86,7 +65,7 @@ public sealed class PollPanel : UIPanel
 
         //size to current option count; anchor top-right
         var rows = poll.Options.Count;
-        Height = ROWS_TOP + (rows * ROW_H) + ROWS_GAP + BORDER_BOTTOM;
+        Height = ROWS_TOP + (rows * ROW_H) + ROWS_GAP + OrnateFrame.BORDER_BOTTOM_HEIGHT;
         X = ViewportBounds.Right - PANEL_WIDTH - 2;
         Y = ViewportBounds.Top + 2;
         IsHitTestVisible = true;
@@ -129,15 +108,13 @@ public sealed class PollPanel : UIPanel
         if ((ClipRect.Width <= 0) || (ClipRect.Height <= 0))
             return;
 
-        EnsureFrameTextures();
-
         var poll = WorldState.Poll;
         var sx = ScreenX;
         var sy = ScreenY;
         var w = Width;
         var h = Height;
 
-        DrawFrame(spriteBatch, sx, sy, w, h);
+        OrnateFrame.Draw(spriteBatch, sx, sy, w, h);
 
         //── title (centered, gold, shadowed) ──
         var title = poll.Title;
@@ -273,176 +250,9 @@ public sealed class PollPanel : UIPanel
         var hint = poll.IsClosed ? "Vote complete" : "Click a match to vote";
         TextRenderer.DrawShadowedText(
             spriteBatch,
-            new Vector2(sx + ((w - TextRenderer.MeasureWidth(hint)) / 2), sy + h - BORDER_BOTTOM + 6),
+            new Vector2(sx + ((w - TextRenderer.MeasureWidth(hint)) / 2), sy + h - OrnateFrame.BORDER_BOTTOM_HEIGHT + 6),
             hint,
             Footer,
             Shadow);
-    }
-
-    //── frame (9-slice, mirrors FramedDialogPanelBase.Draw exactly) ──
-    private void DrawFrame(
-        SpriteBatch spriteBatch,
-        int sx,
-        int sy,
-        int w,
-        int h)
-    {
-        //1. tile dlgback2.spf across entire panel as background fill
-        if (BackgroundTile is not null)
-            TileTexture(
-                spriteBatch,
-                BackgroundTile,
-                sx,
-                sy,
-                w,
-                h);
-
-        //2. frame edges (tiled between corners)
-        if (EdgeTop is not null)
-            TileTexture(
-                spriteBatch,
-                EdgeTop,
-                sx + CORNER_TL_W,
-                sy,
-                w - CORNER_TL_W - CORNER_TR_W,
-                EdgeTop.Height);
-
-        if (EdgeLeft is not null)
-            TileTexture(
-                spriteBatch,
-                EdgeLeft,
-                sx,
-                sy + CORNER_TL_H,
-                EdgeLeft.Width,
-                h - CORNER_TL_H - CORNER_BL_H);
-
-        if (EdgeRight is not null)
-            TileTexture(
-                spriteBatch,
-                EdgeRight,
-                sx + w - EdgeRight.Width,
-                sy + CORNER_TL_H,
-                EdgeRight.Width,
-                h - CORNER_TL_H - CORNER_BR_H);
-
-        //bottom edge: rivets on the left, plain background on the right (no OK button on this panel)
-        var okAreaStart = w - CORNER_BR_W - 8;
-        var rivetsWidth = okAreaStart - CORNER_TL_W;
-        var okAreaWidth = w - CORNER_BR_W - okAreaStart;
-
-        if ((EdgeBottomRivets is not null) && (rivetsWidth > 0))
-            TileTexture(
-                spriteBatch,
-                EdgeBottomRivets,
-                sx + CORNER_TL_W,
-                sy + h - BORDER_BOTTOM,
-                rivetsWidth,
-                EdgeBottomRivets.Height);
-
-        if ((EdgeBottomOk is not null) && (okAreaWidth > 0))
-            TileTexture(
-                spriteBatch,
-                EdgeBottomOk,
-                sx + okAreaStart,
-                sy + h - BORDER_BOTTOM,
-                okAreaWidth,
-                EdgeBottomOk.Height);
-
-        //3. corners (drawn last to cover edge overlap)
-        if (CornerTl is not null)
-            DrawTexture(
-                spriteBatch,
-                CornerTl,
-                new Vector2(sx, sy),
-                Color.White);
-
-        if (CornerTr is not null)
-            DrawTexture(
-                spriteBatch,
-                CornerTr,
-                new Vector2(sx + w - CORNER_TR_W, sy),
-                Color.White);
-
-        if (CornerBl is not null)
-            DrawTexture(
-                spriteBatch,
-                CornerBl,
-                new Vector2(sx, sy + h - CORNER_BL_H),
-                Color.White);
-
-        if (CornerBr is not null)
-            DrawTexture(
-                spriteBatch,
-                CornerBr,
-                new Vector2(sx + w - CORNER_BR_W, sy + h - CORNER_BR_H),
-                Color.White);
-    }
-
-    private void EnsureFrameTextures()
-    {
-        if (FrameTexturesLoaded)
-            return;
-
-        FrameTexturesLoaded = true;
-        var renderer = UiRenderer.Instance;
-
-        if (renderer is null)
-            return;
-
-        CornerTl = renderer.GetSpfTexture("nd_f01.spf");
-        CornerTr = renderer.GetSpfTexture("nd_f02.spf");
-        CornerBl = renderer.GetSpfTexture("nd_f03.spf");
-        CornerBr = renderer.GetSpfTexture("nd_f04.spf");
-        EdgeTop = renderer.GetSpfTexture("nd_f05.spf");
-        EdgeLeft = renderer.GetSpfTexture("nd_f06.spf");
-        EdgeRight = renderer.GetSpfTexture("nd_f07.spf");
-        EdgeBottomOk = renderer.GetSpfTexture("nd_f08.spf");
-        EdgeBottomRivets = renderer.GetSpfTexture("nd_f08_1.spf");
-        BackgroundTile = renderer.GetSpfTexture("DlgBack2.spf");
-    }
-
-    //tiles a texture across a region, mirroring FramedDialogPanelBase.TileTexture exactly: uses
-    //AtlasHelper.Draw so atlas-backed CachedTexture2D partial-tile source rects resolve correctly.
-    private static void TileTexture(
-        SpriteBatch spriteBatch,
-        Texture2D texture,
-        int x,
-        int y,
-        int width,
-        int height)
-    {
-        if ((width <= 0) || (height <= 0))
-            return;
-
-        var texW = texture.Width;
-        var texH = texture.Height;
-
-        for (var ty = 0; ty < height; ty += texH)
-        {
-            var drawH = Math.Min(texH, height - ty);
-
-            for (var tx = 0; tx < width; tx += texW)
-            {
-                var drawW = Math.Min(texW, width - tx);
-
-                if ((drawW == texW) && (drawH == texH))
-                    AtlasHelper.Draw(
-                        spriteBatch,
-                        texture,
-                        new Vector2(x + tx, y + ty),
-                        Color.White);
-                else
-                    AtlasHelper.Draw(
-                        spriteBatch,
-                        texture,
-                        new Vector2(x + tx, y + ty),
-                        new Rectangle(
-                            0,
-                            0,
-                            drawW,
-                            drawH),
-                        Color.White);
-            }
-        }
     }
 }

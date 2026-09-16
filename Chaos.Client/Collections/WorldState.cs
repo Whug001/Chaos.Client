@@ -129,6 +129,12 @@ public static class WorldState
     public static GroupState Group { get; } = new();
 
     /// <summary>
+    ///     Vitals, class, look and effects for everyone in the group, as the server last reported them. Feeds the
+    ///     floating group panels; <see cref="Group" /> stays the name-and-leader view the group tab is built on.
+    /// </summary>
+    public static GroupMembersState GroupMembers { get; } = new();
+
+    /// <summary>
     ///     Authoritative group invite state.
     /// </summary>
     public static GroupInvite GroupInvite { get; } = new();
@@ -408,6 +414,7 @@ public static class WorldState
         Chat.Clear();
         Board.CloseSession();
         Group.ResetAll();
+        GroupMembers.Reset();
         GroupInvite.Clear();
         NpcInteraction.Close();
         Exchange.Close();
@@ -445,13 +452,13 @@ public static class WorldState
     //layer still drawn) is what carries body color. the server zeroes the body-palette fields for the dead
     //packet, so bodyColor arrives as 0 (White) and the face renders skin-toned on the wraith. force the pale
     //ghost palette entry instead so the face matches the wraith body.
-    private const int GHOST_BODY_COLOR = (int)BodyColor.LightBlue;
+    internal const int GHOST_BODY_COLOR = (int)BodyColor.LightBlue;
 
     //khan body sprite number used by the 'b' (body) and 'm' (skin) layer file names.
     //0 means the form has no body sprite at all.
     //khan body sprite number used by the 'b' (body) and 'm' (skin) layer file names.
     //0 means the form has no body sprite at all.
-    private static int GetBodySpriteId(BodySprite bodySprite)
+    internal static int GetBodySpriteId(BodySprite bodySprite)
         => bodySprite switch
         {
             BodySprite.MaleGhost or BodySprite.FemaleGhost  => 2,

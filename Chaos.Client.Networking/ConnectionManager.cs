@@ -512,6 +512,8 @@ public sealed class ConnectionManager : IDisposable
 
     public event SetOxygenStateHandler? OnSetOxygenState;
 
+    public event SetGroupStateHandler? OnSetGroupState;
+
     /// <summary>
     ///     Fired when the server issues a song call to answer.
     /// </summary>
@@ -1614,6 +1616,7 @@ public sealed class ConnectionManager : IDisposable
         PacketHandlers[(byte)ServerOpCode.SetValorState] = HandleSetValorState;
         PacketHandlers[(byte)ServerOpCode.SetMaliceState] = HandleSetMaliceState;
         PacketHandlers[(byte)ServerOpCode.SetOxygenState] = HandleSetOxygenState;
+        PacketHandlers[(byte)ServerOpCode.SetGroupState] = HandleSetGroupState;
         PacketHandlers[(byte)ServerOpCode.SongCall] = HandleSongCall;
         PacketHandlers[(byte)ServerOpCode.UserOptions] = HandleUserOptions;
         PacketHandlers[(byte)ServerOpCode.MarketDisplay] = HandleMarketDisplay;
@@ -1984,6 +1987,12 @@ public sealed class ConnectionManager : IDisposable
     {
         var args = Client.Deserialize<SetOxygenStateArgs>(in pkt);
         OnSetOxygenState?.Invoke(args);
+    }
+
+    private void HandleSetGroupState(ServerPacket pkt)
+    {
+        var args = Client.Deserialize<SetGroupStateArgs>(in pkt);
+        OnSetGroupState?.Invoke(args);
     }
 
     private void HandleSongCall(ServerPacket pkt)

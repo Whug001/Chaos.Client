@@ -95,6 +95,7 @@ public sealed partial class WorldScreen
         Game.Connection.OnSetValorState += HandleSetValorState;
         Game.Connection.OnSetMaliceState += HandleSetMaliceState;
         Game.Connection.OnSetOxygenState += HandleSetOxygenState;
+        Game.Connection.OnSetGroupState += HandleSetGroupState;
 
         //status effects
         Game.Connection.OnEffect += HandleEffect;
@@ -1107,6 +1108,7 @@ public sealed partial class WorldScreen
         MailRead.SetViewportBounds(viewport);
         MailSend.SetViewportBounds(viewport);
         VotePanel.SetViewportBounds(viewport);
+        GroupVitals.SetViewportBounds(viewport);
 
         FollowPlayerCamera();
 
