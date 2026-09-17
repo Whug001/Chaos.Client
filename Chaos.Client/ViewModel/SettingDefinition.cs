@@ -1,4 +1,4 @@
-﻿#region
+#region
 using Chaos.Client.Networking;
 using Chaos.Client.Systems;
 using Chaos.DarkAges.Definitions;
@@ -58,6 +58,7 @@ public enum SettingKey
     NpcRecordChat,
     Resolution,
     CooldownNumbers,
+    GroupPanel,
     DamageNumbersEnabled,
     DamageNumbersOnAislings,
     HealNumbersOnAislings,
@@ -127,6 +128,13 @@ public static class SettingDefinitions
             SettingCategory.ClientLocal,
             Get: () => ClientSettings.CooldownNumbersEnabled,
             Set: v => ClientSettings.CooldownNumbersEnabled = v),
+        new(
+            SettingKey.GroupPanel,
+            "Show group panels",
+            SettingSection.Display,
+            SettingCategory.ClientLocal,
+            Get: () => ClientSettings.GroupPanelEnabled,
+            Set: v => ClientSettings.GroupPanelEnabled = v),
         new(
             SettingKey.MaxEffectAnimations,
             "Max animations per entity",

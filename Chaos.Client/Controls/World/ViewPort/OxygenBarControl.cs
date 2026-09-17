@@ -8,14 +8,16 @@ using Microsoft.Xna.Framework.Graphics;
 namespace Chaos.Client.Controls.World.ViewPort;
 
 /// <summary>
-///     How much air the player has left, 0-100, shown only while they are in the water. A small meter rather than a
-///     strip: it sits beside the class-resource strip instead of stacking with it, because oxygen is not a fifth
-///     class resource -- a Berserker underwater carries Rage and air at the same time and needs to read both.
+///     How much air the player has left, 0-100, shown only while they are in the water. A bar with
+///     "Oxygen 73/100" written inside it.
 /// </summary>
 /// <remarks>
-///     Sized a little larger than the entity <see cref="HealthBar" /> it is modelled on (32x7 against 27x5), and
-///     drawn the same way: a frame with a filled interior, no label. There is no room for text at this size and none
-///     is needed -- a meter draining toward empty is the whole message.
+///     Sits in the status strip column on the left, above the hp and mp orbs, as the top row of the stack that
+///     holds the class resource strip and the bard song strip. Drowning is the one thing on screen a player must
+///     not miss, and that column is where a player already looks for a resource that is running out.
+///     <para />
+///     Only as tall as the text it holds, which is a row of the standard 12px font plus its frame. The bar is long
+///     rather than thick: length is what carries the reading, and thickness would only take viewport.
 ///     <para />
 ///     Visible whenever <see cref="WorldState.Oxygen" /> holds a value, zero included. An empty bar is the drowning
 ///     warning: it is the only standing sign that the health going missing is the water rather than something in the
@@ -24,36 +26,94 @@ namespace Chaos.Client.Controls.World.ViewPort;
 /// </remarks>
 public sealed class OxygenBarControl : UIElement
 {
-    /// <summary>Outer size, including the frame. A little larger than the 27x5 health bar, as asked.</summary>
-    public const int TOTAL_WIDTH = 32;
+    /// <summary>A row of text and a pixel of frame above and below it. Nothing is gained by making it thicker.</summary>
+    public const int TOTAL_HEIGHT = TextRenderer.CHAR_HEIGHT + 2;
 
-    public const int TOTAL_HEIGHT = 7;
+    /// <summary>
+    ///     The least the bar may be squeezed to: the widest label it ever draws, plus its frame.
+    /// </summary>
+    /// <remarks>
+    ///     "Oxygen 100/100" is fourteen characters and the font is fixed-advance, so this is exact rather than an
+    ///     estimate. The strip column is far wider than this today, so this is a floor that only matters if a hud
+    ///     layout ever gives the strips a narrower column.
+    /// </remarks>
+    public const int MINIMUM_WIDTH = (14 * TextRenderer.CHAR_WIDTH) + 2;
 
-    private const int INNER_WIDTH = TOTAL_WIDTH - 2;
-    private const int INNER_HEIGHT = TOTAL_HEIGHT - 2;
+    private const int MAX_OXYGEN = 100;
+
+    /// <summary>
+    ///     How fast the drawn fill chases the server's number, in percentage points per second.
+    /// </summary>
+    /// <remarks>
+    ///     The server reports whole percentage points at whatever interval the effect ticks, so the raw value
+    ///     arrives in visible steps. Easing toward it makes the bar read as draining rather than as jumping, and at
+    ///     this rate a single point takes about a sixth of a second -- slow enough to see, fast enough that the bar
+    ///     is never meaningfully behind the truth.
+    /// </remarks>
+    private const float DRAIN_RATE = 6f;
 
     private static readonly Color FrameColor = Color.Black;
 
     //the interior behind the fill, so a meter near empty still reads as a bar rather than as an empty outline
-    private static readonly Color BackdropColor = new(0, 0, 0, 128);
+    private static readonly Color BackdropColor = new(0, 0, 0, 160);
 
-    //water blue, and nowhere near any of the four class-resource colours (green, red, gold, violet) -- the two
-    //bars sit side by side and must never be mistaken for each other
+    //water blue, and nowhere near any of the four class-resource colours (green, red, gold, violet)
     private static readonly Color FillColor = new(64, 148, 232, 230);
+
+    private static readonly Color TextColor = Color.White;
+    private static readonly Color ShadowColor = Color.Black;
+
+    /// <summary>What is actually drawn, which chases <see cref="OxygenState.Amount" /> rather than matching it.</summary>
+    private float DisplayedAmount;
 
     public OxygenBarControl()
     {
-        Width = TOTAL_WIDTH;
+        Width = MINIMUM_WIDTH;
         Height = TOTAL_HEIGHT;
         Visible = false;
+        IsHitTestVisible = false;
     }
 
     /// <summary>
-    ///     Settles visibility for this frame from <see cref="WorldState.Oxygen" />. Positioning is the caller's --
-    ///     <c>WorldScreen.DrawStatusStrips</c> places this against the active hud every frame, the same as the
-    ///     strips it sits beside.
+    ///     Puts the bar in the row the caller has measured for it. Position is the caller's because it depends on
+    ///     the strip column of whichever hud layout is up, and on how many of the strips below it are showing.
     /// </summary>
-    public override void Update(GameTime gameTime) => Visible = WorldState.Oxygen.HasValue;
+    public void SetBounds(int x, int y, int width)
+    {
+        X = x;
+        Y = y;
+        Width = Math.Max(width, MINIMUM_WIDTH);
+    }
+
+    /// <summary>
+    ///     Settles visibility and eases the drawn fill toward the reported one.
+    /// </summary>
+    public override void Update(GameTime gameTime)
+    {
+        Visible = WorldState.Oxygen.HasValue;
+
+        if (!Visible)
+        {
+            //snapped rather than eased, so surfacing and going back under starts from the real value instead of
+            //animating up from wherever the bar happened to be when it was hidden
+            DisplayedAmount = 0;
+
+            return;
+        }
+
+        var target = (float)WorldState.Oxygen.Amount;
+        var step = DRAIN_RATE * (float)gameTime.ElapsedGameTime.TotalSeconds;
+
+        //a first reading has nothing to ease from, and a refill is not a drain -- both go straight to the value
+        if ((DisplayedAmount <= 0f) || (target > DisplayedAmount))
+        {
+            DisplayedAmount = target;
+
+            return;
+        }
+
+        DisplayedAmount = Math.Max(target, DisplayedAmount - step);
+    }
 
     /// <inheritdoc />
     public override void Draw(SpriteBatch spriteBatch)
@@ -64,24 +124,36 @@ public sealed class OxygenBarControl : UIElement
         var bounds = new Rectangle(
             ScreenX,
             ScreenY,
-            TOTAL_WIDTH,
+            Width,
             TOTAL_HEIGHT);
 
         DrawRect(spriteBatch, bounds, BackdropColor);
+
+        var innerWidth = Width - 2;
+        var fillWidth = (int)Math.Round(innerWidth * DisplayedAmount / MAX_OXYGEN);
+
+        if (fillWidth > 0)
+            DrawRect(
+                spriteBatch,
+                new Rectangle(
+                    ScreenX + 1,
+                    ScreenY + 1,
+                    Math.Min(fillWidth, innerWidth),
+                    TOTAL_HEIGHT - 2),
+                FillColor);
+
         DrawBorder(spriteBatch, bounds, FrameColor);
 
-        var fillWidth = INNER_WIDTH * WorldState.Oxygen.Amount / 100;
+        //the label reads the server's number, not the eased one: the bar may still be sliding down to it, but the
+        //figure a player reads should be the figure they have
+        var text = $"Oxygen {WorldState.Oxygen.Amount}/{MAX_OXYGEN}";
+        var textWidth = TextRenderer.MeasureWidth(text);
 
-        if (fillWidth <= 0)
-            return;
-
-        DrawRect(
+        TextRenderer.DrawShadowedText(
             spriteBatch,
-            new Rectangle(
-                ScreenX + 1,
-                ScreenY + 1,
-                fillWidth,
-                INNER_HEIGHT),
-            FillColor);
+            new Vector2(ScreenX + ((Width - textWidth) / 2), ScreenY + 1),
+            text,
+            TextColor,
+            ShadowColor);
     }
 }

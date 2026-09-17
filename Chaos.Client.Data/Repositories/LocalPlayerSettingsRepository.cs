@@ -13,6 +13,7 @@ public sealed class LocalPlayerSettingsRepository
 {
     private const string FAMILY_LIST_FILE = "Familylist.cfg";
     private const string FRIEND_LIST_FILE = "Friendlist.cfg";
+    private const string LAYOUT_FILE = "Layout.cfg";
     private const string MACRO_FILE = "Macro.cfg";
     private const string SKILL_BOOK_FILE = "SkillBook.cfg";
     private const string SPELL_BOOK_FILE = "SpellBook.cfg";
@@ -26,8 +27,99 @@ public sealed class LocalPlayerSettingsRepository
     public string MacroPath => Path.Combine(PlayerDirectory, MACRO_FILE);
 
     public string GetFilePath(string fileName) => Path.Combine(PlayerDirectory, fileName);
+
+    /// <summary>
+    ///     Where this character's moveable UI has been dragged to. Separate from <c>Darkages.cfg</c>, which is one
+    ///     file for the whole install: two characters on one machine want their own arrangement.
+    /// </summary>
+    public string LayoutPath => Path.Combine(PlayerDirectory, LAYOUT_FILE);
     public string SkillBookPath => Path.Combine(PlayerDirectory, SKILL_BOOK_FILE);
     public string SpellBookPath => Path.Combine(PlayerDirectory, SPELL_BOOK_FILE);
+
+    /// <summary>
+    ///     Reads <c>Layout.cfg</c> into a key-value map. Same "Key : Value" shape as the other config files.
+    ///     Missing or unreadable file gives an empty map, which reads as "never moved".
+    /// </summary>
+    private Dictionary<string, string> ReadLayout()
+    {
+        var values = new Dictionary<string, string>(StringComparer.Ordinal);
+
+        try
+        {
+            if (!File.Exists(LayoutPath))
+                return values;
+
+            foreach (var line in File.ReadLines(LayoutPath))
+            {
+                var colonIndex = line.IndexOf(':');
+
+                if (colonIndex < 0)
+                    continue;
+
+                values[line[..colonIndex]
+                    .Trim()] = line[(colonIndex + 1)..]
+                    .Trim();
+            }
+        } catch
+        {
+            //corrupt or locked -- treat as nothing saved rather than losing the session over a layout file
+        }
+
+        return values;
+    }
+
+    /// <summary>
+    ///     Writes a layout map back out whole, after merging it over whatever is already on disk. Merging rather
+    ///     than replacing so a control saving its own position cannot wipe another control's.
+    /// </summary>
+    private void WriteLayout(IReadOnlyDictionary<string, string> changes)
+    {
+        try
+        {
+            var values = ReadLayout();
+
+            foreach (var (key, value) in changes)
+                values[key] = value;
+
+            File.WriteAllLines(LayoutPath, values.Select(pair => $"{pair.Key} : {pair.Value}"));
+        } catch
+        {
+            //best effort -- don't crash on save failure
+        }
+    }
+
+    /// <summary>
+    ///     Where this character last dragged the group panel column to, if they ever did.
+    /// </summary>
+    public bool TryLoadGroupPanelPosition(out int x, out int y)
+    {
+        x = 0;
+        y = 0;
+
+        if (!IsInitialized)
+            return false;
+
+        var values = ReadLayout();
+
+        return values.TryGetValue("GroupPanelX", out var rawX)
+               && values.TryGetValue("GroupPanelY", out var rawY)
+               && int.TryParse(rawX, out x)
+               && int.TryParse(rawY, out y);
+    }
+
+    /// <summary>Remembers where the group panel column was dropped.</summary>
+    public void SaveGroupPanelPosition(int x, int y)
+    {
+        if (!IsInitialized)
+            return;
+
+        WriteLayout(
+            new Dictionary<string, string>(StringComparer.Ordinal)
+            {
+                ["GroupPanelX"] = x.ToString(),
+                ["GroupPanelY"] = y.ToString()
+            });
+    }
 
     private void EnsureFileExists(string fileName)
     {

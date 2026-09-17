@@ -74,7 +74,7 @@ public sealed class EffectSlotControl : UIPanel
         Visible = false;
     }
 
-    private static Color GetBarColor(EffectColor effectColor)
+    public static Color GetBarColor(EffectColor effectColor)
         => effectColor switch
         {
             EffectColor.Blue   => new Color(59, 82, 120),
@@ -86,7 +86,7 @@ public sealed class EffectSlotControl : UIPanel
             _                  => Color.Transparent
         };
 
-    private static float GetBarPercent(EffectColor effectColor)
+    public static float GetBarPercent(EffectColor effectColor)
         => effectColor switch
         {
             EffectColor.White  => 1f,

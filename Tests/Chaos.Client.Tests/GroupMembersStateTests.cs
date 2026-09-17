@@ -174,7 +174,8 @@ public class GroupMembersStateTests
         group.Set(Snapshot(member));
 
         group.Members[0]
-             .EffectIcons.Should()
+             .Effects.Select(effect => effect.Icon)
+             .Should()
              .Equal((byte)7, (byte)9);
     }
 
@@ -208,7 +209,6 @@ public class GroupMembersStateTests
         member.FaceSprite = 3;
         member.ArmorSprite = 118;
         member.OvercoatSprite = 77;
-        member.AccessorySprite1 = 12;
 
         group.Set(Snapshot(member));
 
@@ -219,7 +219,48 @@ public class GroupMembersStateTests
         appearance.FaceSprite.Should().Be(3);
         appearance.ArmorSprite.Should().Be(118);
         appearance.OvercoatSprite.Should().Be(77);
-        appearance.Accessory1Sprite.Should().Be(12);
+    }
+
+    /// <summary>
+    ///     Headwear is dropped on purpose: at portrait size a hat is most of what there is to see, and a group in
+    ///     matching helms would be a column of identical pictures. The three accessory layers are where all of it
+    ///     is drawn, and zero means skip the layer.
+    /// </summary>
+    [Test]
+    public void AppearanceDropsAccessoriesSoHeadwearIsNotDrawn()
+    {
+        var group = new GroupMembersState();
+        var member = Member("Aurelia");
+        member.AccessorySprite1 = 12;
+        member.AccessorySprite2 = 13;
+        member.AccessorySprite3 = 14;
+
+        group.Set(Snapshot(member));
+
+        var appearance = group.Members[0].Appearance;
+
+        appearance.Accessory1Sprite.Should().Be(0);
+        appearance.Accessory2Sprite.Should().Be(0);
+        appearance.Accessory3Sprite.Should().Be(0);
+    }
+
+    /// <summary>The panel puts a star beside whoever the server flagged as leading.</summary>
+    [Test]
+    public void TheLeaderFlagIsCarriedThrough()
+    {
+        var group = new GroupMembersState();
+        var leader = Member("Aurelia");
+        leader.IsLeader = true;
+
+        group.Set(Snapshot(leader, Member("Bram")));
+
+        group.Members[0]
+             .IsLeader.Should()
+             .BeTrue();
+
+        group.Members[1]
+             .IsLeader.Should()
+             .BeFalse();
     }
 
     private static SetGroupStateArgs Snapshot(params GroupMemberInfo[] members)

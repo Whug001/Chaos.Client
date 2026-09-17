@@ -26,8 +26,9 @@ public sealed partial class WorldScreen
     //song strip up a row when both are visible at once so the two never overlap.
     private ClassResourceBarControl? ClassResourceBar;
 
-    //oxygen meter -- beside the class strip rather than stacked with it, since a player underwater can be carrying
-    //a class resource at the same time and has to be able to read both at once. Only alive in a water zone.
+    //oxygen meter -- the top row of the same stack, above the class strip and the song strip. A player underwater
+    //can be carrying a class resource and a song at the same time, so all three have to be readable at once.
+    //Only alive in a water zone.
     private OxygenBarControl? OxygenBar;
 
     public void Draw(SpriteBatch spriteBatch, GameTime gameTime)
@@ -1040,102 +1041,38 @@ public sealed partial class WorldScreen
         if (ClassResourceBar.Visible && !mapOverlayOpen)
             ClassResourceBar.Draw(spriteBatch);
 
-        //oxygen sits to the right of the class strip on the same row, outside the column the strips span. It keeps
-        //the resource row for itself rather than stacking above it, because oxygen and a class resource are carried
-        //at the same time -- stacking would push the class bar up a row every time a player entered the water.
-        OxygenBar ??= new OxygenBarControl();
-        OxygenBar.Update(gameTime);
-
-        if (OxygenBar.Visible)
-        {
-            PlaceOxygenBar(anchor, baselineY);
-
-            if (!mapOverlayOpen)
-                OxygenBar.Draw(spriteBatch);
-        }
-
         //the call countdown itself is driven from WorldScreen.Update (WorldState.Song.Update) -- this only
         //refreshes the labels and repositions the strip
         SongBar ??= new SongBarControl();
         SongBar.Update(gameTime);
         SongBar.SetStripBounds(anchor.X, anchor.Width);
 
-        //the song strip stacks off whatever the highest thing below it is: the oxygen meter when it had to take a
-        //row of its own, otherwise the class strip, otherwise the baseline
-        var songBaseline = baselineY;
-
-        if (ClassResourceBar.Visible)
-            songBaseline = ClassResourceBar.Y;
-
-        if (OxygenBar is { Visible: true } && OxygenBarStacked)
-            songBaseline = Math.Min(songBaseline, OxygenBar.Y);
+        //the song strip stacks off the class strip when there is one, otherwise off the baseline
+        var songBaseline = ClassResourceBar.Visible ? ClassResourceBar.Y : baselineY;
 
         SongBar.Y = songBaseline - SongBar.Height - STRIP_GAP;
 
         if (SongBar.Visible && !mapOverlayOpen)
             SongBar.Draw(spriteBatch);
+
+        //oxygen takes the top row, above whichever of the two below it are showing. It is the last strip placed
+        //because its baseline is whatever the song strip settled on, and that is only known after the line above
+        OxygenBar ??= new OxygenBarControl();
+        OxygenBar.Update(gameTime);
+
+        if (!OxygenBar.Visible)
+            return;
+
+        var oxygenBaseline = SongBar.Visible ? SongBar.Y : songBaseline;
+
+        OxygenBar.SetBounds(anchor.X, oxygenBaseline - OxygenBarControl.TOTAL_HEIGHT - STRIP_GAP, anchor.Width);
+
+        if (!mapOverlayOpen)
+            OxygenBar.Draw(spriteBatch);
     }
 
     /// <summary>Pixels left between a status strip and whatever sits below it.</summary>
     private const int STRIP_GAP = 2;
-
-    /// <summary>
-    ///     True while the oxygen meter is taking a strip row of its own rather than sitting beside the column.
-    /// </summary>
-    private bool OxygenBarStacked;
-
-    /// <summary>
-    ///     Puts the oxygen meter beside the strip column on the class-resource row, or on a row of its own when the
-    ///     layout leaves no room beside it.
-    /// </summary>
-    /// <remarks>
-    ///     Beside the column is the intended place, but whether there is room for it there is a property of the hud
-    ///     the player is currently using -- the two layouts put the strip column in different places and give it
-    ///     different widths, and '/' swaps between them at any time. Rather than clamp the meter back over the class
-    ///     bar when it does not fit, it takes the row above instead, right-aligned to the column, and the song strip
-    ///     stacks off it. Either way it is inside the viewport and covering nothing.
-    ///     <para />
-    ///     The lift off the character-name readout only applies beside the column, which is the only place the two
-    ///     can meet: the stacked row is inside the column and above the panes, and the name is below them.
-    /// </remarks>
-    private void PlaceOxygenBar(Rectangle anchor, int baselineY)
-    {
-        if (OxygenBar is null)
-            return;
-
-        var viewport = WorldHud.ViewportBounds;
-        var rowBottom = baselineY - STRIP_GAP;
-
-        var x = anchor.Right + STRIP_GAP;
-        var y = rowBottom - OxygenBarControl.TOTAL_HEIGHT;
-
-        OxygenBarStacked = (x + OxygenBarControl.TOTAL_WIDTH) > viewport.Right;
-
-        if (OxygenBarStacked)
-        {
-            //no room beside the column in this layout -- take the row above the class strip, right-aligned, so the
-            //meter is neither clamped on top of that bar nor pushed off the edge of the viewport
-            x = anchor.Right - OxygenBarControl.TOTAL_WIDTH;
-            y = rowBottom - ClassResourceBarControl.STRIP_HEIGHT - STRIP_GAP - OxygenBarControl.TOTAL_HEIGHT;
-        } else
-        {
-            var bounds = new Rectangle(
-                x,
-                y,
-                OxygenBarControl.TOTAL_WIDTH,
-                OxygenBarControl.TOTAL_HEIGHT);
-
-            var nameBounds = WorldHud.PlayerNameBounds;
-
-            if (bounds.Intersects(nameBounds))
-                y = nameBounds.Y - OxygenBarControl.TOTAL_HEIGHT - STRIP_GAP;
-        }
-
-        //a layout narrow enough to push the meter off the left edge would be stranger than anything in the data,
-        //but the clamp costs nothing and keeps it on screen if one ever appears
-        OxygenBar.X = Math.Max(x, viewport.X);
-        OxygenBar.Y = y;
-    }
 
     private void DrawDragIcon(SpriteBatch spriteBatch)
     {

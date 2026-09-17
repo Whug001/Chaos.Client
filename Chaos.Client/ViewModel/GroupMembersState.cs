@@ -21,6 +21,15 @@ public sealed record GroupMemberSnapshot
 {
     public required string Name { get; init; }
     public required BaseClass BaseClass { get; init; }
+
+    /// <summary>
+    ///     The member's advanced class, or <see cref="DarkAges.Definitions.AdvClass.None" /> if they have not
+    ///     advanced. What the panel names them when it is set.
+    /// </summary>
+    public required AdvClass AdvClass { get; init; }
+
+    /// <summary>Whether this member leads the group. Marked with a star on their panel.</summary>
+    public required bool IsLeader { get; init; }
     public required uint CurrentHp { get; init; }
     public required uint MaximumHp { get; init; }
     public required uint CurrentMp { get; init; }
@@ -29,8 +38,8 @@ public sealed record GroupMemberSnapshot
     /// <summary>What to draw in the portrait, already in the renderer's own shape.</summary>
     public required AislingAppearance Appearance { get; init; }
 
-    /// <summary>Effect icons, soonest to expire first. At most five -- what the panel has room for.</summary>
-    public required IReadOnlyList<byte> EffectIcons { get; init; }
+    /// <summary>The member's effects, soonest to expire first. At most five -- what the panel has room for.</summary>
+    public required IReadOnlyList<GroupMemberEffect> Effects { get; init; }
 
     public double HealthPercent => MaximumHp == 0 ? 0 : Math.Clamp(CurrentHp / (double)MaximumHp, 0, 1);
     public double ManaPercent => MaximumMp == 0 ? 0 : Math.Clamp(CurrentMp / (double)MaximumMp, 0, 1);
@@ -48,11 +57,30 @@ public sealed record GroupMemberSnapshot
 ///     Every packet replaces the whole list, so a member who left is gone the moment the next one lands and there is
 ///     no stale row to clean up. An empty list means the player is not grouped.
 /// </remarks>
+/// <summary>
+///     One effect on a member's panel: which icon to draw, and the colour band that draws the bar under it.
+/// </summary>
+/// <remarks>
+///     The band is carried rather than a time remaining because that is what the player's own effects bar draws
+///     from, and the two readouts should not disagree about the same effect. See
+///     <c>EffectSlotControl.GetBarPercent</c> for the seven steps.
+/// </remarks>
+public readonly record struct GroupMemberEffect(byte Icon, EffectColor Color);
+
 public sealed class GroupMembersState
 {
-    private static readonly IReadOnlyList<byte> NoEffects = [];
+    private static readonly IReadOnlyList<GroupMemberEffect> NoEffects = [];
 
     public IReadOnlyList<GroupMemberSnapshot> Members { get; private set; } = [];
+
+    /// <summary>
+    ///     How many are in the group altogether, the player included, as the server reported it.
+    /// </summary>
+    /// <remarks>
+    ///     Not <see cref="Members" />.Count. That list is the other members -- the player's own row is never sent,
+    ///     because their vitals are already on the hud -- so it is one short of the group.
+    /// </remarks>
+    public int Size { get; private set; }
 
     /// <summary>True while there is anyone to draw a panel for.</summary>
     public bool HasMembers => Members.Count > 0;
@@ -77,6 +105,11 @@ public sealed class GroupMembersState
             members.Add(ToSnapshot(member));
 
         Members = members;
+
+        //an older server that does not send the size leaves it 0; falling back keeps the count sane rather than
+        //reporting an empty group to a player who can see five panels
+        Size = args.GroupSize > 0 ? args.GroupSize : members.Count;
+
         Changed?.Invoke();
     }
 
@@ -87,33 +120,36 @@ public sealed class GroupMembersState
             return;
 
         Members = [];
+        Size = 0;
         Changed?.Invoke();
     }
 
     private static GroupMemberSnapshot ToSnapshot(GroupMemberInfo member)
     {
-        IReadOnlyList<byte> icons = NoEffects;
+        var effects = NoEffects;
 
         if (member.Effects.Count > 0)
         {
-            var list = new List<byte>(member.Effects.Count);
+            var list = new List<GroupMemberEffect>(member.Effects.Count);
 
             foreach (var effect in member.Effects)
-                list.Add(effect.Icon);
+                list.Add(new GroupMemberEffect(effect.Icon, effect.Color));
 
-            icons = list;
+            effects = list;
         }
 
         return new GroupMemberSnapshot
         {
             Name = member.Name,
             BaseClass = member.BaseClass,
+            AdvClass = member.AdvClass,
+            IsLeader = member.IsLeader,
             CurrentHp = member.CurrentHp,
             MaximumHp = member.MaximumHp,
             CurrentMp = member.CurrentMp,
             MaximumMp = member.MaximumMp,
             Appearance = ToAppearance(member),
-            EffectIcons = icons
+            Effects = effects
         };
     }
 
@@ -124,6 +160,15 @@ public sealed class GroupMembersState
     ///     Mirrors the <c>DisplayAisling</c> mapping in <see cref="WorldState" />, including the ghost body-colour
     ///     substitution, and shares its body-sprite lookup rather than repeating the table. The fields the packet
     ///     leaves out -- boots, pants, weapon, shield -- are all below a head-and-shoulders crop, so they default.
+    ///     <para />
+    ///     The three accessory layers are deliberately dropped, which is where helmets, overhelms and every other
+    ///     piece of headwear are drawn. They are the layers that sit on top of the head, and at a portrait this
+    ///     small a tall hat is most of what there is to see -- the point of the portrait is telling one member
+    ///     from another, and a group all wearing the same helm cannot be told apart at all. Zero means skip the
+    ///     layer, per <see cref="AislingAppearance" />.
+    ///     <para />
+    ///     The server still sends them. Dropping them here rather than at the packet keeps the decision next to
+    ///     the portrait it is made for, and leaves them there if the panel ever wants them back.
     /// </remarks>
     private static AislingAppearance ToAppearance(GroupMemberInfo member)
         => new()
@@ -139,12 +184,6 @@ public sealed class GroupMembersState
             ArmorSprite = member.ArmorSprite,
             ArmorColor = DisplayColor.Default,
             OvercoatSprite = member.OvercoatSprite,
-            OvercoatColor = member.OvercoatColor,
-            Accessory1Sprite = member.AccessorySprite1,
-            Accessory1Color = member.AccessoryColor1,
-            Accessory2Sprite = member.AccessorySprite2,
-            Accessory2Color = member.AccessoryColor2,
-            Accessory3Sprite = member.AccessorySprite3,
-            Accessory3Color = member.AccessoryColor3
+            OvercoatColor = member.OvercoatColor
         };
 }

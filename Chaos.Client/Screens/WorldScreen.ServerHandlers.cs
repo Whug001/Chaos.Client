@@ -1,4 +1,4 @@
-﻿#region
+#region
 using Chaos.Client.Collections;
 using Chaos.Client.Controls.Generic;
 using Chaos.Client.Controls.World.Popups.Market;
@@ -27,6 +27,36 @@ namespace Chaos.Client.Screens;
 public sealed partial class WorldScreen
 {
     #region Server Event Handlers
+    /// <summary>
+    ///     Swaps to this character's own settings file and puts the result into effect.
+    /// </summary>
+    /// <remarks>
+    ///     The settings screen is built before anyone has logged in, so it seeds itself from the install-wide
+    ///     file. By the time the character's name is known, every client-local value on it may be wrong, and the
+    ///     ones with a live effect -- volume, window size -- have already been applied from the wrong file. So
+    ///     this re-seeds the view model and re-applies those, rather than only changing the numbers.
+    ///     <para />
+    ///     Server-owned settings are untouched. They were already per character, held on the aisling and sent
+    ///     back by the server, and nothing here should be second-guessing them.
+    /// </remarks>
+    private void LoadCharacterSettings(string characterName)
+    {
+        ClientSettings.LoadForCharacter(characterName);
+
+        //the checkbox states the f4 screen reads
+        WorldState.UserOptions.SeedLocalDefaults();
+
+        //volume is live: the sliders and the mixer were both set from the previous file
+        MainOptions.SetSoundVolume(ClientSettings.SoundVolume);
+        MainOptions.SetMusicVolume(ClientSettings.MusicVolume);
+        Game.SoundSystem.SetSoundVolume(ClientSettings.SoundVolume);
+        Game.SoundSystem.SetMusicVolume(ClientSettings.MusicVolume);
+
+        //and so is the window. Applied straight through rather than through DisplaySettings.Apply, which would
+        //save the value back out again for no reason
+        DisplaySettings.Applier?.Invoke(ClientSettings.ScreenMode);
+    }
+
     //--- entity display / removal ---
 
     private void HandleDisplayAisling(DisplayAislingArgs args)
@@ -39,6 +69,7 @@ public sealed partial class WorldScreen
             UpdateHuds(HudOps.SetPlayerName, args.Name);
             UpdateHuds(HudOps.SetServerName, Game.Connection.ServerName);
             DataContext.LocalPlayerSettings.Initialize(args.Name);
+            LoadCharacterSettings(args.Name);
             LoadPlayerFamilyList();
             LoadPlayerFriendList();
             LoadPlayerMacros();

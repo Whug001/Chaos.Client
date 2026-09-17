@@ -1,4 +1,4 @@
-﻿#region
+#region
 using Chaos.Client.Controls.Components;
 using Chaos.Client.Controls.World.Hud.Panel;
 using Microsoft.Xna.Framework;
