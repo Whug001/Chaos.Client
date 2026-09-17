@@ -1,4 +1,4 @@
-#region
+﻿#region
 using Chaos.Client.Networking;
 using Chaos.Client.Systems;
 using Chaos.DarkAges.Definitions;
@@ -59,6 +59,7 @@ public enum SettingKey
     Resolution,
     CooldownNumbers,
     GroupPanel,
+    TransparentGroupPanel,
     DamageNumbersEnabled,
     DamageNumbersOnAislings,
     HealNumbersOnAislings,
@@ -135,6 +136,14 @@ public static class SettingDefinitions
             SettingCategory.ClientLocal,
             Get: () => ClientSettings.GroupPanelEnabled,
             Set: v => ClientSettings.GroupPanelEnabled = v),
+        new(
+            SettingKey.TransparentGroupPanel,
+            "Transparent group panels",
+            SettingSection.Display,
+            SettingCategory.ClientLocal,
+            Get: () => ClientSettings.TransparentGroupPanels,
+            Set: v => ClientSettings.TransparentGroupPanels = v,
+            GatedBy: SettingKey.GroupPanel),
         new(
             SettingKey.MaxEffectAnimations,
             "Max animations per entity",

@@ -1,4 +1,4 @@
-#region
+﻿#region
 using Chaos.Client.Collections;
 using Chaos.Client.Controls.Components;
 using Chaos.Client.Data;
@@ -71,6 +71,23 @@ public sealed class GroupPanelStack : UIPanel
     /// </summary>
     private const int DEFAULT_TOP_GAP = (3 * TextRenderer.CHAR_HEIGHT) + 4;
 
+    /// <summary>
+    ///     The plate behind the whole column. Opaque, and the same colour the grab bar and the bar tracks are
+    ///     already drawn in, so the column reads as one window rather than a bar with rows loose underneath it.
+    /// </summary>
+    private static readonly Color PlateFill = new(18, 11, 5);
+
+    private static readonly Color PlateBorder = new(54, 34, 16);
+
+    /// <summary>
+    ///     How far the plate stands out past the column on every side.
+    /// </summary>
+    /// <remarks>
+    ///     The rows carry no horizontal padding of their own -- the portrait starts on the column's left edge and
+    ///     the bars end on its right -- so a plate drawn to the column's own bounds would run its border through
+    ///     the portrait and the ends of the bars. The margin is what puts the edge outside the content.
+    /// </remarks>
+    private const int PLATE_MARGIN = 2;
     private static readonly Color HeaderFill = new(18, 11, 5, 220);
     private static readonly Color HeaderBorder = new(54, 34, 16);
     private static readonly Color HeaderText = new(214, 190, 146);
@@ -465,11 +482,39 @@ public sealed class GroupPanelStack : UIPanel
         if ((ClipRect.Width <= 0) || (ClipRect.Height <= 0))
             return;
 
+        DrawPlate(spriteBatch);
         DrawHeader(spriteBatch);
 
         foreach (var panel in Panels)
             if (panel.Visible)
                 panel.Draw(spriteBatch);
+    }
+
+    /// <summary>
+    ///     The solid backing behind the column, unless the player has asked to read it against the world.
+    /// </summary>
+    /// <remarks>
+    ///     One plate across the whole column rather than one per member: the gaps between rows are part of the
+    ///     window, and filling each row separately would draw a ladder. The grab bar paints its own fill over the
+    ///     top of this, which is why the plate does not have to stop below it.
+    ///     <para />
+    ///     Skipping it is all "transparent" has to do. The portrait crop carries the composite's own transparency
+    ///     and every bar has its own dark track under it, so the rows are already drawn to be read against
+    ///     whatever is behind them -- that is the look this restores.
+    /// </remarks>
+    private void DrawPlate(SpriteBatch spriteBatch)
+    {
+        if (ClientSettings.TransparentGroupPanels)
+            return;
+
+        var plate = new Rectangle(
+            ScreenX - PLATE_MARGIN,
+            ScreenY - PLATE_MARGIN,
+            Width + (PLATE_MARGIN * 2),
+            Height + (PLATE_MARGIN * 2));
+
+        DrawRect(spriteBatch, plate, PlateFill);
+        DrawBorder(spriteBatch, plate, PlateBorder);
     }
 
     /// <summary>

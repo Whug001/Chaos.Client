@@ -1,4 +1,4 @@
-#region
+﻿#region
 using Microsoft.Xna.Framework;
 using Microsoft.Xna.Framework.Graphics;
 #endregion
@@ -11,9 +11,9 @@ namespace Chaos.Client.Controls.Components;
 /// </summary>
 /// <remarks>
 ///     Extracted because this had been written out twice already -- once in <c>FramedDialogPanelBase</c> and once
-///     inline in <c>PollPanel</c>, which says in its own comments that it is mirroring the other -- and the group
-///     panels would have made three. Both of those now call in here, so the frame has one definition and the
-///     texture set is loaded once for the whole client rather than once per panel.
+///     inline in <c>PollPanel</c>, which says in its own comments that it is mirroring the other. Both now call in
+///     here, so the frame has one definition and the texture set is loaded once for the whole client rather than
+///     once per panel.
 /// </remarks>
 public static class OrnateFrame
 {
@@ -60,7 +60,7 @@ public static class OrnateFrame
     {
         EnsureTextures();
         DrawFill(spriteBatch, x, y, w, h);
-        DrawSideEdges(spriteBatch, x, y, w, h, BORDER_BOTTOM_HEIGHT);
+        DrawSideEdges(spriteBatch, x, y, w, h);
 
         //bottom edge: rivets on the left, plain backing behind the ok button on the right
         var okAreaStart = (okAreaStartX ?? (w - CORNER_WIDTH)) - 8;
@@ -97,41 +97,6 @@ public static class OrnateFrame
             Color.White);
     }
 
-    /// <summary>
-    ///     Draws the same frame with the bottom mirrored from the top instead of the ornate footer, so the border
-    ///     costs <see cref="CORNER_TOP_HEIGHT" /> at the bottom rather than <see cref="BORDER_BOTTOM_HEIGHT" />.
-    /// </summary>
-    /// <remarks>
-    ///     For panels too short to spend 47 pixels on a footer built to hold an OK button they do not have. A stack
-    ///     of group panels is the case this exists for: at the full frame's proportions five of them would be taller
-    ///     than the window. Same art, same palette, just turned over -- the corner and edge pieces are ornamental
-    ///     scrollwork rather than anything with a fixed up.
-    /// </remarks>
-    public static void DrawCompact(
-        SpriteBatch spriteBatch,
-        int x,
-        int y,
-        int w,
-        int h)
-    {
-        EnsureTextures();
-        DrawFill(spriteBatch, x, y, w, h);
-        DrawSideEdges(spriteBatch, x, y, w, h, CORNER_TOP_HEIGHT);
-
-        if (EdgeTop is not null)
-            TileFlippedVertically(
-                spriteBatch,
-                EdgeTop,
-                x + CORNER_WIDTH,
-                y + h - EdgeTop.Height,
-                w - (CORNER_WIDTH * 2));
-
-        AtlasHelper.Draw(spriteBatch, CornerTl, new Vector2(x, y), Color.White);
-        AtlasHelper.Draw(spriteBatch, CornerTr, new Vector2(x + w - CORNER_WIDTH, y), Color.White);
-        DrawFlippedVertically(spriteBatch, CornerTl, x, y + h - CORNER_TOP_HEIGHT);
-        DrawFlippedVertically(spriteBatch, CornerTr, x + w - CORNER_WIDTH, y + h - CORNER_TOP_HEIGHT);
-    }
-
     private static void DrawFill(
         SpriteBatch spriteBatch,
         int x,
@@ -150,16 +115,15 @@ public static class OrnateFrame
     }
 
     /// <summary>
-    ///     Top, left and right edges. <paramref name="bottomInset" /> is how much of the panel's bottom the caller's
-    ///     own bottom border occupies, so the side edges stop above it.
+    ///     Top, left and right edges. The side edges stop above the ornate bottom border rather than running into
+    ///     it.
     /// </summary>
     private static void DrawSideEdges(
         SpriteBatch spriteBatch,
         int x,
         int y,
         int w,
-        int h,
-        int bottomInset)
+        int h)
     {
         if (EdgeTop is not null)
             TileTexture(
@@ -177,7 +141,7 @@ public static class OrnateFrame
                 x,
                 y + CORNER_TOP_HEIGHT,
                 EdgeLeft.Width,
-                h - CORNER_TOP_HEIGHT - bottomInset);
+                h - CORNER_TOP_HEIGHT - BORDER_BOTTOM_HEIGHT);
 
         if (EdgeRight is not null)
             TileTexture(
@@ -186,57 +150,7 @@ public static class OrnateFrame
                 x + w - EdgeRight.Width,
                 y + CORNER_TOP_HEIGHT,
                 EdgeRight.Width,
-                h - CORNER_TOP_HEIGHT - bottomInset);
-    }
-
-    private static void DrawFlippedVertically(SpriteBatch spriteBatch, Texture2D? texture, int x, int y)
-    {
-        if (texture is null)
-            return;
-
-        AtlasHelper.Draw(
-            spriteBatch,
-            texture,
-            new Vector2(x, y),
-            null,
-            Color.White,
-            0f,
-            Vector2.Zero,
-            1f,
-            SpriteEffects.FlipVertically,
-            0f);
-    }
-
-    private static void TileFlippedVertically(
-        SpriteBatch spriteBatch,
-        Texture2D texture,
-        int x,
-        int y,
-        int width)
-    {
-        //only ever used for the top edge turned over along the bottom, which is one texture tall, so this tiles in
-        //one direction. Partial tiles are drawn from the texture's right-hand side rather than its left: a flip
-        //reverses which column ends up against the corner, and taking the left columns would leave a seam there.
-        for (var tx = 0; tx < width; tx += texture.Width)
-        {
-            var drawW = Math.Min(texture.Width, width - tx);
-
-            AtlasHelper.Draw(
-                spriteBatch,
-                texture,
-                new Vector2(x + tx, y),
-                new Rectangle(
-                    texture.Width - drawW,
-                    0,
-                    drawW,
-                    texture.Height),
-                Color.White,
-                0f,
-                Vector2.Zero,
-                1f,
-                SpriteEffects.FlipVertically,
-                0f);
-        }
+                h - CORNER_TOP_HEIGHT - BORDER_BOTTOM_HEIGHT);
     }
 
     /// <summary>

@@ -1,4 +1,4 @@
-#region
+﻿#region
 using Chaos.Client.Definitions;
 using Chaos.DarkAges.Definitions;
 #endregion
@@ -59,6 +59,12 @@ public static class ClientSettings
 
     // --- Group member panels down the side of the viewport (client-local; gated in GroupPanelStack) ---
     public static bool GroupPanelEnabled { get; set; } = true;
+
+    // --- Group panel backing (client-local; read by GroupPanelStack) ---
+    // Off by default: the column is a readout to be glanced at mid-fight, and a solid plate behind it is what
+    // keeps it legible over whatever map art it happens to be sitting on. Players who would rather read it
+    // against the world turn this on.
+    public static bool TransparentGroupPanels { get; set; }
 
     // --- Ground-target aim snapping (client-local; applied in WorldScreen.GroundTargetTileAt) ---
     public static bool GroundTargetSnapToEntity { get; set; } = true;
@@ -220,6 +226,11 @@ public static class ClientSettings
 
                         break;
 
+                    case "TransparentGroupPanels":
+                        TransparentGroupPanels = value == "1";
+
+                        break;
+
                     case "GroundTargetSnapToEntity":
                         GroundTargetSnapToEntity = value == "1";
 
@@ -285,6 +296,7 @@ public static class ClientSettings
             writer.WriteLine($"DamageNumberSize : {(int)DamageNumberSize}");
             writer.WriteLine($"CooldownNumbersEnabled : {(CooldownNumbersEnabled ? 1 : 0)}");
             writer.WriteLine($"GroupPanelEnabled : {(GroupPanelEnabled ? 1 : 0)}");
+            writer.WriteLine($"TransparentGroupPanels : {(TransparentGroupPanels ? 1 : 0)}");
             writer.WriteLine($"GroundTargetSnapToEntity : {(GroundTargetSnapToEntity ? 1 : 0)}");
             writer.WriteLine($"MaxEffectAnimations : {MaxEffectAnimationsPerEntity}");
 
