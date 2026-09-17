@@ -40,7 +40,7 @@
         <PackageLicenseExpression>AGPL-3.0-or-later</PackageLicenseExpression>
         <Authors>Sichi</Authors>
         <PackageTags>darkages; doomvas; private server;</PackageTags>
-        <Version>0.2.3</Version>
+        <Version>0.2.4</Version>
     </PropertyGroup>
 
     <ItemGroup>
