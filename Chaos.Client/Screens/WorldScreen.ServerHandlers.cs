@@ -1,4 +1,4 @@
-#region
+﻿#region
 using Chaos.Client.Collections;
 using Chaos.Client.Controls.Generic;
 using Chaos.Client.Controls.World.Popups.Market;
@@ -28,6 +28,12 @@ public sealed partial class WorldScreen
 {
     #region Server Event Handlers
     /// <summary>
+    ///     The character whose settings file is loaded, so this only runs when it actually changes. Null until
+    ///     the first one lands.
+    /// </summary>
+    private string? SettingsCharacter;
+
+    /// <summary>
     ///     Swaps to this character's own settings file and puts the result into effect.
     /// </summary>
     /// <remarks>
@@ -38,9 +44,20 @@ public sealed partial class WorldScreen
     ///     <para />
     ///     Server-owned settings are untouched. They were already per character, held on the aisling and sent
     ///     back by the server, and nothing here should be second-guessing them.
+    ///     <para />
+    ///     Runs once per character, not once per packet. Its caller fires on every <c>DisplayAisling</c> the
+    ///     server sends for the player, which is not a login event at all -- equipping something, changing sprite
+    ///     or lantern, or anything else that calls <c>Display()</c> sends one, because a player is inside their
+    ///     own viewport. Re-applying live settings that often fought the player: a window they had dragged to a
+    ///     size of their own snapped back to the dropdown's on their next swing, and every one of those packets
+    ///     re-read the settings file off disk.
     /// </remarks>
     private void LoadCharacterSettings(string characterName)
     {
+        if (string.Equals(SettingsCharacter, characterName, StringComparison.Ordinal))
+            return;
+
+        SettingsCharacter = characterName;
         ClientSettings.LoadForCharacter(characterName);
 
         //the checkbox states the f4 screen reads

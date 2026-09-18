@@ -1,4 +1,4 @@
-#region
+﻿#region
 using System.Buffers.Binary;
 using System.IO.Compression;
 using System.Runtime.InteropServices;
@@ -25,7 +25,6 @@ public sealed class ChaosGame : Game
 {
     public const int VIRTUAL_WIDTH = 640;
     public const int VIRTUAL_HEIGHT = 480;
-    private const float ASPECT_RATIO = (float)VIRTUAL_WIDTH / VIRTUAL_HEIGHT;
 
     private readonly GraphicsDeviceManager Graphics;
     private readonly string MetaFilePath = Path.Combine(GlobalSettings.DataPath, "metafile");
@@ -42,6 +41,12 @@ public sealed class ChaosGame : Game
     private RenderTarget2D RenderTarget = null!;
     private bool ResizingInProgress;
     private ScreenMode CurrentScreenMode = ScreenMode.Windowed1x;
+
+    //a manual resize is written out once the drag settles rather than on every size-changed event
+    private static readonly TimeSpan WINDOW_SIZE_SAVE_DELAY = TimeSpan.FromMilliseconds(500);
+    private bool WindowSizeUnsaved;
+    private TimeSpan WindowSizeSettledAt;
+    private TimeSpan LastUpdateTime;
     private SpriteBatch SpriteBatch = null!;
 
     /// <summary>
@@ -551,8 +556,18 @@ public sealed class ChaosGame : Game
             if ((Sdl.SDL_GetWindowFlags(Window.Handle) & Sdl.SDL_WINDOW_MAXIMIZED) != 0)
                 Sdl.SDL_RestoreWindow(Window.Handle);
 
-            Graphics.PreferredBackBufferWidth = VIRTUAL_WIDTH * multiplier;
-            Graphics.PreferredBackBufferHeight = VIRTUAL_HEIGHT * multiplier;
+            //a size the player dragged the window to outranks the mode's own multiple. Clamped and re-corrected
+            //here rather than trusted as stored, because the file it came from may have been written on a bigger
+            //monitor than the one it is being read on
+            if (TryGetStoredWindowSize(out var storedW, out var storedH))
+            {
+                Graphics.PreferredBackBufferWidth = storedW;
+                Graphics.PreferredBackBufferHeight = storedH;
+            } else
+            {
+                Graphics.PreferredBackBufferWidth = VIRTUAL_WIDTH * multiplier;
+                Graphics.PreferredBackBufferHeight = VIRTUAL_HEIGHT * multiplier;
+            }
         }
 
         Graphics.ApplyChanges();
@@ -577,6 +592,30 @@ public sealed class ChaosGame : Game
             return (bounds.W, bounds.H);
 
         return (Graphics.PreferredBackBufferWidth, Graphics.PreferredBackBufferHeight);
+    }
+
+    /// <summary>
+    ///     The window size the player dragged to, if they have one and it is still usable on this monitor.
+    /// </summary>
+    private bool TryGetStoredWindowSize(out int width, out int height)
+    {
+        width = 0;
+        height = 0;
+
+        if (!ClientSettings.HasCustomWindowSize)
+            return false;
+
+        (var displayW, var displayH) = GetCurrentDisplaySize();
+
+        return DisplaySettings.TryResolveStoredSize(
+            ClientSettings.WindowWidth,
+            ClientSettings.WindowHeight,
+            displayW,
+            displayH,
+            VIRTUAL_WIDTH,
+            VIRTUAL_HEIGHT,
+            out width,
+            out height);
     }
 
     //Largest integer multiple <= the requested one that still fits the current monitor (never below 1x).
@@ -634,7 +673,6 @@ public sealed class ChaosGame : Game
         DisplaySettings.Apply((int)next);
     }
 
-
     private void OnClientSizeChanged(object? sender, EventArgs e)
     {
         if (ResizingInProgress)
@@ -658,23 +696,13 @@ public sealed class ChaosGame : Game
             return;
 
         //determine corrected dimensions preserving 4:3
-        var correctedWidth = (int)(height * ASPECT_RATIO);
-        var correctedHeight = (int)(width / ASPECT_RATIO);
+        (var newWidth, var newHeight) = DisplaySettings.FitToAspect(
+            width,
+            height,
+            VIRTUAL_WIDTH,
+            VIRTUAL_HEIGHT);
 
-        int newWidth,
-            newHeight;
-
-        if (correctedWidth <= width)
-        {
-            //height is the constraining dimension
-            newWidth = correctedWidth;
-            newHeight = height;
-        } else
-        {
-            //width is the constraining dimension
-            newWidth = width;
-            newHeight = correctedHeight;
-        }
+        RememberWindowSize(newWidth, newHeight);
 
         if ((newWidth == width) && (newHeight == height))
             return;
@@ -686,6 +714,57 @@ public sealed class ChaosGame : Game
         Graphics.ApplyChanges();
 
         ResizingInProgress = false;
+    }
+
+    /// <summary>
+    ///     Records a size the player dragged the window to, so it survives a character load and the next launch.
+    /// </summary>
+    /// <remarks>
+    ///     A size that matches what the current mode would have produced clears the stored one instead of storing
+    ///     it. That keeps "dragged to a size of my own" and "happens to be sitting at 2x" apart no matter how the
+    ///     resize came about -- including a size-changed event that arrives after a programmatic resize has
+    ///     already dropped <see cref="ResizingInProgress" />, which would otherwise record the mode's own size as
+    ///     if the player had chosen it.
+    ///     <para />
+    ///     The write is deferred rather than done here: dragging a window edge raises this continuously, and
+    ///     saving on each one would rewrite the settings file dozens of times per drag.
+    /// </remarks>
+    private void RememberWindowSize(int width, int height)
+    {
+        var multiplier = ClampMultiplierToDisplay(ModeToMultiplier(CurrentScreenMode));
+        var matchesMode = (width == (VIRTUAL_WIDTH * multiplier)) && (height == (VIRTUAL_HEIGHT * multiplier));
+
+        if (matchesMode)
+        {
+            if (!ClientSettings.HasCustomWindowSize)
+                return;
+
+            ClientSettings.ClearCustomWindowSize();
+        } else
+        {
+            if ((ClientSettings.WindowWidth == width) && (ClientSettings.WindowHeight == height))
+                return;
+
+            ClientSettings.WindowWidth = width;
+            ClientSettings.WindowHeight = height;
+        }
+
+        WindowSizeUnsaved = true;
+        WindowSizeSettledAt = LastUpdateTime + WINDOW_SIZE_SAVE_DELAY;
+    }
+
+    /// <summary>
+    ///     Writes a pending window size out once the player has stopped dragging.
+    /// </summary>
+    private void FlushWindowSize(GameTime gameTime)
+    {
+        LastUpdateTime = gameTime.TotalGameTime;
+
+        if (!WindowSizeUnsaved || (LastUpdateTime < WindowSizeSettledAt))
+            return;
+
+        WindowSizeUnsaved = false;
+        ClientSettings.Save();
     }
     #endregion Window Sizing
 
@@ -704,6 +783,14 @@ public sealed class ChaosGame : Game
 
     protected override void UnloadContent()
     {
+        //a resize in the last half second has not been written yet, and closing the window is exactly when a
+        //player is most likely to have just finished one
+        if (WindowSizeUnsaved)
+        {
+            WindowSizeUnsaved = false;
+            ClientSettings.Save();
+        }
+
         Window.ClientSizeChanged -= OnClientSizeChanged;
         DisplaySettings.Applier = null;
         ArrowCursor?.Dispose();
@@ -727,6 +814,8 @@ public sealed class ChaosGame : Game
     protected override void Update(GameTime gameTime)
     {
         DebugOverlay.BeginFrame();
+
+        FlushWindowSize(gameTime);
 
         //compute mouse coordinate transform from the same present-rect the render target draws into,
         //so cursor→virtual mapping is correct in every mode — including borderless letterbox, where the

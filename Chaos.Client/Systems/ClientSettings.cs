@@ -39,6 +39,24 @@ public static class ClientSettings
     public static int ScrollLevel { get; set; }
     public static ScreenMode ScreenMode { get; set; } = ScreenMode.Windowed1x;
 
+    // --- Manually resized window (client-local; written by ChaosGame.OnClientSizeChanged) ---
+    // The size the player dragged the window to, or 0x0 when they have not -- in which case the window takes
+    // whatever ScreenMode says. Kept apart from ScreenMode rather than folded into it because it is not a
+    // choice from the dropdown: the dropdown's own modes are exact multiples of 640x480 and this is whatever
+    // the player stopped dragging at. Picking any entry from the dropdown clears it.
+    public static int WindowWidth { get; set; }
+    public static int WindowHeight { get; set; }
+
+    /// <summary>True while the player has a window size of their own that outranks <see cref="ScreenMode" />.</summary>
+    public static bool HasCustomWindowSize => (WindowWidth > 0) && (WindowHeight > 0);
+
+    /// <summary>Forgets the manual size, so the window goes back to following <see cref="ScreenMode" />.</summary>
+    public static void ClearCustomWindowSize()
+    {
+        WindowWidth = 0;
+        WindowHeight = 0;
+    }
+
     //defaults match the original client
     public static int SoundVolume { get; set; } = 5;
     public static bool DoubleTapForAltPanels { get; set; } = true;
@@ -221,6 +239,18 @@ public static class ClientSettings
 
                         break;
 
+                    case "WindowWidth":
+                        if (int.TryParse(value, out var ww))
+                            WindowWidth = Math.Max(ww, 0);
+
+                        break;
+
+                    case "WindowHeight":
+                        if (int.TryParse(value, out var wh))
+                            WindowHeight = Math.Max(wh, 0);
+
+                        break;
+
                     case "GroupPanelEnabled":
                         GroupPanelEnabled = value == "1";
 
@@ -295,6 +325,8 @@ public static class ClientSettings
             writer.WriteLine($"ShowHealNumbersOnNpcs : {(ShowHealNumbersOnNpcs ? 1 : 0)}");
             writer.WriteLine($"DamageNumberSize : {(int)DamageNumberSize}");
             writer.WriteLine($"CooldownNumbersEnabled : {(CooldownNumbersEnabled ? 1 : 0)}");
+            writer.WriteLine($"WindowWidth : {WindowWidth}");
+            writer.WriteLine($"WindowHeight : {WindowHeight}");
             writer.WriteLine($"GroupPanelEnabled : {(GroupPanelEnabled ? 1 : 0)}");
             writer.WriteLine($"TransparentGroupPanels : {(TransparentGroupPanels ? 1 : 0)}");
             writer.WriteLine($"GroundTargetSnapToEntity : {(GroundTargetSnapToEntity ? 1 : 0)}");
