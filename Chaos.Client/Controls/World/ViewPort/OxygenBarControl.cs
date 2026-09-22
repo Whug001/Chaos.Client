@@ -52,6 +52,17 @@ public sealed class OxygenBarControl : UIElement
     /// </remarks>
     private const float DRAIN_RATE = 6f;
 
+    /// <summary>
+    ///     A drop bigger than this is shown at once instead of being eased down to.
+    /// </summary>
+    /// <remarks>
+    ///     The ordinary drain is one point every six seconds, so anything larger than a point or two arriving in
+    ///     one reading is something taking air rather than the water using it -- Muirbolg's undertow takes fifteen,
+    ///     thirty once it is enraged. Easing that down looks like the bar deciding to drain fast for two seconds,
+    ///     which reads as the bar lagging rather than as being robbed. Snapping puts the loss where it happened.
+    /// </remarks>
+    private const float SNAP_DROP = 2f;
+
     private static readonly Color FrameColor = Color.Black;
 
     //the interior behind the fill, so a meter near empty still reads as a bar rather than as an empty outline
@@ -104,8 +115,9 @@ public sealed class OxygenBarControl : UIElement
         var target = (float)WorldState.Oxygen.Amount;
         var step = DRAIN_RATE * (float)gameTime.ElapsedGameTime.TotalSeconds;
 
-        //a first reading has nothing to ease from, and a refill is not a drain -- both go straight to the value
-        if ((DisplayedAmount <= 0f) || (target > DisplayedAmount))
+        //a first reading has nothing to ease from, a refill is not a drain, and a large loss is a theft rather
+        //than the water -- all three go straight to the value
+        if ((DisplayedAmount <= 0f) || (target > DisplayedAmount) || ((DisplayedAmount - target) > SNAP_DROP))
         {
             DisplayedAmount = target;
 

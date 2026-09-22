@@ -1033,12 +1033,13 @@ public sealed partial class WorldScreen
         ClassResourceBar.SetStripBounds(anchor.X, anchor.Width);
         ClassResourceBar.Y = baselineY - ClassResourceBar.Height - STRIP_GAP;
 
-        //both strips are hidden while the world map is open. It is a full-screen overlay and these are drawn after
-        //the hud, so they would otherwise sit on top of the map art. Positioning still runs either way, so the
-        //stacking is already settled when the map closes
-        var mapOverlayOpen = WorldMap.Visible;
+        //every strip is hidden while something is open over the world: the full-screen map, or any popup on the
+        //dispatcher's control stack -- help, settings, profile, the world list, an npc dialog and the rest. These
+        //are drawn after the hud, so without this they sit on top of whatever the player actually opened.
+        //Positioning still runs either way, so the stacking is already settled by the time the overlay closes
+        var overlayOpen = WorldMap.Visible || (Game.Dispatcher.ControlStackCount > 0);
 
-        if (ClassResourceBar.Visible && !mapOverlayOpen)
+        if (ClassResourceBar.Visible && !overlayOpen)
             ClassResourceBar.Draw(spriteBatch);
 
         //the call countdown itself is driven from WorldScreen.Update (WorldState.Song.Update) -- this only
@@ -1052,7 +1053,7 @@ public sealed partial class WorldScreen
 
         SongBar.Y = songBaseline - SongBar.Height - STRIP_GAP;
 
-        if (SongBar.Visible && !mapOverlayOpen)
+        if (SongBar.Visible && !overlayOpen)
             SongBar.Draw(spriteBatch);
 
         //oxygen takes the top row, above whichever of the two below it are showing. It is the last strip placed
@@ -1067,7 +1068,7 @@ public sealed partial class WorldScreen
 
         OxygenBar.SetBounds(anchor.X, oxygenBaseline - OxygenBarControl.TOTAL_HEIGHT - STRIP_GAP, anchor.Width);
 
-        if (!mapOverlayOpen)
+        if (!overlayOpen)
             OxygenBar.Draw(spriteBatch);
     }
 
