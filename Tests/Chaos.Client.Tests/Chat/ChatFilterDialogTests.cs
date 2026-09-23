@@ -7,8 +7,8 @@ namespace Chaos.Client.Tests;
 
 /// <summary>
 ///     Task 7 gates: the first-run dialog appears exactly once (stored flag plus a session guard), every
-///     mode row maps to its <see cref="ChatFilterMode" /> value, and both prefs live in the Chat section
-///     the new UI renders (F4 Settings no longer shows them).
+///     mode row maps to its <see cref="ChatFilterMode" /> value, and both prefs live in the Chat section,
+///     which F4 Settings draws as a single mode dropdown (the configured flag has no row).
 /// </summary>
 public class ChatFilterDialogTests
 {
@@ -53,5 +53,28 @@ public class ChatFilterDialogTests
     {
         SettingDefinitions.ByKey(SettingKey.ChatFilterMode).Section.Should().Be(SettingSection.Chat);
         SettingDefinitions.ByKey(SettingKey.HasConfiguredChatFilter).Section.Should().Be(SettingSection.Chat);
+    }
+
+    [Test]
+    public void SettingsPanel_DrawsTheChatSection()
+        => SettingDefinitions.PanelSections.Should().Contain(SettingSection.Chat);
+
+    [Test]
+    public void SettingsPanel_ChatSectionIsOnlyTheModeDropdown()
+    {
+        var rows = SettingDefinitions.PanelRows(SettingSection.Chat).ToList();
+
+        rows.Select(d => d.Key).Should().Equal(SettingKey.ChatFilterMode);
+        rows[0].Choices.Should().NotBeNull();
+    }
+
+    [Test]
+    public void SettingsPanel_DrawsEverySectionThatHasVisibleRows()
+    {
+        //a section missing from PanelSections would silently vanish from F4, as Chat once did.
+        var withRows = Enum.GetValues<SettingSection>()
+                           .Where(s => SettingDefinitions.PanelRows(s).Any());
+
+        SettingDefinitions.PanelSections.Should().BeEquivalentTo(withRows);
     }
 }

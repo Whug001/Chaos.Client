@@ -96,7 +96,8 @@ public sealed record SettingDefinition(
     Action<int>? SetChoice = null,         //called with the new index on selection (dropdown only)
     SettingKey? GatedBy = null,            //non-null ⇒ this setting is enabled only while GatedBy's value is true
     Func<int>? GetSliderValue = null,      //non-null ⇒ rendered as a 0–10 slider instead of a checkbox
-    Action<int>? SetSliderValue = null);   //called with the new value on slider change (slider only)
+    Action<int>? SetSliderValue = null,    //called with the new value on slider change (slider only)
+    bool Hidden = false);                  //true ⇒ synced state with no control; F4 never draws a row for it
 
 /// <summary>
 ///     The single ordered source of truth for the F4 settings, replacing the old fixed 20-slot magic-index model.
@@ -276,18 +277,14 @@ public static class SettingDefinitions
             Set: v => ClientSettings.GroundTargetSnapToEntity = v,
             Span: SettingSpan.Full),
 
-        //── Chat filter (Task 6 sync keys, consumed by Task 7's first-run dialog + options UI) ──
-        //Step-1 decision: EXTEND the 0x1B/UserOption options round-trip, no dedicated packet. A free
-        //UserOption slot existed (7; the server schema even documents "option 7 not used"), and
-        //OptionToggleArgs.Value already carries non-bool prefs (ActiveTitle precedent), so the 4-state
-        //mode rides Value as an index while the server appends both prefs to the UserOptions response.
+        //── Chat filter ──
+        //Rides the 0x1B/UserOption options round-trip, no dedicated packet: the 4-state mode travels in
+        //OptionToggleArgs.Value as an index, and the server appends both prefs to the UserOptions response.
         //Keys: SettingKey.ChatFilterMode (UserOption 7 = mode index 0-3) + SettingKey.HasConfiguredChatFilter
         //(UserOption 9 = flag). Client sends via ConnectionManager.SendSetUserOption(option, byte); the
         //server echoes the pair in UserOptionsArgs and persists them on the aisling save. Choices order
-        //MUST match ChatFilterMode declaration order (index IS the mode value). Task 7 final UI: both
-        //prefs live in SettingSection.Chat, rendered ONLY by ChatOptionsControl + the first-run dialog —
-        //F4 Settings renders Display/DamageNumbers/Sound/Interaction, so the flag has no checkbox
-        //anywhere (it is dialog-driven and server-synced).
+        //MUST match ChatFilterMode declaration order (index IS the mode value). The mode is a dropdown in
+        //F4's Chat section and in the first-run dialog; the flag is Hidden (dialog-driven, server-synced).
         new(
             SettingKey.ChatFilterMode,
             "Chat filter",
@@ -303,8 +300,23 @@ public static class SettingDefinitions
             "Chat filter configured",
             SettingSection.Chat,
             SettingCategory.ServerOption,
-            UserOption.HasConfiguredChatFilter)
+            UserOption.HasConfiguredChatFilter,
+            Hidden: true)
     ];
+
+    /// <summary>The sections the F4 settings panel draws, top to bottom.</summary>
+    public static IReadOnlyList<SettingSection> PanelSections { get; } =
+    [
+        SettingSection.Display,
+        SettingSection.DamageNumbers,
+        SettingSection.Sound,
+        SettingSection.Interaction,
+        SettingSection.Chat
+    ];
+
+    /// <summary>The settings F4 draws a row for in <paramref name="section" />, in order. Hidden settings are left out.</summary>
+    public static IEnumerable<SettingDefinition> PanelRows(SettingSection section)
+        => All.Where(d => (d.Section == section) && !d.Hidden);
 
     private static readonly Dictionary<SettingKey, SettingDefinition> ByKeyLookup =
         All.ToDictionary(d => d.Key);

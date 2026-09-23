@@ -126,7 +126,6 @@ public sealed partial class WorldScreen : IScreen
     private Camera Camera = null!;
     private ChantEditControl ChantEdit = null!;
     private ChatFilterDialog ChatFilterDialog = null!;
-    private ChatOptionsControl ChatOptions = null!;
     private bool ChatFilterDialogShown;
     private ushort CurrentMapCheckSum;
     private MapFlags CurrentMapFlags;
@@ -400,12 +399,6 @@ public sealed partial class WorldScreen : IScreen
             ZIndex = -3
         };
         SettingsDialog.SetSlideAnchor(optionsAnchorX, optionsAnchorY);
-
-        ChatOptions = new ChatOptionsControl(userOptions)
-        {
-            ZIndex = -3
-        };
-        ChatOptions.SetSlideAnchor(optionsAnchorX, optionsAnchorY);
 
         ChatFilterDialog = new ChatFilterDialog();
         ChatFilterDialog.OnContinue += SendChatFilterChoice;
@@ -895,7 +888,6 @@ public sealed partial class WorldScreen : IScreen
         Root.AddChild(MainOptions);
         Root.AddChild(SettingsDialog);
         Root.AddChild(MacrosList);
-        Root.AddChild(ChatOptions);
         Root.AddChild(HotkeyHelp);
         Root.AddChild(GroupPanel);
         Root.AddChild(GroupBoxViewer);

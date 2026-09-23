@@ -115,6 +115,7 @@ public sealed class SettingsControl : FramedDialogPanelBase
             SettingSection.DamageNumbers => "Damage Numbers",
             SettingSection.Sound         => "Sound",
             SettingSection.Interaction   => "Interaction",
+            SettingSection.Chat          => "Chat",
             _                            => string.Empty
         };
 
@@ -125,7 +126,7 @@ public sealed class SettingsControl : FramedDialogPanelBase
         var columnW = contentW / 2;
         var y = 0;
 
-        foreach (var section in (ReadOnlySpan<SettingSection>)[SettingSection.Display, SettingSection.DamageNumbers, SettingSection.Sound, SettingSection.Interaction])
+        foreach (var section in SettingDefinitions.PanelSections)
         {
             Content.AddChild(
                 new UILabel
@@ -143,8 +144,7 @@ public sealed class SettingsControl : FramedDialogPanelBase
 
             y += HEADER_HEIGHT;
 
-            var defs = SettingDefinitions.All
-                                         .Where(d => d.Section == section)
+            var defs = SettingDefinitions.PanelRows(section)
                                          .ToList();
 
             //a Half cell holding the left column open, waiting for a right partner.
@@ -376,6 +376,10 @@ public sealed class SettingsControl : FramedDialogPanelBase
     {
         if (Checkboxes.TryGetValue(key, out var checkbox))
             checkbox.Checked = value;
+
+        //server-controlled choices (the chat filter) land here on the server's echo, after the pick.
+        if (Combos.TryGetValue(key, out var combo) && SettingDefinitions.ByKey(key).GetChoice is { } getChoice)
+            combo.SelectedIndex = getChoice();
 
         RefreshGatedStates();
     }

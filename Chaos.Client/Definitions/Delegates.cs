@@ -487,7 +487,6 @@ public delegate void ExitHandler();
 ///     The friends list was requested.
 /// </summary>
 public delegate void FriendsHandler();
-public delegate void ChatHandler();
 public delegate void ChatFilterHandler(int modeIndex);
 
 /// <summary>

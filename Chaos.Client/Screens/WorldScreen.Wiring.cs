@@ -534,7 +534,6 @@ public sealed partial class WorldScreen
             SettingsDialog.Hide();
             MacrosList.Hide();
             FriendsList.Hide();
-            ChatOptions.Hide();
             MainOptions.SlideClose();
         }
 
@@ -1181,10 +1180,9 @@ public sealed partial class WorldScreen
     #region Options Dialog Wiring
     private void WireOptionsDialog()
     {
-        MainOptions.OnMacro += () => ToggleSubPanel(MacrosList, SettingsDialog, FriendsList, ChatOptions);
-        MainOptions.OnSettings += () => ToggleSubPanel(SettingsDialog, MacrosList, FriendsList, ChatOptions);
-        MainOptions.OnFriends += () => ToggleSubPanel(FriendsList, MacrosList, SettingsDialog, ChatOptions);
-        MainOptions.OnChat += () => ToggleSubPanel(ChatOptions, MacrosList, SettingsDialog, FriendsList);
+        MainOptions.OnMacro += () => ToggleSubPanel(MacrosList, SettingsDialog, FriendsList);
+        MainOptions.OnSettings += () => ToggleSubPanel(SettingsDialog, MacrosList, FriendsList);
+        MainOptions.OnFriends += () => ToggleSubPanel(FriendsList, MacrosList, SettingsDialog);
 
         MainOptions.OnExit += () => Game.Connection.RequestExit();
 
@@ -1209,11 +1207,11 @@ public sealed partial class WorldScreen
         Game.SoundSystem.SetMusicVolume(ClientSettings.MusicVolume);
     }
 
-    private static void ToggleSubPanel(PrefabPanel panel, PrefabPanel sibling1, PrefabPanel sibling2, PrefabPanel sibling3)
+    private static void ToggleSubPanel(PrefabPanel panel, PrefabPanel sibling1, PrefabPanel sibling2)
     {
         if (panel.Visible)
             panel.Hide();
-        else if (sibling1.Visible || sibling2.Visible || sibling3.Visible)
+        else if (sibling1.Visible || sibling2.Visible)
             // ReSharper disable once RedundantJumpStatement
             return;
         else if (panel is MacrosListControl macro)
@@ -1222,8 +1220,6 @@ public sealed partial class WorldScreen
             settings.SlideIn();
         else if (panel is FriendsListControl friends)
             friends.SlideIn();
-        else if (panel is ChatOptionsControl chat)
-            chat.SlideIn();
     }
 
     //First-run dialog Continue: save the picked mode and flip the configured flag through the Task 6
