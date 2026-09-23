@@ -1039,6 +1039,9 @@ public class UITextBox : UIElement, IVerticalScrollable
         if (!IsFocused || !Enabled)
             return;
 
+        //Update only clamps visible boxes, so text changed while hidden can leave the cursor past the end
+        ClampPositions();
+
         var shift = e.Shift;
         var ctrl = e.Ctrl;
 
@@ -1303,6 +1306,10 @@ public class UITextBox : UIElement, IVerticalScrollable
     {
         if (!IsFocused || IsReadOnly || !Enabled)
             return;
+
+        //Update only clamps visible boxes, so text changed while hidden can leave the cursor past the end.
+        //inserting at that stale position was a client crash
+        ClampPositions();
 
         var c = e.Character;
 
