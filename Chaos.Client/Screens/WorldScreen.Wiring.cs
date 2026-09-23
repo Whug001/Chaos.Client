@@ -533,6 +533,7 @@ public sealed partial class WorldScreen
             SettingsDialog.Hide();
             MacrosList.Hide();
             FriendsList.Hide();
+            ChatOptions.Hide();
             MainOptions.SlideClose();
         }
 
@@ -1179,9 +1180,12 @@ public sealed partial class WorldScreen
     #region Options Dialog Wiring
     private void WireOptionsDialog()
     {
-        MainOptions.OnMacro += () => ToggleSubPanel(MacrosList, SettingsDialog, FriendsList);
-        MainOptions.OnSettings += () => ToggleSubPanel(SettingsDialog, MacrosList, FriendsList);
-        MainOptions.OnFriends += () => ToggleSubPanel(FriendsList, MacrosList, SettingsDialog);
+        MainOptions.OnMacro += () => ToggleSubPanel(MacrosList, SettingsDialog, FriendsList, ChatOptions);
+        MainOptions.OnSettings += () => ToggleSubPanel(SettingsDialog, MacrosList, FriendsList, ChatOptions);
+        MainOptions.OnFriends += () => ToggleSubPanel(FriendsList, MacrosList, SettingsDialog, ChatOptions);
+        MainOptions.OnChat += () => ToggleSubPanel(ChatOptions, MacrosList, SettingsDialog, FriendsList);
+
+        ChatFilterDialog.OnContinue += SendChatFilterChoice;
 
         MainOptions.OnExit += () => Game.Connection.RequestExit();
 
@@ -1206,11 +1210,11 @@ public sealed partial class WorldScreen
         Game.SoundSystem.SetMusicVolume(ClientSettings.MusicVolume);
     }
 
-    private static void ToggleSubPanel(PrefabPanel panel, PrefabPanel sibling1, PrefabPanel sibling2)
+    private static void ToggleSubPanel(PrefabPanel panel, PrefabPanel sibling1, PrefabPanel sibling2, PrefabPanel sibling3)
     {
         if (panel.Visible)
             panel.Hide();
-        else if (sibling1.Visible || sibling2.Visible)
+        else if (sibling1.Visible || sibling2.Visible || sibling3.Visible)
             // ReSharper disable once RedundantJumpStatement
             return;
         else if (panel is MacrosListControl macro)
@@ -1219,6 +1223,22 @@ public sealed partial class WorldScreen
             settings.SlideIn();
         else if (panel is FriendsListControl friends)
             friends.SlideIn();
+        else if (panel is ChatOptionsControl chat)
+            chat.SlideIn();
+    }
+
+    //First-run dialog Continue: save the picked mode and flip the configured flag through the Task 6
+    //explicit-Set path; the server echoes the pair in UserOptionsArgs and HandleUserOptions applies them.
+    private void SendChatFilterChoice(int index)
+    {
+        var mode = SettingDefinitions.ByKey(SettingKey.ChatFilterMode);
+        var flag = SettingDefinitions.ByKey(SettingKey.HasConfiguredChatFilter);
+
+        if (mode.UserOption is { } modeOption)
+            Game.Connection.SendSetUserOption(modeOption, (byte)index);
+
+        if (flag.UserOption is { } flagOption)
+            Game.Connection.SendSetUserOption(flagOption, true);
     }
     #endregion
 }

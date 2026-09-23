@@ -9,6 +9,12 @@
         <EmbeddedResource Include="Icon.bmp">
             <LogicalName>Icon.bmp</LogicalName>
         </EmbeddedResource>
+        <!-- Seed fantasy substitution map for the chat filter (Chat/FantasyDictionary.cs).
+             Embedded so the dictionary loads once from the assembly with no per-message IO and no
+             DataPath file to lose; LogicalName keeps the manifest name stable for GetManifestResourceStream. -->
+        <EmbeddedResource Include="Chat\fantasy-chat-map.json">
+            <LogicalName>fantasy-chat-map.json</LogicalName>
+        </EmbeddedResource>
     </ItemGroup>
 
     <!-- Native SDL2_mixer binaries per runtime; copied to bin/.../runtimes/{rid}/native/ so the
