@@ -1043,26 +1043,21 @@ public sealed partial class WorldScreen
         //emotes are body animations — ignore if any body anim or emote overlay is already playing
         if ((entity.AnimState == EntityAnimState.BodyAnim)
             || (entity.ActiveEmoteFrame >= 0)
-            || entity.IsWearingSunglasses
-            || entity.IsFlippingOff)
+            || entity.IsPlayingCustomEmote)
             return;
 
         //the client-side emotes ride on body-animation bytes the enum leaves unused, so they never reach
         //ResolveBodyAnimParams or the emot01 overlay below — they are drawn on top of the composite instead.
-        //Creature sprites have no aisling head to hang them off, so they skip both.
-        if (!entity.IsRenderedAsCreatureSprite)
-            switch ((int)args.BodyAnimation)
-            {
-                case SunglassesEmote.BODY_ANIMATION:
-                    entity.SunglassesElapsedMs = 0f;
+        //Always return here on a custom-emote byte so it never falls through to the creature attack
+        //animation below. Only start it when the entity is NOT rendered as a creature sprite — creature
+        //sprites have no aisling head to draw it on.
+        if (CustomEmoteRegistry.TryGet((int)args.BodyAnimation, out var customEmote))
+        {
+            if (!entity.IsRenderedAsCreatureSprite)
+                entity.StartCustomEmote(customEmote);
 
-                    return;
-
-                case MiddleFingerEmote.BODY_ANIMATION:
-                    entity.MiddleFingerRemainingMs = MiddleFingerEmote.DURATION_MS;
-
-                    return;
-            }
+            return;
+        }
 
         //creature sprites (native creatures AND aislings in monster form) use their mpf attack frame
         //counts; normal aislings use epf suffix-based frame counts. Gate on IsRenderedAsCreatureSprite

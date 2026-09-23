@@ -1,8 +1,11 @@
 #region
+using Chaos.Client.Data;
+using DALib.Drawing;
+using Microsoft.Xna.Framework.Graphics;
 using SkiaSharp;
 #endregion
 
-namespace Chaos.Client.Rendering;
+namespace Chaos.Client.Rendering.CustomEmotes;
 
 /// <summary>
 ///     Geometry and timing for the middle finger emote — a gesture bubble above the head, in the same style as Rock On,
@@ -25,12 +28,12 @@ namespace Chaos.Client.Rendering;
 ///         <see cref="AislingRenderer.LAYER_OFFSET_PADDING" /> and a Y offset of zero.
 ///     </para>
 /// </remarks>
-public static class MiddleFingerEmote
+public sealed class MiddleFingerEmote : ICustomEmote
 {
     /// <summary>
     ///     The body animation the client sends and listens for. Byte 19 is a gap in <c>BodyAnimation</c> (Mouth is 17,
     ///     BlowKiss is 21) and sits inside the 1-44 range the server relays untouched, so this needs no server change.
-    ///     18 is the sunglasses; 20 is still free.
+    ///     18 is the sunglasses; 20 is Heart Eyes.
     /// </summary>
     public const int BODY_ANIMATION = 19;
 
@@ -162,4 +165,94 @@ public static class MiddleFingerEmote
         => flip
             ? AislingRenderer.MirrorX(AislingRenderer.LAYER_OFFSET_PADDING + textureWidth - 1)
             : AislingRenderer.LAYER_OFFSET_PADDING;
+
+    #region ICustomEmote
+    public static MiddleFingerEmote Instance { get; } = new();
+
+    private MiddleFingerEmote() { }
+
+    public int BodyAnimation => BODY_ANIMATION;
+    public string Name => "Middle Finger";
+    public int PreviewFrame => PREVIEW_FRAME;
+    public int IconSourceFrame => SOURCE_FRAME;
+    public float DurationMs => DURATION_MS;
+
+    /// <summary>
+    ///     Draws the bubble above the head. Draws nothing when the source art is missing or the wrong shape, so a
+    ///     repacked emot01 makes the emote silent rather than garbled.
+    /// </summary>
+    public void Draw(in CustomEmoteDrawContext context, float elapsedMs)
+    {
+        if ((elapsedMs < 0f) || (elapsedMs >= DURATION_MS))
+            return;
+
+        //one texture per body colour: the source frame is palettized through the body palette, and a green aisling
+        //needs a green hand
+        var bodyColor = context.BodyColor;
+        var texture = context.Textures.GetOrBuild($"middle-finger:{bodyColor}", () => BuildBubble(bodyColor));
+
+        if (texture is null)
+            return;
+
+        //the bubble sits above the head rather than on the face, so unlike the glasses it ignores the walk bob —
+        //the real gesture bubbles do not bob with the head either
+        context.DrawTexture(texture, AislingRenderer.LAYER_OFFSET_PADDING, 0);
+    }
+
+    /// <summary>
+    ///     Folds the Stop hand for the wheel and catalog icon — the same fold the world bubble gets, so the two cannot
+    ///     drift apart. Returns null when the frame is the wrong shape, leaving the plain hand as the icon.
+    /// </summary>
+    public SKImage? BuildIcon(SKImage sourceFrame)
+    {
+        using var bitmap = new SKBitmap(sourceFrame.Width, sourceFrame.Height);
+
+        using (var canvas = new SKCanvas(bitmap))
+        {
+            canvas.Clear(SKColors.Transparent);
+            canvas.DrawImage(sourceFrame, 0, 0);
+        }
+
+        return TryFold(bitmap, AislingRenderer.LAYER_OFFSET_PADDING) ? SKImage.FromBitmap(bitmap) : null;
+    }
+
+    private static Texture2D? BuildBubble(int bodyColor)
+    {
+        var drawData = DataContext.AislingDrawData;
+        var epf = drawData.EmotionsEpf;
+
+        if (epf is null || (SOURCE_FRAME >= epf.Count))
+            return null;
+
+        if (!drawData.BodyPalettes.TryGetValue(bodyColor, out var palette) && !drawData.BodyPalettes.TryGetValue(0, out palette))
+            return null;
+
+        using var image = Graphics.RenderImage(epf[SOURCE_FRAME], palette);
+
+        // ReSharper disable once ConditionIsAlwaysTrueOrFalseAccordingToNullableAPIContract
+        if (image is null)
+            return null;
+
+        var height = BUBBLE_BOTTOM_Y + 1;
+
+        if (image.Height < height)
+            return null;
+
+        //crop to the bubble and its tail; rows 24 and below are the frame's own face, which would paint over
+        //the character's real one
+        using var bitmap = new SKBitmap(image.Width, height);
+
+        using (var canvas = new SKCanvas(bitmap))
+        {
+            canvas.Clear(SKColors.Transparent);
+            canvas.DrawImage(image, 0, 0);
+        }
+
+        //a repacked or resized frame would put the fold over the wrong pixels — draw nothing rather than garbage
+        if (!TryFold(bitmap, AislingRenderer.LAYER_OFFSET_PADDING))
+            return null;
+
+        return TextureConverter.ToTexture2D(SKImage.FromBitmap(bitmap));
+    }
+    #endregion
 }

@@ -1,4 +1,5 @@
 using Chaos.Client.Rendering;
+using Chaos.Client.Rendering.CustomEmotes;
 using FluentAssertions;
 
 namespace Chaos.Client.Tests;

@@ -1,4 +1,5 @@
 using Chaos.Client.Rendering;
+using Chaos.Client.Rendering.CustomEmotes;
 using SkiaSharp;
 using Chaos.DarkAges.Definitions;
 using FluentAssertions;

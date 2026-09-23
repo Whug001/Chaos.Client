@@ -2,19 +2,19 @@
 using Microsoft.Xna.Framework;
 #endregion
 
-namespace Chaos.Client.Rendering;
+namespace Chaos.Client.Rendering.CustomEmotes;
 
 /// <summary>
 ///     Pixel art, geometry and timing for the sunglasses emote — a pair of shades that drops onto an aisling's face and
-///     sparkles when it lands. Everything here is pure data and arithmetic; <see cref="SunglassesRenderer" /> turns it into
-///     textures and draws it.
+///     sparkles when it lands. This class holds the pixel art, geometry and timing; the <see cref="PixelArtEmote" />
+///     base class draws it.
 /// </summary>
 /// <remarks>
 ///     Coordinates are in aisling-composite space: the 111x85 canvas <c>AislingRenderer.Composite</c> builds, whose origin
 ///     is the top-left of the composited texture. That canvas is drawn at
 ///     <c>tileCenter - (CANVAS_CENTER_X, CANVAS_CENTER_Y)</c>, so composite coordinates map to screen pixels one-to-one.
 /// </remarks>
-public static class SunglassesEmote
+public sealed class SunglassesEmote : PixelArtEmote
 {
     /// <summary>
     ///     The body animation the client sends and listens for. Byte 18 is a gap in <c>BodyAnimation</c> (Mouth is 17,
@@ -228,13 +228,11 @@ public static class SunglassesEmote
 
         if (elapsedMs < DROP_MS)
         {
-            var progress = Math.Clamp(elapsedMs / DROP_MS, 0f, 1f);
+            //ceil rounds toward 0 for a fall like this, so the glasses reach row offset 0 a little before
+            //landing (about 219ms of the 240ms drop) rather than exactly at it.
+            var offset = CustomEmoteGeometry.EaseInRows(elapsedMs, DROP_MS, START_ROW_OFFSET);
 
-            //ceil rather than round: the glasses only reach row offset 0 at the landing itself, so the
-            //fall never appears to settle a frame early and then sit still.
-            var offset = (int)Math.Ceiling(START_ROW_OFFSET * (1f - progress));
-
-            return new Frame(Math.Clamp(offset, START_ROW_OFFSET, 0), NO_SPARKLE, false);
+            return new Frame(offset, NO_SPARKLE, false);
         }
 
         var sinceLanding = elapsedMs - DROP_MS;
@@ -264,5 +262,43 @@ public static class SunglassesEmote
     ///     on its second and fourth strides; every other front-facing frame keeps it at rows 24-38. Without this the glasses
     ///     float a pixel above the eyes for half of a walk cycle.
     /// </summary>
-    public static int HeadBobOffset(int frameIndex, string animSuffix) => animSuffix == "01" && frameIndex is 7 or 9 ? 1 : 0;
+    public static int HeadBobOffset(int frameIndex, string animSuffix) => CustomEmoteGeometry.HeadBobOffset(frameIndex, animSuffix);
+
+    #region ICustomEmote
+    private static readonly PixelArt GlassesArt = new("sunglasses:glasses", GlassesPixels, TryGetColor);
+
+    private static readonly PixelArt[] SparkleArt = SparklePixels
+                                                    .Select((rows, i) => new PixelArt($"sunglasses:sparkle{i}", rows, TryGetColor))
+                                                    .ToArray();
+
+    public static SunglassesEmote Instance { get; } = new();
+
+    private SunglassesEmote() { }
+
+    public override int BodyAnimation => BODY_ANIMATION;
+    public override string Name => "Sunglasses";
+    public override int PreviewFrame => PREVIEW_FRAME;
+    public override int IconSourceFrame => PREVIEW_FACE_FRAME;
+    public override float DurationMs => TOTAL_MS;
+
+    /// <summary>The glasses settled on the eyes, the sparkle over.</summary>
+    public override float IconTimeMs => DROP_MS + SPARKLE_MS;
+
+    public override IReadOnlyList<PixelLayer> Compose(float elapsedMs, int headBobRows)
+    {
+        var frame = Resolve(elapsedMs);
+
+        if (frame.IsFinished)
+            return [];
+
+        var top = SETTLED_TOP_Y + frame.RowOffset + headBobRows;
+        var glasses = new PixelLayer(GlassesArt, SETTLED_LEFT_X, top);
+
+        if (frame.SparkleStage < 0)
+            return [glasses];
+
+        //the sparkle hangs off the glasses' top-left corner; flipping mirrors it to the top-right like everything else
+        return [glasses, new PixelLayer(SparkleArt[frame.SparkleStage], SETTLED_LEFT_X + SPARKLE_OFFSET_X, top + SPARKLE_OFFSET_Y)];
+    }
+    #endregion
 }

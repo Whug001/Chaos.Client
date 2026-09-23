@@ -98,14 +98,10 @@ public sealed class ChaosGame : Game
     public ItemRenderer ItemRenderer { get; } = new();
 
     /// <summary>
-    ///     Draws the sunglasses emote over an already-composited aisling. Holds only its own small pixel-art textures.
+    ///     Draws client-side emotes (sunglasses, middle finger, …) over an already-composited aisling. Holds only their
+    ///     own small textures.
     /// </summary>
-    public SunglassesRenderer SunglassesRenderer { get; } = new();
-
-    /// <summary>
-    ///     Draws the middle finger gesture bubble over an already-composited aisling.
-    /// </summary>
-    public MiddleFingerRenderer MiddleFingerRenderer { get; } = new();
+    public CustomEmoteRenderer CustomEmoteRenderer { get; } = new();
 
     /// <summary>
     ///     Manages sound effect and music playback.
@@ -803,8 +799,7 @@ public sealed class ChaosGame : Game
         AislingRenderer.Dispose();
         EffectRenderer.Dispose();
         ItemRenderer.Dispose();
-        SunglassesRenderer.Dispose();
-        MiddleFingerRenderer.Dispose();
+        CustomEmoteRenderer.Dispose();
         SoundSystem.Dispose();
         UiRenderer.Instance?.Dispose();
         UiRenderer.Instance = null;

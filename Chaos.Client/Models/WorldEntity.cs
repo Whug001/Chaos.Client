@@ -72,7 +72,7 @@ public sealed class WorldEntity
     ///     input are gated on this — emote overlays (face emotes) are tracked independently from <see cref="AnimState" />
     ///     but still need to block input just like body animations do.
     /// </summary>
-    public bool IsAtRest => (AnimState == EntityAnimState.Idle) && (ActiveEmoteFrame < 0) && !IsWearingSunglasses && !IsFlippingOff;
+    public bool IsAtRest => (AnimState == EntityAnimState.Idle) && (ActiveEmoteFrame < 0) && !IsPlayingCustomEmote;
 
     //appearance
     public AislingAppearance? Appearance { get; set; }
@@ -87,23 +87,31 @@ public sealed class WorldEntity
     public int EmoteStartFrame { get; set; }
 
     /// <summary>
-    ///     Milliseconds since the sunglasses emote started, or negative when it is not playing. Unlike the emot01 overlay
-    ///     above, the sunglasses are drawn on top of the finished aisling composite rather than composited into it, so they
-    ///     carry their own clock instead of a frame index.
+    ///     The client-side emote playing on this entity, or null. Unlike the emot01 overlay above, custom emotes are drawn
+    ///     on top of the finished aisling composite rather than composited into it, so they carry their own clock instead
+    ///     of a frame index.
     /// </summary>
-    public float SunglassesElapsedMs { get; set; } = -1f;
+    public ICustomEmote? ActiveCustomEmote { get; private set; }
 
-    /// <summary>True while the sunglasses emote is playing.</summary>
-    public bool IsWearingSunglasses => SunglassesElapsedMs >= 0f;
+    /// <summary>Milliseconds since <see cref="ActiveCustomEmote" /> started.</summary>
+    public float CustomEmoteElapsedMs { get; set; }
 
-    /// <summary>
-    ///     Milliseconds left on the middle finger gesture bubble, or zero when it is not playing. It is a static bubble
-    ///     like the game's other hand gestures, so it needs a countdown rather than a frame clock.
-    /// </summary>
-    public float MiddleFingerRemainingMs { get; set; }
+    /// <summary>True while a client-side emote is playing.</summary>
+    public bool IsPlayingCustomEmote => ActiveCustomEmote is not null;
 
-    /// <summary>True while the middle finger emote is playing.</summary>
-    public bool IsFlippingOff => MiddleFingerRemainingMs > 0f;
+    /// <summary>Starts a client-side emote from its first frame.</summary>
+    public void StartCustomEmote(ICustomEmote emote)
+    {
+        ActiveCustomEmote = emote;
+        CustomEmoteElapsedMs = 0f;
+    }
+
+    /// <summary>Ends the client-side emote, if one is playing.</summary>
+    public void StopCustomEmote()
+    {
+        ActiveCustomEmote = null;
+        CustomEmoteElapsedMs = 0f;
+    }
 
     /// <summary>
     ///     The gndattr paint height of the tile the entity is standing on. 0 = no ground tint. Controls how many pixels from

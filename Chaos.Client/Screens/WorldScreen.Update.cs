@@ -101,19 +101,14 @@ public sealed partial class WorldScreen
                 }
             }
 
-            //tick the sunglasses emote and retire it once it has run its course
-            if (entity.IsWearingSunglasses)
+            //tick the client-side emote and retire it once it has run its course
+            if (entity.ActiveCustomEmote is { } customEmote)
             {
-                entity.SunglassesElapsedMs += elapsedMs;
+                entity.CustomEmoteElapsedMs += elapsedMs;
 
-                if (SunglassesEmote.Resolve(entity.SunglassesElapsedMs)
-                                   .IsFinished)
-                    entity.SunglassesElapsedMs = -1f;
+                if (entity.CustomEmoteElapsedMs >= customEmote.DurationMs)
+                    entity.StopCustomEmote();
             }
-
-            //tick the middle finger bubble; it is static, so it only needs a countdown
-            if (entity.IsFlippingOff)
-                entity.MiddleFingerRemainingMs = Math.Max(0f, entity.MiddleFingerRemainingMs - elapsedMs);
 
             if (entity.HitTintExpiryMs > 0)
                 entity.HitTintExpiryMs = Math.Max(0, entity.HitTintExpiryMs - elapsedMs);
@@ -417,22 +412,18 @@ public sealed partial class WorldScreen
 
         if ((entity.AnimState == EntityAnimState.BodyAnim)
             || (entity.ActiveEmoteFrame >= 0)
-            || entity.IsWearingSunglasses
-            || entity.IsFlippingOff)
+            || entity.IsPlayingCustomEmote)
             return;
 
-        //the client-side emotes have no emot01 frame of their own, so they never reach the overlay path below
-        switch ((int)anim)
+        //the client-side emotes have no emot01 frame of their own, so they never reach the overlay path below.
+        //Skip starting it in monster form — creature sprites have no aisling head to draw it on — but still
+        //return, so the local player isn't left frozen for up to 2s with nothing drawn.
+        if (CustomEmoteRegistry.TryGet((int)anim, out var customEmote))
         {
-            case SunglassesEmote.BODY_ANIMATION:
-                entity.SunglassesElapsedMs = 0f;
+            if (!entity.IsRenderedAsCreatureSprite)
+                entity.StartCustomEmote(customEmote);
 
-                return;
-
-            case MiddleFingerEmote.BODY_ANIMATION:
-                entity.MiddleFingerRemainingMs = MiddleFingerEmote.DURATION_MS;
-
-                return;
+            return;
         }
 
         (_, var framesPerDir, _, _) = AnimationSystem.ResolveBodyAnimParams(anim);

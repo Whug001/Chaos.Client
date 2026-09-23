@@ -1,5 +1,6 @@
 using Chaos.Client.Definitions;
 using Chaos.Client.Rendering;
+using Chaos.Client.Rendering.CustomEmotes;
 using Chaos.DarkAges.Definitions;
 using FluentAssertions;
 
@@ -10,22 +11,26 @@ public class EmoteCatalogTests
     [Test]
     public async Task All_contains_the_33_keyboard_emotes_plus_the_client_side_ones()
     {
-        EmoteCatalog.All.Should().HaveCount(35);
+        EmoteCatalog.All.Should().HaveCount(33 + CustomEmoteRegistry.All.Count);
         EmoteCatalog.All.Select(e => e.Animation).Should().OnlyHaveUniqueItems();
         await Task.CompletedTask;
     }
 
     [Test]
-    public async Task The_client_side_emotes_come_last_and_are_named()
+    public async Task The_client_side_emotes_come_last_in_registry_order()
     {
-        var sunglasses = EmoteCatalog.All[^2];
-        var middleFinger = EmoteCatalog.All[^1];
+        var tail = EmoteCatalog.All.TakeLast(CustomEmoteRegistry.All.Count).ToList();
 
-        ((int)sunglasses.Animation).Should().Be(SunglassesEmote.BODY_ANIMATION);
+        tail.Select(e => (int)e.Animation).Should().Equal(CustomEmoteRegistry.All.Select(e => e.BodyAnimation));
+        tail.Select(e => e.Name).Should().Equal(CustomEmoteRegistry.All.Select(e => e.Name));
+        tail.Select(e => e.PreviewFrame).Should().Equal(CustomEmoteRegistry.All.Select(e => e.PreviewFrame));
+
+        EmoteCatalog.TryGet((BodyAnimation)SunglassesEmote.BODY_ANIMATION, out var sunglasses).Should().BeTrue();
         sunglasses.Name.Should().Be("Sunglasses");
 
-        ((int)middleFinger.Animation).Should().Be(MiddleFingerEmote.BODY_ANIMATION);
+        EmoteCatalog.TryGet((BodyAnimation)MiddleFingerEmote.BODY_ANIMATION, out var middleFinger).Should().BeTrue();
         middleFinger.Name.Should().Be("Middle Finger");
+
         await Task.CompletedTask;
     }
 
@@ -36,7 +41,7 @@ public class EmoteCatalogTests
                     .Should()
                     .BeTrue();
 
-        entry.PreviewFrame.Should().Be(EmoteCatalog.MIDDLE_FINGER_PREVIEW_FRAME);
+        entry.PreviewFrame.Should().Be(MiddleFingerEmote.PREVIEW_FRAME);
 
         EmoteCatalog.All.Select(e => e.PreviewFrame)
                     .Where(f => f >= 1000)
@@ -53,12 +58,12 @@ public class EmoteCatalogTests
                     .Should()
                     .BeTrue();
 
-        entry.PreviewFrame.Should().Be(EmoteCatalog.SUNGLASSES_PREVIEW_FRAME);
+        entry.PreviewFrame.Should().Be(SunglassesEmote.PREVIEW_FRAME);
 
         //every other entry indexes emot01 directly, so the sentinel must not collide with a real frame
         EmoteCatalog.All.Where(e => (int)e.Animation != SunglassesEmote.BODY_ANIMATION)
                     .Should()
-                    .OnlyContain(e => e.PreviewFrame != EmoteCatalog.SUNGLASSES_PREVIEW_FRAME);
+                    .OnlyContain(e => e.PreviewFrame != SunglassesEmote.PREVIEW_FRAME);
 
         await Task.CompletedTask;
     }
@@ -99,6 +104,13 @@ public class EmoteCatalogTests
     {
         EmoteCatalog.DefaultWheelSlots.Should().HaveCount(6);
         EmoteCatalog.DefaultWheelSlots[0].Should().Be(BodyAnimation.Smile);
+        await Task.CompletedTask;
+    }
+
+    [Test]
+    public async Task The_catalog_has_forty_emotes()
+    {
+        EmoteCatalog.All.Should().HaveCount(40);
         await Task.CompletedTask;
     }
 }
