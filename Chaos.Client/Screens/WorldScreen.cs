@@ -408,6 +408,7 @@ public sealed partial class WorldScreen : IScreen
         ChatOptions.SetSlideAnchor(optionsAnchorX, optionsAnchorY);
 
         ChatFilterDialog = new ChatFilterDialog();
+        ChatFilterDialog.OnContinue += SendChatFilterChoice;
 
         SettingsDialog.VisibilityChanged += visible =>
         {

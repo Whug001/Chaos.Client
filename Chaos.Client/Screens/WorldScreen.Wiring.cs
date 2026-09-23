@@ -1186,8 +1186,6 @@ public sealed partial class WorldScreen
         MainOptions.OnFriends += () => ToggleSubPanel(FriendsList, MacrosList, SettingsDialog, ChatOptions);
         MainOptions.OnChat += () => ToggleSubPanel(ChatOptions, MacrosList, SettingsDialog, FriendsList);
 
-        ChatFilterDialog.OnContinue += SendChatFilterChoice;
-
         MainOptions.OnExit += () => Game.Connection.RequestExit();
 
         MainOptions.OnSoundVolumeChanged += volume =>

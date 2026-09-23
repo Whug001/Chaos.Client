@@ -38,7 +38,7 @@ public sealed class ChatFilterDialog : UIPanel
     private const int CONTINUE_PRESSED = 16;
 
     private const string TITLE = "Customize Your Chat Experience";
-    private const string EXPLANATION = "Chat can include slurs and profanity — pick how you want it filtered.";
+    private const string EXPLANATION = "Chat can include slurs and profanity. Pick how you want it filtered.";
 
     /// <summary>Index into the ChatFilterMode choices preselected when the dialog opens (Fantasy).</summary>
     public const int DefaultSelection = 1;
