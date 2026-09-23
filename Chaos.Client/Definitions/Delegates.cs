@@ -51,12 +51,12 @@ public delegate void GoldChangedHandler();
 /// <summary>
 ///     A chat message was added (public, whisper, group, guild).
 /// </summary>
-public delegate void ChatMessageAddedHandler(Chat.ChatMessage message);
+public delegate void ChatMessageAddedHandler(ViewModel.Chat.ChatMessage message);
 
 /// <summary>
 ///     An orange bar message was added (system messages, whisper/group/guild echoes).
 /// </summary>
-public delegate void OrangeBarMessageAddedHandler(Chat.OrangeBarMessage message);
+public delegate void OrangeBarMessageAddedHandler(ViewModel.Chat.OrangeBarMessage message);
 
 /// <summary>
 ///     The current NPC dialog changed (shown, updated, or closed).

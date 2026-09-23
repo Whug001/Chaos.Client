@@ -19,18 +19,18 @@ namespace Chaos.Client.Controls.World.Hud.Panel;
 public sealed class SystemMessagePanel : ExpandablePanel
 {
     private const int GLYPH_HEIGHT = 12;
-    private readonly IReadOnlyList<Chat.OrangeBarMessage> History;
+    private readonly IReadOnlyList<ViewModel.Chat.OrangeBarMessage> History;
     private readonly Rectangle NormalDisplayBounds;
     private readonly int PanelOriginX;
     private readonly int PanelOriginY;
-    private readonly VirtualizedRowList<Chat.OrangeBarMessage> RowList;
+    private readonly VirtualizedRowList<ViewModel.Chat.OrangeBarMessage> RowList;
     private readonly ScrollViewerControl Viewer;
 
     private Rectangle DisplayBounds;
     private Rectangle ExpandedDisplayBounds;
     private int LastHistoryCount;
 
-    public SystemMessagePanel(Rectangle displayBounds, Rectangle panelBounds, IReadOnlyList<Chat.OrangeBarMessage> history)
+    public SystemMessagePanel(Rectangle displayBounds, Rectangle panelBounds, IReadOnlyList<ViewModel.Chat.OrangeBarMessage> history)
     {
         Name = "MessageHistory";
         NormalDisplayBounds = displayBounds;
@@ -41,7 +41,7 @@ public sealed class SystemMessagePanel : ExpandablePanel
 
         Background = UiRenderer.Instance!.GetSpfTexture("_nchatbk.spf");
 
-        RowList = new VirtualizedRowList<Chat.OrangeBarMessage>(
+        RowList = new VirtualizedRowList<ViewModel.Chat.OrangeBarMessage>(
             displayBounds.Width,
             displayBounds.Height,
             GLYPH_HEIGHT,
@@ -150,7 +150,7 @@ public sealed class SystemMessagePanel : ExpandablePanel
     //event-driven re-render (matches ChatPanel). The old per-frame `History.Count != Last` poll silently died once the
     //backing CircularBuffer hit its cap: Count saturates at capacity, so it never changed again and new messages stopped
     //appearing until a manual scroll bumped the row list's version. The event fires on every add regardless of the cap.
-    private void OnOrangeBarMessageAdded(Chat.OrangeBarMessage _)
+    private void OnOrangeBarMessageAdded(ViewModel.Chat.OrangeBarMessage _)
     {
         //at cap each add evicts the oldest (front), shifting every surviving index down one. Count == Last is that
         //saturated signal: drop a scrolled-up reader's offset to match so it holds position (pinned views re-pin).

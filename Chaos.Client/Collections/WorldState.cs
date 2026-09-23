@@ -100,7 +100,7 @@ public static class WorldState
     /// <summary>
     ///     Authoritative chat and orange bar message state.
     /// </summary>
-    public static Chat Chat { get; } = new();
+    public static ViewModel.Chat Chat { get; } = new();
 
     /// <summary>
     ///     Active creature death dissolve animations.

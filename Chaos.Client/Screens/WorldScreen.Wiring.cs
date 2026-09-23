@@ -6,6 +6,7 @@ using Chaos.Client.Controls.World.Hud.Panel;
 using Chaos.Client.Controls.World.Popups.Options;
 using Chaos.Client.Extensions;
 using Chaos.Client.Systems;
+using Chaos.Client.ViewModel;
 using Chaos.DarkAges.Definitions;
 using Microsoft.Xna.Framework;
 using Microsoft.Xna.Framework.Graphics;

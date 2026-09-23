@@ -41,7 +41,7 @@ public class SettingDefinitionsTests
                                                && (definition.Choices is null)
                                                && (definition.GetSliderValue is null))
                              .Should()
-                             .OnlyContain(definition => (definition.Get is not null) && (definition.Set is not null));
+                             .OnlyContain(definition => (definition.Get != null) && (definition.Set != null));
 
     /// <summary>A setting gated by another has to be gated by one that exists, or the row never enables.</summary>
     [Test]

@@ -138,7 +138,7 @@ public sealed class ChatPanel : ExpandablePanel
         base.Dispose();
     }
 
-    private void OnMessageAdded(Chat.ChatMessage msg) => AddMessage(msg.Text, msg.Color);
+    private void OnMessageAdded(ViewModel.Chat.ChatMessage msg) => AddMessage(msg.Text, msg.Color);
 
     public override void SetExpanded(bool expanded)
     {
