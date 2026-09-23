@@ -157,6 +157,15 @@ public sealed partial class WorldScreen
                 spriteBatch.End();
             }
 
+            //map-flag ambient effects (fog, lightning, blood moon, fireflies, ...) — over the weather, each in its own
+            //screen-space batch with the blend it needs. effects fading out still draw until fully gone.
+            AmbientEffects.Draw(
+                spriteBatch,
+                WorldHud.ViewportBounds,
+                Camera.WorldToScreen(Vector2.Zero),
+                GlobalSettings.Sampler,
+                ScissorRasterizerState);
+
             //blind overlay — black out viewport, then redraw only the player character. drawn before
             //entity overlays so chat bubbles, name tags, chant text, etc. remain visible while blinded,
             //matching retail (which implements blind as a per-entity darkness mask rather than a

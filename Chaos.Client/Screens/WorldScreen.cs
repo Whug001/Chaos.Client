@@ -133,6 +133,11 @@ public sealed partial class WorldScreen : IScreen
 
     private DarknessRenderer DarknessRenderer = null!;
     private WeatherRenderer WeatherRenderer = null!;
+    private AmbientEffects AmbientEffects = null!;
+
+    //set on a full map change, consumed by the SetMapEffects packet that follows map info, so the new map's
+    //ambient effects snap in rather than fading
+    private bool SnapAmbientEffects;
     private OkPopupMessageControl DeleteConfirm = null!;
     private GraphicsDevice Device = null!;
     private OkPopupMessageControl DisconnectPopup = null!;
@@ -332,6 +337,7 @@ public sealed partial class WorldScreen : IScreen
         SilhouetteRenderer = new SilhouetteRenderer(graphicsDevice);
         DarknessRenderer = new DarknessRenderer(graphicsDevice);
         WeatherRenderer = new WeatherRenderer();
+        AmbientEffects = new AmbientEffects();
 
         ScissorRasterizerState = new RasterizerState
         {
@@ -1006,6 +1012,7 @@ public sealed partial class WorldScreen : IScreen
         Game.Connection.OnSetValorState -= HandleSetValorState;
         Game.Connection.OnSetMaliceState -= HandleSetMaliceState;
         Game.Connection.OnSetOxygenState -= HandleSetOxygenState;
+        Game.Connection.OnSetMapEffects -= HandleSetMapEffects;
         Game.Connection.OnSetGroupState -= HandleSetGroupState;
         Game.Connection.OnEffect -= HandleEffect;
         Game.Connection.OnLightLevel -= HandleLightLevel;
@@ -1037,6 +1044,7 @@ public sealed partial class WorldScreen : IScreen
         ScissorRasterizerState.Dispose();
         DarknessRenderer.Dispose();
         WeatherRenderer.Dispose();
+        AmbientEffects.Dispose();
         SilhouetteRenderer.Dispose();
         Root?.Dispose();
         SongBar?.Dispose();

@@ -247,6 +247,12 @@ public delegate void SetMaliceStateHandler(SetMaliceStateArgs args);
 public delegate void SetOxygenStateHandler(SetOxygenStateArgs args);
 
 /// <summary>
+///     Raised right after every map info with the map's ambient-effect flags -- the <c>MapFlags</c> bits above the
+///     single byte map info has room for (blood moon, sandstorm, fireflies, ...).
+/// </summary>
+public delegate void SetMapEffectsHandler(SetMapEffectsArgs args);
+
+/// <summary>
 ///     Raised when the server sends a fresh snapshot of the player's group -- every member's name, class, vitals,
 ///     look and the effects closest to expiring. A whole list every time, so a member who left is simply absent
 ///     from the next one; an empty list means the player is no longer grouped.

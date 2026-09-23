@@ -512,6 +512,8 @@ public sealed class ConnectionManager : IDisposable
 
     public event SetOxygenStateHandler? OnSetOxygenState;
 
+    public event SetMapEffectsHandler? OnSetMapEffects;
+
     public event SetGroupStateHandler? OnSetGroupState;
 
     /// <summary>
@@ -1626,6 +1628,7 @@ public sealed class ConnectionManager : IDisposable
         PacketHandlers[(byte)ServerOpCode.SetValorState] = HandleSetValorState;
         PacketHandlers[(byte)ServerOpCode.SetMaliceState] = HandleSetMaliceState;
         PacketHandlers[(byte)ServerOpCode.SetOxygenState] = HandleSetOxygenState;
+        PacketHandlers[(byte)ServerOpCode.SetMapEffects] = HandleSetMapEffects;
         PacketHandlers[(byte)ServerOpCode.SetGroupState] = HandleSetGroupState;
         PacketHandlers[(byte)ServerOpCode.SongCall] = HandleSongCall;
         PacketHandlers[(byte)ServerOpCode.UserOptions] = HandleUserOptions;
@@ -1997,6 +2000,12 @@ public sealed class ConnectionManager : IDisposable
     {
         var args = Client.Deserialize<SetOxygenStateArgs>(in pkt);
         OnSetOxygenState?.Invoke(args);
+    }
+
+    private void HandleSetMapEffects(ServerPacket pkt)
+    {
+        var args = Client.Deserialize<SetMapEffectsArgs>(in pkt);
+        OnSetMapEffects?.Invoke(args);
     }
 
     private void HandleSetGroupState(ServerPacket pkt)

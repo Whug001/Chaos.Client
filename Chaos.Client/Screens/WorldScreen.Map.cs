@@ -41,15 +41,21 @@ public sealed partial class WorldScreen
         {
             ClearTransientState();
 
-            //re-evaluate darkness and weather only if the flag actually changed
-            var newFlags = (MapFlags)args.Flags;
+            //re-evaluate darkness and weather only if the flag actually changed. map info carries only the low
+            //byte, so keep the ambient-effect bits above it — the SetMapEffects packet right behind updates those
+            var newFlags = (MapFlags)args.Flags | (CurrentMapFlags & AmbientEffects.EXTENDED_FLAGS);
 
             if (newFlags != CurrentMapFlags)
             {
                 CurrentMapFlags = newFlags;
                 DarknessRenderer.OnMapChanged(args.MapId, CurrentMapFlags.HasFlag(MapFlags.Darkness));
                 WeatherRenderer.OnMapChanged(CurrentMapFlags);
+
+                //same map, flag toggled live (e.g. /mapFlag) — fade effects in/out and let an in-flight strike finish
+                AmbientEffects.Apply(CurrentMapFlags, immediate: false);
             }
+
+            SnapAmbientEffects = false;
 
             WorldState.CurrentZoneName = args.Name ?? string.Empty;
             UpdateHuds(HudOps.SetZoneName, args.Name);
@@ -128,6 +134,11 @@ public sealed partial class WorldScreen
         //reset darkness state and load hea light map for the new map
         DarknessRenderer.OnMapChanged(args.MapId, CurrentMapFlags.HasFlag(MapFlags.Darkness));
         WeatherRenderer.OnMapChanged(CurrentMapFlags);
+
+        //new map — snap the ambient effects so the previous map's don't linger over this one. map info carries no
+        //ambient-effect bits above the low byte; the SetMapEffects packet right behind snaps those in
+        AmbientEffects.Apply(CurrentMapFlags, immediate: true);
+        SnapAmbientEffects = true;
 
         WorldState.CurrentZoneName = args.Name ?? string.Empty;
         UpdateHuds(HudOps.SetZoneName, args.Name);

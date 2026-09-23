@@ -73,6 +73,7 @@ Centralized in `Directory.Build.props`: C# 14, net10.0, nullable enabled, implic
 - **`DarknessRenderer`** -- Light/darkness overlay. Consumes light sources from `LightingSystem`.
 - **`TabMapRenderer`** -- Mini-map rendering. Also consumes from `LightingSystem` for fog-of-war.
 - **`WeatherRenderer`** -- Snow/rain overlay driven by the low nibble of `MapFlags` (1=Snow, 2=Rain, 3=Darkness handled by `DarknessRenderer`).
+- **`AmbientEffects`** -- Map-flag ambient overlays: Fog and Lightning (bits 16/32 of the map info byte) plus BloodMoon, Sandstorm, Miasma, Ash, Leaves, Petals, Fireflies and Underwater (`MapFlags` bits 8-15, which arrive in the separate `SetMapEffects` packet right after map info). Each flag drives one or more `IAmbientOverlay`s: `MistRenderer` (wash + drifting cloud-noise layers + vignette, tuned by `MistStyle` presets), `ParticleRenderer` (procedural particles, tuned by `ParticleStyle` presets) and `LightningRenderer` (random flash + procedural bolts). Several can be on at once.
 - **`SilhouetteRenderer`** -- Silhouette effect for blocked entities.
 - **`PaletteCyclingManager`** -- Animated palette shimmer effects.
 - **`FontAtlas`** -- Font glyph atlas management.
@@ -270,6 +271,7 @@ Draw order (painter's algorithm -- diagonal stripe, see WorldScreen.Draw.cs):
   4. Silhouettes -- blocked-entity outlines behind foreground
   5. DarknessRenderer -- light/darkness overlay (if MapFlags has Darkness)
   6. WeatherRenderer -- snow/rain overlay (low nibble 1/2 of MapFlags)
+  6b. AmbientEffects -- fog, lightning, mists, particles (one screen-space batch per active overlay)
   7. Viewport overlays (health bars, chat bubbles, chant text, etc.)
   8. Debug renderer (draw counts, gridlines, toggled via debug flags)
   9. Tab map overlay -- on top of world, under HUD (Tab key toggle)

@@ -269,6 +269,7 @@ public sealed partial class WorldScreen
             DarknessRenderer.Update(Camera, WorldHud.ViewportBounds, Lighting.Sources);
 
         WeatherRenderer.Update(gameTime, WorldHud.ViewportBounds);
+        AmbientEffects.Update(gameTime, WorldHud.ViewportBounds, Camera.WorldToScreen(Vector2.Zero));
 
         //tooltip follows cursor — always reposition regardless of active panel
         if (ItemTooltip.Visible)

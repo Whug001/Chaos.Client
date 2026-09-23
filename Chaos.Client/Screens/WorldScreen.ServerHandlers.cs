@@ -1382,6 +1382,20 @@ public sealed partial class WorldScreen
     /// </summary>
     private void HandleSetOxygenState(SetOxygenStateArgs args) => WorldState.Oxygen.Set(args.Oxygen);
 
+    /// <summary>
+    ///     The map's ambient-effect flags — the bits above the byte map info carries. Arrives right after every map
+    ///     info. Snaps the effects in after a full map change, fades them on a same-map refresh (e.g. a live
+    ///     <c>/mapFlag</c> toggle).
+    /// </summary>
+    private void HandleSetMapEffects(SetMapEffectsArgs args)
+    {
+        CurrentMapFlags = (CurrentMapFlags & ~AmbientEffects.EXTENDED_FLAGS)
+                          | ((MapFlags)args.ExtendedFlags & AmbientEffects.EXTENDED_FLAGS);
+
+        AmbientEffects.Apply(CurrentMapFlags, SnapAmbientEffects);
+        SnapAmbientEffects = false;
+    }
+
     private static void HandleSetGroupState(SetGroupStateArgs args) => WorldState.GroupMembers.Set(args);
 
     private void HandleSongCall(SongCallArgs args)

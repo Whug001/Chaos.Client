@@ -14,7 +14,8 @@ namespace Chaos.Client.Rendering;
 ///     Weather overlay for snow and rain. Driven by the low nibble of the <see cref="MapFlags"/> byte:
 ///     0 = none, 1 = Snow, 2 = Rain (client-only — retail treats case 2 as a no-op), 3 = Darkness
 ///     (handled by <see cref="DarknessRenderer"/>, so this renderer stays inactive on value 3). The flag
-///     byte's high nibble is unrelated — NoTabMap and SnowTileset are separate concerns.
+///     byte's high nibble is unrelated — Fog and Lightning (<see cref="AmbientEffects"/>),
+///     NoTabMap and SnowTileset are separate concerns.
 ///     See docs/re_notes/map_flags.md for the full encoding.
 /// </summary>
 public sealed class WeatherRenderer : IDisposable
