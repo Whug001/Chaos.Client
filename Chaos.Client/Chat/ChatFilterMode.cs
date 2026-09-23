@@ -15,6 +15,6 @@ public enum ChatFilterMode
     /// <summary>Write <c>****</c> over each tagged span.</summary>
     Censored,
 
-    /// <summary>Replace the whole body with <c>[Message hidden]</c>; the caller keeps the sender prefix.</summary>
+    /// <summary>Replace the whole body with <see cref="ChatSpanApplier.HiddenMarker" />; the caller keeps the sender prefix.</summary>
     Hide
 }

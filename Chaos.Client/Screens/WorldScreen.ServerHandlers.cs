@@ -393,7 +393,14 @@ public sealed partial class WorldScreen
                  or ServerMessageType.OrangeBar3
                  or ServerMessageType.AdminMessage
                  or ServerMessageType.OrangeBar5:
-                WorldState.Chat.AddOrangeBarMessage(args.Message);
+                //channel messages (world shout) put a tagged copy of the chat log line here; it filters the same way
+                var orangeBar = ChatDisplayBuilder.BuildOrangeBar(
+                    args.Message,
+                    args.Tags,
+                    WorldState.UserOptions.ChatFilterMode,
+                    FantasyDictionary.Default);
+
+                WorldState.Chat.AddOrangeBarMessage(orangeBar.DisplayText);
 
                 break;
 

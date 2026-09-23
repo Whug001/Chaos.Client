@@ -119,6 +119,23 @@ public static class ChatDisplayBuilder
         return Build(prefix, body, tags, mode, fantasy, log);
     }
 
+    /// <summary>
+    ///     Orange bar lines. Channel messages (world shout and the like) send a second, possibly truncated copy of
+    ///     the chat log line to the orange bar with the same tags; it transforms the same way. Untagged system lines
+    ///     pass through unchanged.
+    /// </summary>
+    public static ChatDisplayResult BuildOrangeBar(
+        string message,
+        IReadOnlyList<ChatTag>? tags,
+        ChatFilterMode mode = ChatFilterMode.Unfiltered,
+        FantasyDictionary? fantasy = null,
+        Action<string>? log = null)
+    {
+        var (prefix, body) = SplitPrefix(message);
+
+        return Build(prefix, body, tags, mode, fantasy, log);
+    }
+
     private static bool IsBodySpan(ChatTag tag, int bodyLength)
         => (tag.Start >= 0)
             && (tag.Length > 0)

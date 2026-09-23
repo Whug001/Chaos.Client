@@ -191,7 +191,7 @@ public class ChatSpanApplierTests
         //the sender prefix is reattached by the caller (Task 5); the applier only swaps the body
         ChatSpanApplier.Apply(body, tags, ChatFilterMode.Hide, ZorpDictionary())
                        .Should()
-                       .Be("[Message hidden]");
+                       .Be("[Message contains profanity and was removed.]");
 
         await Task.CompletedTask;
     }

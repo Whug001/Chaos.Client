@@ -1,5 +1,6 @@
 using Chaos.Client.Chat;
 using Chaos.Client.Controls.Generic;
+using Chaos.Client.Rendering;
 using Chaos.Client.ViewModel;
 using FluentAssertions;
 
@@ -54,6 +55,42 @@ public class ChatFilterDialogTests
         SettingDefinitions.ByKey(SettingKey.ChatFilterMode).Section.Should().Be(SettingSection.Chat);
         SettingDefinitions.ByKey(SettingKey.HasConfiguredChatFilter).Section.Should().Be(SettingSection.Chat);
     }
+
+    //DlgBack2.spf (setoa.dat) is 64 pixels wide; the dialog tiles it to set its width.
+    private const int DLG_BACK_TILE_WIDTH = 64;
+
+    //the last glyph draws 2 pixels past its advance (8-pixel glyph, 6-pixel advance).
+    private static int DrawnWidth(string line) => TextRenderer.MeasureWidth(line) + 2;
+
+    [Test]
+    public void Title_SplitsSoExperienceSitsOnItsOwnLine()
+    {
+        ChatFilterDialog.TitleLines.Should().Equal("Customize Your Chat", "Experience");
+
+        foreach (var line in ChatFilterDialog.TitleLines)
+            DrawnWidth(line).Should().BeLessThanOrEqualTo(ChatFilterDialog.ContentWidth(DLG_BACK_TILE_WIDTH), line);
+    }
+
+    [Test]
+    public void EveryMode_HasAOneOrTwoLineDescriptionThatFitsBesideTheCheckbox()
+    {
+        var choices = SettingDefinitions.ByKey(SettingKey.ChatFilterMode).Choices!;
+        var width = ChatFilterDialog.DescriptionWidth(DLG_BACK_TILE_WIDTH);
+
+        ChatFilterDialog.ModeDescriptions.Should().HaveCount(choices.Count);
+
+        foreach (var description in ChatFilterDialog.ModeDescriptions)
+        {
+            description.Should().HaveCountGreaterThanOrEqualTo(1).And.HaveCountLessThanOrEqualTo(2);
+
+            foreach (var line in description)
+                DrawnWidth(line).Should().BeLessThanOrEqualTo(width, line);
+        }
+    }
+
+    [Test]
+    public void Explanation_SaysTheChoiceCanChangeInF4()
+        => ChatFilterDialog.Explanation.Should().Contain("F4");
 
     [Test]
     public void SettingsPanel_DrawsTheChatSection()

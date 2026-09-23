@@ -25,20 +25,36 @@ public sealed class ChatFilterDialog : UIPanel
     private const int CONTENT_PADDING = 6;
     private const int BUTTON_MARGIN = 1;
 
-    private const int TITLE_HEIGHT = 16;
+    private const int TITLE_LINE_HEIGHT = 14;
     private const int TITLE_GAP = 4;
-    private const int EXPLANATION_HEIGHT = 36;
     private const int ROWS_GAP = 6;
     private const int ROW_HEIGHT = 21;
-    private const int AFTER_ROWS_GAP = 8;
+    private const int DESCRIPTION_LINE_HEIGHT = TextRenderer.CHAR_HEIGHT;
+    private const int DESCRIPTION_GAP = 4;
+    private const int AFTER_ROWS_GAP = 4;
     private const int BOTTOM_MARGIN = 4;
 
     //butt001.epf frame indices — 2 frames per button (normal/pressed), same OK pair OkPopupMessageControl uses.
     private const int CONTINUE_NORMAL = 15;
     private const int CONTINUE_PRESSED = 16;
 
-    private const string TITLE = "Customize Your Chat Experience";
-    private const string EXPLANATION = "Chat can include slurs and profanity. Pick how you want it filtered.";
+    /// <summary>Title, split so the whole phrase fits the dialog width; each line is centered.</summary>
+    public static IReadOnlyList<string> TitleLines { get; } = ["Customize Your Chat", "Experience"];
+
+    public const string Explanation
+        = "Chat can include slurs and profanity. Pick how you want it filtered. You can change this anytime in F4.";
+
+    /// <summary>
+    ///     One short description per <see cref="SettingKey.ChatFilterMode" /> choice, in choice order, pre-split into
+    ///     lines that fit beside the checkbox (<see cref="DescriptionWidth" />).
+    /// </summary>
+    public static IReadOnlyList<IReadOnlyList<string>> ModeDescriptions { get; } =
+    [
+        ["Chat shows exactly as typed."],
+        ["Bad words become fantasy words,", "like \"dung\" or \"blight\"."],
+        ["Bad words become ****."],
+        ["Any message with a bad word is", "removed."]
+    ];
 
     /// <summary>Index into the ChatFilterMode choices preselected when the dialog opens (Fantasy).</summary>
     public const int DefaultSelection = 1;
@@ -65,18 +81,23 @@ public sealed class ChatFilterDialog : UIPanel
         var continuePressedTex = cache.GetEpfTexture("butt001.epf", CONTINUE_PRESSED);
         var buttonHeight = continueNormalTex.Height;
 
+        var contentWidth = ContentWidth(bgTile.Width);
+        var descriptionWidth = DescriptionWidth(bgTile.Width);
+        var explanationHeight = TextRenderer.WrapText(Explanation, contentWidth).Count * TextRenderer.CHAR_HEIGHT;
+        var rowsHeight = ModeDescriptions.Sum(lines => ROW_HEIGHT + (lines.Count * DESCRIPTION_LINE_HEIGHT) + DESCRIPTION_GAP);
+
         var interiorHeight = CONTENT_PADDING
-                             + TITLE_HEIGHT
+                             + (TitleLines.Count * TITLE_LINE_HEIGHT)
                              + TITLE_GAP
-                             + EXPLANATION_HEIGHT
+                             + explanationHeight
                              + ROWS_GAP
-                             + (4 * ROW_HEIGHT)
+                             + rowsHeight
                              + AFTER_ROWS_GAP
                              + buttonHeight
                              + BOTTOM_MARGIN;
 
         var borderSize = DialogFrame.BORDER_SIZE;
-        var interiorWidth = bgTile.Width * TILES_WIDE - 23;
+        var interiorWidth = InteriorWidth(bgTile.Width);
         var totalWidth = borderSize + interiorWidth + borderSize;
         var totalHeight = borderSize + interiorHeight + borderSize;
 
@@ -92,25 +113,34 @@ public sealed class ChatFilterDialog : UIPanel
         Background = TextureConverter.ToTexture2D(composite);
 
         var contentX = borderSize + CONTENT_PADDING;
-        var contentWidth = interiorWidth - CONTENT_PADDING * 2;
         var y = borderSize + CONTENT_PADDING;
 
-        //title — manually centered (UILabel alignment is left-biased like OkPopupMessageControl's label).
-        var titleWidth = TextRenderer.MeasureWidth(TITLE);
-        AddChild(
-            new UILabel
-            {
-                Name = "Title",
-                X = contentX + ((contentWidth - titleWidth) / 2),
-                Y = y,
-                Width = titleWidth,
-                Height = TITLE_HEIGHT,
-                PaddingLeft = 0,
-                PaddingTop = 0,
-                ForegroundColor = Color.White,
-                Text = TITLE
-            });
-        y += TITLE_HEIGHT + TITLE_GAP;
+        //title — each line manually centered (UILabel alignment is left-biased like OkPopupMessageControl's label).
+        foreach (var line in TitleLines)
+        {
+            var lineWidth = TextRenderer.MeasureWidth(line);
+
+            AddChild(
+                new UILabel
+                {
+                    Name = "Title",
+                    X = contentX + ((contentWidth - lineWidth) / 2),
+                    Y = y,
+                    Width = lineWidth + 2,
+                    Height = TITLE_LINE_HEIGHT,
+                    PaddingLeft = 0,
+                    PaddingRight = 0,
+                    PaddingTop = 0,
+                    PaddingBottom = 0,
+                    TruncateWithEllipsis = false,
+                    ForegroundColor = Color.White,
+                    Text = line
+                });
+
+            y += TITLE_LINE_HEIGHT;
+        }
+
+        y += TITLE_GAP;
 
         AddChild(
             new UILabel
@@ -119,18 +149,20 @@ public sealed class ChatFilterDialog : UIPanel
                 X = contentX,
                 Y = y,
                 Width = contentWidth,
-                Height = EXPLANATION_HEIGHT,
+                Height = explanationHeight,
                 PaddingLeft = 0,
+                PaddingRight = 0,
                 PaddingTop = 0,
+                PaddingBottom = 0,
                 WordWrap = true,
                 ForegroundColor = Color.White,
                 VerticalAlignment = VerticalAlignment.Top,
-                Text = EXPLANATION
+                Text = Explanation
             });
-        y += EXPLANATION_HEIGHT + ROWS_GAP;
+        y += explanationHeight + ROWS_GAP;
 
         //mode picker — labels come from the same Choices the options panel renders, so the rows can
-        //never drift from the stored values. Nothing is written until Continue: the Task 6 cache keeps
+        //never drift from the stored values. Nothing is written until Continue: the stored mode keeps
         //its Unfiltered default while the player decides.
         var choices = SettingDefinitions.ByKey(SettingKey.ChatFilterMode).Choices!;
         ModeRows = new CustomCheckBox[choices.Count];
@@ -142,18 +174,40 @@ public sealed class ChatFilterDialog : UIPanel
             {
                 Name = $"mode_{index}",
                 X = contentX,
-                Y = y + (index * ROW_HEIGHT),
+                Y = y,
                 Width = contentWidth,
                 Height = ROW_HEIGHT,
                 Text = choices[index]
             };
-            row.Clicked += () =>
-            {
-                PendingSelection = index;
-                RefreshPending();
-            };
+            row.Clicked += () => Select(index);
             ModeRows[index] = row;
             AddChild(row);
+            y += ROW_HEIGHT;
+
+            //description lines sit under the caption text (not the box) and select the row when clicked
+            foreach (var line in ModeDescriptions[index])
+            {
+                AddChild(
+                    new DescriptionLabel(() => Select(index))
+                    {
+                        Name = $"mode_{index}_description",
+                        X = contentX + CustomCheckBox.CHECKBOX_SIZE + CustomCheckBox.CAPTION_GAP,
+                        Y = y,
+                        Width = descriptionWidth,
+                        Height = DESCRIPTION_LINE_HEIGHT,
+                        PaddingLeft = 0,
+                        PaddingRight = 0,
+                        PaddingTop = 0,
+                        PaddingBottom = 0,
+                        TruncateWithEllipsis = false,
+                        ForegroundColor = LegendColors.Gray,
+                        Text = line
+                    });
+
+                y += DESCRIPTION_LINE_HEIGHT;
+            }
+
+            y += DESCRIPTION_GAP;
         }
 
         var buttonY = totalHeight - borderSize - buttonHeight - BUTTON_MARGIN + 5;
@@ -175,6 +229,15 @@ public sealed class ChatFilterDialog : UIPanel
         RefreshPending();
     }
 
+    /// <summary>Width of the dialog's text area for a DlgBack2.spf tile of <paramref name="tileWidth" /> pixels.</summary>
+    public static int ContentWidth(int tileWidth) => InteriorWidth(tileWidth) - (CONTENT_PADDING * 2);
+
+    /// <summary>Width left for a mode description, which starts under the checkbox caption.</summary>
+    public static int DescriptionWidth(int tileWidth)
+        => ContentWidth(tileWidth) - CustomCheckBox.CHECKBOX_SIZE - CustomCheckBox.CAPTION_GAP;
+
+    private static int InteriorWidth(int tileWidth) => (tileWidth * TILES_WIDE) - 23;
+
     /// <summary>Whether the first-run dialog should appear (unconfigured and not already shown this session).</summary>
     public static bool ShouldShowDialog(bool hasConfigured, bool shownThisSession)
         => !hasConfigured && !shownThisSession;
@@ -184,7 +247,7 @@ public sealed class ChatFilterDialog : UIPanel
     public void Show()
     {
         //Fantasy preselected, Unfiltered beside it: a suggestion, not a save — the stored default stays
-        //Unfiltered until Continue sends through the Task 6 path.
+        //Unfiltered until Continue sends it.
         PendingSelection = DefaultSelection;
         RefreshPending();
         InputDispatcher.Instance!.PushControl(this);
@@ -195,6 +258,12 @@ public sealed class ChatFilterDialog : UIPanel
     {
         InputDispatcher.Instance!.RemoveControl(this);
         Visible = false;
+    }
+
+    private void Select(int index)
+    {
+        PendingSelection = index;
+        RefreshPending();
     }
 
     private void OnContinueClicked()
@@ -220,6 +289,19 @@ public sealed class ChatFilterDialog : UIPanel
         {
             //swallowed on purpose: this is a must-answer first-run choice, and Escape must not
             //save (Continue-only saves) nor strand the player unconfigured.
+            e.Handled = true;
+        }
+    }
+
+    /// <summary>A mode description line; clicking it selects its mode, like clicking the row itself.</summary>
+    private sealed class DescriptionLabel(Action select) : UILabel
+    {
+        public override void OnClick(ClickEvent e)
+        {
+            if (e.Button != MouseButton.Left)
+                return;
+
+            select();
             e.Handled = true;
         }
     }

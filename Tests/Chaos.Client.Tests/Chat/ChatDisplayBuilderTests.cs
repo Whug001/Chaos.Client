@@ -35,7 +35,49 @@ public class ChatDisplayBuilderTests
         var result = ChatDisplayBuilder.Build("[Bob]: ", body, ZorpAt(body), ChatFilterMode.Hide, ZorpDictionary());
 
         result.DisplayText.Should()
-              .Be("[Bob]: [Message hidden]");
+              .Be("[Bob]: [Message contains profanity and was removed.]");
+
+        await Task.CompletedTask;
+    }
+
+    [Test]
+    public async Task Orange_bar_channel_line_hides_like_the_chat_log()
+    {
+        //world shout: the orange bar copy carries the chat log line's tags and must hide the same way
+        var message = "[!world] Dose: zorp you.";
+        List<ChatTag> tags = [new(0, 4, ZORP_ID, 0)];
+
+        var result = ChatDisplayBuilder.BuildOrangeBar(message, tags, ChatFilterMode.Hide, ZorpDictionary());
+
+        result.DisplayText.Should()
+              .Be("[!world] Dose: [Message contains profanity and was removed.]");
+
+        await Task.CompletedTask;
+    }
+
+    [Test]
+    public async Task Orange_bar_truncated_chunk_still_masks_a_word_cut_by_the_ellipsis()
+    {
+        //the server cuts long orange bar lines and swaps the last three characters for "...": a tag running
+        //into the dots still fits the body, so the cut word is covered rather than half shown
+        var message = "[!world] Dose: hi zo...";
+        List<ChatTag> tags = [new(3, 4, ZORP_ID, 0)];
+
+        var result = ChatDisplayBuilder.BuildOrangeBar(message, tags, ChatFilterMode.Censored, ZorpDictionary());
+
+        result.DisplayText.Should()
+              .Be("[!world] Dose: hi ****.");
+
+        await Task.CompletedTask;
+    }
+
+    [Test]
+    public async Task Orange_bar_untagged_system_line_passes_through()
+    {
+        var result = ChatDisplayBuilder.BuildOrangeBar("You feel stronger: +1 Str!", [], ChatFilterMode.Hide, ZorpDictionary());
+
+        result.DisplayText.Should()
+              .Be("You feel stronger: +1 Str!");
 
         await Task.CompletedTask;
     }

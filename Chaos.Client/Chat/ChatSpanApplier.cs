@@ -14,7 +14,7 @@ namespace Chaos.Client.Chat;
 public static class ChatSpanApplier
 {
     /// <summary>The whole-body replacement for <see cref="ChatFilterMode.Hide" />; the sender prefix stays.</summary>
-    public const string HiddenMarker = "[Message hidden]";
+    public const string HiddenMarker = "[Message contains profanity and was removed.]";
 
     private const string MASK = "****";
 
@@ -38,7 +38,7 @@ public static class ChatSpanApplier
             return body;
 
         //Hide swaps the whole body for the marker; the render boundary keeps the sender prefix, so a
-        //hidden public line still reads "Name: [Message hidden]"
+        //hidden public line still reads "Name: [Message contains profanity and was removed.]"
         if (mode == ChatFilterMode.Hide)
             return HiddenMarker;
 
