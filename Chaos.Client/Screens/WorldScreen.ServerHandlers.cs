@@ -1,4 +1,5 @@
 ﻿#region
+using Chaos.Client.Chat;
 using Chaos.Client.Collections;
 using Chaos.Client.Controls.Generic;
 using Chaos.Client.Controls.World.Popups.Market;
@@ -284,8 +285,19 @@ public sealed partial class WorldScreen
             _                       => LegendColors.White
         };
 
+        //single render boundary: the body transforms once here; the chat log and both bubbles share it
+        var publicMessage = ChatDisplayBuilder.BuildPublic(
+            args.Message,
+            args.Tags,
+            WorldState.UserOptions.ChatFilterMode,
+            FantasyDictionary.Default);
+
         if (!isNpc || ClientSettings.NpcRecordChat)
-            WorldState.Chat.AddMessage(args.Message, color);
+            WorldState.Chat.AddMessage(
+                publicMessage.DisplayText,
+                color,
+                publicMessage.OriginalText,
+                publicMessage.Tags);
 
         var isShout = args.PublicMessageType == PublicMessageType.Shout;
 
@@ -294,12 +306,12 @@ public sealed partial class WorldScreen
         //entity id, not by presence in WorldState, so a seated speaker whose entity is momentarily absent (the
         //list being rebuilt by a same-map refresh) still gets their bubble on the table. Ignored outright when
         //they are not seated there.
-        Poker.ShowChatBubble(args.SourceId, args.Message, isShout);
+        Poker.ShowChatBubble(args.SourceId, publicMessage.DisplayText, isShout);
 
         if (entity is null)
             return;
 
-        Overlays.AddChatBubble(args.SourceId, args.Message, isShout);
+        Overlays.AddChatBubble(args.SourceId, publicMessage.DisplayText, isShout);
     }
 
     /// <summary>
@@ -327,23 +339,46 @@ public sealed partial class WorldScreen
         {
             case ServerMessageType.Whisper:
                 RecordWhisperSender(args.Message);
-                WorldState.Chat.AddMessage(args.Message, TextColors.Whisper);
-                WorldState.Chat.AddOrangeBarMessage(args.Message, TextColors.Whisper);
-                SystemMessagePane.AddMessage(args.Message, TextColors.Whisper);
+
+                //single render boundary: the body transforms once here; the chat log, orange bar, and
+                //message pane share the display string, with the original plus tags beside it
+                var whisper = ChatDisplayBuilder.BuildWhisper(
+                    args.Message,
+                    args.Tags,
+                    WorldState.UserOptions.ChatFilterMode,
+                    FantasyDictionary.Default);
+
+                WorldState.Chat.AddMessage(whisper.DisplayText, TextColors.Whisper, whisper.OriginalText, whisper.Tags);
+                WorldState.Chat.AddOrangeBarMessage(whisper.DisplayText, TextColors.Whisper);
+                SystemMessagePane.AddMessage(whisper.DisplayText, TextColors.Whisper);
 
                 break;
 
             case ServerMessageType.GroupChat:
-                WorldState.Chat.AddMessage(args.Message, TextColors.GroupChat);
-                WorldState.Chat.AddOrangeBarMessage(args.Message, TextColors.GroupChat);
-                SystemMessagePane.AddMessage(args.Message, TextColors.GroupChat);
+                //single render boundary (group and guild share the [!channel] Name: wire shape)
+                var groupChat = ChatDisplayBuilder.BuildGroupChat(
+                    args.Message,
+                    args.Tags,
+                    WorldState.UserOptions.ChatFilterMode,
+                    FantasyDictionary.Default);
+
+                WorldState.Chat.AddMessage(groupChat.DisplayText, TextColors.GroupChat, groupChat.OriginalText, groupChat.Tags);
+                WorldState.Chat.AddOrangeBarMessage(groupChat.DisplayText, TextColors.GroupChat);
+                SystemMessagePane.AddMessage(groupChat.DisplayText, TextColors.GroupChat);
 
                 break;
 
             case ServerMessageType.GuildChat:
-                WorldState.Chat.AddMessage(args.Message, TextColors.GuildChat);
-                WorldState.Chat.AddOrangeBarMessage(args.Message, TextColors.GuildChat);
-                SystemMessagePane.AddMessage(args.Message, TextColors.GuildChat);
+                //single render boundary (group and guild share the [!channel] Name: wire shape)
+                var guildChat = ChatDisplayBuilder.BuildGroupChat(
+                    args.Message,
+                    args.Tags,
+                    WorldState.UserOptions.ChatFilterMode,
+                    FantasyDictionary.Default);
+
+                WorldState.Chat.AddMessage(guildChat.DisplayText, TextColors.GuildChat, guildChat.OriginalText, guildChat.Tags);
+                WorldState.Chat.AddOrangeBarMessage(guildChat.DisplayText, TextColors.GuildChat);
+                SystemMessagePane.AddMessage(guildChat.DisplayText, TextColors.GuildChat);
 
                 break;
 
@@ -412,6 +447,22 @@ public sealed partial class WorldScreen
         userOptions.Apply(SettingKey.HideEnemyHealthBars, args.HideEnemyHealthBars);
         userOptions.Apply(SettingKey.ShowFriendlyNametags, args.AlwaysShowFriendlyNametags);
         userOptions.Apply(SettingKey.DamageNumbersMyOutputOnly, args.DamageNumbersMyOutputOnly);
+
+        //stored chat filter prefs (Task 6): the mode lands in the choice cache the Task 5 call sites
+        //read, so the login sync flips every chat path at once; out-of-range indices are ignored.
+        userOptions.ApplyChoice(SettingKey.ChatFilterMode, args.ChatFilterMode);
+        userOptions.Apply(SettingKey.HasConfiguredChatFilter, args.HasConfiguredChatFilter);
+
+        //first-run dialog (Task 7): the login sync is the only source of the stored flag, so an
+        //unconfigured player lands here once; the session guard (fresh WorldScreen per world entry)
+        //keeps later echoes — e.g. from opening F4 Settings — from re-showing it.
+        if (ChatFilterDialog.ShouldShowDialog(
+                userOptions.Value(SettingKey.HasConfiguredChatFilter),
+                ChatFilterDialogShown))
+        {
+            ChatFilterDialogShown = true;
+            ChatFilterDialog.Show();
+        }
     }
 
     //--- npc dialog / menu ---

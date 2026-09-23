@@ -139,6 +139,11 @@ public delegate void GroupInviteReceivedHandler();
 ///     Fires when a setting value changes (server response, init, or user toggle).
 /// </summary>
 public delegate void SettingValueChangedHandler(Chaos.Client.ViewModel.SettingKey key, bool enabled);
+
+/// <summary>
+///     Fires when a multi-choice setting is selected by the user (e.g. the chat filter mode dropdown).
+/// </summary>
+public delegate void SettingChoiceSelectedHandler(Chaos.Client.ViewModel.SettingKey key, int index);
 #endregion
 
 #region Controls/Components Delegates
@@ -482,6 +487,8 @@ public delegate void ExitHandler();
 ///     The friends list was requested.
 /// </summary>
 public delegate void FriendsHandler();
+public delegate void ChatHandler();
+public delegate void ChatFilterHandler(int modeIndex);
 
 /// <summary>
 ///     The macro list was requested.

@@ -1,5 +1,6 @@
 #region
 using Chaos.Client.Collections;
+using Chaos.DarkAges.Definitions;
 using Chaos.Extensions.Common;
 using Microsoft.Xna.Framework;
 #endregion
@@ -40,11 +41,12 @@ public sealed class Chat
     public ChatMode StickyChannel { get; set; } = ChatMode.Normal;
 
     /// <summary>
-    ///     Adds a chat message (public, whisper, group, guild) with the specified color.
+    ///     Adds a chat message (public, whisper, group, guild) with the specified color. <paramref name="text" />
+    ///     is the display string; pass the pre-transform original plus tags beside it so debug can see both.
     /// </summary>
-    public void AddMessage(string text, Color color)
+    public void AddMessage(string text, Color color, string? originalText = null, IReadOnlyList<ChatTag>? tags = null)
     {
-        var msg = new ChatMessage(text, color);
+        var msg = new ChatMessage(text, color, originalText ?? text, tags ?? []);
         Messages.Add(msg);
         MessageAdded?.Invoke(msg);
     }
@@ -114,9 +116,10 @@ public sealed class Chat
     public event OrangeBarMessageAddedHandler? OrangeBarMessageAdded;
 
     /// <summary>
-    ///     A single chat message with text and display color.
+    ///     A single chat message with display text and color, plus the pre-transform original and its filter
+    ///     tags beside it for debug. Readers show Text; the original is never displayed.
     /// </summary>
-    public readonly record struct ChatMessage(string Text, Color Color);
+    public readonly record struct ChatMessage(string Text, Color Color, string? OriginalText = null, IReadOnlyList<ChatTag>? Tags = null);
 
     /// <summary>
     ///     A single orange bar entry with text and display color. System/server notifications default to orange; whisper,

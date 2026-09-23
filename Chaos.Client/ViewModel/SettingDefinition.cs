@@ -1,4 +1,5 @@
 ﻿#region
+using Chaos.Client.Collections;
 using Chaos.Client.Networking;
 using Chaos.Client.Systems;
 using Chaos.DarkAges.Definitions;
@@ -11,7 +12,8 @@ public enum SettingSection
     Display,
     DamageNumbers,
     Sound,
-    Interaction
+    Interaction,
+    Chat
 }
 
 public enum SettingCategory
@@ -67,7 +69,9 @@ public enum SettingKey
     HealNumbersOnNpcs,
     DamageNumberSize,
     DamageNumbersMyOutputOnly,
-    GroundTargetSnapToEntity
+    GroundTargetSnapToEntity,
+    ChatFilterMode,
+    HasConfiguredChatFilter
 }
 
 /// <summary>
@@ -270,7 +274,36 @@ public static class SettingDefinitions
             SettingCategory.ClientLocal,
             Get: () => ClientSettings.GroundTargetSnapToEntity,
             Set: v => ClientSettings.GroundTargetSnapToEntity = v,
-            Span: SettingSpan.Full)
+            Span: SettingSpan.Full),
+
+        //── Chat filter (Task 6 sync keys, consumed by Task 7's first-run dialog + options UI) ──
+        //Step-1 decision: EXTEND the 0x1B/UserOption options round-trip, no dedicated packet. A free
+        //UserOption slot existed (7; the server schema even documents "option 7 not used"), and
+        //OptionToggleArgs.Value already carries non-bool prefs (ActiveTitle precedent), so the 4-state
+        //mode rides Value as an index while the server appends both prefs to the UserOptions response.
+        //Keys: SettingKey.ChatFilterMode (UserOption 7 = mode index 0-3) + SettingKey.HasConfiguredChatFilter
+        //(UserOption 9 = flag). Client sends via ConnectionManager.SendSetUserOption(option, byte); the
+        //server echoes the pair in UserOptionsArgs and persists them on the aisling save. Choices order
+        //MUST match ChatFilterMode declaration order (index IS the mode value). Task 7 final UI: both
+        //prefs live in SettingSection.Chat, rendered ONLY by ChatOptionsControl + the first-run dialog —
+        //F4 Settings renders Display/DamageNumbers/Sound/Interaction, so the flag has no checkbox
+        //anywhere (it is dialog-driven and server-synced).
+        new(
+            SettingKey.ChatFilterMode,
+            "Chat filter",
+            SettingSection.Chat,
+            SettingCategory.ServerOption,
+            UserOption.ChatFilterMode,
+            Span: SettingSpan.Full,
+            Choices: ["Unfiltered", "Fantasy", "Censored", "Hide"],
+            GetChoice: () => WorldState.UserOptions.ChoiceValue(SettingKey.ChatFilterMode),
+            SetChoice: i => WorldState.UserOptions.SelectChoice(SettingKey.ChatFilterMode, i)),
+        new(
+            SettingKey.HasConfiguredChatFilter,
+            "Chat filter configured",
+            SettingSection.Chat,
+            SettingCategory.ServerOption,
+            UserOption.HasConfiguredChatFilter)
     ];
 
     private static readonly Dictionary<SettingKey, SettingDefinition> ByKeyLookup =

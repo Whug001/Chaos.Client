@@ -1,17 +1,20 @@
 #region
 using Chaos.Client.Controls.Components;
 using Chaos.Client.Controls.Generic;
+using Chaos.Client.Rendering;
 using Chaos.Client.Utilities;
 using Microsoft.Xna.Framework;
 using Microsoft.Xna.Framework.Graphics;
+using SkiaSharp;
 #endregion
 
 namespace Chaos.Client.Controls.World.Popups.Options;
 
 /// <summary>
 ///     Options dialog using _noptdlg prefab. Positioned at bottom-left (X=2, Y=480-Height). Contains: Sound/Music volume
-///     sliders (0-10 range), Friends/Macro/Setting buttons, ExitGame button, and Close button. Slider thumb from
-///     option04.epf, tracks from SoundRect/MusicRect rects.
+///     sliders (0-10 range), Friends/Macro/Setting/Chat buttons, ExitGame button, and Close button. Slider thumb from
+///     option04.epf, tracks from SoundRect/MusicRect rects. The Chat button reads the prefab's Chat slot when the
+///     data defines one, else a runtime-framed fallback below Close (panel-fit checked, never overlapping).
 /// </summary>
 public sealed class MainOptionsControl : PrefabPanel
 {
@@ -21,6 +24,7 @@ public sealed class MainOptionsControl : PrefabPanel
     //slide animation
     private SlideAnimator Slide;
 
+    public UIButton? ChatButton { get; }
     public UIButton? CloseButton { get; }
     public UIButton? ExitButton { get; }
     public UIButton? FriendsButton { get; }
@@ -88,7 +92,81 @@ public sealed class MainOptionsControl : PrefabPanel
 
         if (CloseButton is not null)
             CloseButton.Clicked += SlideClose;
+
+        //Chat entry: the prefab slot when the data defines one, else the runtime fallback (null when no
+        //safe rect exists — the entry is then absent, never misplaced).
+        ChatButton = CreateButton("Chat") ?? BuildFallbackChatButton();
+
+        if (ChatButton is not null)
+            ChatButton.Clicked += () => OnChat?.Invoke();
     }
+
+    private UIButton? BuildFallbackChatButton()
+    {
+        if (CloseButton is null)
+            return null;
+
+        var candidate = new Rectangle(
+            CloseButton.X,
+            CloseButton.Y + CloseButton.Height + 4,
+            CloseButton.Width,
+            CloseButton.Height);
+
+        if ((candidate.Bottom > Height) || OverlapsAnyButton(candidate))
+            return null;
+
+        using var frame = DialogFrame.Composite(
+            new SKColor(10, 8, 5, 255),
+            candidate.Width,
+            candidate.Height);
+
+        if (frame is null)
+            return null;
+
+        var button = new UIButton
+        {
+            Name = "Chat",
+            X = candidate.X,
+            Y = candidate.Y,
+            Width = candidate.Width,
+            Height = candidate.Height,
+            NormalTexture = TextureConverter.ToTexture2D(frame)
+        };
+
+        //sibling caption (drawn over the blank frame); hit-test invisible so clicks reach the button.
+        var captionWidth = TextRenderer.MeasureWidth("Chat");
+        AddChild(button);
+        AddChild(
+            new UILabel
+            {
+                Name = "ChatCaption",
+                X = candidate.X + ((candidate.Width - captionWidth) / 2),
+                Y = candidate.Y + ((candidate.Height - TextRenderer.CHAR_HEIGHT) / 2),
+                Width = captionWidth,
+                Height = TextRenderer.CHAR_HEIGHT,
+                PaddingLeft = 0,
+                PaddingRight = 0,
+                PaddingTop = 0,
+                PaddingBottom = 0,
+                TruncateWithEllipsis = false,
+                ForegroundColor = Color.White,
+                Text = "Chat",
+                IsHitTestVisible = false
+            });
+
+        return button;
+    }
+
+    private bool OverlapsAnyButton(Rectangle candidate)
+        => Overlaps(candidate, MacroButton)
+            || Overlaps(candidate, SettingsButton)
+            || Overlaps(candidate, FriendsButton)
+            || Overlaps(candidate, ExitButton)
+            || Overlaps(candidate, CloseButton);
+
+    private static bool Overlaps(Rectangle candidate, UIButton? button)
+        => button is not null
+            && candidate.Intersects(new Rectangle(button.X, button.Y, button.Width, button.Height));
 
     public int GetMusicVolume() => MusicSlider.Value;
 
@@ -100,6 +178,7 @@ public sealed class MainOptionsControl : PrefabPanel
         Slide.Hide(this);
     }
 
+    public event ChatHandler? OnChat;
     public event CloseHandler? OnClose;
     public event ExitHandler? OnExit;
     public event FriendsHandler? OnFriends;

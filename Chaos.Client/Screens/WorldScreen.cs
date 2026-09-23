@@ -125,6 +125,9 @@ public sealed partial class WorldScreen : IScreen
     private OkPopupMessageControl BoardResponsePopup = null!;
     private Camera Camera = null!;
     private ChantEditControl ChantEdit = null!;
+    private ChatFilterDialog ChatFilterDialog = null!;
+    private ChatOptionsControl ChatOptions = null!;
+    private bool ChatFilterDialogShown;
     private ushort CurrentMapCheckSum;
     private MapFlags CurrentMapFlags;
     private short CurrentMapId;
@@ -378,11 +381,33 @@ public sealed partial class WorldScreen : IScreen
             }
         };
 
+        //route user-initiated dropdown selections for server-controlled settings to the network (same
+        //explicit Set, byte-valued). Task 6 sync keys for Task 7: SettingKey.ChatFilterMode on
+        //UserOption.ChatFilterMode (= 7, mode index 0-3) and SettingKey.HasConfiguredChatFilter on
+        //UserOption.HasConfiguredChatFilter (= 9, flag). Task 7's dialog sends both on Continue via
+        //ConnectionManager.SendSetUserOption; the server echoes the pair in UserOptionsArgs, which
+        //HandleUserOptions Applies into the cache the Task 5 call sites read.
+        userOptions.UserChoiceSelected += (key, index) =>
+        {
+            var def = SettingDefinitions.ByKey(key);
+
+            if ((def.Category == SettingCategory.ServerOption) && (def.UserOption is { } option))
+                Game.Connection.SendSetUserOption(option, (byte)index);
+        };
+
         SettingsDialog = new SettingsControl(userOptions)
         {
             ZIndex = -3
         };
         SettingsDialog.SetSlideAnchor(optionsAnchorX, optionsAnchorY);
+
+        ChatOptions = new ChatOptionsControl(userOptions)
+        {
+            ZIndex = -3
+        };
+        ChatOptions.SetSlideAnchor(optionsAnchorX, optionsAnchorY);
+
+        ChatFilterDialog = new ChatFilterDialog();
 
         SettingsDialog.VisibilityChanged += visible =>
         {
@@ -869,6 +894,7 @@ public sealed partial class WorldScreen : IScreen
         Root.AddChild(MainOptions);
         Root.AddChild(SettingsDialog);
         Root.AddChild(MacrosList);
+        Root.AddChild(ChatOptions);
         Root.AddChild(HotkeyHelp);
         Root.AddChild(GroupPanel);
         Root.AddChild(GroupBoxViewer);
@@ -893,6 +919,7 @@ public sealed partial class WorldScreen : IScreen
         Root.AddChild(EventMetadataDetails);
         Root.AddChild(OtherProfile);
         Root.AddChild(TextPopup);
+        Root.AddChild(ChatFilterDialog);
         Root.AddChild(Notepad);
         Root.AddChild(ChantEdit);
         Root.AddChild(WorldMap);

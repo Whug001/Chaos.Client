@@ -1149,7 +1149,17 @@ public sealed class ConnectionManager : IDisposable
     /// <param name="option">The user option to set.</param>
     /// <param name="value">The value to assign.</param>
     public void SendSetUserOption(UserOption option, bool value)
-        => SendIfWorld(new OptionToggleArgs { Action = UserOptionAction.Set, Option = option, Value = (byte)(value ? 1 : 0) });
+        => SendSetUserOption(option, (byte)(value ? 1 : 0));
+
+    /// <summary>
+    ///     Asks the server to set a non-boolean user option to a specific value (e.g. the chat filter mode
+    ///     index on <c>UserOption.ChatFilterMode</c>). Same Set action; the meaning of <paramref name="value" />
+    ///     is the option's own (ActiveTitle carries a title index the same way).
+    /// </summary>
+    /// <param name="option">The user option to set.</param>
+    /// <param name="value">The value to assign.</param>
+    public void SendSetUserOption(UserOption option, byte value)
+        => SendIfWorld(new OptionToggleArgs { Action = UserOptionAction.Set, Option = option, Value = value });
 
     /// <summary>
     ///     Sends a market search request with the specified criteria.
