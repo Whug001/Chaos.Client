@@ -1,10 +1,12 @@
 ﻿#region
 using System.Buffers.Binary;
+using System.Diagnostics;
 using System.IO.Compression;
 using System.Runtime.InteropServices;
 using Chaos.Client.Collections;
 using DALib.Utility;
 using Chaos.Client.Controls.Generic;
+using Chaos.Client.Models;
 using Chaos.Client.Networking;
 using Chaos.Client.Networking.Definitions;
 using Chaos.Client.Screens;
@@ -37,6 +39,7 @@ public sealed class ChaosGame : Game
     private float CursorScale;
     internal volatile bool GcRequested;
     private bool ScreenshotRequested;
+    private Action<CapturedFrame?>? PendingCapture;
     private bool MetaSyncStarted;
     private RenderTarget2D RenderTarget = null!;
     private bool ResizingInProgress;
@@ -203,6 +206,12 @@ public sealed class ChaosGame : Game
             SaveScreenshot();
         }
 
+        if (PendingCapture is { } onCaptured)
+        {
+            PendingCapture = null;
+            onCaptured(CaptureFrame());
+        }
+
         GraphicsDevice.SetRenderTarget(null);
         GraphicsDevice.Clear(Color.Black); //paint letterbox bars (and any unfilled backbuffer) black
         SpriteBatch.Begin(samplerState: GlobalSettings.Sampler);
@@ -234,6 +243,14 @@ public sealed class ChaosGame : Game
 
     public void RequestScreenshot() => ScreenshotRequested = true;
 
+
+    /// <summary>
+    ///     Captures the next frame this game draws, HUD and popups included, and hands it to
+    ///     <paramref name="onCaptured" /> from inside that frame's <see cref="Draw" />. Used by bug reports, so nothing is
+    ///     written to disk. The callback gets null if the capture fails.
+    /// </summary>
+    public void RequestCapture(Action<CapturedFrame?> onCaptured) => PendingCapture = onCaptured;
+
     private void SaveScreenshot()
     {
         var dataPath = GlobalSettings.DataPath;
@@ -250,16 +267,42 @@ public sealed class ChaosGame : Game
         var nextNumber = highestNumber + 1;
         var fileName = Path.Combine(dataPath, $"lod{nextNumber:D3}.png");
 
+        using var sourceImage = ReadRenderTarget();
+        using var output = File.Create(fileName);
+        EncodePalettizedPng(sourceImage, output);
+    }
+
+
+    private CapturedFrame? CaptureFrame()
+    {
+        try
+        {
+            using var sourceImage = ReadRenderTarget();
+            using var png = new MemoryStream();
+            EncodePalettizedPng(sourceImage, png);
+
+            return new CapturedFrame(png.ToArray(), BuildThumbnail(sourceImage));
+        } catch (Exception e)
+        {
+            //a failed capture only means the report goes without a picture
+            Debug.WriteLine($"[BugReport] frame capture failed: {e.Message}");
+
+            return null;
+        }
+    }
+
+    private SKImage ReadRenderTarget()
+    {
         var pixels = new Color[VIRTUAL_WIDTH * VIRTUAL_HEIGHT];
         RenderTarget.GetData(pixels);
 
         var imageInfo = new SKImageInfo(VIRTUAL_WIDTH, VIRTUAL_HEIGHT, SKColorType.Rgba8888, SKAlphaType.Premul);
 
-        using var sourceImage = SKImage.FromPixelCopy(
-            imageInfo,
-            MemoryMarshal.AsBytes(pixels.AsSpan()),
-            VIRTUAL_WIDTH * 4);
+        return SKImage.FromPixelCopy(imageInfo, MemoryMarshal.AsBytes(pixels.AsSpan()), VIRTUAL_WIDTH * 4);
+    }
 
+    private static void EncodePalettizedPng(SKImage sourceImage, Stream output)
+    {
         using var intermediary = ImageProcessor.PreserveNonTransparentBlacks(sourceImage);
         using var quantized = ImageProcessor.Quantize(QuantizerOptions.Default, intermediary);
         var palette = quantized.Palette;
@@ -273,15 +316,27 @@ public sealed class ChaosGame : Game
             rgbPalette.Add(((uint)c.Red << 16) | ((uint)c.Green << 8) | c.Blue);
         }
 
-        WritePalettizedPng(fileName, VIRTUAL_WIDTH, VIRTUAL_HEIGHT, indices, rgbPalette);
+        WritePalettizedPng(output, sourceImage.Width, sourceImage.Height, indices, rgbPalette);
     }
 
-    private static void WritePalettizedPng(string fileName, int width, int height, byte[] indices, List<uint> palette)
+    private static SKImage BuildThumbnail(SKImage source)
     {
-        using var file = File.Create(fileName);
+        var info = new SKImageInfo(
+            CapturedFrame.THUMBNAIL_WIDTH,
+            CapturedFrame.THUMBNAIL_HEIGHT,
+            SKColorType.Rgba8888,
+            SKAlphaType.Premul);
 
+        using var surface = SKSurface.Create(info);
+        surface.Canvas.DrawImage(source, new SKRect(0, 0, info.Width, info.Height), new SKSamplingOptions(SKCubicResampler.Mitchell));
+
+        return surface.Snapshot();
+    }
+
+    private static void WritePalettizedPng(Stream stream, int width, int height, byte[] indices, List<uint> palette)
+    {
         //PNG signature
-        file.Write([0x89, 0x50, 0x4E, 0x47, 0x0D, 0x0A, 0x1A, 0x0A]);
+        stream.Write([0x89, 0x50, 0x4E, 0x47, 0x0D, 0x0A, 0x1A, 0x0A]);
 
         //IHDR — width, height, 8-bit indexed color
         var ihdr = new byte[13];
@@ -289,7 +344,7 @@ public sealed class ChaosGame : Game
         BinaryPrimitives.WriteInt32BigEndian(ihdr.AsSpan(4), height);
         ihdr[8] = 8; //bit depth
         ihdr[9] = 3; //color type: indexed
-        WritePngChunk(file, "IHDR"u8, ihdr);
+        WritePngChunk(stream, "IHDR"u8, ihdr);
 
         //PLTE — RGB triplets
         var plte = new byte[palette.Count * 3];
@@ -302,7 +357,7 @@ public sealed class ChaosGame : Game
             plte[i * 3 + 2] = (byte)rgb;
         }
 
-        WritePngChunk(file, "PLTE"u8, plte);
+        WritePngChunk(stream, "PLTE"u8, plte);
 
         //IDAT — zlib-compressed scanlines with no-filter bytes
         using var idatBuffer = new MemoryStream();
@@ -314,10 +369,10 @@ public sealed class ChaosGame : Game
                 zlib.Write(indices, y * width, width);
             }
 
-        WritePngChunk(file, "IDAT"u8, idatBuffer.ToArray());
+        WritePngChunk(stream, "IDAT"u8, idatBuffer.ToArray());
 
         //IEND
-        WritePngChunk(file, "IEND"u8, []);
+        WritePngChunk(stream, "IEND"u8, []);
     }
 
     private static void WritePngChunk(Stream stream, ReadOnlySpan<byte> type, ReadOnlySpan<byte> data)

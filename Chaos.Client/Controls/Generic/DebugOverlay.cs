@@ -51,6 +51,10 @@ public static class DebugOverlay
 
     public static bool IsActive { get; set; }
 
+
+    /// <summary>Frames drawn in the last full second. Counted even while the overlay is hidden, for bug reports.</summary>
+    public static int FramesPerSecond => DisplayFps;
+
     /// <summary>
     ///     Screen X position for the debug overlay.
     /// </summary>
@@ -385,7 +389,13 @@ public static class DebugOverlay
     /// <summary>
     ///     Call at the end of Draw to stop timing the current frame's Update+Draw work.
     /// </summary>
-    public static void EndFrame() => FrameStopwatch.Stop();
+    public static void EndFrame()
+    {
+        FrameStopwatch.Stop();
+
+        //fps counter — count actual drawn frames, not fixed-step updates. Runs while the overlay is hidden too, because bug reports send it.
+        FpsCounter++;
+    }
 
     /// <summary>
     ///     Captures the GPU draw count before the debug overlay renders its own draws. Call immediately before Draw() so the
@@ -406,14 +416,7 @@ public static class DebugOverlay
     /// </summary>
     public static void Update(GameTime gameTime)
     {
-        if (!IsActive)
-            return;
-
-        FrameTimeHistory[FrameTimeIndex % FRAME_TIME_HISTORY] = LastFrameWorkMs;
-        FrameTimeIndex++;
-
-        //fps counter — count actual frames per second
-        FpsCounter++;
+        //fps roll-over — DisplayFps reflects frames counted in EndFrame(). Runs while the overlay is hidden too, because bug reports send it.
         FpsElapsed += (float)gameTime.ElapsedGameTime.TotalMilliseconds;
 
         if (FpsElapsed >= 1000f)
@@ -422,6 +425,12 @@ public static class DebugOverlay
             FpsCounter = 0;
             FpsElapsed -= 1000f;
         }
+
+        if (!IsActive)
+            return;
+
+        FrameTimeHistory[FrameTimeIndex % FRAME_TIME_HISTORY] = LastFrameWorkMs;
+        FrameTimeIndex++;
 
         //gc collection tracking
         var g0 = GC.CollectionCount(0);

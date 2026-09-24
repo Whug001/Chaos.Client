@@ -408,4 +408,7 @@ public delegate void PokerTableDisplayHandler(PokerTableDisplayArgs args);
 ///     Fired when a beauty shop display packet is received.
 /// </summary>
 public delegate void BeautyShopDisplayHandler(BeautyShopDisplayArgs args);
+
+
+public delegate void BugReportOpenHandler(BugReportOpenArgs args);
 #endregion

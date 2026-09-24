@@ -556,6 +556,8 @@ public sealed class ConnectionManager : IDisposable
     /// </summary>
     public event BeautyShopDisplayHandler? OnBeautyShopDisplay;
 
+    public event BugReportOpenHandler? OnBugReportOpen;
+
     /// <summary>
     ///     Fired when door states are updated.
     /// </summary>
@@ -1247,6 +1249,30 @@ public sealed class ConnectionManager : IDisposable
     /// </summary>
     public void SendBeautyShopClose() => SendIfWorld(new BeautyShopInteractionArgs { Type = BeautyShopInteractionType.Close });
 
+
+    /// <summary>Sends a filled-in bug report. When its picture length is above zero, the picture follows in parts.</summary>
+    public void SendBugReportSubmit(BugReportInteractionArgs submit) => SendIfWorld(submit);
+
+    /// <summary>Sends one piece of a bug report's picture.</summary>
+    public void SendBugReportPicturePart(uint reportId, byte partIndex, byte[] data)
+        => SendIfWorld(
+            new BugReportInteractionArgs
+            {
+                Type = BugReportInteractionType.PicturePart,
+                ReportId = reportId,
+                PartIndex = partIndex,
+                Data = data
+            });
+
+    /// <summary>Tells the server the report window was closed without sending, so it can drop the report.</summary>
+    public void SendBugReportCancel(uint reportId)
+        => SendIfWorld(
+            new BugReportInteractionArgs
+            {
+                Type = BugReportInteractionType.Cancel,
+                ReportId = reportId
+            });
+
     /// <summary>
     ///     Sends a market buy request for a specific listing.
     /// </summary>
@@ -1638,6 +1664,7 @@ public sealed class ConnectionManager : IDisposable
         PacketHandlers[(byte)ServerOpCode.WheelDisplay] = HandleWheelDisplay;
         PacketHandlers[(byte)ServerOpCode.PokerTableDisplay] = HandlePokerTableDisplay;
         PacketHandlers[(byte)ServerOpCode.BeautyShopDisplay] = HandleBeautyShopDisplay;
+        PacketHandlers[(byte)ServerOpCode.BugReportOpen] = HandleBugReportOpen;
         PacketHandlers[(byte)ServerOpCode.DisplayAisling] = HandleDisplayAisling;
 
         //world entities
@@ -2060,6 +2087,13 @@ public sealed class ConnectionManager : IDisposable
     {
         var args = Client.Deserialize<BeautyShopDisplayArgs>(in pkt);
         OnBeautyShopDisplay?.Invoke(args);
+    }
+
+
+    private void HandleBugReportOpen(ServerPacket pkt)
+    {
+        var args = Client.Deserialize<BugReportOpenArgs>(in pkt);
+        OnBugReportOpen?.Invoke(args);
     }
 
     private void HandleDisplayAisling(ServerPacket pkt)

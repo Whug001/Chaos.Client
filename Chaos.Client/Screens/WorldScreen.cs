@@ -8,6 +8,7 @@ using Chaos.Client.Controls.World.Popups;
 using Chaos.Client.Controls.World.Popups.Bank;
 using Chaos.Client.Controls.World.Popups.Beauty;
 using Chaos.Client.Controls.World.Popups.Boards;
+using Chaos.Client.Controls.World.Popups.BugReport;
 using Chaos.Client.Controls.World.Popups.Dialog;
 using Chaos.Client.Controls.World.Popups.Exchange;
 using Chaos.Client.Controls.World.Popups.GroupPanels;
@@ -182,6 +183,13 @@ public sealed partial class WorldScreen : IScreen
 
     //beauty shop mirror — opened by the server's BeautyShop Open display from Josephine's dialog
     private BeautyShopControl BeautyShop = null!;
+
+
+    //in-game bug report window — opened by the server's BugReportOpen from Terminus's "Report a bug"
+    private BugReportControl BugReport = null!;
+
+    //a report number and the frame captured for it: set during Draw, opened on the next Update
+    private (uint ReportId, CapturedFrame? Frame)? PendingBugReport;
 
     //ordered inventory drop-target registry (Exchange → Market → equipment); each target owns its eligibility/drop-zone,
     //WorldScreen owns the paired networking action (so all Game.Connection.* calls stay here).
@@ -818,6 +826,12 @@ public sealed partial class WorldScreen : IScreen
         };
         WireBeautyShop();
 
+        BugReport = new BugReportControl
+        {
+            ZIndex = 2
+        };
+        WireBugReport();
+
         //buy-confirm popup for the market: lives on Root (it centers on-screen and must not be clipped inside the Market
         //panel) and draws above the Market window (ZIndex 3 > 2). Shown when the Results tab raises BuyRequested.
         MarketBuyConfirm = new OkPopupMessageControl(true)
@@ -891,6 +905,7 @@ public sealed partial class WorldScreen : IScreen
         Root.AddChild(Spindle);
         Root.AddChild(Poker);
         Root.AddChild(BeautyShop);
+        Root.AddChild(BugReport);
         Root.AddChild(MainOptions);
         Root.AddChild(SettingsDialog);
         Root.AddChild(MacrosList);
@@ -1027,6 +1042,7 @@ public sealed partial class WorldScreen : IScreen
         Game.Connection.OnWheelDisplay -= HandleWheelDisplay;
         Game.Connection.OnPokerTableDisplay -= HandlePokerTableDisplay;
         Game.Connection.OnBeautyShopDisplay -= HandleBeautyShopDisplay;
+        Game.Connection.OnBugReportOpen -= HandleBugReportOpen;
 
         //unwire panel click-to-use events
         WorldHud.Inventory.OnSlotClicked -= HandleInventorySlotClicked;

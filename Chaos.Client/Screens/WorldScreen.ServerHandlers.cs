@@ -1748,6 +1748,33 @@ public sealed partial class WorldScreen
         }
     }
 
+
+    /// <summary>
+    ///     Terminus's "Report a bug". The NPC dialog is closed now, during Update, so the frame drawn this tick has no
+    ///     dialog in it. That frame is captured, and the report window opens on the next Update (see
+    ///     <see cref="Update" />), so it is not in the picture either. A newer open drops any report that is still
+    ///     waiting to open (captured but not yet shown by Update), since the server has already replaced it.
+    /// </summary>
+    private void HandleBugReportOpen(BugReportOpenArgs args)
+    {
+        //a newer open drops any report that is still waiting to open (captured but not yet shown by Update) —
+        //the server has already replaced it, so no Cancel is sent for it.
+        PendingBugReport?.Frame?.Dispose();
+        PendingBugReport = null;
+
+        NpcSession.HideAll();
+        BugReport.Hide();
+
+        var reportId = args.ReportId;
+
+        Game.RequestCapture(
+            frame =>
+            {
+                PendingBugReport?.Frame?.Dispose();
+                PendingBugReport = (reportId, frame);
+            });
+    }
+
     //--- gilded spindle wheel ---
 
     /// <summary>
