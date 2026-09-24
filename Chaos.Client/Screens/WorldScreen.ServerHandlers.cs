@@ -608,9 +608,24 @@ public sealed partial class WorldScreen
 
     private void HandleExchangeAmountRequested(byte fromSlot)
     {
+        var stackCount = WorldState.Inventory.GetSlot(fromSlot).Count;
+        var wholeStack = ExchangeWholeStackSlot == fromSlot;
+        ExchangeWholeStackSlot = null;
+
+        if (wholeStack)
+        {
+            Game.Connection.SendExchangeInteraction(
+                ExchangeRequestType.AddStackableItem,
+                Exchange.OtherUserId,
+                fromSlot,
+                (ushort)Math.Min(stackCount, ushort.MaxValue));
+
+            return;
+        }
+
         ItemAmount.X = Exchange.X + (Exchange.Width - ItemAmount.Width) / 2;
         ItemAmount.Y = Exchange.Y + (Exchange.Height - ItemAmount.Height) / 2;
-        ItemAmount.ShowFor(ItemAmountPurpose.Exchange, fromSlot);
+        ItemAmount.ShowFor(ItemAmountPurpose.Exchange, fromSlot, stackCount);
 
         //surface the slot's hover description (e.g. "Apple[ 10 ]") in the HUD bar while the popup
         //is open — matches retail behavior of pinning the operated-on item's tooltip text.

@@ -17,6 +17,7 @@ using Chaos.Client.Controls.World.Popups.Options;
 using Chaos.Client.Controls.World.Popups.Poker;
 using Chaos.Client.Controls.World.Popups.Profile;
 using Chaos.Client.Controls.World.Popups.Slots;
+using Chaos.Client.Controls.World.Popups.Theatre;
 using Chaos.Client.Controls.World.Popups.Wheel;
 using Chaos.Client.Controls.World.Popups.WorldList;
 using Chaos.Client.Controls.World.ViewPort;
@@ -204,6 +205,10 @@ public sealed partial class WorldScreen : IScreen
     //written for every accepting drop target in HandleInventoryDropInViewport, but read only by the Market path.
     private int PendingMarketDropX;
     private int PendingMarketDropY;
+
+    //the inventory slot of a stack Shift-dropped into the trade window. the server asks how many only after the drop,
+    //so this carries "the whole stack" to HandleExchangeAmountRequested. any other request clears it
+    private byte? ExchangeWholeStackSlot;
     private TileClickTracker LeftClickTracker;
     private readonly LightingSystem Lighting = new();
 
@@ -346,6 +351,7 @@ public sealed partial class WorldScreen : IScreen
         DarknessRenderer = new DarknessRenderer(graphicsDevice);
         WeatherRenderer = new WeatherRenderer();
         AmbientEffects = new AmbientEffects();
+        SpotlightRenderer = new SpotlightRenderer(graphicsDevice);
 
         ScissorRasterizerState = new RasterizerState
         {
@@ -832,6 +838,12 @@ public sealed partial class WorldScreen : IScreen
         };
         WireBugReport();
 
+        StageLightingWindow = new StageLightingControl
+        {
+            ZIndex = 2
+        };
+        WireStageLighting();
+
         //buy-confirm popup for the market: lives on Root (it centers on-screen and must not be clipped inside the Market
         //panel) and draws above the Market window (ZIndex 3 > 2). Shown when the Results tab raises BuyRequested.
         MarketBuyConfirm = new OkPopupMessageControl(true)
@@ -906,6 +918,7 @@ public sealed partial class WorldScreen : IScreen
         Root.AddChild(Poker);
         Root.AddChild(BeautyShop);
         Root.AddChild(BugReport);
+        Root.AddChild(StageLightingWindow);
         Root.AddChild(MainOptions);
         Root.AddChild(SettingsDialog);
         Root.AddChild(MacrosList);
@@ -952,7 +965,7 @@ public sealed partial class WorldScreen : IScreen
         //inventory drop-target registry: each panel owns its eligibility/drop-zone; the paired action owns the networking
         //call. priority order mirrors the previous if-chain (Exchange → Market → Bank → equipment). every target gates on
         //its own Visible, so a closed window never claims a drop and order only breaks ties between two open windows.
-        InventoryDropTargets.Add((Exchange, slot => Game.Connection.SendExchangeInteraction(ExchangeRequestType.AddItem, Exchange.OtherUserId, slot)));
+        InventoryDropTargets.Add((Exchange, BeginExchangeAdd));
         InventoryDropTargets.Add((Market, BeginMarketListing));
         InventoryDropTargets.Add((Bank, BeginBankDeposit));
         InventoryDropTargets.Add((StatusBook, slot => Game.Connection.UseItem(slot)));
@@ -1043,6 +1056,7 @@ public sealed partial class WorldScreen : IScreen
         Game.Connection.OnPokerTableDisplay -= HandlePokerTableDisplay;
         Game.Connection.OnBeautyShopDisplay -= HandleBeautyShopDisplay;
         Game.Connection.OnBugReportOpen -= HandleBugReportOpen;
+        UnwireStageLighting();
 
         //unwire panel click-to-use events
         WorldHud.Inventory.OnSlotClicked -= HandleInventorySlotClicked;
@@ -1061,6 +1075,7 @@ public sealed partial class WorldScreen : IScreen
         DarknessRenderer.Dispose();
         WeatherRenderer.Dispose();
         AmbientEffects.Dispose();
+        SpotlightRenderer.Dispose();
         SilhouetteRenderer.Dispose();
         Root?.Dispose();
         SongBar?.Dispose();

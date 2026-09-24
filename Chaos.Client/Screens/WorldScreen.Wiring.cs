@@ -566,6 +566,26 @@ public sealed partial class WorldScreen
         SocialStatusPicker.Show();
     }
 
+    /// <summary>
+    ///     Opens or closes the town map. Shared by the T key and the HUD map button, so the NoTownMap map flag holds for
+    ///     both.
+    /// </summary>
+    private void ToggleTownMap()
+    {
+        if (CurrentMapFlags.HasFlag(MapFlags.NoTownMap))
+            return;
+
+        if (TownMapControl.Visible)
+            TownMapControl.Hide();
+        else
+        {
+            var player = WorldState.GetPlayerEntity();
+
+            if (player is not null)
+                TownMapControl.Show(CurrentMapId, player.TileX, player.TileY);
+        }
+    }
+
     private bool IsAnyBoardPanelVisible() =>
         BoardList.Visible
         || ArticleList.Visible
@@ -1023,18 +1043,7 @@ public sealed partial class WorldScreen
             };
 
         if (hud.TownMapButton is not null)
-            hud.TownMapButton.Clicked += () =>
-            {
-                if (TownMapControl.Visible)
-                    TownMapControl.Hide();
-                else
-                {
-                    var player = WorldState.GetPlayerEntity();
-
-                    if (player is not null)
-                        TownMapControl.Show(CurrentMapId, player.TileX, player.TileY);
-                }
-            };
+            hud.TownMapButton.Clicked += ToggleTownMap;
 
         if (hud.EmoteButton is not null)
             hud.EmoteButton.Clicked += ToggleSocialStatusPicker;
@@ -1171,7 +1180,7 @@ public sealed partial class WorldScreen
         //the first frame after the swap would draw the old-sized texture over the new viewport
         if (DarknessRenderer.IsActive)
         {
-            Lighting.Gather(MapFile, CurrentMapFlags, Camera);
+            Lighting.Gather(MapFile, CurrentMapFlags, Camera, SpotlightFrames);
             DarknessRenderer.Update(Camera, viewport, Lighting.Sources);
         }
 

@@ -145,6 +145,9 @@ public sealed partial class WorldScreen
                 spriteBatch.End();
             }
 
+            //theatre spotlight colour — over the darkness, under weather and ambient effects
+            DrawSpotlights(spriteBatch);
+
             //weather overlay — drawn after darkness so snowflakes/rain remain visible on dark maps
             if (WeatherRenderer.IsActive)
             {

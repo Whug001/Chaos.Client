@@ -559,6 +559,16 @@ public sealed class ConnectionManager : IDisposable
     public event BugReportOpenHandler? OnBugReportOpen;
 
     /// <summary>
+    ///     Fired when the Theatre's lighting setup arrives (on entering the Theatre and after each change).
+    /// </summary>
+    public event StageLightingStateHandler? OnStageLightingState;
+
+    /// <summary>
+    ///     Fired when the server opens, updates the scene list of, or closes the Stage Lighting window.
+    /// </summary>
+    public event StageLightingBoardHandler? OnStageLightingBoard;
+
+    /// <summary>
     ///     Fired when door states are updated.
     /// </summary>
     public event DoorHandler? OnDoor;
@@ -1273,6 +1283,9 @@ public sealed class ConnectionManager : IDisposable
                 ReportId = reportId
             });
 
+    /// <summary>Sends one Stage Lighting edit. The server checks the sender's role and every value.</summary>
+    public void SendStageLightingInteraction(StageLightingInteractionArgs args) => SendIfWorld(args);
+
     /// <summary>
     ///     Sends a market buy request for a specific listing.
     /// </summary>
@@ -1665,6 +1678,8 @@ public sealed class ConnectionManager : IDisposable
         PacketHandlers[(byte)ServerOpCode.PokerTableDisplay] = HandlePokerTableDisplay;
         PacketHandlers[(byte)ServerOpCode.BeautyShopDisplay] = HandleBeautyShopDisplay;
         PacketHandlers[(byte)ServerOpCode.BugReportOpen] = HandleBugReportOpen;
+        PacketHandlers[(byte)ServerOpCode.StageLightingState] = HandleStageLightingState;
+        PacketHandlers[(byte)ServerOpCode.StageLightingBoard] = HandleStageLightingBoard;
         PacketHandlers[(byte)ServerOpCode.DisplayAisling] = HandleDisplayAisling;
 
         //world entities
@@ -2094,6 +2109,18 @@ public sealed class ConnectionManager : IDisposable
     {
         var args = Client.Deserialize<BugReportOpenArgs>(in pkt);
         OnBugReportOpen?.Invoke(args);
+    }
+
+    private void HandleStageLightingState(ServerPacket pkt)
+    {
+        var args = Client.Deserialize<StageLightingStateArgs>(in pkt);
+        OnStageLightingState?.Invoke(args);
+    }
+
+    private void HandleStageLightingBoard(ServerPacket pkt)
+    {
+        var args = Client.Deserialize<StageLightingBoardArgs>(in pkt);
+        OnStageLightingBoard?.Invoke(args);
     }
 
     private void HandleDisplayAisling(ServerPacket pkt)

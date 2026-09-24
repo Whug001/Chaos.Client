@@ -172,6 +172,16 @@ public static class WorldState
     public static PokerTable PokerTable { get; } = new();
 
     /// <summary>
+    ///     The Theatre lighting setup and its animation. Not cleared by <see cref="Clear" />: a same-map refresh (which
+    ///     happens whenever the director flips darkness) must keep the lights. WorldScreen clears it on a real map change;
+    ///     <see cref="ResetAll" /> clears it on logout.
+    /// </summary>
+    public static StageLightAnimator StageLights { get; } = new();
+
+    /// <summary>The Stage Lighting window's own state (selection, throttle, position). Reset on logout.</summary>
+    public static StageLightingPanelState StageLightingPanel { get; } = new();
+
+    /// <summary>
     ///     Authoritative beauty shop state (catalog, prices, current look, and the look being tried on).
     /// </summary>
     public static BeautyShop BeautyShop { get; } = new();
@@ -407,6 +417,8 @@ public static class WorldState
         SkillBook.Clear();
         SpellBook.Clear();
         Song.Reset();
+        StageLights.Clear();
+        StageLightingPanel.Reset();
         ClassResource.Reset();
         Oxygen.Reset();
         Equipment.Clear();
