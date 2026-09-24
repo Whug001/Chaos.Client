@@ -74,6 +74,7 @@ Centralized in `Directory.Build.props`: C# 14, net10.0, nullable enabled, implic
 - **`TabMapRenderer`** -- Mini-map rendering. Also consumes from `LightingSystem` for fog-of-war.
 - **`WeatherRenderer`** -- Snow/rain overlay driven by the low nibble of `MapFlags` (1=Snow, 2=Rain, 3=Darkness handled by `DarknessRenderer`).
 - **`AmbientEffects`** -- Map-flag ambient overlays: Fog and Lightning (bits 16/32 of the map info byte) plus BloodMoon, Sandstorm, Miasma, Ash, Leaves, Petals, Fireflies and Underwater (`MapFlags` bits 8-15, which arrive in the separate `SetMapEffects` packet right after map info). Each flag drives one or more `IAmbientOverlay`s: `MistRenderer` (wash + drifting cloud-noise layers + vignette, tuned by `MistStyle` presets), `ParticleRenderer` (procedural particles, tuned by `ParticleStyle` presets) and `LightningRenderer` (random flash + procedural bolts). Several can be on at once.
+- **`SpotlightRenderer`** -- Theatre spotlight colour: additive pool, body tint and optional beam per light, drawn right after the darkness layer. Its darkness masks come from **`SpotlightMasks`** (generated 2:1 ovals, one per size).
 - **`SilhouetteRenderer`** -- Silhouette effect for blocked entities.
 - **`PaletteCyclingManager`** -- Animated palette shimmer effects.
 - **`FontAtlas`** -- Font glyph atlas management.
@@ -144,7 +145,7 @@ Chaos.Client/
 
 **Options (`Popups/Options/`):** MainOptionsControl, MacrosListControl, SettingsControl, FriendsListControl.
 
-**Popups (`Popups/`):** AislingContextMenu, GoldAmountControl, ItemAmountControl, ChantEditControl, GroupRecruitPanel, GroupTab/GroupTabControl, HotkeyHelpControl, ItemTooltipControl, NotepadControl, SocialStatusControl, TownMapControl. Subdirectories: `BugReport/` (BugReportControl — in-game bug report window opened from Terminus), `Boards/` (BoardListControl, ArticleListControl/ArticleReadControl/ArticleSendControl, MailListControl/MailReadControl/MailSendControl), `Dialog/` (NpcSessionControl, FramedDialogPanelBase, DialogAlphaGradient, MenuShopPanel, DialogTextEntryPanel, DialogProtectedTextEntryPanel, MenuTextEntryPanel, DialogOptionPanel, MenuListPanel), `Exchange/` (ExchangeControl/ExchangeItemControl), `WorldList/` (WorldListControl/WorldListEntryControl).
+**Popups (`Popups/`):** AislingContextMenu, GoldAmountControl, ItemAmountControl, ChantEditControl, GroupRecruitPanel, GroupTab/GroupTabControl, HotkeyHelpControl, ItemTooltipControl, NotepadControl, SocialStatusControl, TownMapControl. Subdirectories: `BugReport/` (BugReportControl — in-game bug report window opened from Terminus), `Theatre/` (StageLightingControl — the director's Stage Lighting window; StageView, StageButton, StageSlider, StageColorPicker; the stage view's tile maths is `Systems/StageViewGeometry`), `Boards/` (BoardListControl, ArticleListControl/ArticleReadControl/ArticleSendControl, MailListControl/MailReadControl/MailSendControl), `Dialog/` (NpcSessionControl, FramedDialogPanelBase, DialogAlphaGradient, MenuShopPanel, DialogTextEntryPanel, DialogProtectedTextEntryPanel, MenuTextEntryPanel, DialogOptionPanel, MenuListPanel), `Exchange/` (ExchangeControl/ExchangeItemControl), `WorldList/` (WorldListControl/WorldListEntryControl).
 
 **Viewport Overlays (`ViewPort/`):** ChatBubble, HealthBar, LoadingBar/MapLoadingBar, WorldMap/WorldMapNode, ChantText, GroupBox, SystemMessagePaneControl, PersistentMessageControl.
 
@@ -154,6 +155,7 @@ Chaos.Client/
 - **`SoundSystem`** -- SDL2_mixer-based audio. MP3s decoded to PCM once via `Mix_LoadWAV_RW` and cached as `Mix_Chunk` pointers; playback uses the mixer's channel pool with per-channel volume. Music streams via `Mix_LoadMUS` with `Mix_FadeOutMusic`/`Mix_FadeInMusic` for map transitions. Same-sound overlap ducks prior instances by -3 dB (equal-power) instead of voice-stealing.
 - **`Pathfinder`** -- A* pathfinding algorithm.
 - **`LightingSystem`** -- Owns the per-frame light source buffer. Walks world entities, reads `LanternSize`, and gathers into a span consumed read-only by `DarknessRenderer` and `TabMapRenderer` (neither stores its own copy). Caches Euclidean circle offset arrays (radius 3/5) and exposes `BaselineVisibilityOffsets` for the unconditional player-tile reveal on darkness maps.
+- **`StageLightAnimator`** -- Holds the Theatre lighting setup (`StageLightingState`) and computes each spotlight's tile, colour and strength per frame: sweep/circle/follow, pulse/flicker/colour cycle, fades, and lights held while the director drags. Lives on `WorldState.StageLights`; not cleared by `WorldState.Clear()`.
 - **`LatencyMonitor`** -- Static class. Background ICMP ping loop (15s interval) against the connected server endpoint. Exposes `LatencyMs` and fires `LatencyChanged` for the HUD ping indicator. Started/stopped by `ChaosGame` on connect/disconnect. Events fire on thread-pool threads — consumers must poll from the game-loop thread.
 - **`MachineIdentity`** -- Machine-specific identification for the client.
 - **`ClientSettings`** -- Static class. Persistent user settings. Access via `ClientSettings.SoundVolume`, etc.
@@ -269,7 +271,8 @@ Draw order (painter's algorithm -- diagonal stripe, see WorldScreen.Draw.cs):
   2. Tile cursor highlight
   3. Foreground tiles + Entities + Effects -- diagonal stripe (depth = x+y ascending), X ascending within stripe; ground effects in stripe, entity effects after entity
   4. Silhouettes -- blocked-entity outlines behind foreground
-  5. DarknessRenderer -- light/darkness overlay (if MapFlags has Darkness)
+  5. DarknessRenderer -- light/darkness overlay (if MapFlags has Darkness; strength follows the Theatre house level)
+  5b. SpotlightRenderer -- Theatre spotlight colour (additive), whenever a stage lighting setup has lights
   6. WeatherRenderer -- snow/rain overlay (low nibble 1/2 of MapFlags)
   6b. AmbientEffects -- fog, lightning, mists, particles (one screen-space batch per active overlay)
   7. Viewport overlays (health bars, chat bubbles, chant text, etc.)
