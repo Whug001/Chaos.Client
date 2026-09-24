@@ -30,7 +30,7 @@ The custom client can do more. It can send a picture of what the player saw. The
 | Storage | `Data/Saved/BugReports/<category>/<yyyy-MM-dd_HHmmss>_<name>/`, set in appsettings. |
 | Report format | `report.md` uses the Discord archive's header fields, status values and Triage preserve marker. |
 | Reading | `import_reports.py` copies new report folders into `Unora/docs/player-feedback/in-game/` and rebuilds an index. It never overwrites an imported report. |
-| Abuse limits | One report per character every 2 minutes. A single-use report number from the server. A 512 KB picture cap. |
+| Abuse limits | One report per character every 2 minutes. Opening the window is limited to once every 10 seconds per character ("Please wait a few seconds before opening another report."). A single-use report number from the server. A 512 KB picture cap. |
 | Client version | 751 → 752. |
 | Rewards | None automatic. Staff use the existing `GiveBugReportPointsCommand`. |
 | Out of scope | A Discord notice, a transfer tool for the live machine, a staff viewer inside the game, sending chat history, suggestions through this window, re-encoding the picture on the server. |
@@ -41,6 +41,7 @@ The custom client can do more. It can send a picture of what the player saw. The
 2. `TerminusBugReportScript` adds a "Report a bug" option to `terminus_initial`, the same way the other Terminus scripts add theirs.
 3. The option leads to `terminus_bugreport`. When it displays, the script checks the wait time.
    - If the player's last report was under 2 minutes ago, Terminus replies: "You sent a report recently. Please wait N more minute(s)." The window does not open.
+   - Otherwise, if the player opened a report window less than 10 seconds ago, Terminus replies: "Please wait a few seconds before opening another report." The window does not open.
    - Otherwise the script closes the dialog and calls `BugReportService.Open`.
 4. `Open` makes a new report number and captures the character and world state into a holding folder. Then it sends `BugReportOpen` to the client.
 5. The client closes any NPC dialog, asks for a frame capture, and opens the report window on the next update with the preview.
@@ -174,6 +175,7 @@ The capture runs inside the Terminus dialog script, which already runs on the wo
 - A `PictureLength` over `MaxPictureBytes` means no picture is kept. Parts are dropped and the report finishes without one.
 - When the received bytes equal `PictureLength`, join the parts and finish.
 - If no part arrives for `PictureGapSeconds`, finish without the picture. This also covers a disconnect after the submit.
+- A submitted report is finished after `2 × PictureGapSeconds` (60 seconds by default) whatever parts keep arriving, even if a part keeps landing often enough to reset the gap above. This caps how long a modified client resending parts can keep a report open.
 
 ### Finish
 
@@ -282,7 +284,7 @@ python Tools/FeedbackSync/import_reports.py <path to the copied BugReports folde
 - Print how many were imported and how many were skipped.
 - Rebuild `docs/player-feedback/in-game/index.md` from every local `report.md`.
 
-`archive.render_index` takes the title and a line formatter as parameters. The Discord output stays byte-for-byte the same. The in-game index groups by status in the same order. Each line is:
+`archive.render_index` looks the title up in `INDEX_TITLES` by kind and takes a `stamp_label` ("Imported" for in-game, versus Discord's default "Synced"). The Discord output stays byte-for-byte the same. The in-game index groups by status in the same order. Each line is:
 
 ```
 - [<title>](<category>/<report>/report.md) — <category>, <author>, <created> — <status_note>

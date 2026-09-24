@@ -389,7 +389,13 @@ public static class DebugOverlay
     /// <summary>
     ///     Call at the end of Draw to stop timing the current frame's Update+Draw work.
     /// </summary>
-    public static void EndFrame() => FrameStopwatch.Stop();
+    public static void EndFrame()
+    {
+        FrameStopwatch.Stop();
+
+        //fps counter — count actual drawn frames, not fixed-step updates. Runs while the overlay is hidden too, because bug reports send it.
+        FpsCounter++;
+    }
 
     /// <summary>
     ///     Captures the GPU draw count before the debug overlay renders its own draws. Call immediately before Draw() so the
@@ -410,8 +416,7 @@ public static class DebugOverlay
     /// </summary>
     public static void Update(GameTime gameTime)
     {
-        //fps counter — count actual frames per second. Runs while the overlay is hidden too, because bug reports send it.
-        FpsCounter++;
+        //fps roll-over — DisplayFps reflects frames counted in EndFrame(). Runs while the overlay is hidden too, because bug reports send it.
         FpsElapsed += (float)gameTime.ElapsedGameTime.TotalMilliseconds;
 
         if (FpsElapsed >= 1000f)
