@@ -49,6 +49,10 @@ public sealed class CustomButton : UIPanel
 
     public string Caption { get => Label.Text; set => Label.Text = value; }
 
+
+    /// <summary>Shows the caption in gold, for the current pick in a group of buttons (the bug report categories).</summary>
+    public bool Selected { get; set; }
+
     public override void OnClick(ClickEvent e)
     {
         if (!Enabled)
@@ -77,7 +81,7 @@ public sealed class CustomButton : UIPanel
         if (Background != bg)
             Background = bg;
 
-        var col = Enabled ? TextColors.Default : Dim(TextColors.Default);
+        var col = !Enabled ? Dim(TextColors.Default) : Selected ? LegendColors.Gold : TextColors.Default;
 
         if (Label.ForegroundColor != col)
             Label.ForegroundColor = col;

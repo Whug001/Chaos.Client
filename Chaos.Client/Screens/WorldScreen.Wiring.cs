@@ -1,13 +1,18 @@
 #region
+using System.Reflection;
+using System.Runtime.InteropServices;
 using Chaos.Client.Collections;
 using Chaos.Client.Controls.Components;
+using Chaos.Client.Controls.Generic;
 using Chaos.Client.Controls.World.Hud;
 using Chaos.Client.Controls.World.Hud.Panel;
+using Chaos.Client.Controls.World.Popups.BugReport;
 using Chaos.Client.Controls.World.Popups.Options;
 using Chaos.Client.Extensions;
 using Chaos.Client.Systems;
 using Chaos.Client.ViewModel;
 using Chaos.DarkAges.Definitions;
+using Chaos.Networking.Entities.Client;
 using Microsoft.Xna.Framework;
 using Microsoft.Xna.Framework.Graphics;
 #endregion
@@ -255,6 +260,53 @@ public sealed partial class WorldScreen
 
         //nothing is escrowed, so Close is informational; the server holds no session for the mirror
         BeautyShop.Closed += () => Game.Connection.SendBeautyShopClose();
+    }
+    #endregion
+
+    #region Bug Report Wiring
+    private static readonly string ClientBuild
+        = typeof(ChaosGame).Assembly.GetCustomAttribute<AssemblyInformationalVersionAttribute>()?.InformationalVersion ?? "unknown";
+
+    private void WireBugReport()
+    {
+        Game.Connection.OnBugReportOpen += HandleBugReportOpen;
+        BugReport.SendRequested += SendBugReport;
+        BugReport.Cancelled += reportId => Game.Connection.SendBugReportCancel(reportId);
+    }
+
+    /// <summary>
+    ///     Sends the report, then the picture in parts. A picture over the server's limit is not sent. The submit still
+    ///     carries its length, so the server writes the report and notes why the picture is missing.
+    /// </summary>
+    private void SendBugReport(BugReportSubmission submission)
+    {
+        var picture = submission.Picture;
+        var bounds = Game.Window.ClientBounds;
+
+        Game.Connection.SendBugReportSubmit(
+            new BugReportInteractionArgs
+            {
+                Type = BugReportInteractionType.Submit,
+                ReportId = submission.ReportId,
+                Category = submission.Category,
+                Description = submission.Description,
+                PictureLength = (uint)(picture?.Length ?? 0),
+                ClientBuild = BugReportUpload.Clip(ClientBuild),
+                OsDescription = BugReportUpload.Clip(RuntimeInformation.OSDescription),
+                FramesPerSecond = (ushort)Math.Clamp(DebugOverlay.FramesPerSecond, 0, ushort.MaxValue),
+                PingMs = (ushort)Math.Clamp(LatencyMonitor.LatencyMs ?? 0L, 0L, ushort.MaxValue),
+                HudStyle = (byte)(WorldHud == LargeHud ? 1 : 0),
+                WindowWidth = (ushort)Math.Clamp(bounds.Width, 0, ushort.MaxValue),
+                WindowHeight = (ushort)Math.Clamp(bounds.Height, 0, ushort.MaxValue)
+            });
+
+        if ((picture is null) || (picture.Length > BugReportProtocol.MAX_PICTURE_BYTES))
+            return;
+
+        var parts = BugReportUpload.SplitPicture(picture);
+
+        for (var i = 0; i < parts.Count; i++)
+            Game.Connection.SendBugReportPicturePart(submission.ReportId, (byte)i, parts[i]);
     }
     #endregion
 

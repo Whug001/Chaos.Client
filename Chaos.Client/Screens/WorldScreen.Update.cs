@@ -26,6 +26,13 @@ public sealed partial class WorldScreen
             return;
         }
 
+        //a frame captured for a bug report during the last Draw: open the window now, after the picture was taken
+        if (PendingBugReport is { } pendingReport)
+        {
+            PendingBugReport = null;
+            BugReport.Open(pendingReport.ReportId, pendingReport.Frame);
+        }
+
         if (!_avatarCaptured
             && Chaos.Client.Systems.AvatarCapture.IsEnabled
             && WorldState.GetPlayerEntity()?.Appearance is { } selfAppearance)
