@@ -1229,9 +1229,16 @@ public sealed partial class WorldScreen
             return;
         }
 
-        //t — town map toggle
+        //t — town map toggle (suppressed by the NoTownMap map flag)
         if (e.Scancode == Scancode.T)
         {
+            if (CurrentMapFlags.HasFlag(MapFlags.NoTownMap))
+            {
+                e.Handled = true;
+
+                return;
+            }
+
             if (TownMapControl.Visible)
                 TownMapControl.Hide();
             else
