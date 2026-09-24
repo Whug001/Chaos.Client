@@ -15,8 +15,13 @@ public static class SpotlightMasks
     /// <summary>A floor radius of one tile spans about this many pixels across (and half as many down).</summary>
     public const float TILE_TO_PIXELS = 39.6f;
 
-    /// <summary>How far above the floor point the lit column reaches, in pixels.</summary>
+    /// <summary>How tall a performer standing on the floor point is, in pixels.</summary>
     public const int BODY_HEIGHT = 64;
+
+    //the glow that lights the performer is the top half of an oval centred on the floor point. it is a fixed size
+    //because a character is the same size under every spotlight, and a little larger than one so the head stays lit
+    private const float BODY_HALF_WIDTH = 27f;
+    private const float BODY_GLOW_HEIGHT = BODY_HEIGHT * 1.2f;
 
     private static readonly Dictionary<StageLightSize, LightMask> Cache = [];
 
@@ -41,9 +46,8 @@ public static class SpotlightMasks
     {
         var rx = radiusTiles * TILE_TO_PIXELS;
         var ry = rx / 2f;
-        var columnHalfWidth = rx * 0.45f;
-        var halfWidth = (int)MathF.Ceiling(rx);
-        var halfHeight = (int)MathF.Ceiling(MathF.Max(ry, BODY_HEIGHT));
+        var halfWidth = (int)MathF.Ceiling(MathF.Max(rx, BODY_HALF_WIDTH));
+        var halfHeight = (int)MathF.Ceiling(MathF.Max(ry, BODY_GLOW_HEIGHT));
         var width = (halfWidth * 2) + 1;
         var height = (halfHeight * 2) + 1;
         var pixels = new byte[width * height];
@@ -56,11 +60,12 @@ public static class SpotlightMasks
                 var floor = Falloff(MathF.Sqrt((dx / rx * (dx / rx)) + (dy / ry * (dy / ry))));
                 var body = 0f;
 
+                //round, not square: a square glow read as a lit box behind the performer
                 if (dy < 0)
                 {
-                    var up = -dy / (float)BODY_HEIGHT;
-                    var across = MathF.Abs(dx) / columnHalfWidth;
-                    body = Falloff(MathF.Max(up, across)) * 0.9f;
+                    var up = dy / BODY_GLOW_HEIGHT;
+                    var across = dx / BODY_HALF_WIDTH;
+                    body = Falloff(MathF.Sqrt((up * up) + (across * across))) * 0.9f;
                 }
 
                 pixels[(py * width) + px] = (byte)MathF.Round(MathF.Max(floor, body) * 32f);

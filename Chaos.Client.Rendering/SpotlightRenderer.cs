@@ -26,6 +26,7 @@ public sealed class SpotlightRenderer : IDisposable
     private const int TINT_HEIGHT = 128;
     private const int BEAM_WIDTH = 64;
     private const int BEAM_HEIGHT = 256;
+    private const int FOOT_HEIGHT = 32;
     private const float POOL_ALPHA = 0.85f;
     private const float TINT_ALPHA = 0.45f;
     private const float BEAM_ALPHA = 0.38f;
@@ -34,6 +35,7 @@ public sealed class SpotlightRenderer : IDisposable
     private const float WASH_FLOOR = 0.35f;
 
     private readonly Texture2D Beam;
+    private readonly Texture2D BeamFoot;
     private readonly Texture2D Pool;
     private readonly Texture2D Tint;
 
@@ -41,7 +43,8 @@ public sealed class SpotlightRenderer : IDisposable
     {
         Pool = BuildOval(device, POOL_WIDTH, POOL_HEIGHT, 1.4f);
         Tint = BuildOval(device, TINT_WIDTH, TINT_HEIGHT, 1.2f);
-        Beam = BuildBeam(device);
+        Beam = ToTexture(device, BeamAlphas());
+        BeamFoot = ToTexture(device, BeamFootAlphas());
     }
 
     /// <inheritdoc />
@@ -50,6 +53,7 @@ public sealed class SpotlightRenderer : IDisposable
         Pool.Dispose();
         Tint.Dispose();
         Beam.Dispose();
+        BeamFoot.Dispose();
     }
 
     public static float ColorScale(float strength, float houseDarkness)
@@ -70,14 +74,17 @@ public sealed class SpotlightRenderer : IDisposable
             var poolWidth = light.RadiusTiles * SpotlightMasks.TILE_TO_PIXELS * 2f * 1.15f;
             var poolHeight = poolWidth / 2f;
 
-            if (light.Beam && (y > viewport.Y))
+            if (light.Beam)
             {
                 var beamWidth = poolWidth * 0.9f;
+                var beamLeft = (int)(x - (beamWidth / 2f));
+                var beamColor = Tinted(light.Color, scale * BEAM_ALPHA);
 
-                spriteBatch.Draw(
-                    Beam,
-                    new Rectangle((int)(x - (beamWidth / 2f)), viewport.Y, (int)beamWidth, (int)(y - viewport.Y)),
-                    Tinted(light.Color, scale * BEAM_ALPHA));
+                if (y > viewport.Y)
+                    spriteBatch.Draw(Beam, new Rectangle(beamLeft, viewport.Y, (int)beamWidth, (int)(y - viewport.Y)), beamColor);
+
+                //the foot is the front half of a 2:1 oval as wide as the beam, so it is a quarter of the beam's width tall
+                spriteBatch.Draw(BeamFoot, new Rectangle(beamLeft, (int)y, (int)beamWidth, (int)(beamWidth / 4f)), beamColor);
             }
 
             spriteBatch.Draw(
@@ -120,10 +127,13 @@ public sealed class SpotlightRenderer : IDisposable
         return texture;
     }
 
-    //narrow at the top (35% of the width), full width at the bottom, brighter toward the floor, soft sides
-    private static Texture2D BuildBeam(GraphicsDevice device)
+    /// <summary>
+    ///     Alpha of the beam, as [row, column]: narrow at the top (35% of the width), full width at the bottom, brighter
+    ///     toward the floor, soft sides.
+    /// </summary>
+    public static byte[,] BeamAlphas()
     {
-        var pixels = new Color[BEAM_WIDTH * BEAM_HEIGHT];
+        var alphas = new byte[BEAM_HEIGHT, BEAM_WIDTH];
 
         for (var py = 0; py < BEAM_HEIGHT; py++)
         {
@@ -134,13 +144,57 @@ public sealed class SpotlightRenderer : IDisposable
             {
                 var across = MathF.Abs(px + 0.5f - (BEAM_WIDTH / 2f)) / halfWidth;
                 var side = across >= 1f ? 0f : 1f - (across * across);
-                var alpha = side * (0.15f + (0.85f * down));
 
-                pixels[(py * BEAM_WIDTH) + px] = new Color((byte)255, (byte)255, (byte)255, (byte)(alpha * 255f));
+                alphas[py, px] = (byte)(side * (0.15f + (0.85f * down)) * 255f);
             }
         }
 
-        var texture = new Texture2D(device, BEAM_WIDTH, BEAM_HEIGHT);
+        return alphas;
+    }
+
+    /// <summary>
+    ///     Alpha of the beam where it meets the floor, as [row, column]: the front half of a 2:1 oval drawn under the
+    ///     beam. Its top row matches the beam's bottom row and it fades out on the oval's edge, so the beam lands on the
+    ///     pool instead of stopping in a straight line through its middle.
+    /// </summary>
+    public static byte[,] BeamFootAlphas()
+    {
+        var alphas = new byte[FOOT_HEIGHT, BEAM_WIDTH];
+
+        for (var py = 0; py < FOOT_HEIGHT; py++)
+        {
+            var down = (py + 0.5f) / FOOT_HEIGHT;
+
+            for (var px = 0; px < BEAM_WIDTH; px++)
+            {
+                var across = MathF.Abs(px + 0.5f - (BEAM_WIDTH / 2f)) / (BEAM_WIDTH / 2f);
+
+                if (across >= 1f)
+                    continue;
+
+                //the beam's side profile, faded by how far this pixel is from the top toward the oval's edge
+                var side = 1f - (across * across);
+                var t = MathF.Min(down / MathF.Sqrt(side), 1f);
+                var fade = 1f - (t * t * (3f - (2f * t)));
+
+                alphas[py, px] = (byte)(side * fade * 255f);
+            }
+        }
+
+        return alphas;
+    }
+
+    private static Texture2D ToTexture(GraphicsDevice device, byte[,] alphas)
+    {
+        var height = alphas.GetLength(0);
+        var width = alphas.GetLength(1);
+        var pixels = new Color[width * height];
+
+        for (var py = 0; py < height; py++)
+            for (var px = 0; px < width; px++)
+                pixels[(py * width) + px] = new Color((byte)255, (byte)255, (byte)255, alphas[py, px]);
+
+        var texture = new Texture2D(device, width, height);
         texture.SetData(pixels);
 
         return texture;
