@@ -1232,23 +1232,7 @@ public sealed partial class WorldScreen
         //t — town map toggle (suppressed by the NoTownMap map flag)
         if (e.Scancode == Scancode.T)
         {
-            if (CurrentMapFlags.HasFlag(MapFlags.NoTownMap))
-            {
-                e.Handled = true;
-
-                return;
-            }
-
-            if (TownMapControl.Visible)
-                TownMapControl.Hide();
-            else
-            {
-                var player = WorldState.GetPlayerEntity();
-
-                if (player is not null)
-                    TownMapControl.Show(CurrentMapId, player.TileX, player.TileY);
-            }
-
+            ToggleTownMap();
             e.Handled = true;
 
             return;
