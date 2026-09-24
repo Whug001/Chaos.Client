@@ -134,6 +134,13 @@ public sealed partial class WorldScreen
 
         if (invSlot is { Stackable: true, Count: > 1 })
         {
+            if (IsWholeStackHeld())
+            {
+                Game.Connection.DropItem(slot, tileX, tileY, (int)invSlot.Count);
+
+                return;
+            }
+
             var capturedSlot = slot;
             var capturedX = tileX;
             var capturedY = tileY;
@@ -153,6 +160,18 @@ public sealed partial class WorldScreen
         Game.Connection.DropItem(slot, tileX, tileY);
     }
 
+    //shift held on a stack drop moves the whole stack without asking how many — for the ground, the bank, the market and
+    //a trade. read at drop time, because the modifier is what the player is holding as they let go
+    private static bool IsWholeStackHeld() => (InputBuffer.CurrentModifiers & KeyModifiers.Shift) != 0;
+
+    //add an inventory item dragged into the trade window. the server answers a stack with "how many?", so a Shift drop
+    //is remembered by slot and answered with the whole stack in HandleExchangeAmountRequested
+    private void BeginExchangeAdd(byte slot)
+    {
+        ExchangeWholeStackSlot = IsWholeStackHeld() ? slot : null;
+        Game.Connection.SendExchangeInteraction(ExchangeRequestType.AddItem, Exchange.OtherUserId, slot);
+    }
+
     //list an inventory item on the Market Sell tab: if the drop is on a matching row route to AddToListing; otherwise
     //create a draft (non-stackable immediately, stackable via the shared ItemAmountControl).
     //The cap check for new drafts is inside MarketSellControl.AddDraftListing so it does not block add-to-existing.
@@ -167,9 +186,16 @@ public sealed partial class WorldScreen
 
         if (data is { Stackable: true, Count: > 1 })
         {
+            if (IsWholeStackHeld())
+            {
+                Market.DropSellItem(slot, (int)data.Count, PendingMarketDropX, PendingMarketDropY);
+
+                return;
+            }
+
             ItemAmount.X = Market.X + (Market.Width - ItemAmount.Width) / 2;
             ItemAmount.Y = Market.Y + (Market.Height - ItemAmount.Height) / 2;
-            ItemAmount.ShowFor(ItemAmountPurpose.MarketListing, slot);
+            ItemAmount.ShowFor(ItemAmountPurpose.MarketListing, slot, data.Count);
         } else
             Market.DropSellItem(slot, 1, PendingMarketDropX, PendingMarketDropY);
     }
@@ -200,8 +226,16 @@ public sealed partial class WorldScreen
 
         if (data is { Stackable: true, Count: > 1 })
         {
+            if (IsWholeStackHeld())
+            {
+                Game.Connection.SendBankDepositItem(slot, (int)data.Count);
+                RefreshBank();
+
+                return;
+            }
+
             CenterOnBank(ItemAmount);
-            ItemAmount.ShowFor(ItemAmountPurpose.BankDeposit, slot);
+            ItemAmount.ShowFor(ItemAmountPurpose.BankDeposit, slot, data.Count);
 
             //the prompt is a bare text box, so it is the only place the player can see what they have to spend
             WorldHud.SetDescription($"{data.Name} ( {data.Count} )");
@@ -219,8 +253,15 @@ public sealed partial class WorldScreen
     {
         if (count > 1)
         {
+            if (IsWholeStackHeld())
+            {
+                WithdrawBankItem(itemName, count);
+
+                return;
+            }
+
             CenterOnBank(ItemAmount);
-            ItemAmount.ShowFor(ItemAmountPurpose.BankWithdraw, itemName);
+            ItemAmount.ShowFor(ItemAmountPurpose.BankWithdraw, itemName, (uint)count);
             WorldHud.SetDescription($"{itemName} ( {count} )");
 
             return;

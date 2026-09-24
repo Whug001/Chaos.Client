@@ -204,6 +204,10 @@ public sealed partial class WorldScreen : IScreen
     //written for every accepting drop target in HandleInventoryDropInViewport, but read only by the Market path.
     private int PendingMarketDropX;
     private int PendingMarketDropY;
+
+    //the inventory slot of a stack Shift-dropped into the trade window. the server asks how many only after the drop,
+    //so this carries "the whole stack" to HandleExchangeAmountRequested. any other request clears it
+    private byte? ExchangeWholeStackSlot;
     private TileClickTracker LeftClickTracker;
     private readonly LightingSystem Lighting = new();
 
@@ -952,7 +956,7 @@ public sealed partial class WorldScreen : IScreen
         //inventory drop-target registry: each panel owns its eligibility/drop-zone; the paired action owns the networking
         //call. priority order mirrors the previous if-chain (Exchange → Market → Bank → equipment). every target gates on
         //its own Visible, so a closed window never claims a drop and order only breaks ties between two open windows.
-        InventoryDropTargets.Add((Exchange, slot => Game.Connection.SendExchangeInteraction(ExchangeRequestType.AddItem, Exchange.OtherUserId, slot)));
+        InventoryDropTargets.Add((Exchange, BeginExchangeAdd));
         InventoryDropTargets.Add((Market, BeginMarketListing));
         InventoryDropTargets.Add((Bank, BeginBankDeposit));
         InventoryDropTargets.Add((StatusBook, slot => Game.Connection.UseItem(slot)));

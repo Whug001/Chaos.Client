@@ -141,26 +141,37 @@ public sealed class ItemAmountControl : PrefabPanel
     /// </summary>
     /// <param name="purpose">What the confirmed amount will be used for.</param>
     /// <param name="slot">The 1-based inventory slot of the stackable item.</param>
-    public void ShowFor(ItemAmountPurpose purpose, byte slot)
+    /// <param name="stackCount">How many the stack holds. The box opens with this amount typed in.</param>
+    public void ShowFor(ItemAmountPurpose purpose, byte slot, uint stackCount)
     {
         ItemSlot = slot;
         ItemName = string.Empty;
 
-        Open(purpose);
+        Open(purpose, stackCount);
     }
 
     /// <summary>Opens the prompt for a name-keyed purpose (the bank).</summary>
-    public void ShowFor(ItemAmountPurpose purpose, string itemName)
+    public void ShowFor(ItemAmountPurpose purpose, string itemName, uint stackCount)
     {
         ItemSlot = 0;
         ItemName = itemName;
 
-        Open(purpose);
+        Open(purpose, stackCount);
+    }
+
+    /// <summary>
+    ///     Types the whole stack into the box and selects it, so Enter takes the whole stack and typing a number replaces
+    ///     it. Players asked for this: nearly every deposit is the whole stack.
+    /// </summary>
+    public static void Prefill(UITextBox box, uint stackCount)
+    {
+        box.Text = stackCount.ToString();
+        box.SelectAll();
     }
 
     //each overload clears the key it does not use: a name left over from a withdraw riding into the next exchange is
     //the same footgun Purpose itself closed.
-    private void Open(ItemAmountPurpose purpose)
+    private void Open(ItemAmountPurpose purpose, uint stackCount)
     {
         Purpose = purpose;
 
@@ -174,11 +185,11 @@ public sealed class ItemAmountControl : PrefabPanel
 
         if (AmountTextBox is not null)
         {
-            AmountTextBox.Text = string.Empty;
+            Prefill(AmountTextBox, stackCount);
             AmountTextBox.IsFocused = true;
         }
 
-        OkButton?.Enabled = false;
+        OkButton?.Enabled = !string.IsNullOrEmpty(AmountTextBox?.Text);
 
         Show();
     }
