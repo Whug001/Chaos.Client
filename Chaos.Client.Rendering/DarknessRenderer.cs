@@ -30,6 +30,7 @@ public sealed class DarknessRenderer : IDisposable
     private string CurrentLightType = "default";
     private Color DarknessColor;
     private HeaFile? HeaFile;
+    private float? HouseDarkness;
     private bool IsDarkMap;
     private LightLevel? LastLightLevel;
     private int LastLightSourceHash;
@@ -248,7 +249,7 @@ public sealed class DarknessRenderer : IDisposable
         } else if (IsDarkMap)
         {
             //dark map with no graduated entry for this level — pure black darkness
-            Alpha = 1f;
+            Alpha = HouseDarkness ?? 1f;
             DarknessColor = Color.Black;
         } else
         {
@@ -288,7 +289,7 @@ public sealed class DarknessRenderer : IDisposable
         //dark maps start dark immediately — light metadata can refine via OnLightLevel
         if (isDarkMap)
         {
-            Alpha = 1f;
+            Alpha = HouseDarkness ?? 1f;
             DarknessColor = Color.Black;
         } else
         {
@@ -317,6 +318,36 @@ public sealed class DarknessRenderer : IDisposable
     {
         if (LastLightLevel is { } level)
             OnLightLevel(level);
+    }
+
+    /// <summary>
+    ///     How dark a dark map is (0-1) while a Theatre lighting setup is active; null goes back to full black. Kept
+    ///     across same-map refreshes (<see cref="OnMapChanged" /> reads it); WorldScreen clears it on a real map change.
+    /// </summary>
+    public void SetHouseDarkness(float? darkness)
+    {
+        var clamped = darkness is { } d ? Math.Clamp(d, 0f, 1f) : (float?)null;
+
+        if (clamped == HouseDarkness)
+            return;
+
+        HouseDarkness = clamped;
+
+        if (!IsDarkMap)
+            return;
+
+        Alpha = HouseDarkness ?? 1f;
+        DarknessColor = Color.Black;
+
+        //force the next Update to rebuild the texture with the new alpha
+        LastOffsetX = int.MinValue;
+        LastOffsetY = int.MinValue;
+
+        if (Alpha <= 0f)
+        {
+            DisposeTexture();
+            CacheValid = false;
+        }
     }
 
     private void RebuildFlatWithLights(Rectangle viewport, ReadOnlySpan<LightSource> sources)
@@ -568,6 +599,7 @@ public sealed class DarknessRenderer : IDisposable
         {
             var source = sources[i];
             var mask = source.PixelMask;
+            var strength = source.Strength;
 
             //mask rect centered on screen position
             var maskLeft = (int)source.ScreenPosition.X - mask.Width / 2;
@@ -591,6 +623,10 @@ public sealed class DarknessRenderer : IDisposable
                 for (var mx = startX; mx < endX; mx++)
                 {
                     var maskValue = mask.Pixels[maskRowOffset + mx];
+
+                    //spotlights pass their brightness; lanterns pass 32 and skip the scale
+                    if (strength < 32)
+                        maskValue = (byte)(maskValue * strength / 32);
 
                     if (maskValue == 0)
                         continue;
@@ -678,7 +714,8 @@ public sealed class DarknessRenderer : IDisposable
                 hash,
                 (int)src.ScreenPosition.X,
                 (int)src.ScreenPosition.Y,
-                src.PixelMask.Width);
+                src.PixelMask.Width,
+                src.Strength);
         }
 
         return hash;

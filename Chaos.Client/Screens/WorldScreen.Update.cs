@@ -264,8 +264,11 @@ public sealed partial class WorldScreen
                 songAnswer.N3,
                 songAnswer.N4);
 
+        //theatre spotlights first: they feed both the light sources and the house darkness
+        UpdateSpotlights();
+
         //gather light sources for this frame and feed them to consumers
-        Lighting.Gather(MapFile, CurrentMapFlags, Camera);
+        Lighting.Gather(MapFile, CurrentMapFlags, Camera, SpotlightFrames);
 
         if (DarknessRenderer.IsActive)
             DarknessRenderer.Update(Camera, WorldHud.ViewportBounds, Lighting.Sources);

@@ -24,6 +24,8 @@ public sealed class LightingSystem
 {
     private static readonly (int Dx, int Dy)[] Euclidean3 = ComputeEuclidean(3);
     private static readonly (int Dx, int Dy)[] Euclidean5 = ComputeEuclidean(5);
+    private static readonly (int Dx, int Dy)[] Euclidean1 = ComputeEuclidean(1);
+    private static readonly (int Dx, int Dy)[] Euclidean2 = ComputeEuclidean(2);
 
     /// <summary>
     ///     The unconditional baseline visibility around the player on a full-black-darkness map:
@@ -41,11 +43,11 @@ public sealed class LightingSystem
     public ReadOnlySpan<LightSource> Sources => Buffer.AsSpan(0, Count);
 
     /// <summary>
-    ///     Walks the world entity list and builds the light source array for the current frame.
-    ///     Short-circuits to an empty span when the map isn't dark, so stale sources from a prior
-    ///     map can't leak across a transition.
+    ///     Walks the world entity list and builds the light source array for the current frame, then adds the Theatre
+    ///     spotlights in <paramref name="spotlights" />. Short-circuits to an empty span when the map isn't dark, so stale
+    ///     sources from a prior map can't leak across a transition.
     /// </summary>
-    public void Gather(MapFile? mapFile, MapFlags flags, Camera camera)
+    public void Gather(MapFile? mapFile, MapFlags flags, Camera camera, IReadOnlyList<StageLightFrame> spotlights)
     {
         Count = 0;
 
@@ -80,7 +82,45 @@ public sealed class LightingSystem
                 pixelMask,
                 tileOffsets);
         }
+
+        foreach (var spot in spotlights)
+        {
+            var strength = (byte)Math.Clamp((int)MathF.Round(spot.Strength * 32f), 0, 32);
+
+            if (strength == 0)
+                continue;
+
+            if (Count >= Buffer.Length)
+                Array.Resize(ref Buffer, Buffer.Length * 2);
+
+            Buffer[Count++] = new LightSource(
+                FloorToScreen(spot.Tile, mapFile.Height, camera),
+                (int)MathF.Round(spot.Tile.X),
+                (int)MathF.Round(spot.Tile.Y),
+                default,
+                SpotlightMasks.Get(spot.Size),
+                SpotlightTileOffsets(spot.Size),
+                strength);
+        }
     }
+
+    /// <summary>A fractional tile's floor centre in viewport pixels (same formula as <c>Camera.TileToWorld</c> plus half a tile).</summary>
+    public static Vector2 FloorToScreen(Vector2 tile, int mapHeight, Camera camera)
+    {
+        var worldX = ((mapHeight - 1 + tile.X - tile.Y) * DaLibConstants.HALF_TILE_WIDTH) + DaLibConstants.HALF_TILE_WIDTH;
+        var worldY = ((tile.X + tile.Y) * DaLibConstants.HALF_TILE_HEIGHT) + DaLibConstants.HALF_TILE_HEIGHT;
+
+        return camera.WorldToScreen(new Vector2(worldX, worldY));
+    }
+
+    /// <summary>Tiles a spotlight reveals on the Tab map: radius 1, 2 or 3 for Small, Medium, Large.</summary>
+    public static (int Dx, int Dy)[] SpotlightTileOffsets(StageLightSize size)
+        => size switch
+        {
+            StageLightSize.Small => Euclidean1,
+            StageLightSize.Large => Euclidean3,
+            _                    => Euclidean2
+        };
 
     /// <summary>
     ///     Returns the tile-space offset array for a given lantern size and direction. Lanterns are

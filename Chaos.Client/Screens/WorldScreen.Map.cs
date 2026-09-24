@@ -88,6 +88,9 @@ public sealed partial class WorldScreen
         //That branch leaves the panel alone, and WorldState.Clear() leaves WorldState.PokerTable alone for the
         //same reason.
         Poker.Hide();
+
+        //a new map starts with no stage lighting; a same-map refresh (above) deliberately keeps it
+        ResetStageLighting();
         MapRenderer.Dispose();
         MapRenderer = new MapRenderer();
 

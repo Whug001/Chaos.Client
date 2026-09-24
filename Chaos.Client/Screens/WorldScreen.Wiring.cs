@@ -1180,7 +1180,7 @@ public sealed partial class WorldScreen
         //the first frame after the swap would draw the old-sized texture over the new viewport
         if (DarknessRenderer.IsActive)
         {
-            Lighting.Gather(MapFile, CurrentMapFlags, Camera);
+            Lighting.Gather(MapFile, CurrentMapFlags, Camera, SpotlightFrames);
             DarknessRenderer.Update(Camera, viewport, Lighting.Sources);
         }
 

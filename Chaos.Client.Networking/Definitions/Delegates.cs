@@ -411,4 +411,14 @@ public delegate void BeautyShopDisplayHandler(BeautyShopDisplayArgs args);
 
 
 public delegate void BugReportOpenHandler(BugReportOpenArgs args);
+
+/// <summary>
+///     Fired when the Theatre's lighting setup arrives.
+/// </summary>
+public delegate void StageLightingStateHandler(StageLightingStateArgs args);
+
+/// <summary>
+///     Fired when the server opens, updates or closes the Stage Lighting window.
+/// </summary>
+public delegate void StageLightingBoardHandler(StageLightingBoardArgs args);
 #endregion

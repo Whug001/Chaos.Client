@@ -17,6 +17,7 @@ using Chaos.Client.Controls.World.Popups.Options;
 using Chaos.Client.Controls.World.Popups.Poker;
 using Chaos.Client.Controls.World.Popups.Profile;
 using Chaos.Client.Controls.World.Popups.Slots;
+using Chaos.Client.Controls.World.Popups.Theatre;
 using Chaos.Client.Controls.World.Popups.Wheel;
 using Chaos.Client.Controls.World.Popups.WorldList;
 using Chaos.Client.Controls.World.ViewPort;
@@ -350,6 +351,7 @@ public sealed partial class WorldScreen : IScreen
         DarknessRenderer = new DarknessRenderer(graphicsDevice);
         WeatherRenderer = new WeatherRenderer();
         AmbientEffects = new AmbientEffects();
+        SpotlightRenderer = new SpotlightRenderer(graphicsDevice);
 
         ScissorRasterizerState = new RasterizerState
         {
@@ -836,6 +838,12 @@ public sealed partial class WorldScreen : IScreen
         };
         WireBugReport();
 
+        StageLightingWindow = new StageLightingControl
+        {
+            ZIndex = 2
+        };
+        WireStageLighting();
+
         //buy-confirm popup for the market: lives on Root (it centers on-screen and must not be clipped inside the Market
         //panel) and draws above the Market window (ZIndex 3 > 2). Shown when the Results tab raises BuyRequested.
         MarketBuyConfirm = new OkPopupMessageControl(true)
@@ -910,6 +918,7 @@ public sealed partial class WorldScreen : IScreen
         Root.AddChild(Poker);
         Root.AddChild(BeautyShop);
         Root.AddChild(BugReport);
+        Root.AddChild(StageLightingWindow);
         Root.AddChild(MainOptions);
         Root.AddChild(SettingsDialog);
         Root.AddChild(MacrosList);
@@ -1047,6 +1056,7 @@ public sealed partial class WorldScreen : IScreen
         Game.Connection.OnPokerTableDisplay -= HandlePokerTableDisplay;
         Game.Connection.OnBeautyShopDisplay -= HandleBeautyShopDisplay;
         Game.Connection.OnBugReportOpen -= HandleBugReportOpen;
+        UnwireStageLighting();
 
         //unwire panel click-to-use events
         WorldHud.Inventory.OnSlotClicked -= HandleInventorySlotClicked;
@@ -1065,6 +1075,7 @@ public sealed partial class WorldScreen : IScreen
         DarknessRenderer.Dispose();
         WeatherRenderer.Dispose();
         AmbientEffects.Dispose();
+        SpotlightRenderer.Dispose();
         SilhouetteRenderer.Dispose();
         Root?.Dispose();
         SongBar?.Dispose();

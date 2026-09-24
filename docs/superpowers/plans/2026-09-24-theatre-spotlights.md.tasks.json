@@ -1,0 +1,147 @@
+{
+  "planPath": "docs/superpowers/plans/2026-09-24-theatre-spotlights.md",
+  "specPath": "docs/superpowers/specs/2026-09-24-theatre-spotlights-design.md",
+  "tasks": [
+    {
+      "id": 0,
+      "subject": "Task 0: Create the three worktrees",
+      "status": "completed",
+      "nativeTaskId": "11",
+      "description": "**Goal:** Isolated branches for the server, client and Unora so no shared checkout is touched.\n\n**Files:**\n- Create: worktrees `SRV`, `CLI`, `UNO` (see Global Constraints)\n\n**Acceptance Criteria:**\n- [ ] `git -C SRV branch --show-current` prints `feat/theatre-spotlights`, and likewise for `CLI` and `UNO`\n- [ ] `dotnet build CLI/Tests/Chaos.Client.Tests/Chaos.Client.Tests.csproj -p:UnoraServerPath=<SRV>` succeeds before any change\n\n**Verify:** `git -C C:/Users/Michael/Documents/GitHub/worktrees/spotlights-server status --short` → empty\n\nPlan: docs/superpowers/plans/2026-09-24-theatre-spotlights.md (Task 0).\n\n```json:metadata\n{\"files\": [], \"verifyCommand\": \"git -C C:/Users/Michael/Documents/GitHub/worktrees/spotlights-server branch --show-current\", \"acceptanceCriteria\": [\"three worktrees on feat/theatre-spotlights\", \"baseline client build succeeds against SRV\"], \"modelTier\": \"mechanical\"}\n```"
+    },
+    {
+      "id": 1,
+      "subject": "Task 1: Shared protocol — enums, messages, converters",
+      "status": "completed",
+      "nativeTaskId": "12",
+      "description": "**Goal:** Three new messages that round-trip every field, shared by server and client.\n\n**Files:**\n- Modify: `SRV/Chaos.DarkAges/Definitions/Enums.cs` (insert after `BeautyShopInteractionType`)\n- Modify: `SRV/Chaos.Networking.Abstractions/Definitions/Enums.cs` (end of `ServerOpCode` and `ClientOpCode`)\n- Create: `SRV/Chaos.Networking/Entities/Server/StageLightInfo.cs`\n- Create: `SRV/Chaos.Networking/Entities/Server/StageLightingStateArgs.cs`\n- Create: `SRV/Chaos.Networking/Entities/Server/StageLightingBoardArgs.cs`\n- Create: `SRV/Chaos.Networking/Entities/Client/StageLightingInteractionArgs.cs`\n- Create: `SRV/Chaos.Networking/Converters/StageLightInfoCodec.cs`\n- Create: `SRV/Chaos.Networking/Converters/Server/StageLightingStateConverter.cs`\n- Create: `SRV/Chaos.Networking/Converters/Server/StageLightingBoardConverter.cs`\n- Create: `SRV/Chaos.Networking/Converters/Client/StageLightingInteractionConverter.cs`\n- Test: `SRV/Tests/Chaos.Tests/Networking/StageLightingPacketConverterTests.cs`\n\n**Acceptance Criteria:**\n- [ ] `StageLightingState` round-trips with 0 and with 8 lights, every field kept\n- [ ] `StageLightingBoard` round-trips Open, Scenes and Close\n- [ ] `StageLightingInteraction` round-trips every `StageLightingAction`; an unknown action throws\n- [ ] Opcodes 128 and 129 (server) and 125 (client) are each used exactly once\n\n**Verify:** `dotnet run --project SRV/Tests/Chaos.Tests/Chaos.Tests.csproj -- --treenode-filter \"/*/*/StageLightingPacketConverterTests/*\" --no-ansi` → all pass\n\nPlan: docs/superpowers/plans/2026-09-24-theatre-spotlights.md (Task 1).\n\n```json:metadata\n{\"files\": [\"Chaos-Server/Chaos.DarkAges/Definitions/Enums.cs\", \"Chaos-Server/Chaos.Networking.Abstractions/Definitions/Enums.cs\", \"Chaos-Server/Chaos.Networking/Entities/Server/StageLightInfo.cs\", \"Chaos-Server/Chaos.Networking/Entities/Server/StageLightingStateArgs.cs\", \"Chaos-Server/Chaos.Networking/Entities/Server/StageLightingBoardArgs.cs\", \"Chaos-Server/Chaos.Networking/Entities/Client/StageLightingInteractionArgs.cs\", \"Chaos-Server/Chaos.Networking/Converters/StageLightInfoCodec.cs\", \"Chaos-Server/Chaos.Networking/Converters/Server/StageLightingStateConverter.cs\", \"Chaos-Server/Chaos.Networking/Converters/Server/StageLightingBoardConverter.cs\", \"Chaos-Server/Chaos.Networking/Converters/Client/StageLightingInteractionConverter.cs\", \"Chaos-Server/Tests/Chaos.Tests/Networking/StageLightingPacketConverterTests.cs\"], \"verifyCommand\": \"dotnet run --project C:/Users/Michael/Documents/GitHub/worktrees/spotlights-server/Tests/Chaos.Tests/Chaos.Tests.csproj -- --treenode-filter \\\"/*/*/StageLightingPacketConverterTests/*\\\" --no-ansi\", \"acceptanceCriteria\": [\"state round-trips 0 and 8 lights\", \"board round-trips all types\", \"interaction round-trips every action; unknown throws\", \"opcodes 128/129/125 unique\"], \"modelTier\": \"mechanical\"}\n```",
+      "blockedBy": [
+        0
+      ]
+    },
+    {
+      "id": 2,
+      "subject": "Task 2: Server lighting core — setup, scenes, rate limit, lanterns",
+      "status": "completed",
+      "nativeTaskId": "13",
+      "description": "**Goal:** Plain, unit-tested server classes that hold and correct the live setup and the saved scenes.\n\n**Files:**\n- Create: `SRV/Chaos/Services/Theatre/StageLighting.cs`\n- Create: `SRV/Chaos/Services/Theatre/TheatreLightingScenes.cs`\n- Create: `SRV/Chaos/Services/Theatre/StageLightingRateLimiter.cs`\n- Create: `SRV/Chaos/Services/Theatre/TheatreLanterns.cs`\n- Test: `SRV/Tests/Chaos.Tests/Theatre/StageLightingTests.cs`, `TheatreLightingScenesTests.cs`, `StageLightingRateLimiterTests.cs`, `TheatreLanternsTests.cs`\n\n**Acceptance Criteria:**\n- [ ] New setup: house 100, glow on, no lights; house level held to 0–100\n- [ ] Add picks the lowest free id 1–8 and refuses a 9th; unknown ids are ignored on update/remove\n- [ ] Positions held to tile centres inside the stage; brightness 0–100; speeds 1–5; unknown enums corrected; Follow with no target becomes Still\n- [ ] Motion start resets only on motion/speed/point/follow change; effect start only on effect/speed change\n- [ ] `ToScene` saves a Follow light as Still at the followed person's position (or its own if unknown)\n- [ ] Scenes: max 20, names 1–24 printable characters, case-insensitive replace/find/delete\n- [ ] Rate limiter accepts 20 per second per player and refuses the 21st\n- [ ] Lantern rules match the spec's table\n\n**Verify:** `dotnet run --project SRV/Tests/Chaos.Tests/Chaos.Tests.csproj -- --treenode-filter \"/*/Chaos.Tests.Theatre/*/*\" --no-ansi` → all pass (new and existing `TheatreStageEffectsTests`)\n\nPlan: docs/superpowers/plans/2026-09-24-theatre-spotlights.md (Task 2).\n\n```json:metadata\n{\"files\": [\"Chaos-Server/Chaos/Services/Theatre/StageLighting.cs\", \"Chaos-Server/Chaos/Services/Theatre/TheatreLightingScenes.cs\", \"Chaos-Server/Chaos/Services/Theatre/StageLightingRateLimiter.cs\", \"Chaos-Server/Chaos/Services/Theatre/TheatreLanterns.cs\", \"Chaos-Server/Tests/Chaos.Tests/Theatre/StageLightingTests.cs\", \"Chaos-Server/Tests/Chaos.Tests/Theatre/TheatreLightingScenesTests.cs\", \"Chaos-Server/Tests/Chaos.Tests/Theatre/StageLightingRateLimiterTests.cs\", \"Chaos-Server/Tests/Chaos.Tests/Theatre/TheatreLanternsTests.cs\"], \"verifyCommand\": \"dotnet run --project C:/Users/Michael/Documents/GitHub/worktrees/spotlights-server/Tests/Chaos.Tests/Chaos.Tests.csproj -- --treenode-filter \\\"/*/Chaos.Tests.Theatre/*/*\\\" --no-ansi\", \"acceptanceCriteria\": [\"defaults and house clamp\", \"ids and 8-light limit\", \"sanitising\", \"clock resets\", \"ToScene follow handling\", \"scene limits\", \"rate limit\", \"lantern rules\"], \"modelTier\": \"standard\"}\n```",
+      "blockedBy": [
+        1
+      ]
+    },
+    {
+      "id": 3,
+      "subject": "Task 3: Server wiring — map script, sends, handler, dialog, Unora data",
+      "status": "completed",
+      "nativeTaskId": "14",
+      "description": "**Goal:** The Theatre map owns the setup, applies edits, keeps darkness and lanterns in step, and broadcasts; the dialog opens the window.\n\n**Files:**\n- Modify: `SRV/Chaos/Networking/Abstractions/IChaosWorldClient.cs` (after `SendBeautyShopClose`)\n- Modify: `SRV/Chaos/Networking/ChaosWorldClient.cs` (after `SendBeautyShopClose`)\n- Modify: `SRV/Chaos/Scripting/MapScripts/Temuair/Suomi/SuomiTheatreMapScript.cs` (whole class)\n- Create: `SRV/Chaos/Scripting/DialogScripts/Temuair/Suomi/TheatreStageLightingOpenScript.cs`\n- Modify: `SRV/Chaos/Scripting/DialogScripts/Temuair/Suomi/SuomiTheatreScript.cs` (`HandleLightsOff`, `HandleLightsOn`)\n- Modify: `SRV/Chaos/Services/Servers/WorldServer.cs` (new handler after `OnBugReportInteraction`; registration in the `ClientHandlers` block)\n- Modify: `UNO/Data/Configuration/Templates/Dialogs/Temauir/suomi/thulin/suomitheatre_options.json`\n- Create: `UNO/Data/Configuration/Templates/Dialogs/Temauir/suomi/thulin/suomitheatre_stagelighting.json`\n\n**Acceptance Criteria:**\n- [ ] Only the director or an admin can edit; a refused player gets Close + \"Only the director can change the stage lights.\"\n- [ ] Edits beyond 20/s per player are dropped silently\n- [ ] The setup goes to each player who enters, and to everyone after each accepted edit\n- [ ] The Darkness flag is set exactly while the house level is below 100%; crossing 100% refreshes everyone, then broadcasts\n- [ ] Lanterns follow `TheatreLanterns` every update and immediately when darkness flips\n- [ ] A follow target must be an Aisling on the stage when first set\n- [ ] Scenes save/load/delete through `IStorage<TheatreLightingScenes>`; the scene list goes to every director/admin on the map\n- [ ] \"Turn Lights Off/On\" set 0% / 100% through the map script with a 300 ms fade and keep their messages\n- [ ] Thulin's Theatre Options lists \"Stage Lighting\", which opens the window\n\n**Verify:** `dotnet build C:/Users/Michael/Documents/GitHub/worktrees/spotlights-server/Chaos.slnx` → `Build succeeded`; Theatre tests still pass.\n\nPlan: docs/superpowers/plans/2026-09-24-theatre-spotlights.md (Task 3).\n\n```json:metadata\n{\"files\": [\"Chaos-Server/Chaos/Networking/Abstractions/IChaosWorldClient.cs\", \"Chaos-Server/Chaos/Networking/ChaosWorldClient.cs\", \"Chaos-Server/Chaos/Scripting/MapScripts/Temuair/Suomi/SuomiTheatreMapScript.cs\", \"Chaos-Server/Chaos/Scripting/DialogScripts/Temuair/Suomi/TheatreStageLightingOpenScript.cs\", \"Chaos-Server/Chaos/Scripting/DialogScripts/Temuair/Suomi/SuomiTheatreScript.cs\", \"Chaos-Server/Chaos/Services/Servers/WorldServer.cs\", \"Unora/Data/Configuration/Templates/Dialogs/Temauir/suomi/thulin/suomitheatre_options.json\", \"Unora/Data/Configuration/Templates/Dialogs/Temauir/suomi/thulin/suomitheatre_stagelighting.json\"], \"verifyCommand\": \"dotnet build C:/Users/Michael/Documents/GitHub/worktrees/spotlights-server/Chaos.slnx\", \"acceptanceCriteria\": [\"role check + close\", \"rate limit\", \"send on enter + broadcast\", \"darkness flag sync with refresh\", \"lantern rules applied\", \"follow target validation\", \"scenes via IStorage\", \"lights off/on via map script\", \"Stage Lighting dialog option\"], \"modelTier\": \"standard\"}\n```",
+      "blockedBy": [
+        2
+      ]
+    },
+    {
+      "id": 4,
+      "subject": "Task 4: Client networking — events and send",
+      "status": "completed",
+      "nativeTaskId": "15",
+      "description": "**Goal:** The client raises events for the two new server messages and can send an edit.\n\n**Files:**\n- Modify: `CLI/Chaos.Client.Networking/ConnectionManager.cs` (events after `OnBugReportOpen`; handler registration after `BugReportOpen`; handlers after `HandleBugReportOpen`; send after `SendBugReportCancel`)\n- Modify: `CLI/Chaos.Client.Networking/Definitions/Delegates.cs` (after `BugReportOpenHandler`)\n\n**Acceptance Criteria:**\n- [ ] `OnStageLightingState` and `OnStageLightingBoard` fire with the deserialized args\n- [ ] `SendStageLightingInteraction(args)` sends while in the world\n\n**Verify:** `dotnet build CLI/Tests/Chaos.Client.Tests/Chaos.Client.Tests.csproj -p:UnoraServerPath=C:/Users/Michael/Documents/GitHub/worktrees/spotlights-server` → `Build succeeded`\n\nPlan: docs/superpowers/plans/2026-09-24-theatre-spotlights.md (Task 4).\n\n```json:metadata\n{\"files\": [\"Chaos.Client.Networking/ConnectionManager.cs\", \"Chaos.Client.Networking/Definitions/Delegates.cs\"], \"verifyCommand\": \"dotnet build C:/Users/Michael/Documents/GitHub/worktrees/spotlights-client/Tests/Chaos.Client.Tests/Chaos.Client.Tests.csproj -p:UnoraServerPath=C:/Users/Michael/Documents/GitHub/worktrees/spotlights-server\", \"acceptanceCriteria\": [\"two events raised\", \"send method\"], \"modelTier\": \"mechanical\"}\n```",
+      "blockedBy": [
+        1
+      ]
+    },
+    {
+      "id": 5,
+      "subject": "Task 5: StageLightAnimator and HsvColor (client math)",
+      "status": "completed",
+      "nativeTaskId": "16",
+      "description": "**Goal:** Given the last setup and a time, compute every light's tile, color and strength, including motion, effects, fades and held (dragged) lights.\n\n**Files:**\n- Create: `CLI/Chaos.Client/Utilities/HsvColor.cs`\n- Create: `CLI/Chaos.Client/Systems/StageLightAnimator.cs`\n- Test: `CLI/Tests/Chaos.Client.Tests/StageLightAnimatorTests.cs`\n\n**Acceptance Criteria:**\n- [ ] Sweep: A at 0, B at half period, eased midpoint at a quarter, A again at a full period\n- [ ] Circle keeps its radius; Follow uses the person's tile held to the stage, or the light's own spot when unseen\n- [ ] Pulse runs 0.30–1.0; Flicker runs 0.55–1.0 and is identical for identical inputs; Color cycle rotates hue from the base color\n- [ ] Elapsed motion time from the server anchors the phase\n- [ ] Fades: position/color/strength blend by id; new lights fade in; removed lights fade out; the first setup has no fade; house darkness blends\n- [ ] Held lights ignore server updates; a released hold ends when the server matches it or after 1 s\n- [ ] `HsvColor` round-trips\n\n**Verify:** build (Task 4 command), then `dotnet run --no-build --project CLI/Tests/Chaos.Client.Tests/Chaos.Client.Tests.csproj -- --treenode-filter \"/*/*/StageLightAnimatorTests/*\" --no-ansi` → all pass\n\nPlan: docs/superpowers/plans/2026-09-24-theatre-spotlights.md (Task 5).\n\n```json:metadata\n{\"files\": [\"Chaos.Client/Utilities/HsvColor.cs\", \"Chaos.Client/Systems/StageLightAnimator.cs\", \"Tests/Chaos.Client.Tests/StageLightAnimatorTests.cs\"], \"verifyCommand\": \"dotnet run --no-build --project C:/Users/Michael/Documents/GitHub/worktrees/spotlights-client/Tests/Chaos.Client.Tests/Chaos.Client.Tests.csproj -- --treenode-filter \\\"/*/*/StageLightAnimatorTests/*\\\" --no-ansi\", \"acceptanceCriteria\": [\"sweep/circle/follow\", \"pulse/flicker/cycle\", \"phase anchoring\", \"fades\", \"held lights\", \"hsv round trip\"], \"modelTier\": \"standard\"}\n```",
+      "blockedBy": [
+        4
+      ]
+    },
+    {
+      "id": 6,
+      "subject": "Task 6: Rendering — light strength, spotlight masks, house darkness, SpotlightRenderer",
+      "status": "completed",
+      "nativeTaskId": "17",
+      "description": "**Goal:** The rendering layer can lift darkness with scaled spotlight masks, dim the darkness to the house level, and draw colored pools, tints and beams.\n\n**Files:**\n- Modify: `CLI/Chaos.Client.Rendering/LightSource.cs`\n- Modify: `CLI/Chaos.Client.Rendering/DarknessRenderer.cs` (`StampLightSources`, `ComputeSourceHash`, `OnMapChanged`, `OnLightLevel`, new `SetHouseDarkness`)\n- Create: `CLI/Chaos.Client.Rendering/SpotlightMasks.cs`\n- Create: `CLI/Chaos.Client.Rendering/SpotlightRenderer.cs`\n- Test: `CLI/Tests/Chaos.Client.Tests/SpotlightMaskTests.cs`\n\n**Acceptance Criteria:**\n- [ ] `LightSource` has `Strength` (default 32); lanterns unchanged; the stamp scales mask values by `Strength / 32`; the source hash includes it\n- [ ] `SetHouseDarkness(d)` sets a dark map's alpha to `d` (black) and forces a rebuild; null returns to full black; it survives `OnMapChanged`\n- [ ] Masks are symmetric, 32 at the centre, 0 at the corners, larger for larger sizes\n- [ ] `SpotlightRenderer.ColorScale(s, d) = s · (0.35 + 0.65·d)`\n\n**Verify:** build (Task 4 command) then `dotnet run --no-build --project CLI/Tests/Chaos.Client.Tests/Chaos.Client.Tests.csproj -- --treenode-filter \"/*/*/SpotlightMaskTests/*\" --no-ansi` → pass\n\nPlan: docs/superpowers/plans/2026-09-24-theatre-spotlights.md (Task 6).\n\n```json:metadata\n{\"files\": [\"Chaos.Client.Rendering/LightSource.cs\", \"Chaos.Client.Rendering/DarknessRenderer.cs\", \"Chaos.Client.Rendering/SpotlightMasks.cs\", \"Chaos.Client.Rendering/SpotlightRenderer.cs\", \"Tests/Chaos.Client.Tests/SpotlightMaskTests.cs\"], \"verifyCommand\": \"dotnet run --no-build --project C:/Users/Michael/Documents/GitHub/worktrees/spotlights-client/Tests/Chaos.Client.Tests/Chaos.Client.Tests.csproj -- --treenode-filter \\\"/*/*/SpotlightMaskTests/*\\\" --no-ansi\", \"acceptanceCriteria\": [\"LightSource strength + stamp scaling + hash\", \"SetHouseDarkness\", \"mask shape\", \"ColorScale\"], \"modelTier\": \"standard\"}\n```",
+      "blockedBy": [
+        5
+      ]
+    },
+    {
+      "id": 7,
+      "subject": "Task 7: World integration — spotlights in the game view",
+      "status": "completed",
+      "nativeTaskId": "18",
+      "description": "**Goal:** Every client in the Theatre sees the spotlights and the dimmed darkness, driven by `StageLightingState`.\n\n**Files:**\n- Modify: `CLI/Chaos.Client/Systems/LightingSystem.cs` (`Gather` signature, spotlight sources, `FloorToScreen`, `SpotlightTileOffsets`)\n- Modify: `CLI/Chaos.Client/Collections/WorldState.cs` (`StageLights`; clear in `ResetAll`)\n- Create: `CLI/Chaos.Client/Screens/WorldScreen.StageLighting.cs`\n- Modify: `CLI/Chaos.Client/Screens/WorldScreen.cs` (fields, construction, dispose, wiring call, unwiring)\n- Modify: `CLI/Chaos.Client/Screens/WorldScreen.Update.cs` (before `Lighting.Gather`)\n- Modify: `CLI/Chaos.Client/Screens/WorldScreen.Draw.cs` (after the darkness block)\n- Modify: `CLI/Chaos.Client/Screens/WorldScreen.Map.cs` (new-map branch)\n- Modify: `CLI/CLAUDE.md`\n\n**Acceptance Criteria:**\n- [ ] On a dark map, spotlight sources follow the lanterns in `Lighting.Sources` with the size's mask, the frame's strength (×32) and radius-1/2/3 tile offsets\n- [ ] `DarknessRenderer.SetHouseDarkness` is fed every frame (null when no setup)\n- [ ] Spotlight colour draws in an additive screen-space batch right after the darkness layer, lit or dark\n- [ ] A real map change clears the setup and house darkness; a same-map refresh keeps them\n- [ ] `WorldState.ResetAll` clears the setup\n- [ ] CLAUDE.md documents step 5b and the new classes\n\n**Verify:** build (Task 4 command) → `Build succeeded`; full client test run passes.\n\nPlan: docs/superpowers/plans/2026-09-24-theatre-spotlights.md (Task 7).\n\n```json:metadata\n{\"files\": [\"Chaos.Client/Systems/LightingSystem.cs\", \"Chaos.Client/Collections/WorldState.cs\", \"Chaos.Client/Screens/WorldScreen.StageLighting.cs\", \"Chaos.Client/Screens/WorldScreen.cs\", \"Chaos.Client/Screens/WorldScreen.Update.cs\", \"Chaos.Client/Screens/WorldScreen.Draw.cs\", \"Chaos.Client/Screens/WorldScreen.Map.cs\", \"CLAUDE.md\"], \"verifyCommand\": \"dotnet build C:/Users/Michael/Documents/GitHub/worktrees/spotlights-client/Tests/Chaos.Client.Tests/Chaos.Client.Tests.csproj -p:UnoraServerPath=C:/Users/Michael/Documents/GitHub/worktrees/spotlights-server\", \"acceptanceCriteria\": [\"spotlight light sources\", \"house darkness per frame\", \"additive draw after darkness\", \"clear on real map change only\", \"ResetAll clears\", \"CLAUDE.md\"], \"modelTier\": \"standard\"}\n```",
+      "blockedBy": [
+        4,
+        5,
+        6
+      ]
+    },
+    {
+      "id": 8,
+      "subject": "Task 8: Window state and stage geometry (client, tested)",
+      "status": "completed",
+      "nativeTaskId": "19",
+      "description": "**Goal:** The plain logic behind the window: selection, follow picking, edit throttling, new-light defaults, motion changes, and the diamond view's tile/pixel mapping.\n\n**Files:**\n- Create: `CLI/Chaos.Client/ViewModel/StageLightingPanelState.cs`\n- Create: `CLI/Chaos.Client/Controls/World/Popups/Theatre/StageViewGeometry.cs`\n- Modify: `CLI/Chaos.Client/Collections/WorldState.cs` (`StageLightingPanel`; reset in `ResetAll`)\n- Test: `CLI/Tests/Chaos.Client.Tests/StageLightingPanelStateTests.cs`\n\n**Acceptance Criteria:**\n- [ ] `Throttle` passes the first edit, holds edits inside 125 ms, passes again after; `Flush` returns the held edit once\n- [ ] `Reconcile` keeps a valid selection, picks the first light otherwise, and selects a newly added light after `ExpectNewLight`\n- [ ] `NewLight` sits on the stage centre; `WithMotion` to Sweep/Circle sets the second point 2 tiles along +X (or −X at the edge) and clears FollowId unless Follow\n- [ ] `Step` wraps enum values both ways\n- [ ] Geometry: stage centre maps to the view centre; view↔tile round-trips; `ToUnits` clamps to the stage\n\n**Verify:** build, then `dotnet run --no-build --project CLI/Tests/Chaos.Client.Tests/Chaos.Client.Tests.csproj -- --treenode-filter \"/*/*/StageLightingPanelStateTests/*\" --no-ansi` → pass\n\nPlan: docs/superpowers/plans/2026-09-24-theatre-spotlights.md (Task 8).\n\n```json:metadata\n{\"files\": [\"Chaos.Client/ViewModel/StageLightingPanelState.cs\", \"Chaos.Client/Controls/World/Popups/Theatre/StageViewGeometry.cs\", \"Chaos.Client/Collections/WorldState.cs\", \"Tests/Chaos.Client.Tests/StageLightingPanelStateTests.cs\"], \"verifyCommand\": \"dotnet run --no-build --project C:/Users/Michael/Documents/GitHub/worktrees/spotlights-client/Tests/Chaos.Client.Tests/Chaos.Client.Tests.csproj -- --treenode-filter \\\"/*/*/StageLightingPanelStateTests/*\\\" --no-ansi\", \"acceptanceCriteria\": [\"throttle + flush\", \"reconcile + new light select\", \"NewLight/WithMotion\", \"Step wraps\", \"geometry round-trip + clamp\"], \"modelTier\": \"standard\"}\n```",
+      "blockedBy": [
+        5
+      ]
+    },
+    {
+      "id": 9,
+      "subject": "Task 9: Window building blocks — button, slider, colour picker, stage view",
+      "status": "completed",
+      "nativeTaskId": "20",
+      "description": "**Goal:** Four self-drawn controls the window is assembled from, each doing one job.\n\n**Files:**\n- Create: `CLI/Chaos.Client/Controls/World/Popups/Theatre/StageButton.cs`\n- Create: `CLI/Chaos.Client/Controls/World/Popups/Theatre/StageSlider.cs`\n- Create: `CLI/Chaos.Client/Controls/World/Popups/Theatre/StageColorPicker.cs`\n- Create: `CLI/Chaos.Client/Controls/World/Popups/Theatre/StageView.cs`\n\n**Acceptance Criteria:**\n- [ ] `StageButton`: 16 px, caption, optional colour fill/dot/rainbow, Selected/Enabled/hover/pressed looks, `Clicked`\n- [ ] `StageSlider`: any int range, drag to set, `ValueChanged` while dragging, `DragEnded` on release, `IsDragging`\n- [ ] `StageColorPicker`: saturation/value square for the hue, hue strip, preview, OK; live `ColorChanged`, `DragEnded`, `Closed`\n- [ ] `StageView`: diamond floor, lights with numbers, live position dots, ring on the selected light, dotted sweep line / circle dots and a square handle, blue people squares with a ring for followed people, hover name; press/drag light or handle; click person while picking follow\n- [ ] All four compile and draw only with ASCII text\n\n**Verify:** build (Task 4 command) → `Build succeeded`\n\nPlan: docs/superpowers/plans/2026-09-24-theatre-spotlights.md (Task 9).\n\n```json:metadata\n{\"files\": [\"Chaos.Client/Controls/World/Popups/Theatre/StageButton.cs\", \"Chaos.Client/Controls/World/Popups/Theatre/StageSlider.cs\", \"Chaos.Client/Controls/World/Popups/Theatre/StageColorPicker.cs\", \"Chaos.Client/Controls/World/Popups/Theatre/StageView.cs\"], \"verifyCommand\": \"dotnet build C:/Users/Michael/Documents/GitHub/worktrees/spotlights-client/Tests/Chaos.Client.Tests/Chaos.Client.Tests.csproj -p:UnoraServerPath=C:/Users/Michael/Documents/GitHub/worktrees/spotlights-server\", \"acceptanceCriteria\": [\"StageButton\", \"StageSlider\", \"StageColorPicker\", \"StageView\"], \"modelTier\": \"standard\"}\n```",
+      "blockedBy": [
+        8
+      ]
+    },
+    {
+      "id": 10,
+      "subject": "Task 10: The Stage Lighting window and its wiring",
+      "status": "completed",
+      "nativeTaskId": "21",
+      "description": "**Goal:** The director's window (layout `board-compact.html`), opened by the server, sending edits, minimizing to a bar and dragging by its title.\n\n**Files:**\n- Create: `CLI/Chaos.Client/Controls/World/Popups/Theatre/StageLightingControl.cs`\n- Modify: `CLI/Chaos.Client/Screens/WorldScreen.StageLighting.cs` (window field, board handler, refresh, reset)\n- Modify: `CLI/Chaos.Client/Screens/WorldScreen.cs` (create + add to Root)\n- Modify: `CLI/CLAUDE.md` (Popups list)\n\n**Acceptance Criteria:**\n- [ ] Opens centred (or where it was last dragged), 380×264; minimizes to 230×18 in place; restores; stays on screen\n- [ ] Chips select lights; Add (disabled at 8) selects the new light; Remove removes the selected one\n- [ ] Swatches, custom picker (live, throttled), size, beam, brightness (live), effect and motion pickers with speed sliders all send UpdateLight\n- [ ] Follow: picking Follow waits for a person click and shows \"Click a person\"; the click sends Follow with that id\n- [ ] Dragging a light or handle moves it locally at once and sends ≤ 8/s, with the final value on release\n- [ ] House dimmer (live), Blackout, Stage glow; scenes Load, Save as (name box, 24 chars), Delete (second click within 3 s)\n- [ ] A held slider is not overwritten by server updates\n- [ ] Server Close hides it; a real map change hides it and resets the panel state; it never takes keyboard focus except the scene-name box\n\n**Verify:** build (Task 4 command) → `Build succeeded`; full client test run passes.\n\nPlan: docs/superpowers/plans/2026-09-24-theatre-spotlights.md (Task 10).\n\n```json:metadata\n{\"files\": [\"Chaos.Client/Controls/World/Popups/Theatre/StageLightingControl.cs\", \"Chaos.Client/Screens/WorldScreen.StageLighting.cs\", \"Chaos.Client/Screens/WorldScreen.cs\", \"CLAUDE.md\"], \"verifyCommand\": \"dotnet build C:/Users/Michael/Documents/GitHub/worktrees/spotlights-client/Tests/Chaos.Client.Tests/Chaos.Client.Tests.csproj -p:UnoraServerPath=C:/Users/Michael/Documents/GitHub/worktrees/spotlights-server\", \"acceptanceCriteria\": [\"open/minimize/restore/drag\", \"chips/add/remove\", \"all light settings send UpdateLight\", \"follow pick\", \"throttled drags + hold\", \"house/blackout/glow\", \"scenes save/load/delete\", \"no overwrite of held slider\", \"close + map change reset\"], \"modelTier\": \"frontier\"}\n```",
+      "blockedBy": [
+        7,
+        9
+      ]
+    },
+    {
+      "id": 11,
+      "subject": "Task 11: Commit the full implementation",
+      "status": "completed",
+      "nativeTaskId": "22",
+      "description": "**Goal:** One commit per repo on `feat/theatre-spotlights`, with the client pointing its submodule at the server branch commit. Nothing is merged or pushed.\n\n**Files:**\n- Commit: every file created or changed in Tasks 1–10, the spec, the plan and its `.tasks.json`\n\n**Acceptance Criteria:**\n- [ ] `SRV`, `UNO`, `CLI` each have exactly one new commit on `feat/theatre-spotlights`\n- [ ] No `appsettings.json` or `launchSettings.json` in any commit\n- [ ] The `CLI` commit records `Chaos-Server` at the `SRV` commit\n- [ ] `git status --short` in each worktree is empty afterwards (except untracked build output that is already ignored)\n\n**Verify:** `git -C <each worktree> log --oneline -1` shows the new commit; `git -C CLI ls-tree HEAD Chaos-Server` shows the `SRV` commit hash\n\nPlan: docs/superpowers/plans/2026-09-24-theatre-spotlights.md (Task 11).\n\n```json:metadata\n{\"files\": [], \"verifyCommand\": \"git -C C:/Users/Michael/Documents/GitHub/worktrees/spotlights-client ls-tree HEAD Chaos-Server\", \"acceptanceCriteria\": [\"one commit per repo on feat/theatre-spotlights\", \"no local config files committed\", \"client submodule at server commit\", \"clean worktrees\"], \"modelTier\": \"mechanical\"}\n```",
+      "blockedBy": [
+        0,
+        1,
+        2,
+        3,
+        4,
+        5,
+        6,
+        7,
+        8,
+        9,
+        10
+      ]
+    },
+    {
+      "id": 12,
+      "subject": "Task 12: In-game walkthrough (needs the user)",
+      "status": "pending",
+      "nativeTaskId": "23",
+      "description": "**Goal:** Confirm the feature in the real game with a server and two clients (director and audience).\n\n**Files:** none\n\n**Acceptance Criteria:**\n- [ ] Thulin → Theatre Options → Stage Lighting opens the window for the director; a non-director is refused\n- [ ] Three lights added and dragged; each effect and motion looks right to both clients\n- [ ] Follow an actor on and off the stage (stops at the edge; returns to its spot when they leave the Theatre)\n- [ ] Dim to 30%, Blackout, Turn Lights On from the dialog; stage glow toggles stage lanterns\n- [ ] Save, load (1-second fade) and delete scenes; restart the server: scenes kept, live setup reset\n- [ ] The audience client walks in mid-show and sees the current setup\n- [ ] 8 moving lights keep the frame counter steady\n\n**Verify:** the user's observation in game\n\nPlan: docs/superpowers/plans/2026-09-24-theatre-spotlights.md (Task 12).\n\n```json:metadata\n{\"files\": [], \"verifyCommand\": \"\", \"acceptanceCriteria\": [\"window opens for director only\", \"lights, effects and motions\", \"follow\", \"dimmer/blackout/glow\", \"scenes + restart\", \"late joiner\", \"performance\"], \"modelTier\": \"standard\", \"requiresUser\": true}\n```",
+      "blockedBy": [
+        11
+      ]
+    }
+  ],
+  "lastUpdated": "2026-09-24T14:13:06.929262+00:00"
+}
