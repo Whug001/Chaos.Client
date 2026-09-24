@@ -36,6 +36,13 @@ public static class AnimationSystem
     private const int AISLING_UP_WALK_BASE = 1;
     private const int AISLING_RIGHT_WALK_BASE = 6;
 
+    /// <summary>
+    ///     Unora's Magic Carpet accessory. A character wearing it keeps its standing pose while it walks, so it glides from
+    ///     tile to tile instead of stepping. The carpet's walk frames match its standing ones, so clients that still play
+    ///     the steps draw it correctly too.
+    /// </summary>
+    public const int MAGIC_CARPET_SPRITE = 320;
+
     #region Start
     /// <summary>
     ///     Sets up walk animation state on an entity. Call after updating tile position.
@@ -465,7 +472,12 @@ public static class AnimationSystem
     /// </summary>
     public static (int FrameIndex, bool Flip, string AnimSuffix, bool IsFrontFacing) GetAislingFrame(WorldEntity entity)
     {
-        switch (entity.AnimState)
+        //a carpet rider glides: it keeps its standing pose (or its idle loop) while it walks.
+        var state = (entity.AnimState == EntityAnimState.Walking) && RidesMagicCarpet(entity)
+            ? EntityAnimState.Idle
+            : entity.AnimState;
+
+        switch (state)
         {
             case EntityAnimState.Walking:
             {
@@ -502,6 +514,15 @@ public static class AnimationSystem
             }
         }
     }
+
+    /// <summary>
+    ///     True when any accessory slot holds Unora's Magic Carpet (<see cref="MAGIC_CARPET_SPRITE" />).
+    /// </summary>
+    private static bool RidesMagicCarpet(WorldEntity entity)
+        => entity.Appearance is { } appearance
+           && ((appearance.Accessory1Sprite == MAGIC_CARPET_SPRITE)
+               || (appearance.Accessory2Sprite == MAGIC_CARPET_SPRITE)
+               || (appearance.Accessory3Sprite == MAGIC_CARPET_SPRITE));
     #endregion
 
     #region Helpers
