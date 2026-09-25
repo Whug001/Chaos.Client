@@ -1,0 +1,93 @@
+{
+  "planPath": "docs/superpowers/plans/2026-09-25-more-ambient-effects.md",
+  "tasks": [
+    {
+      "id": 8,
+      "planTask": 1,
+      "subject": "Task 1: Make the three worktrees and check the baseline",
+      "status": "pending",
+      "blockedBy": [],
+      "description": "**Goal:** Three `feat/more-ambient-effects` worktrees exist on the agreed bases, and both solutions build there before any change.\n\n**Files:**\n- Create: `C:\\Users\\Michael\\Documents\\GitHub\\worktrees\\ambient-server`, `...\\ambient-client`, `...\\ambient-unora` (git worktrees)\n\n**Acceptance Criteria:**\n- [ ] `git -C <worktree> branch --show-current` prints `feat/more-ambient-effects` in all three\n- [ ] Server worktree HEAD is `f90d470f3`, Unora worktree HEAD is `ad2031769`, and client worktree HEAD contains `2ba6bee`\n- [ ] `dotnet build Chaos.slnx` succeeds in the server worktree\n- [ ] The client test project builds against the server worktree\n\n**Verify:** `git -C C:/Users/Michael/Documents/GitHub/worktrees/ambient-server log --oneline -1` → `f90d470f3 ...`\n\n**Plan:** 2026-09-25-more-ambient-effects.md, Task 1\n\n```json:metadata\n{\"files\": [], \"verifyCommand\": \"git -C C:/Users/Michael/Documents/GitHub/worktrees/ambient-server log --oneline -1\", \"acceptanceCriteria\": [\"All three worktrees on feat/more-ambient-effects\", \"Server at f90d470f3, Unora at ad2031769, client contains 2ba6bee\", \"Server solution builds\", \"Client test project builds against the server worktree\"], \"modelTier\": \"mechanical\"}\n```"
+    },
+    {
+      "id": 3,
+      "planTask": 2,
+      "subject": "Task 2: Widen MapFlags to 8 bytes and add the 11 flags (server)",
+      "status": "pending",
+      "blockedBy": [
+        8
+      ],
+      "description": "**Goal:** `MapFlags` is a `ulong` with Gloom through Drips at bits 17–27. The effect packet carries 8 bytes, `/atmosphere` hides the new flags, and the client version is one higher.\n\n**Files (all in `worktrees/ambient-server`):**\n- Modify: `Chaos.DarkAges/Definitions/Enums.cs` (the `MapFlags` enum, near line 1473)\n- Modify: `Chaos.DarkAges/Definitions/CONSTANTS.cs` (line 23, `CLIENT_VERSION`)\n- Modify: `Chaos.Networking/Entities/Server/SetMapEffectsArgs.cs`\n- Modify: `Chaos.Networking/Converters/Server/SetMapEffectsConverter.cs`\n- Modify: `Chaos/Networking/ChaosWorldClient.cs` (`SendMapInfo`)\n- Modify: `Chaos/Utilities/MapFlagVisibility.cs` (`ATMOSPHERE`)\n- Test: `Tests/Chaos.Tests/Networking/MapEffectsPacketConverterTests.cs`\n- Test: `Tests/Chaos.Tests/MapFlagVisibilityTests.cs`\n\n**Acceptance Criteria:**\n- [ ] `MapFlags` is declared `: ulong`, and `Gloom` … `Drips` are `1UL << 17` … `1UL << 27` in the spec's order\n- [ ] A `SetMapEffectsArgs` with bit 40 set survives a serialize/deserialize round trip\n- [ ] `Atmosphere_CoversEveryEffectFlag` passes, so every single-bit flag is in `ATMOSPHERE` or `NOT_EFFECTS`\n- [ ] `CLIENT_VERSION` is exactly one higher than before\n- [ ] The full `Chaos.Tests` run shows no failures beyond the two known ones (`GiveAbility_AddsAbilityToAisling`, `OnItemDroppedOn_ShouldAddStackableItem_WhenCountIsPositive`)\n\n**Verify:** `dotnet run --project Tests/Chaos.Tests/Chaos.Tests.csproj -- --treenode-filter \"/*/*/(MapEffectsPacketConverterTests)|(MapFlagVisibilityTests)/*\"` → all pass\n\n**Plan:** 2026-09-25-more-ambient-effects.md, Task 2\n\n```json:metadata\n{\"files\": [\"Chaos.DarkAges/Definitions/Enums.cs\", \"Chaos.DarkAges/Definitions/CONSTANTS.cs\", \"Chaos.Networking/Entities/Server/SetMapEffectsArgs.cs\", \"Chaos.Networking/Converters/Server/SetMapEffectsConverter.cs\", \"Chaos/Networking/ChaosWorldClient.cs\", \"Chaos/Utilities/MapFlagVisibility.cs\", \"Tests/Chaos.Tests/Networking/MapEffectsPacketConverterTests.cs\", \"Tests/Chaos.Tests/MapFlagVisibilityTests.cs\"], \"verifyCommand\": \"dotnet run --project Tests/Chaos.Tests/Chaos.Tests.csproj -- --treenode-filter \\\"/*/*/(MapEffectsPacketConverterTests)|(MapFlagVisibilityTests)/*\\\"\", \"acceptanceCriteria\": [\"MapFlags is ulong with Gloom..Drips at bits 17-27\", \"Bit 40 survives a SetMapEffects round trip\", \"Atmosphere_CoversEveryEffectFlag passes\", \"CLIENT_VERSION is one higher\", \"Full Chaos.Tests run shows only the two known failures\"], \"modelTier\": \"standard\"}\n```"
+    },
+    {
+      "id": 5,
+      "planTask": 3,
+      "subject": "Task 3: Second page for the theatre stage-effects menu",
+      "status": "pending",
+      "blockedBy": [
+        3
+      ],
+      "description": "**Goal:** The Suomi theatre shows today's 12 effects plus \"More Effects\" on page 1. Page 2 shows the 11 new effects plus \"Clear All Effects\" and \"Back\".\n\n**Files:**\n- Modify: `worktrees/ambient-server/Chaos/Scripting/DialogScripts/Temuair/Suomi/TheatreStageEffects.cs`\n- Modify: `worktrees/ambient-server/Chaos/Scripting/DialogScripts/Temuair/Suomi/SuomiTheatreScript.cs` (the `suomitheatre_stageeffects` cases in `OnDisplaying`, near line 760, and `OnNext`, near line 873)\n- Test: `worktrees/ambient-server/Tests/Chaos.Tests/Theatre/TheatreStageEffectsTests.cs`\n- Create: `worktrees/ambient-unora/Data/Configuration/Templates/Dialogs/Temauir/suomi/thulin/suomitheatre_stageeffects2.json`\n\n**Acceptance Criteria:**\n- [ ] `Available(flags, 1)` returns today's 12 effects in today's order, and `Available(flags, 2)` returns the 11 new ones in flag order\n- [ ] No page holds more than `MAX_EFFECTS_PER_PAGE` (16) effects\n- [ ] `ClearAll` stops page-2 effects and leaves the lights and non-effect flags alone\n- [ ] \"More Effects\" and \"Back\" don't parse as effects\n- [ ] The page-2 dialog JSON exists with template key `suomitheatre_stageeffects2` and script key `suomitheatre`\n\n**Verify:** `dotnet run --project Tests/Chaos.Tests/Chaos.Tests.csproj -- --treenode-filter \"/*/*/TheatreStageEffectsTests/*\"` → all pass\n\n**Plan:** 2026-09-25-more-ambient-effects.md, Task 3\n\n```json:metadata\n{\"files\": [\"Chaos/Scripting/DialogScripts/Temuair/Suomi/TheatreStageEffects.cs\", \"Chaos/Scripting/DialogScripts/Temuair/Suomi/SuomiTheatreScript.cs\", \"Tests/Chaos.Tests/Theatre/TheatreStageEffectsTests.cs\", \"Unora: Data/Configuration/Templates/Dialogs/Temauir/suomi/thulin/suomitheatre_stageeffects2.json\"], \"verifyCommand\": \"dotnet run --project Tests/Chaos.Tests/Chaos.Tests.csproj -- --treenode-filter \\\"/*/*/TheatreStageEffectsTests/*\\\"\", \"acceptanceCriteria\": [\"Page 1 is today's 12 in order, page 2 the 11 new in order\", \"No page over 16 effects\", \"ClearAll stops page-2 effects, keeps lights and non-effect flags\", \"More Effects and Back don't parse as effects\", \"Page-2 dialog JSON exists with the right keys\"], \"modelTier\": \"standard\"}\n```"
+    },
+    {
+      "id": 9,
+      "planTask": 4,
+      "subject": "Task 4: Optional wings on particles (client)",
+      "status": "pending",
+      "blockedBy": [
+        8
+      ],
+      "description": "**Goal:** `ParticleStyle` has six wing settings, and `ParticleRenderer` draws flapping wings when `WingScale > 0`. Existing presets are unchanged.\n\n**Files (all in `worktrees/ambient-client`):**\n- Modify: `Chaos.Client.Rendering/ParticleStyle.cs` (after `HaloAlpha`)\n- Modify: `Chaos.Client.Rendering/ParticleRenderer.cs`\n\n**Acceptance Criteria:**\n- [ ] `ParticleStyle` has `WingScale` (default 0), `WingWidth` (1), `WingAlpha` (0.5), `WingPairs` (1), `WingFlapMin` and `WingFlapMax` (2)\n- [ ] `ParticleRenderer` makes a 32x16 wing texture on first use and releases it in `Dispose`\n- [ ] Wings draw between the halo and the body, only when `WingScale > 0`\n- [ ] No existing preset sets any wing field, so every existing effect draws as before\n- [ ] The client test project builds and all client tests pass\n\n**Verify:** `dotnet build Tests/Chaos.Client.Tests/Chaos.Client.Tests.csproj -p:UnoraServerPath=C:/Users/Michael/Documents/GitHub/worktrees/ambient-server` → `Build succeeded`\n\nWings are drawing code with no game logic, and the texture needs a graphics device. So this task has no unit test. Task 7 checks the wings on screen against the approved preview.\n\n**Plan:** 2026-09-25-more-ambient-effects.md, Task 4\n\n```json:metadata\n{\"files\": [\"Chaos.Client.Rendering/ParticleStyle.cs\", \"Chaos.Client.Rendering/ParticleRenderer.cs\"], \"verifyCommand\": \"dotnet build Tests/Chaos.Client.Tests/Chaos.Client.Tests.csproj -p:UnoraServerPath=C:/Users/Michael/Documents/GitHub/worktrees/ambient-server\", \"acceptanceCriteria\": [\"Six wing settings with the stated defaults\", \"32x16 wing texture built on first use, released in Dispose\", \"Wings drawn between halo and body only when WingScale > 0\", \"No existing preset sets a wing field\", \"Client tests build and pass\"], \"modelTier\": \"mechanical\"}\n```"
+    },
+    {
+      "id": 4,
+      "planTask": 5,
+      "subject": "Task 5: The 11 effects in the client: presets, draw order and guard tests",
+      "status": "pending",
+      "blockedBy": [
+        3,
+        9
+      ],
+      "description": "**Goal:** Every new flag switches on its approved look. `AmbientEffects` masks all 8 bytes, and two guard tests catch an uncovered flag or a narrow mask.\n\n**Files (all in `worktrees/ambient-client`):**\n- Create: `Tests/Chaos.Client.Tests/AmbientEffectsTests.cs`\n- Modify: `Chaos.Client.Rendering/AmbientEffects.cs`\n- Modify: `Chaos.Client.Rendering/MistStyle.cs` (after the `Underwater` preset)\n- Modify: `Chaos.Client.Rendering/ParticleStyle.cs` (after the `SandGrains` preset)\n\n**Acceptance Criteria:**\n- [ ] `AmbientEffectsTests.EveryEffectFlag_HasAnOverlay` passes, and fails if any new overlay line is removed\n- [ ] `AmbientEffectsTests.ExtendedFlags_CoverEveryBitAboveTheLowByte` passes (`EXTENDED_FLAGS` is `0xFFFF_FFFF_FFFF_FF00`)\n- [ ] The `Overlays` list matches the spec's draw order exactly\n- [ ] Preset values match the spec exactly\n- [ ] All client tests pass\n\n**Verify:** `dotnet run --project Tests/Chaos.Client.Tests/Chaos.Client.Tests.csproj --no-build -- --no-ansi --treenode-filter \"/*/*/AmbientEffectsTests/*\"` → 2 passed\n\n**Plan:** 2026-09-25-more-ambient-effects.md, Task 5\n\n```json:metadata\n{\"files\": [\"Tests/Chaos.Client.Tests/AmbientEffectsTests.cs\", \"Chaos.Client.Rendering/AmbientEffects.cs\", \"Chaos.Client.Rendering/MistStyle.cs\", \"Chaos.Client.Rendering/ParticleStyle.cs\"], \"verifyCommand\": \"dotnet run --project Tests/Chaos.Client.Tests/Chaos.Client.Tests.csproj --no-build -- --no-ansi --treenode-filter \\\"/*/*/AmbientEffectsTests/*\\\"\", \"acceptanceCriteria\": [\"EveryEffectFlag_HasAnOverlay passes and fails when an overlay line is removed\", \"ExtendedFlags_CoverEveryBitAboveTheLowByte passes\", \"Overlays list matches the spec draw order\", \"Preset values match the spec\", \"All client tests pass\"], \"modelTier\": \"standard\"}\n```"
+    },
+    {
+      "id": 6,
+      "planTask": 6,
+      "subject": "Task 6: Docs for the new effects",
+      "status": "pending",
+      "blockedBy": [
+        5,
+        4
+      ],
+      "description": "**Goal:** The effects doc and the client's `CLAUDE.md` describe the 11 new effects, the 8-byte flags, the wing settings and the theatre's second page.\n\n**Files:**\n- Modify: `worktrees/ambient-unora/docs/ambient-map-effects.md`\n- Modify: `worktrees/ambient-client/CLAUDE.md` (the `AmbientEffects` bullet under \"Rendering Layer\")\n\n**Acceptance Criteria:**\n- [ ] The effects table lists all 21 effect flags, with the presets that build each one\n- [ ] The bit table shows 17–27 as the second set and 28–63 as free, and the text says `MapFlags` is 8 bytes\n- [ ] The particle table documents the six wing settings\n- [ ] A \"The Suomi theatre\" section explains the two pages and the 16-per-page limit\n- [ ] \"Adding a new effect\" uses bit 28, and mentions the client guard test and the theatre list\n- [ ] \"Limits\" says 36 free slots, and says new effects belong in bits 28–63\n- [ ] The client `CLAUDE.md` AmbientEffects bullet lists the new flags and bits 8–63\n\n**Verify:** `grep -c \"Gloom\\|CloudShadows\\|WingScale\\|stageeffects2\\|1UL << 28\" C:/Users/Michael/Documents/GitHub/worktrees/ambient-unora/docs/ambient-map-effects.md` → 5 or more\n\n**Plan:** 2026-09-25-more-ambient-effects.md, Task 6\n\n```json:metadata\n{\"files\": [\"Unora: docs/ambient-map-effects.md\", \"Client: CLAUDE.md\"], \"verifyCommand\": \"grep -c \\\"Gloom\\\\|CloudShadows\\\\|WingScale\\\\|stageeffects2\\\\|1UL << 28\\\" C:/Users/Michael/Documents/GitHub/worktrees/ambient-unora/docs/ambient-map-effects.md\", \"acceptanceCriteria\": [\"Effects table lists all 21 effect flags\", \"Bit table shows 17-27 used and 28-63 free; MapFlags is 8 bytes\", \"Particle table documents the six wing settings\", \"Suomi theatre section explains two pages and the 16 limit\", \"Adding a new effect uses bit 28 and mentions the guard test and theatre list\", \"Limits says 36 free slots and bits 28-63\", \"Client CLAUDE.md AmbientEffects bullet lists the new flags and bits 8-63\"], \"modelTier\": \"standard\"}\n```"
+    },
+    {
+      "id": 7,
+      "planTask": 7,
+      "subject": "Task 7: In-game check of every new effect and the theatre pages",
+      "status": "pending",
+      "blockedBy": [
+        5,
+        4
+      ],
+      "description": "**Goal:** Each new effect, seen in the running game, matches its approved preview. The theatre pages and `/atmosphere` behave as the spec says.\n\n**Files:** none changed. Screenshots go to the session scratchpad.\n\n**Acceptance Criteria:**\n- [ ] A screenshot exists for each of the 11 flags, taken with only that flag added, and each matches its approved preview in color, amount and motion. Wisps show small fluttering wings.\n- [ ] With Blizzard on, the F11 debug overlay shows no clear frame-rate drop compared with no effect\n- [ ] Theatre page 1 ends with \"More Effects\". Page 2 lists the 11 new effects and flips one between Start and Stop. \"Back\" returns to page 1. \"Clear All Effects\" stops a page-2 effect.\n- [ ] After `/atmosphere`, the new effects disappear. Running it again shows them.\n\n**Verify:** screenshots in the scratchpad (`fx-<Flag>.png`), plus the observations above recorded in the task's completion note\n\nThis task runs in the coordinating session, not in a subagent. It needs the user: to close any running game, to log in, and to walk to the theatre.\n\n**Plan:** 2026-09-25-more-ambient-effects.md, Task 7\n\n```json:metadata\n{\"files\": [], \"verifyCommand\": \"\", \"acceptanceCriteria\": [\"Screenshot per flag matching its approved preview; Wisps show small fluttering wings\", \"No clear frame-rate drop with Blizzard (F11 overlay numbers recorded)\", \"Theatre page 1 has More Effects; page 2 lists the 11, flips Start/Stop, Back returns, Clear All stops a page-2 effect\", \"/atmosphere hides the new effects and shows them again\"], \"modelTier\": \"frontier\"}\n```"
+    },
+    {
+      "id": 10,
+      "planTask": 8,
+      "subject": "Task 8: Commit the full implementation",
+      "status": "pending",
+      "blockedBy": [
+        8,
+        3,
+        5,
+        9,
+        4,
+        6,
+        7
+      ],
+      "description": "**Goal:** One commit per repo on `feat/more-ambient-effects`: server first, then the client pointing its `Chaos-Server` submodule at that server commit, then Unora. Nothing is merged or pushed.\n\n**Files:** the files changed by Tasks 2–6, staged by explicit path.\n\n**Acceptance Criteria:**\n- [ ] The server worktree has one new commit containing exactly the Task 2 and Task 3 server files (plus any extra file Task 2 had to fix)\n- [ ] The client worktree has one new commit with the Task 4–6 client files, and `Chaos-Server` recorded at the new server commit\n- [ ] The Unora worktree has one new commit containing only the page-2 dialog JSON and `docs/ambient-map-effects.md`\n- [ ] No commit contains `appsettings.json`, `launchSettings.json`, `Data/Saved` or `Data/LocalStorage`\n- [ ] `git status --short` in each worktree shows nothing staged afterwards\n\n**Verify:** `git -C <each worktree> show --stat HEAD` lists exactly the expected files\n\n**Plan:** 2026-09-25-more-ambient-effects.md, Task 8\n\n```json:metadata\n{\"files\": [], \"verifyCommand\": \"git -C C:/Users/Michael/Documents/GitHub/worktrees/ambient-server show --stat --oneline HEAD\", \"acceptanceCriteria\": [\"One server commit with exactly the Task 2-3 server files\", \"One client commit with the Task 4-6 client files and Chaos-Server at the server commit\", \"One Unora commit with only the dialog JSON and the effects doc\", \"No appsettings, launchSettings, Data/Saved or Data/LocalStorage in any commit\", \"Nothing left staged\"], \"modelTier\": \"mechanical\"}\n```"
+    }
+  ],
+  "lastUpdated": "2026-09-25T23:21:51.633228+00:00"
+}
