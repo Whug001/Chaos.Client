@@ -1,6 +1,7 @@
 # Guild Cloak — Stretching Notes (deferred work)
 
-Date: 2026-09-25. Status: **not started**. The user chose to fix the painting bugs first and come back to this.
+Date: 2026-09-25. Status: **partly done.** Problems 1 and 2 below, and the inside-of-cape frames, are fixed by
+`2026-09-25-guild-cloak-stretch-design.md`. Problems 3 and 4 are still open.
 
 These notes record how a guild cloak design gets stretched onto each animation frame, where that goes wrong, and
 the approaches worth trying. The original design is `2026-09-25-guild-cloak-design.md` ("Mapping one pixel").
@@ -23,27 +24,23 @@ These looked like stretching problems but were bugs. They are fixed in the clien
 
 ## How the stretch works today
 
-For each pixel of a frame layer (`GuildCloakPainter.Paint`, `GuildCloakGrid.CellAt`):
+For each pixel of a frame layer, `GuildCloakGrid.CellFor` picks a canvas cell. The full rule, with formulas, is in
+`2026-09-25-guild-cloak-stretch-design.md`.
 
-1. `v` is the pixel's row between the layer's top and bottom rows.
-2. `u` is the pixel's column between that row's leftmost and rightmost pixel.
-3. The canvas cell is the reference frame's row at `v`, and the column at `u` within that row.
+1. Across: the pixel's place in its row. On back frames each row is split at the old rune's centre (dye pixels at
+   least 3 rows above the bottom of their column), so the rune's centre reads the canvas's rune centre.
+2. Down: at the top of the layer, the pixel's height as a fraction of the layer (the old rule). Lower down, more and
+   more by its distance above the bottom of its own column, so a hem follows the real lower edge.
 
-So every frame is fitted to the reference by its bounding rows and each row's span. Nothing ties the paint to the
-body, the spine or the hem.
+A main-layer frame with no lining layer, more than 150 pixels and no dye pixel shows the inside of the cape. It is
+painted from the lining canvas: sheet c frames 3, 15 and 20 on both bodies.
 
 ## What still goes wrong
 
 Frame numbers are the male sheets of sprite 328 (a copy of 127). The female sheets behave the same way.
 
-1. **Paint slides sideways when the cape swings out.** On walk frames 2–4 (walking away) the cape billows to one
-   side. Those rows get wider, so the middle of the row moves toward the billow. An emblem jumps up and to one
-   side on frame 3.
-2. **The lining's hem shrinks to a point on the front walk.** On walk frames 7–9 (walking toward the viewer) the
-   lining is a flap swinging out behind the body. Its lower edge runs diagonally and ends in a thin point: on
-   frame 7, rows 24–32 hold only 25 down to 2 pixels. The canvas's bottom rows (the hem) land on that point, so a
-   hem painted along the bottom shows as a few pixels at the tip. The rest of the flap's lower edge gets the
-   middle of the canvas. A gold hem shows on frame 6 and almost vanishes on 7–9, so it flashes once per cycle.
+1. **Fixed** by the stretch design (the heart now stays within about 1 pixel of the rune sideways).
+2. **Fixed** by the stretch design.
 3. **Side-on poses squeeze the whole back into a strip.** Some attack and spell frames (for example sheet `c`
    frame 9, arms raised) show the cape nearly edge-on. The full back canvas, emblem included, is squeezed into a
    few columns.
@@ -52,7 +49,7 @@ Frame numbers are the male sheets of sprite 328 (a copy of 127). The female shee
    the cloak's middle is about column 15, not 13. A dab at column 19 should copy to column 11. It copies to
    column 7 instead, which is off the cloak there, so the copy is lost.
 5. Both bodies map from the male reference frames. Female frames are 1–3 pixels narrower. This looked fine in
-   testing, but recheck it with any new approach.
+   testing, but recheck it with any new approach. Rechecked with the new rule on the 2026-09-25 stepper page: fine.
 
 ## Approaches to try
 
@@ -93,3 +90,7 @@ Throwaway Python scripts from the 2026-09-25 session are in
 A new approach should be tried in these scripts first. Change `mapped()` and `Canvas.sample()`, then compare the
 3×3 test pattern and a real design across sheets `01`, `c` and `e`. The mockups from that session, including a
 page that steps through every frame, are in the same folder's `content/`.
+
+The stretch design's spike is in `Chaos.Client/.superpowers/brainstorm/142375-1790333274/` (not committed):
+`spike/mapping.py` holds the candidate rules (the chosen one is `map_anchored(centred=True)`), `spike/parity.py`
+checks the client against it, and `content/compare-rules-v2.html` steps through every frame.

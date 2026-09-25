@@ -5,7 +5,7 @@
       "id": 1,
       "nativeTaskId": 1,
       "subject": "Task 1: The edges + rune centre stretch rule",
-      "status": "pending",
+      "status": "completed",
       "blockedBy": [],
       "description": "Plan: docs/superpowers/plans/2026-09-25-guild-cloak-stretch.md (Task 1). See the plan's Global Constraints.\n\n**Goal:** `GuildCloakGrid.CellFor` maps a frame pixel to a canvas cell by the spec's rule, and `GuildCloakPainter.Paint` uses it, with rune centring for the Back part only.\n\n**Files:**\n- Modify: `worktrees/cloak-stretch/Chaos.Client.Rendering/GuildCloakGrid.cs` (whole class)\n- Modify: `worktrees/cloak-stretch/Chaos.Client.Rendering/GuildCloakPainter.cs` (class summary, dye constants, `Brightness`, both `Paint` overloads)\n- Test: `worktrees/cloak-stretch/Tests/Chaos.Client.Tests/GuildCloakPainterTests.cs`\n\n**Acceptance Criteria:**\n- [ ] A 9×10 bell frame (with and without a rune) painted onto its own grid returns `(x, y)` for every filled pixel, with centring on and off\n- [ ] On a 4×11 flap whose column bottoms lie at rows 10, 9, 8, 7, every column's bottom pixel paints in the canvas's hem colour (rows 9–10)\n- [ ] Canvas rune centre 6 and frame rune centre 2: frame column 2 reads canvas column 6, flipped or not; without centring it reads 2 (8 flipped)\n- [ ] Dye pixels within 3 rows of their column's bottom are not rune; 9 rune pixels give no centre, 10 give their mean\n- [ ] `CellFor` skips empty canvas rows to the nearest filled row (the old `CellAt` test, ported)\n- [ ] All existing `GuildCloakPainterTests` still pass; `CellAt` no longer exists\n\n**Verify:** BUILD, then TEST with `--treenode-filter \"/*/*/GuildCloakPainterTests/*\"` → all pass, 0 failed.\n\n```json:metadata\n{\"files\": [\"Chaos.Client.Rendering/GuildCloakGrid.cs\", \"Chaos.Client.Rendering/GuildCloakPainter.cs\", \"Tests/Chaos.Client.Tests/GuildCloakPainterTests.cs\"], \"verifyCommand\": \"BUILD && TEST --treenode-filter \\\"/*/*/GuildCloakPainterTests/*\\\"\", \"acceptanceCriteria\": [\"bell frame maps onto itself exactly, centring on and off\", \"flap column bottoms at rows 10-7 paint the hem colour\", \"rune centre 2 reads canvas centre 6, flipped or not; 2 and 8 without centring\", \"hem-depth and ten-pixel rune rules\", \"CellFor skips empty rows\", \"existing painter tests pass; CellAt removed\"], \"modelTier\": \"standard\"}\n```"
     },
@@ -13,7 +13,7 @@
       "id": 2,
       "nativeTaskId": 2,
       "subject": "Task 2: Paint inside-of-cape frames from the lining",
-      "status": "pending",
+      "status": "completed",
       "blockedBy": [
         1
       ],
@@ -23,7 +23,7 @@
       "id": 3,
       "nativeTaskId": 5,
       "subject": "Task 3: Check the client against the spike on real frames",
-      "status": "pending",
+      "status": "completed",
       "blockedBy": [
         1,
         2
@@ -34,7 +34,7 @@
       "id": 4,
       "nativeTaskId": 3,
       "subject": "Task 4: Update the stretch notes",
-      "status": "pending",
+      "status": "completed",
       "blockedBy": [
         1,
         2
@@ -45,7 +45,7 @@
       "id": 5,
       "nativeTaskId": 4,
       "subject": "Task 5: Commit the full implementation",
-      "status": "pending",
+      "status": "completed",
       "blockedBy": [
         1,
         2,
@@ -55,5 +55,5 @@
       "description": "Plan: docs/superpowers/plans/2026-09-25-guild-cloak-stretch.md (Task 5). See the plan's Global Constraints.\n\n**Goal:** One commit on `fix/guild-cloak-stretch` in the client worktree holding the whole change.\n\n**Files:**\n- Stage (explicit paths, in the worktree): `Chaos.Client.Rendering/GuildCloakGrid.cs`, `Chaos.Client.Rendering/GuildCloakPainter.cs`, `Chaos.Client.Rendering/AislingRenderer.cs`, `Tests/Chaos.Client.Tests/GuildCloakPainterTests.cs`, `docs/superpowers/specs/2026-09-25-guild-cloak-stretch-notes.md`\n\n**Acceptance Criteria:**\n- [ ] The full client test suite passes, or fails only in tests that also failed in the setup baseline\n- [ ] `git -C <worktree> show --stat HEAD` lists exactly the five files above\n- [ ] Nothing under `.superpowers/`, no `launchSettings.json`, no `Chaos-Server` pointer change is committed\n- [ ] The message ends with `Co-Authored-By: Claude Opus 5.5 <noreply@anthropic.com>`\n\n**Verify:** `git -C C:/Users/Michael/Documents/GitHub/worktrees/cloak-stretch show --stat HEAD` → the five files; `git -C C:/Users/Michael/Documents/GitHub/worktrees/cloak-stretch status --short` → empty.\n\n```json:metadata\n{\"files\": [\"Chaos.Client.Rendering/GuildCloakGrid.cs\", \"Chaos.Client.Rendering/GuildCloakPainter.cs\", \"Chaos.Client.Rendering/AislingRenderer.cs\", \"Tests/Chaos.Client.Tests/GuildCloakPainterTests.cs\", \"docs/superpowers/specs/2026-09-25-guild-cloak-stretch-notes.md\"], \"verifyCommand\": \"git -C C:/Users/Michael/Documents/GitHub/worktrees/cloak-stretch show --stat HEAD\", \"acceptanceCriteria\": [\"full suite passes vs baseline\", \"exactly five files committed\", \"no .superpowers, launchSettings or submodule change\", \"attribution line\"], \"modelTier\": \"mechanical\"}\n```"
     }
   ],
-  "lastUpdated": "2026-09-25T07:35:57-04:00"
+  "lastUpdated": "2026-09-25T08:18:06-04:00"
 }
