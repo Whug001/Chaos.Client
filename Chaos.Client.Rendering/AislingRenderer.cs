@@ -33,6 +33,9 @@ public record struct AislingAppearance
     public DisplayColor BootsColor { get; init; }
     public int BootsSprite { get; init; }
     public int FaceSprite { get; init; }
+
+    /// <summary>The guild cloak design id this player's cloak shows (0 = plain). Negative ids are designs painted on this client.</summary>
+    public int GuildCloakDesignId { get; init; }
     public required Gender Gender { get; init; }
     public DisplayColor HeadColor { get; init; }
     public int HeadSprite { get; init; }
@@ -92,7 +95,7 @@ public sealed class AislingRenderer : IDisposable
     private const int MAX_MALE_HAIR_STYLE = 18;
     private const int MAX_FEMALE_HAIR_STYLE = 17;
     private const int MAX_HAIR_COLOR = 13;
-    private const string WALK_ANIM = "01";
+    public const string WALK_ANIM = "01";
     public const string IDLE_ANIM = "04";
     public const int BODY_WIDTH = 57;
     public const int BODY_HEIGHT = 85;
@@ -197,6 +200,41 @@ public sealed class AislingRenderer : IDisposable
 
     private static readonly TimeSpan LAYER_IMAGE_CACHE_SLIDING = TimeSpan.FromSeconds(30);
     private MemoryCache LayerImageCache = new(new MemoryCacheOptions());
+
+    private GuildCloakReferences? CloakReferences;
+    private bool CloakReferencesLoaded;
+
+    /// <summary>Guild cloak designs by id, filled by the world screen from the server and by the cloak windows.</summary>
+    public GuildCloakDesignStore GuildCloaks { get; } = new();
+
+    /// <summary>
+    ///     The guild cloak's three paintable views from its male walk sheet, loaded once. Null when the game files lack the
+    ///     guild cloak sprite or its frames are not the sizes <see cref="GuildCloakProtocol" /> expects.
+    /// </summary>
+    public GuildCloakReferences? GetGuildCloakReferences()
+    {
+        if (CloakReferencesLoaded)
+            return CloakReferences;
+
+        CloakReferencesLoaded = true;
+
+        var outside = DrawData.GetEquipmentEpf('c', true, $"mc{GuildCloakProtocol.SPRITE:D3}{WALK_ANIM}");
+        var inside = DrawData.GetEquipmentEpf('g', true, $"mg{GuildCloakProtocol.SPRITE:D3}{WALK_ANIM}");
+        var body = DrawData.GetEquipmentEpf('m', true, $"mm{BODY_ID:D3}{WALK_ANIM}");
+
+        if (outside is null || inside is null || (outside.Count < 6) || (inside.Count < 6))
+            return null;
+
+        var references = new GuildCloakReferences(
+            outside[UP_IDLE_FRAME],
+            inside[RIGHT_IDLE_FRAME],
+            outside[RIGHT_IDLE_FRAME],
+            body is { Count: > RIGHT_IDLE_FRAME } ? body[RIGHT_IDLE_FRAME] : null);
+
+        CloakReferences = references.MatchesProtocol ? references : null;
+
+        return CloakReferences;
+    }
 
     /// <inheritdoc />
     public void Dispose()
@@ -519,7 +557,9 @@ public sealed class AislingRenderer : IDisposable
         KhanPalOverrideType PaletteOverride,
         string AnimSuffix,
         int FrameIndex,
-        int IdleFallbackFrame);
+        int IdleFallbackFrame,
+        int DesignId = 0,
+        bool Flip = false);
 
 
     #region Composited Rendering (paperdoll/preview path)
@@ -629,7 +669,8 @@ public sealed class AislingRenderer : IDisposable
                 in appearance,
                 frameIndex,
                 animSuffix,
-                idleFallbackFrame);
+                idleFallbackFrame,
+                flipHorizontal);
 
             var emotionsEpf = DrawData.EmotionsEpf;
 
@@ -728,7 +769,8 @@ public sealed class AislingRenderer : IDisposable
         in AislingAppearance appearance,
         int frameIndex,
         string anim,
-        int idleFallbackFrame = -1)
+        int idleFallbackFrame = -1,
+        bool flip = false)
     {
         var bodySpriteId = appearance.BodySpriteId;
 
@@ -872,65 +914,71 @@ public sealed class AislingRenderer : IDisposable
 
         if ((appearance.Accessory1Sprite > 0) && !isMounted)
         {
-            layers[(int)LayerSlot.Acc1C] = RenderEquipLayer(
+            layers[(int)LayerSlot.Acc1C] = RenderAccessoryLayer(
                 'c',
                 appearance.Accessory1Sprite,
                 appearance.Accessory1Color,
                 in appearance,
                 frameIndex,
                 anim,
-                idleFallbackFrame);
+                idleFallbackFrame,
+                flip);
 
-            layers[(int)LayerSlot.Acc1G] = RenderEquipLayer(
+            layers[(int)LayerSlot.Acc1G] = RenderAccessoryLayer(
                 'g',
                 appearance.Accessory1Sprite,
                 appearance.Accessory1Color,
                 in appearance,
                 frameIndex,
                 anim,
-                idleFallbackFrame);
+                idleFallbackFrame,
+                flip);
         }
 
         if ((appearance.Accessory2Sprite > 0) && !isMounted)
         {
-            layers[(int)LayerSlot.Acc2C] = RenderEquipLayer(
+            layers[(int)LayerSlot.Acc2C] = RenderAccessoryLayer(
                 'c',
                 appearance.Accessory2Sprite,
                 appearance.Accessory2Color,
                 in appearance,
                 frameIndex,
                 anim,
-                idleFallbackFrame);
+                idleFallbackFrame,
+                flip);
 
-            layers[(int)LayerSlot.Acc2G] = RenderEquipLayer(
+            layers[(int)LayerSlot.Acc2G] = RenderAccessoryLayer(
                 'g',
                 appearance.Accessory2Sprite,
                 appearance.Accessory2Color,
                 in appearance,
                 frameIndex,
                 anim,
-                idleFallbackFrame);
+                idleFallbackFrame,
+                flip);
         }
 
         if ((appearance.Accessory3Sprite > 0) && !isMounted)
         {
-            layers[(int)LayerSlot.Acc3C] = RenderEquipLayer(
+            layers[(int)LayerSlot.Acc3C] = RenderAccessoryLayer(
                 'c',
                 appearance.Accessory3Sprite,
                 appearance.Accessory3Color,
                 in appearance,
                 frameIndex,
                 anim,
-                idleFallbackFrame);
+                idleFallbackFrame,
+                flip);
 
-            layers[(int)LayerSlot.Acc3G] = RenderEquipLayer(
+            layers[(int)LayerSlot.Acc3G] = RenderAccessoryLayer(
                 'g',
                 appearance.Accessory3Sprite,
                 appearance.Accessory3Color,
                 in appearance,
                 frameIndex,
                 anim,
-                idleFallbackFrame);
+                idleFallbackFrame,
+                flip);
         }
     }
 
@@ -1086,6 +1134,139 @@ public sealed class AislingRenderer : IDisposable
         if (image is null)
             return null;
 
+        CacheLayerImage(in cacheKey, image);
+
+        return new LayerInfo(image, typeLetter);
+    }
+
+
+    /// <summary>An accessory layer: the guild cloak paints its wearer's design when that design is loaded; everything else dyes as usual.</summary>
+    private LayerInfo? RenderAccessoryLayer(
+        char typeLetter,
+        int spriteId,
+        DisplayColor dyeColor,
+        in AislingAppearance appearance,
+        int frameIndex,
+        string anim,
+        int idleFallbackFrame,
+        bool flip)
+    {
+        if ((spriteId == GuildCloakProtocol.SPRITE) && GuildCloaks.TryGet(appearance.GuildCloakDesignId, out var design))
+        {
+            var painted = RenderGuildCloakLayer(
+                typeLetter,
+                spriteId,
+                appearance.GuildCloakDesignId,
+                design,
+                in appearance,
+                frameIndex,
+                anim,
+                idleFallbackFrame,
+                flip);
+
+            if (painted.HasValue)
+                return painted;
+        }
+
+        return RenderEquipLayer(
+            typeLetter,
+            spriteId,
+            dyeColor,
+            in appearance,
+            frameIndex,
+            anim,
+            idleFallbackFrame);
+    }
+
+    /// <summary>
+    ///     One guild cloak layer with a design painted on. A frame faces the viewer when its behind-the-body (<c>g</c>) layer
+    ///     has pixels: then the <c>g</c> layer uses the lining grid and the <c>c</c> layer the collar grid. Otherwise both use
+    ///     the back grid. Null when the art or the design cannot be used, so the caller draws the plain cloak.
+    /// </summary>
+    private LayerInfo? RenderGuildCloakLayer(
+        char typeLetter,
+        int spriteId,
+        int designId,
+        GuildCloakDesign design,
+        in AislingAppearance appearance,
+        int frameIndex,
+        string anim,
+        int idleFallbackFrame,
+        bool flip)
+    {
+        var references = GetGuildCloakReferences();
+
+        if (references is null || !design.IsValid())
+            return null;
+
+        var cacheKey = new LayerCacheKey(
+            typeLetter,
+            spriteId,
+            0,
+            appearance.IsMale,
+            appearance.OverrideType,
+            anim,
+            frameIndex,
+            idleFallbackFrame,
+            designId,
+            flip);
+
+        var cachedImage = TryGetCachedLayerImage(in cacheKey);
+
+        if (cachedImage is not null)
+            return new LayerInfo(cachedImage, typeLetter);
+
+        (var epf, var resolvedFrame) = ResolveLayerEpf(
+            typeLetter,
+            spriteId,
+            in appearance,
+            frameIndex,
+            anim,
+            idleFallbackFrame);
+
+        if (epf is null || (resolvedFrame < 0))
+            return null;
+
+        var frame = epf[resolvedFrame];
+
+        if ((frame.PixelWidth == 0) || (frame.PixelHeight == 0))
+            return null;
+
+        (var behindEpf, var behindFrame) = ResolveLayerEpf(
+            'g',
+            spriteId,
+            in appearance,
+            frameIndex,
+            anim,
+            idleFallbackFrame);
+
+        var frontFacing = behindEpf is not null && (behindFrame >= 0) && GuildCloakGrid.HasPixels(behindEpf[behindFrame]);
+
+        var part = (typeLetter, frontFacing) switch
+        {
+            ('g', true) => GuildCloakPart.Lining,
+            ('c', true) => GuildCloakPart.Collar,
+            _           => GuildCloakPart.Back
+        };
+
+        var palette = ResolvePalette(
+            DrawData.GetPaletteLookup(typeLetter),
+            spriteId,
+            DisplayColor.Default,
+            appearance.OverrideType);
+
+        if (palette is null)
+            return null;
+
+        var pixels = GuildCloakPainter.Paint(
+            frame,
+            palette,
+            references.Grid(part),
+            GuildCloakReferences.Cells(design, part),
+            GuildCloakPainter.ToColors(design.Colors),
+            flip);
+
+        var image = GuildCloakPainter.ToImage(frame, pixels);
         CacheLayerImage(in cacheKey, image);
 
         return new LayerInfo(image, typeLetter);

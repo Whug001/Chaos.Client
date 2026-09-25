@@ -182,6 +182,12 @@ public static class WorldState
     public static StageLightingPanelState StageLightingPanel { get; } = new();
 
     /// <summary>
+    ///     Which guild cloak design each player's cloak shows (0 = plain), from the server's GuildCloakLook. Kept across
+    ///     DisplayAisling updates; cleared with the entities.
+    /// </summary>
+    public static Dictionary<uint, int> GuildCloakLooks { get; } = [];
+
+    /// <summary>
     ///     Authoritative beauty shop state (catalog, prices, current look, and the look being tried on).
     /// </summary>
     public static BeautyShop BeautyShop { get; } = new();
@@ -282,7 +288,8 @@ public static class WorldState
                 Accessory2Color = args.AccessoryColor2,
                 Accessory3Sprite = args.AccessorySprite3,
                 Accessory3Color = args.AccessoryColor3,
-                PantsColor = args.PantsColor
+                PantsColor = args.PantsColor,
+                GuildCloakDesignId = GuildCloakLooks.GetValueOrDefault(args.Id)
             };
         }
 
@@ -374,6 +381,7 @@ public static class WorldState
     public static void Clear()
     {
         Entities.Clear();
+        GuildCloakLooks.Clear();
         ActiveEffects.Clear();
         ActiveProjectiles.Clear();
 
@@ -749,7 +757,20 @@ public static class WorldState
     public static void RemoveEntity(uint id)
     {
         Entities.Remove(id);
+        GuildCloakLooks.Remove(id);
         SortVersion++;
+    }
+
+
+    /// <summary>Records which design a player's guild cloak shows, and updates their appearance so they are redrawn.</summary>
+    public static void ApplyGuildCloakLook(uint entityId, int designId)
+    {
+        GuildCloakLooks[entityId] = designId;
+
+        if (Entities.TryGetValue(entityId, out var entity)
+            && entity.Appearance is { } appearance
+            && (appearance.GuildCloakDesignId != designId))
+            entity.Appearance = appearance with { GuildCloakDesignId = designId };
     }
 
     /// <summary>

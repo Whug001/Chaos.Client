@@ -843,6 +843,7 @@ public sealed partial class WorldScreen : IScreen
             ZIndex = 2
         };
         WireStageLighting();
+        WireGuildCloak();
 
         //buy-confirm popup for the market: lives on Root (it centers on-screen and must not be clipped inside the Market
         //panel) and draws above the Market window (ZIndex 3 > 2). Shown when the Results tab raises BuyRequested.
@@ -1057,6 +1058,7 @@ public sealed partial class WorldScreen : IScreen
         Game.Connection.OnBeautyShopDisplay -= HandleBeautyShopDisplay;
         Game.Connection.OnBugReportOpen -= HandleBugReportOpen;
         UnwireStageLighting();
+        UnwireGuildCloak();
 
         //unwire panel click-to-use events
         WorldHud.Inventory.OnSlotClicked -= HandleInventorySlotClicked;
@@ -1083,6 +1085,7 @@ public sealed partial class WorldScreen : IScreen
         OxygenBar?.Dispose();
         Game.AislingRenderer.ClearCompositeCache();
         Game.AislingRenderer.ClearGroupTintCache();
+        Game.AislingRenderer.GuildCloaks.Clear();
         Game.CreatureRenderer.ClearTintCaches();
         Game.ItemRenderer.Clear();
         Overlays.Clear();

@@ -79,6 +79,7 @@ Centralized in `Directory.Build.props`: C# 14, net10.0, nullable enabled, implic
 - **`PaletteCyclingManager`** -- Animated palette shimmer effects.
 - **`FontAtlas`** -- Font glyph atlas management.
 - **`CreatureRenderer`/`AislingRenderer`/`EffectRenderer`/`ItemRenderer`** -- Per-frame texture caches. `Clear()` on map change.
+- **`GuildCloakPainter`/`GuildCloakGrid`/`GuildCloakReferences`/`GuildCloakDesignStore`** -- Guild cloak painting: `GuildCloakPainter` paints a design onto one sprite frame from `GuildCloakReferences`' reference grids via `GuildCloakGrid`'s coordinate mapping; `GuildCloakDesignStore` (on `AislingRenderer.GuildCloaks`) caches designs by id for one session and is cleared on logout.
 - **`LegendColors`** -- Named color constants for UI text. Initialized at startup.
 - **`LightSource`** -- Light source model for darkness system.
 - **`RenderHelper`** -- Shared rendering utility methods.
@@ -120,7 +121,7 @@ Chaos.Client/
 ### Screen System
 - **`IScreen`/`ScreenManager`** -- Stack-based screen management.
 - **`LobbyLoginScreen`** -- Full login flow: lobby connect, server select, login, character creation, transition to world.
-- **`WorldScreen`** -- Main game screen, split into 7 partial class files:
+- **`WorldScreen`** -- Main game screen, split into 9 partial class files:
   - `WorldScreen.cs` -- Base class, fields, construction
   - `WorldScreen.Draw.cs` -- Render logic (diagonal stripe entity interleaving, overlays)
   - `WorldScreen.Update.cs` -- Game logic update
@@ -128,6 +129,7 @@ Chaos.Client/
   - `WorldScreen.ServerHandlers.cs` -- Network packet handler subscriptions
   - `WorldScreen.Wiring.cs` -- Event subscription setup
   - `WorldScreen.Map.cs` -- Map management
+  - `WorldScreen.GuildCloak.cs` -- Guild cloak look/design packet handlers and the editor/review window lifecycle
 
 ### UI Control System
 
@@ -145,7 +147,7 @@ Chaos.Client/
 
 **Options (`Popups/Options/`):** MainOptionsControl, MacrosListControl, SettingsControl, FriendsListControl.
 
-**Popups (`Popups/`):** AislingContextMenu, GoldAmountControl, ItemAmountControl, ChantEditControl, GroupRecruitPanel, GroupTab/GroupTabControl, HotkeyHelpControl, ItemTooltipControl, NotepadControl, SocialStatusControl, TownMapControl. Subdirectories: `BugReport/` (BugReportControl — in-game bug report window opened from Terminus), `Theatre/` (StageLightingControl — the director's Stage Lighting window; StageView, StageButton, StageSlider, StageColorPicker; the stage view's tile maths is `Systems/StageViewGeometry`), `Boards/` (BoardListControl, ArticleListControl/ArticleReadControl/ArticleSendControl, MailListControl/MailReadControl/MailSendControl), `Dialog/` (NpcSessionControl, FramedDialogPanelBase, DialogAlphaGradient, MenuShopPanel, DialogTextEntryPanel, DialogProtectedTextEntryPanel, MenuTextEntryPanel, DialogOptionPanel, MenuListPanel), `Exchange/` (ExchangeControl/ExchangeItemControl), `WorldList/` (WorldListControl/WorldListEntryControl).
+**Popups (`Popups/`):** AislingContextMenu, GoldAmountControl, ItemAmountControl, ChantEditControl, GroupRecruitPanel, GroupTab/GroupTabControl, HotkeyHelpControl, ItemTooltipControl, NotepadControl, SocialStatusControl, TownMapControl. Subdirectories: `BugReport/` (BugReportControl — in-game bug report window opened from Terminus), `Theatre/` (StageLightingControl — the director's Stage Lighting window; StageView, StageButton, StageSlider, StageColorPicker; the stage view's tile maths is `Systems/StageViewGeometry`), `GuildCloak/` (GuildCloakEditorControl — the guild leader's cloak editor, opened from Quill; GuildCloakReviewControl — the admins' review window, opened from the admin trinket; GuildCloakCanvas, GuildCloakSwatches, GuildCloakPreview; the painting itself is `Chaos.Client.Rendering/GuildCloakPainter`, and the editor state is `ViewModel/GuildCloakEditorModel`), `Boards/` (BoardListControl, ArticleListControl/ArticleReadControl/ArticleSendControl, MailListControl/MailReadControl/MailSendControl), `Dialog/` (NpcSessionControl, FramedDialogPanelBase, DialogAlphaGradient, MenuShopPanel, DialogTextEntryPanel, DialogProtectedTextEntryPanel, MenuTextEntryPanel, DialogOptionPanel, MenuListPanel), `Exchange/` (ExchangeControl/ExchangeItemControl), `WorldList/` (WorldListControl/WorldListEntryControl).
 
 **Viewport Overlays (`ViewPort/`):** ChatBubble, HealthBar, LoadingBar/MapLoadingBar, WorldMap/WorldMapNode, ChantText, GroupBox, SystemMessagePaneControl, PersistentMessageControl.
 
@@ -161,7 +163,7 @@ Chaos.Client/
 - **`ClientSettings`** -- Static class. Persistent user settings. Access via `ClientSettings.SoundVolume`, etc.
 
 ### World State & Models
-- **`WorldState`** (`Collections/`) -- Static class. Entity tracking, sorted rendering, active effects, all ViewModel state. Access via `WorldState.Inventory`, `WorldState.Attributes`, etc.
+- **`WorldState`** (`Collections/`) -- Static class. Entity tracking, sorted rendering, active effects, all ViewModel state. Access via `WorldState.Inventory`, `WorldState.Attributes`, etc. `WorldState.GuildCloakLooks` maps entity id to guild cloak design id, applied via `ApplyGuildCloakLook()` regardless of whether the look or the `DisplayAisling` arrives first; cleared on `RemoveEntity()`/`Clear()`.
 - **`WorldEntity`** (`Models/`) -- Full entity data bag: position, direction, appearance, animation state, emotes.
 - **Other models:** `Animation`, `EntityRemovalAnimation`, `WorldFrameState`, `SlotDragPayload`, `PathfindingState`, `TileClickTracker`, `Projectile`, `MailEntry`, `LegendMarkEntry`, `WorldListEntry`.
 
