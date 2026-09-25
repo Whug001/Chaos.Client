@@ -893,7 +893,7 @@ public sealed partial class WorldScreen
         //populate and show the status book
         StatusBook.SetPlayerInfo(
             WorldHud.PlayerName,
-            args.DisplayClass,
+            args.DisplayClass ?? string.Empty,
             args.GuildName ?? string.Empty,
             args.GuildRank ?? string.Empty,
             args.Title ?? string.Empty);
