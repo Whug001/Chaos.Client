@@ -13,7 +13,7 @@ Today the roster at Quill and Aricin lists names by rank and nothing else. No gu
 
 | Question | Decision |
 |---|---|
-| How the message shows at login | One guild chat line in the chat pane. |
+| How the message shows at login | One guild chat line in the chat pane, tagged by the chat filter like normal guild chat. |
 | Who can change the message | The leader, plus any rank the leader gives a new eighth permission switch. |
 | Who sees last-seen | Every member, on the normal roster. |
 | Where last-seen comes from | A list kept in `guild.json`, updated at logout. A member with no entry is read once from their save (approach 1). |
@@ -52,7 +52,7 @@ Neither method saves; the dialog script calls `GuildStore.Save(guild)` after a c
 - It is **not** added to `COUNCIL_DEFAULT`. That constant stands for the rules from before permissions existed, and no old rule covered this. So the switch starts off for every rank, existing Council ranks included. Until the leader turns it on for a rank, only the leader can change the message.
 - `Guild.HasPermission` already returns true for the leader.
 
-**Rollback limit:** permissions are saved by name. Once a leader turns this switch on for a rank, that rank's `tierN.json` holds `SetMessageOfTheDay`, and an older server can't read the file. Guild tuition has a similar limit.
+**Rollback limit:** permissions are saved by name. Once a leader turns this switch on for a rank, that rank's `tierN.json` holds `SetMessageOfTheDay`, and an older server can't read the file. That guild then fails to load, so its members can't log in. Before rolling back, remove `SetMessageOfTheDay` from every `tier*.json`. An older server's first timed save also drops the message and the last-seen list from `guild.json`. Guild tuition has a similar limit.
 
 ### Menu
 
@@ -62,7 +62,7 @@ A new `GuildMessageOfTheDayScript` (script key `GuildMessageOfTheDay`, deriving 
 
 | Template key | Type | What it does |
 |---|---|---|
-| `generic_guild_motd_initial` | DialogMenu | Shows the message, who set it and the UTC date, or "Your guild has no message of the day." Adds "Change" and, when a message exists, "Clear" for anyone with the switch. |
+| `generic_guild_motd_initial` | Menu | Shows the message, who set it and the UTC date, or "Your guild has no message of the day." Adds "Change" and, when a message exists, "Clear" for anyone with the switch. |
 | `generic_guild_motd_change` | DialogTextEntry, `textBoxLength` 150 | "What should the message of the day say?" |
 | `generic_guild_motd_change_confirmation` | Menu | Shows the new text with Yes/No. |
 | `generic_guild_motd_change_accepted` | Normal | Saves, broadcasts, and says "The message of the day is set." |
@@ -88,7 +88,7 @@ In `DefaultAislingScript.OnLogin`, after the existing "has appeared online" noti
 <Guild name> message of the day: <text>
 ```
 
-It is sent with `SendServerMessage(ServerMessageType.GuildChat, …)` to that one player only, not through the guild channel. So it doesn't appear as a chat message from anyone. There's no line when the guild has no message.
+It is sent with `SendServerMessage(ServerMessageType.GuildChat, …)` to that one player only, not through the guild channel. So it doesn't appear as a chat message from anyone. There's no line when the guild has no message. The line carries the chat filter's tags for the message text, so each player's Fantasy, Censored or Hide chat setting applies to it, as it does to normal guild chat.
 
 ## 2. Last seen on the roster
 
@@ -117,6 +117,7 @@ The entry changes at these points:
 
 | Event | Change |
 |---|---|
+| Login (`DefaultAislingScript.OnLogin`) | `RecordLastSeen(name, now)`, so a logout lost to a server restart costs only that session |
 | Logout (`DefaultAislingScript.OnLogout`) | `RecordLastSeen(name, now)` |
 | `AddMember` | `RecordLastSeen(name, now)` |
 | `TryLeave` and `TryKickMember` succeed | The entry is removed |
