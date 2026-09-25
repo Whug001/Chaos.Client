@@ -616,7 +616,7 @@ enum value, a new args type, and a new `IPacketConverter` to serialize/deseriali
 new types are added right there in source.
 
 This is already wired up: the client references the `Chaos.Networking` source projects (and their dependencies)
-directly from the [`Chaos-Server`](https://github.com/Jinori/Chaos-Server) git submodule rather than a NuGet package
+directly from the [`Chaos-Server`](https://github.com/Whug001/Chaos-Server) git submodule rather than a NuGet package
 (see [Build & Run](#build--run)). Add the new opcode / args / converter to the source under `Chaos-Server/`, rebuild,
 and the reflection-based converter discovery in `GameClient` picks it up automatically. The types live in a single
 source tree that both client and server compile against, which keeps them in sync by construction — then commit and

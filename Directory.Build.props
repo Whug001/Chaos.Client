@@ -1,5 +1,5 @@
 <Project>
-    <!-- Path to the Chaos-Server git submodule (Jinori/Chaos-Server) whose shared projects
+    <!-- Path to the Chaos-Server git submodule (Whug001/Chaos-Server) whose shared projects
          (Chaos.Networking, Chaos.DarkAges, Chaos.Common, Chaos.Geometry, Chaos.Pathfinding) the
          client references directly instead of via NuGet. Defaults to the in-repo submodule at
          ./Chaos-Server (run a recursive submodule update after cloning the client). Override with

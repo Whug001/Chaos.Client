@@ -1,5 +1,5 @@
 [submodule "Chaos-Server"]
 	path = Chaos-Server
-	url = https://github.com/Jinori/Chaos-Server
+	url = https://github.com/Whug001/Chaos-Server
 	branch = master
 	update = merge
