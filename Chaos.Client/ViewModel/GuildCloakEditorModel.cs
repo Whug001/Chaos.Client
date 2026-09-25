@@ -78,7 +78,7 @@ public sealed class GuildCloakEditorModel
                 SetCell(part, x, y);
 
                 if (Mirror)
-                    SetCell(part, MirrorX(part, x), y);
+                    SetCell(part, MirrorX(part, x, y), y);
 
                 break;
 
@@ -86,7 +86,7 @@ public sealed class GuildCloakEditorModel
                 Fill(part, x, y);
 
                 if (Mirror)
-                    Fill(part, MirrorX(part, x), y);
+                    Fill(part, MirrorX(part, x, y), y);
 
                 break;
 
@@ -130,6 +130,21 @@ public sealed class GuildCloakEditorModel
         StrokeStart = null;
         IsDirty = false;
         Version++;
+    }
+
+    /// <summary>
+    ///     Loads the guild's saved design, unless the window is already open with unsaved painting, which is kept. The server
+    ///     sends a saved design each time the leader asks Quill for the editor, even while it is open.
+    /// </summary>
+    /// <returns><c>true</c> if the saved design was loaded.</returns>
+    public bool LoadSaved(GuildCloakDesign saved, bool windowOpen)
+    {
+        if (windowOpen && IsDirty)
+            return false;
+
+        Load(saved);
+
+        return true;
     }
 
     public void MarkSaved()
@@ -251,7 +266,22 @@ public sealed class GuildCloakEditorModel
         Changed();
     }
 
-    private static int MirrorX(GuildCloakPart part, int x) => WidthOf(part) - 1 - x;
+    //the painter places a cell by where it sits between its row's first and last outline cell, so a mirrored cell is
+    //flipped within that span; the angled reference frames' rows are not centered in the grid
+    private int MirrorX(GuildCloakPart part, int x, int y)
+    {
+        var width = WidthOf(part);
+        var first = 0;
+        var last = width - 1;
+
+        while ((first < width) && !IsPaintable(part, first, y))
+            first++;
+
+        while ((last >= 0) && !IsPaintable(part, last, y))
+            last--;
+
+        return first + last - x;
+    }
 
     private static GuildCloakDesign Pop(List<GuildCloakDesign> steps)
     {

@@ -60,6 +60,81 @@ public class GuildCloakEditorModelTests
     }
 
     [Test]
+    public void Mirror_flips_across_the_row_outline_not_the_whole_grid()
+    {
+        //the collar's row 3 fills only columns 2 to 9, off the 18-wide grid's center, like the angled reference frames
+        var model = new GuildCloakEditorModel((part, x, y) => (part != GuildCloakPart.Collar) || (y != 3) || x is >= 2 and <= 9);
+        model.AddColor(new GuildCloakColor(200, 0, 0));
+        model.Mirror = true;
+
+        model.Apply(GuildCloakPart.Collar, 3, 3);
+
+        model.CellAt(GuildCloakPart.Collar, 3, 3).Should().Be(2);
+        model.CellAt(GuildCloakPart.Collar, 8, 3).Should().Be(2);
+    }
+
+    [Test]
+    public void Mirror_fill_flips_across_the_row_outline()
+    {
+        var model = new GuildCloakEditorModel((part, x, y) => (part != GuildCloakPart.Collar) || (y != 3) || x is >= 2 and <= 9);
+        model.AddColor(new GuildCloakColor(200, 0, 0));
+        model.BeginStroke();
+
+        for (var y = 0; y < GuildCloakProtocol.COLLAR_HEIGHT; y++)
+            if (y != 3)
+                model.Apply(GuildCloakPart.Collar, 5, y);
+
+        model.Apply(GuildCloakPart.Collar, 5, 3);
+        model.EndStroke();
+        model.AddColor(new GuildCloakColor(0, 0, 200));
+        model.Tool = GuildCloakTool.Fill;
+        model.Mirror = true;
+
+        //column 5 walls the collar in two; filling the left part of row 3 mirrors onto its right part
+        model.Apply(GuildCloakPart.Collar, 3, 3);
+
+        model.CellAt(GuildCloakPart.Collar, 8, 3).Should().Be(3);
+    }
+
+    [Test]
+    public void Reopening_the_open_editor_keeps_unsaved_painting()
+    {
+        var model = TwoColors();
+        model.Apply(GuildCloakPart.Back, 5, 5);
+
+        model.LoadSaved(GuildCloakDesign.CreateDefault(), true).Should().BeFalse();
+
+        model.CellAt(GuildCloakPart.Back, 5, 5).Should().Be(2);
+        model.IsDirty.Should().BeTrue();
+        model.CanUndo.Should().BeTrue();
+    }
+
+    [Test]
+    public void Opening_a_closed_editor_loads_the_saved_design()
+    {
+        var model = TwoColors();
+        model.Apply(GuildCloakPart.Back, 5, 5);
+
+        model.LoadSaved(GuildCloakDesign.CreateDefault(), false).Should().BeTrue();
+
+        model.CellAt(GuildCloakPart.Back, 5, 5).Should().Be(1);
+        model.IsDirty.Should().BeFalse();
+    }
+
+    [Test]
+    public void Reopening_an_editor_with_nothing_unsaved_loads_the_saved_design()
+    {
+        var saved = GuildCloakDesign.CreateDefault();
+        saved.Colors.Add(new GuildCloakColor(200, 0, 0));
+        saved.Back[(5 * GuildCloakProtocol.BACK_WIDTH) + 5] = 2;
+        var model = Model();
+
+        model.LoadSaved(saved, true).Should().BeTrue();
+
+        model.CellAt(GuildCloakPart.Back, 5, 5).Should().Be(2);
+    }
+
+    [Test]
     public void Fill_changes_only_the_connected_cells_of_one_color()
     {
         var model = TwoColors();

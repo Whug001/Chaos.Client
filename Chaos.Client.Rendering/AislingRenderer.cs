@@ -1196,7 +1196,7 @@ public sealed class AislingRenderer : IDisposable
     {
         var references = GetGuildCloakReferences();
 
-        if (references is null || !design.IsValid())
+        if (references is null)
             return null;
 
         var cacheKey = new LayerCacheKey(
@@ -1215,6 +1215,10 @@ public sealed class AislingRenderer : IDisposable
 
         if (cachedImage is not null)
             return new LayerInfo(cachedImage, typeLetter);
+
+        //checked only before painting a new layer; a cached layer was painted from a design that passed this check
+        if (!design.IsValid())
+            return null;
 
         (var epf, var resolvedFrame) = ResolveLayerEpf(
             typeLetter,

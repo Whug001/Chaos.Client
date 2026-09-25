@@ -242,7 +242,7 @@ public sealed class GuildCloakEditorControl : GuildCloakDialogBase
     /// </summary>
     public void ApplyStatus(GuildCloakEditorArgs args)
     {
-        if (SentDesign is not null && SameDesign(SentDesign, Model.Design))
+        if (SentDesign is not null && SentDesign.ContentEquals(Model.Design))
             Model.MarkSaved();
 
         SentDesign = null;
@@ -273,10 +273,20 @@ public sealed class GuildCloakEditorControl : GuildCloakDialogBase
         base.OnKeyDown(e);
     }
 
-    /// <summary>Loads the server's design and status and shows the window.</summary>
+    /// <summary>
+    ///     Loads the server's design and status and shows the window. An open window with unsaved painting keeps the
+    ///     painting.
+    /// </summary>
     public void Open(GuildCloakEditorArgs args)
     {
-        Model.Load(args.Design);
+        //asking Quill again while painting keeps the unsaved work; only the status line follows the server
+        if (!Model.LoadSaved(args.Design, Visible))
+        {
+            SetStatus(args.Status, args.RejectionReason);
+
+            return;
+        }
+
         CloseArmed = false;
         ColorDragging = false;
         Painting = false;
@@ -319,7 +329,7 @@ public sealed class GuildCloakEditorControl : GuildCloakDialogBase
             PreviewStale = false;
 
             //a new color selection, a tool change or a save leaves the paint as it was: keep the rendered steps
-            if (PreviewDesign is null || !SameDesign(PreviewDesign, Model.Design))
+            if (PreviewDesign is null || !PreviewDesign.ContentEquals(Model.Design))
             {
                 LastPreviewMs = now;
                 PreviewDesign = Model.Design.DeepCopy();
@@ -376,12 +386,6 @@ public sealed class GuildCloakEditorControl : GuildCloakDialogBase
 
         Hide();
     }
-
-    private static bool SameDesign(GuildCloakDesign a, GuildCloakDesign b)
-        => a.Colors.SequenceEqual(b.Colors)
-           && a.Back.AsSpan().SequenceEqual(b.Back)
-           && a.Lining.AsSpan().SequenceEqual(b.Lining)
-           && a.Collar.AsSpan().SequenceEqual(b.Collar);
 
     private void Send(GuildCloakEditorAction action)
     {
