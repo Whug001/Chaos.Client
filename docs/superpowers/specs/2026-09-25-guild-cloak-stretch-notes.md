@@ -1,7 +1,7 @@
 # Guild Cloak — Stretching Notes (deferred work)
 
 Date: 2026-09-25. Status: **partly done.** Problems 1 and 2 below, and the inside-of-cape frames, are fixed by
-`2026-09-25-guild-cloak-stretch-design.md`. Problems 3 and 4 are still open.
+`2026-09-25-guild-cloak-stretch-design.md`. Problem 4 was fixed by the guild cloak audit. Problem 3 is still open.
 
 These notes record how a guild cloak design gets stretched onto each animation frame, where that goes wrong, and
 the approaches worth trying. The original design is `2026-09-25-guild-cloak-design.md` ("Mapping one pixel").
@@ -39,12 +39,20 @@ painted from the lining canvas: sheet c frames 3, 15 and 20 on both bodies.
 
 Frame numbers are the male sheets of sprite 328 (a copy of 127). The female sheets behave the same way.
 
-1. **Fixed** by the stretch design (the heart now stays within about 1 pixel of the rune sideways).
-2. **Fixed** by the stretch design.
+1. **Fixed** by the stretch design (the heart now stays within about 1 pixel of the rune sideways). **Paint slides
+   sideways when the cape swings out.** On walk frames 2–4 (walking away) the cape billows to one side. Those rows
+   get wider, so the middle of the row moves toward the billow. An emblem jumps up and to one side on frame 3.
+2. **Fixed** by the stretch design. **The lining's hem shrinks to a point on the front walk.** On walk frames 7–9
+   (walking toward the viewer) the lining is a flap swinging out behind the body. Its lower edge runs diagonally
+   and ends in a thin point: on frame 7, rows 24–32 hold only 25 down to 2 pixels. The canvas's bottom rows (the
+   hem) land on that point, so a hem painted along the bottom shows as a few pixels at the tip. The rest of the
+   flap's lower edge gets the middle of the canvas. A gold hem shows on frame 6 and almost vanishes on 7–9, so it
+   flashes once per cycle.
 3. **Side-on poses squeeze the whole back into a strip.** Some attack and spell frames (for example sheet `c`
    frame 9, arms raised) show the cape nearly edge-on. The full back canvas, emblem included, is squeezed into a
    few columns.
-4. **Mirror flips around the canvas box, not the cloak.** `GuildCloakEditorModel.MirrorX` uses
+4. **Fixed** by the guild cloak audit (client `06af73d`): the mirror now flips a cell within its row's outline.
+   **Mirror flips around the canvas box, not the cloak.** `GuildCloakEditorModel.MirrorX` used
    `width − 1 − x`. The back canvas is 27 wide, but the cape flares to the left at the bottom. On the shoulders
    the cloak's middle is about column 15, not 13. A dab at column 19 should copy to column 11. It copies to
    column 7 instead, which is off the cloak there, so the copy is lost.
