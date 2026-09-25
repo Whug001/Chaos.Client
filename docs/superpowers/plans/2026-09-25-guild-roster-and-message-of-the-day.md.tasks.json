@@ -56,7 +56,7 @@
     {
       "id": 6,
       "subject": "Task 6: Commit the full implementation",
-      "status": "pending",
+      "status": "completed",
       "description": "**Goal:** Every test passes except the two known failures, the ideas doc marks 44 and 45 built, and the server branch, the Unora branch and this plan are each committed once.\n\n**Files:**\n- Modify: `UNO/docs/guild-hall-ideas.md`\n- Commit: every file listed in Tasks 1–5, in `SRV` and `UNO`\n- Commit: `Chaos.Client/docs/superpowers/plans/2026-09-25-guild-roster-and-message-of-the-day.md` and its `.tasks.json` (on `Chaos.Client` `main`, by path)\n\n**Acceptance Criteria:**\n- [ ] The full `Chaos.Tests` run fails only `GiveAbility` and `OnItemDroppedOn` (stackable)\n- [ ] `docs/guild-hall-ideas.md` says five ideas were built on 2026-09-25, says the leader switches eight powers, lists the two new hall behaviours, and marks ideas 44 and 45 built\n- [ ] `SRV` has one new commit on `feat/guild-roster-motd` with only this plan's server files\n- [ ] `UNO` has one new commit on `feat/guild-roster-motd` with only the six dialog files and the ideas doc, and no `Custom Client Mods` build output\n- [ ] The plan and tasks file are committed on `Chaos.Client` `main`, with nothing else in that commit\n\n**Verify:** `git -C C:/Users/Michael/Documents/GitHub/worktrees/guild-motd-server log --oneline -1` → the message-of-the-day commit\n\nPlan: `Chaos.Client/docs/superpowers/plans/2026-09-25-guild-roster-and-message-of-the-day.md` (Task 6 has the full code and steps).\n\n```json:metadata\n{\"files\": [\"UNO:docs/guild-hall-ideas.md\"], \"verifyCommand\": \"git -C C:/Users/Michael/Documents/GitHub/worktrees/guild-motd-server log --oneline -1\", \"acceptanceCriteria\": [\"full Chaos.Tests run fails only GiveAbility and OnItemDroppedOn (stackable)\", \"ideas doc: five built, two new hall bullets, ideas 44 and 45 marked built\", \"one SRV commit with only this plan's server files\", \"one UNO commit with only the six dialogs and the ideas doc, no Custom Client Mods obj output\", \"plan and tasks file committed alone on Chaos.Client main\"], \"modelTier\": \"mechanical\"}\n```",
       "blockedBy": [
         1,
@@ -67,5 +67,5 @@
       ]
     }
   ],
-  "lastUpdated": "2026-09-25T22:18:45.899498+00:00"
+  "lastUpdated": "2026-09-25T22:55:47.251407+00:00"
 }
