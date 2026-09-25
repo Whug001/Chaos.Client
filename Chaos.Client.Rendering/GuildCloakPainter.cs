@@ -7,9 +7,11 @@ using SkiaSharp;
 namespace Chaos.Client.Rendering;
 
 /// <summary>
-///     Paints a guild cloak design onto one frame of the guild cloak sprite. Each pixel takes its color from the same place
-///     (as a fraction of the outline) on a reference grid, and keeps the frame's own light and shadow. The numbers come from
-///     the design session's mapping test (<c>Unora/.superpowers/brainstorm/345065-1790308407/spike/fullpaint.py</c>).
+///     Paints a guild cloak design onto one frame of the guild cloak sprite. Each pixel takes its color from the reference
+///     grid's cell that <see cref="GuildCloakGrid.CellFor" /> picks, and keeps the frame's own light and shadow. The shading
+///     numbers come from the design session's mapping test
+///     (<c>Unora/.superpowers/brainstorm/345065-1790308407/spike/fullpaint.py</c>); the mapping rule is in
+///     <c>docs/superpowers/specs/2026-09-25-guild-cloak-stretch-design.md</c>.
 /// </summary>
 public static class GuildCloakPainter
 {
@@ -27,9 +29,6 @@ public static class GuildCloakPainter
     /// <summary>The brightness a dye pixel gets when none of its neighbours is cloth.</summary>
     private const int DARK_BRIGHTNESS = 31;
 
-    private const byte DYE_FIRST = 98;
-    private const byte DYE_LAST = 103;
-
     /// <summary>
     ///     The brightness a pixel's shade comes from: the largest channel of its palette color. The old rune and hem are drawn
     ///     in the dye slots, so a dye pixel borrows the middle brightness of the cloth around it and the rune disappears.
@@ -38,7 +37,7 @@ public static class GuildCloakPainter
     {
         var index = data[(y * width) + x];
 
-        if (index is < DYE_FIRST or > DYE_LAST)
+        if (!GuildCloakGrid.IsDye(index))
             return MaxChannel(palette[index]);
 
         Span<int> near = stackalloc int[4];
@@ -56,7 +55,7 @@ public static class GuildCloakPainter
 
             var neighbour = data[(ny * width) + nx];
 
-            if (neighbour is 0 or (>= DYE_FIRST and <= DYE_LAST))
+            if ((neighbour == 0) || GuildCloakGrid.IsDye(neighbour))
                 continue;
 
             near[count++] = MaxChannel(palette[neighbour]);
@@ -99,7 +98,8 @@ public static class GuildCloakPainter
         GuildCloakGrid reference,
         ReadOnlySpan<byte> cells,
         IReadOnlyList<SKColor> colors,
-        bool flip)
+        bool flip,
+        bool centreOnRune = false)
         => Paint(
             frame.PixelWidth,
             frame.PixelHeight,
@@ -108,11 +108,14 @@ public static class GuildCloakPainter
             reference,
             cells,
             colors,
-            flip);
+            flip,
+            centreOnRune);
 
     /// <summary>
     ///     The painted pixels of a frame, row-major, the frame's size. Empty pixels stay transparent. For a draw the renderer
     ///     will flip, <paramref name="flip" /> reads the design mirrored, so the flip turns it the right way round.
+    ///     <paramref name="centreOnRune" /> centres each row on the old rune (<see cref="GuildCloakGrid.RuneCentre" />); the
+    ///     renderer sets it for the Back part only.
     /// </summary>
     public static SKColor[] Paint(
         int width,
@@ -122,7 +125,8 @@ public static class GuildCloakPainter
         GuildCloakGrid reference,
         ReadOnlySpan<byte> cells,
         IReadOnlyList<SKColor> colors,
-        bool flip)
+        bool flip,
+        bool centreOnRune = false)
     {
         var result = new SKColor[width * height];
         var target = new GuildCloakGrid(width, height, data);
@@ -137,19 +141,12 @@ public static class GuildCloakPainter
             if (first < 0)
                 continue;
 
-            var v = target.BottomRow == target.TopRow ? 0.5f : (y - target.TopRow) / (float)(target.BottomRow - target.TopRow);
-
             for (var x = first; x <= last; x++)
             {
                 if (data[(y * width) + x] == 0)
                     continue;
 
-                var u = last == first ? 0.5f : (x - first) / (float)(last - first);
-
-                if (flip)
-                    u = 1f - u;
-
-                (var cellX, var cellY) = reference.CellAt(u, v);
+                (var cellX, var cellY) = reference.CellFor(target, x, y, flip, centreOnRune);
                 var color = colors[ColorNumberAt(reference, cells, cellX, cellY, colors.Count) - 1];
 
                 var shade = IsEdge(target, x, y)

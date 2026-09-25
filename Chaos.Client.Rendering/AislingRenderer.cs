@@ -1246,12 +1246,17 @@ public sealed class AislingRenderer : IDisposable
 
         var frontFacing = behindEpf is not null && (behindFrame >= 0) && GuildCloakGrid.HasPixels(behindEpf[behindFrame]);
 
-        var part = (typeLetter, frontFacing) switch
-        {
-            ('g', true) => GuildCloakPart.Lining,
-            ('c', true) => GuildCloakPart.Collar,
-            _           => GuildCloakPart.Back
-        };
+        //a cape flying out behind a side-on body shows its inside: no lining layer, and none of the old art's rune or hem
+        var insideView = (typeLetter == 'c') && !frontFacing && GuildCloakGrid.IsInsideView(frame);
+
+        var part = insideView
+            ? GuildCloakPart.Lining
+            : (typeLetter, frontFacing) switch
+            {
+                ('g', true) => GuildCloakPart.Lining,
+                ('c', true) => GuildCloakPart.Collar,
+                _           => GuildCloakPart.Back
+            };
 
         var palette = ResolvePalette(
             DrawData.GetPaletteLookup(typeLetter),
@@ -1268,7 +1273,8 @@ public sealed class AislingRenderer : IDisposable
             references.Grid(part),
             GuildCloakReferences.Cells(design, part),
             GuildCloakPainter.ToColors(design.Colors),
-            flip);
+            flip,
+            part == GuildCloakPart.Back);
 
         var image = GuildCloakPainter.ToImage(frame, pixels);
         CacheLayerImage(in cacheKey, image);

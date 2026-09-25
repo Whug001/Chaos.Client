@@ -88,7 +88,7 @@ For pixel (x, y) of target layer T, with canvas C. `centre` is true only when pa
 
 `NearestRow` clamps to `[Top, Bottom]` and searches outward for a filled row, trying the row below before the row
 above, as `CellAt` does today. `NearestColumn` picks the filled column closest to x, the left one on a tie.
-`round` is `MathF.Round` (midpoint to even), which matches the spike.
+`round` is `Math.Round` on doubles (midpoint to even), which matches the spike.
 
 At the top of a layer only the top reading counts, so the collar line stays where it is today. The bottom reading's
 share grows with height, and at the bottom of the layer it is the only one. So a column whose lowest pixel lies in
