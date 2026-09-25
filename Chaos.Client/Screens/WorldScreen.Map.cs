@@ -58,7 +58,7 @@ public sealed partial class WorldScreen
             SnapAmbientEffects = false;
 
             WorldState.CurrentZoneName = args.Name ?? string.Empty;
-            UpdateHuds(HudOps.SetZoneName, args.Name);
+            UpdateHuds(HudOps.SetZoneName, WorldState.CurrentZoneName);
 
             return;
         }
@@ -144,7 +144,7 @@ public sealed partial class WorldScreen
         SnapAmbientEffects = true;
 
         WorldState.CurrentZoneName = args.Name ?? string.Empty;
-        UpdateHuds(HudOps.SetZoneName, args.Name);
+        UpdateHuds(HudOps.SetZoneName, WorldState.CurrentZoneName);
         UpdateHuds(HudOps.ShowPersistentMessage, string.Empty);
     }
 

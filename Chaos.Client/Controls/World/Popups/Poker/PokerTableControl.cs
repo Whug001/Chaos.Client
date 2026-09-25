@@ -814,7 +814,8 @@ public sealed class PokerTableControl : FramedDialogPanelBase
         }
 
         //wired after the picker exists rather than beside the button: the handler captures it, and the field is
-        //still null at the point the button is created.
+        //still null at the point the button is created. RanksWindow and ChatPrompt are built further down, so the
+        //handlers mark them non-null: they only run on a click, after the constructor has finished.
         EmoteButton.Clicked += () =>
         {
             if (EmotePicker.Visible)
@@ -826,8 +827,8 @@ public sealed class PokerTableControl : FramedDialogPanelBase
 
             //only one of the two overlays at a time -- both sit at the same ZIndex over the same middle of the
             //felt, and the prompt, added later, would draw over the picker and take the clicks meant for it.
-            ChatPrompt.Close();
-            RanksWindow.Visible = false;
+            ChatPrompt!.Close();
+            RanksWindow!.Visible = false;
             EmotePicker.Visible = true;
         };
 
@@ -932,7 +933,7 @@ public sealed class PokerTableControl : FramedDialogPanelBase
 
             //one overlay at a time -- all three sit at the same ZIndex over the same middle of the felt
             EmotePicker.Visible = false;
-            ChatPrompt.Close();
+            ChatPrompt!.Close();
             RanksWindow.Visible = true;
         };
 
