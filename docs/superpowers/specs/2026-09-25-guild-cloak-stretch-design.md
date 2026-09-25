@@ -27,7 +27,7 @@ This change fixes all three with a new fitting rule and one new canvas choice. N
 
 - The heart (or any emblem) stays over the middle of the back when the cape billows.
 - Whatever is painted along the bottom of a canvas runs along the frame's real lower edge, even when that edge is
-  diagonal.
+  diagonal, wherever the edge lies in the lower part of the frame (as cape hems do).
 - Inside-of-cape frames show the lining design.
 - On the three reference frames the editor shows, the painted result is exactly the canvas, cell for cell.
 
@@ -90,9 +90,12 @@ For pixel (x, y) of target layer T, with canvas C. `centre` is true only when pa
 above, as `CellAt` does today. `NearestColumn` picks the filled column closest to x, the left one on a tie.
 `round` is `MathF.Round` (midpoint to even), which matches the spike.
 
-At the top of a layer only the top reading counts, so the collar line stays where it is today. At the bottom only
-the bottom reading counts, so every column's lowest pixel reads the canvas's bottom edge. On a reference frame both
-readings give the pixel's own cell.
+At the top of a layer only the top reading counts, so the collar line stays where it is today. The bottom reading's
+share grows with height, and at the bottom of the layer it is the only one. So a column whose lowest pixel lies in
+the lower part of the layer reads at or near the canvas's bottom edge. On front walk frames 7–9 the flap's lower
+edge lies in the lowest third of the layer, which puts the whole hem band along it. A column bottom near the middle
+of the layer reads only partway toward the canvas's bottom edge. On a reference frame both readings give the
+pixel's own cell.
 
 ### Inside-of-cape frames
 
@@ -153,7 +156,8 @@ new test is written first and seen failing on today's rule where the old rule di
 
 1. A bell-shaped back with a rune and a hem, painted onto its own grid, returns every cell exactly. So does a
    lining-shaped frame with no rune.
-2. On a flap whose bottom edge runs diagonally, every column's bottom pixel gets the canvas's hem color.
+2. On a flap whose bottom edge runs diagonally through the lowest third of the layer, every column's bottom pixel
+   gets the canvas's hem color.
 3. On a frame whose rune sits off to one side, the rune's centre column reads the canvas's centre stripe. A flipped
    draw mirrors around the rune, not around the box's middle.
 4. Dye pixels within 3 rows of their column's bottom don't count as rune. Fewer than 10 rune pixels gives no centre.
