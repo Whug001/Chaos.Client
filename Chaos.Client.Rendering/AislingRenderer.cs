@@ -88,7 +88,7 @@ public sealed class AislingRenderer : IDisposable
     ///     This fork's server also uses it as the mounted-rider sprite, so gear is hidden for this id; see
     ///     the <c>isMounted</c> checks in <see cref="RenderAllLayers" />.
     /// </summary>
-    private const int HEAD_BODY_ID = 5;
+    public const int HEAD_BODY_ID = 5;
 
     private const int NO_BODY_ID = 0;
     private const int PANTS_ID = 1;

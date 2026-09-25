@@ -39,7 +39,7 @@ public static class AnimationSystem
     /// <summary>
     ///     Unora's Magic Carpet accessory. A character wearing it keeps its standing pose while it walks, so it glides from
     ///     tile to tile instead of stepping. The carpet's walk frames match its standing ones, so clients that still play
-    ///     the steps draw it correctly too.
+    ///     the steps draw it correctly too. A mounted rider steps with the mount instead.
     /// </summary>
     public const int MAGIC_CARPET_SPRITE = 320;
 
@@ -516,10 +516,13 @@ public static class AnimationSystem
     }
 
     /// <summary>
-    ///     True when any accessory slot holds Unora's Magic Carpet (<see cref="MAGIC_CARPET_SPRITE" />).
+    ///     True when any accessory slot holds Unora's Magic Carpet (<see cref="MAGIC_CARPET_SPRITE" />) and the character
+    ///     is not mounted. A mounted rider (<see cref="AislingRenderer.HEAD_BODY_ID" />) keeps its accessories in the
+    ///     appearance, but the mount art replaces them, so the mount's own walk steps play.
     /// </summary>
     private static bool RidesMagicCarpet(WorldEntity entity)
         => entity.Appearance is { } appearance
+           && (appearance.BodySpriteId != AislingRenderer.HEAD_BODY_ID)
            && ((appearance.Accessory1Sprite == MAGIC_CARPET_SPRITE)
                || (appearance.Accessory2Sprite == MAGIC_CARPET_SPRITE)
                || (appearance.Accessory3Sprite == MAGIC_CARPET_SPRITE));

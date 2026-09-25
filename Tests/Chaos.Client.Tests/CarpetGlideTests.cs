@@ -65,4 +65,19 @@ public class CarpetGlideTests
 
         AnimationSystem.GetAislingFrame(entity).FrameIndex.Should().Be(0);
     }
+
+    /// <summary>
+    ///     A mounted rider (the head form, body id 5) walks with the mount's steps. The mount art replaces the carpet, so
+    ///     the carpet must not hold the standing pose.
+    /// </summary>
+    [Test]
+    public void AMountedCarpetWearerSteps()
+    {
+        var entity = Walker(Direction.Right, AnimationSystem.MAGIC_CARPET_SPRITE, 16);
+        entity.Appearance = entity.Appearance!.Value with { BodySpriteId = 5 };
+
+        AnimationSystem.GetAislingFrame(entity)
+                       .Should()
+                       .Be((8, false, "01", true));
+    }
 }
