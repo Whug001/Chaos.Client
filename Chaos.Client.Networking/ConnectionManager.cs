@@ -568,6 +568,18 @@ public sealed class ConnectionManager : IDisposable
     /// </summary>
     public event StageLightingBoardHandler? OnStageLightingBoard;
 
+    /// <summary>Fired when the server opens the guild cloak editor or updates its status line.</summary>
+    public event GuildCloakEditorHandler? OnGuildCloakEditor;
+
+    /// <summary>Fired when the server says which design a player's guild cloak shows.</summary>
+    public event GuildCloakLookHandler? OnGuildCloakLook;
+
+    /// <summary>Fired when an approved guild cloak design arrives.</summary>
+    public event GuildCloakDesignHandler? OnGuildCloakDesign;
+
+    /// <summary>Fired when the server opens or updates the guild cloak review window.</summary>
+    public event GuildCloakReviewListHandler? OnGuildCloakReviewList;
+
     /// <summary>
     ///     Fired when door states are updated.
     /// </summary>
@@ -1286,6 +1298,16 @@ public sealed class ConnectionManager : IDisposable
     /// <summary>Sends one Stage Lighting edit. The server checks the sender's role and every value.</summary>
     public void SendStageLightingInteraction(StageLightingInteractionArgs args) => SendIfWorld(args);
 
+
+    /// <summary>Sends a save or submit from the guild cloak editor. The server checks the sender and the design.</summary>
+    public void SendGuildCloakEditorInteraction(GuildCloakEditorInteractionArgs args) => SendIfWorld(args);
+
+    /// <summary>Asks for one approved guild cloak design.</summary>
+    public void SendGuildCloakDesignRequest(int designId) => SendIfWorld(new GuildCloakDesignRequestArgs { DesignId = designId });
+
+    /// <summary>Sends an admin's approve or reject. The server checks the sender is an admin.</summary>
+    public void SendGuildCloakReviewInteraction(GuildCloakReviewInteractionArgs args) => SendIfWorld(args);
+
     /// <summary>
     ///     Sends a market buy request for a specific listing.
     /// </summary>
@@ -1680,6 +1702,10 @@ public sealed class ConnectionManager : IDisposable
         PacketHandlers[(byte)ServerOpCode.BugReportOpen] = HandleBugReportOpen;
         PacketHandlers[(byte)ServerOpCode.StageLightingState] = HandleStageLightingState;
         PacketHandlers[(byte)ServerOpCode.StageLightingBoard] = HandleStageLightingBoard;
+        PacketHandlers[(byte)ServerOpCode.GuildCloakEditor] = HandleGuildCloakEditor;
+        PacketHandlers[(byte)ServerOpCode.GuildCloakLook] = HandleGuildCloakLook;
+        PacketHandlers[(byte)ServerOpCode.GuildCloakDesign] = HandleGuildCloakDesign;
+        PacketHandlers[(byte)ServerOpCode.GuildCloakReviewList] = HandleGuildCloakReviewList;
         PacketHandlers[(byte)ServerOpCode.DisplayAisling] = HandleDisplayAisling;
 
         //world entities
@@ -2121,6 +2147,31 @@ public sealed class ConnectionManager : IDisposable
     {
         var args = Client.Deserialize<StageLightingBoardArgs>(in pkt);
         OnStageLightingBoard?.Invoke(args);
+    }
+
+
+    private void HandleGuildCloakEditor(ServerPacket pkt)
+    {
+        var args = Client.Deserialize<GuildCloakEditorArgs>(in pkt);
+        OnGuildCloakEditor?.Invoke(args);
+    }
+
+    private void HandleGuildCloakLook(ServerPacket pkt)
+    {
+        var args = Client.Deserialize<GuildCloakLookArgs>(in pkt);
+        OnGuildCloakLook?.Invoke(args);
+    }
+
+    private void HandleGuildCloakDesign(ServerPacket pkt)
+    {
+        var args = Client.Deserialize<GuildCloakDesignArgs>(in pkt);
+        OnGuildCloakDesign?.Invoke(args);
+    }
+
+    private void HandleGuildCloakReviewList(ServerPacket pkt)
+    {
+        var args = Client.Deserialize<GuildCloakReviewListArgs>(in pkt);
+        OnGuildCloakReviewList?.Invoke(args);
     }
 
     private void HandleDisplayAisling(ServerPacket pkt)

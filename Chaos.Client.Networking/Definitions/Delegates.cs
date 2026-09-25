@@ -421,4 +421,17 @@ public delegate void StageLightingStateHandler(StageLightingStateArgs args);
 ///     Fired when the server opens, updates or closes the Stage Lighting window.
 /// </summary>
 public delegate void StageLightingBoardHandler(StageLightingBoardArgs args);
+
+
+/// <summary>Handles the guild cloak editor opening or its status line changing.</summary>
+public delegate void GuildCloakEditorHandler(GuildCloakEditorArgs args);
+
+/// <summary>Handles which design one player's guild cloak shows.</summary>
+public delegate void GuildCloakLookHandler(GuildCloakLookArgs args);
+
+/// <summary>Handles one approved guild cloak design arriving.</summary>
+public delegate void GuildCloakDesignHandler(GuildCloakDesignArgs args);
+
+/// <summary>Handles the guild cloak review list opening or changing.</summary>
+public delegate void GuildCloakReviewListHandler(GuildCloakReviewListArgs args);
 #endregion
