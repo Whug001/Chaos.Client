@@ -37,6 +37,7 @@ public sealed class GuildCloakPreview : UIElement
         (0, true, false)
     ];
 
+    private readonly GuildCloakWalkCycle Cycle = new(WALK_STEPS, STEP_MS);
     private readonly Texture2D?[] Frames = new Texture2D?[WALK_STEPS];
 
     //a step the renderer could not draw, so Draw does not retry it every frame
@@ -46,8 +47,6 @@ public sealed class GuildCloakPreview : UIElement
     private Gender BodyGender = Gender.Male;
     private int DesignId;
     private int Facing;
-    private int Step;
-    private double StepElapsedMs;
 
     public GuildCloakPreview(AislingRenderer renderer, int width, int height)
     {
@@ -59,6 +58,7 @@ public sealed class GuildCloakPreview : UIElement
     }
 
     public bool IsMale => BodyGender == Gender.Male;
+    public bool Paused => Cycle.Paused;
 
     public override void Dispose()
     {
@@ -76,13 +76,15 @@ public sealed class GuildCloakPreview : UIElement
 
         DrawTexture(spriteBatch, Pedestal, new Vector2(ScreenX, ScreenY), Color.White);
 
-        if (!Failed[Step] && Frames[Step] is null)
+        var step = Cycle.Step;
+
+        if (!Failed[step] && Frames[step] is null)
         {
-            Frames[Step] = RenderStep(Step);
-            Failed[Step] = Frames[Step] is null;
+            Frames[step] = RenderStep(step);
+            Failed[step] = Frames[step] is null;
         }
 
-        if (Frames[Step] is not { } figure)
+        if (Frames[step] is not { } figure)
             return;
 
         //2x when the figure's height fits. The composite is 111 px wide (the body plus 27 px of layer padding each side),
@@ -123,11 +125,16 @@ public sealed class GuildCloakPreview : UIElement
         ReleaseFrames();
     }
 
+    /// <summary>Pauses and moves <paramref name="delta" /> walk steps. Turning and switching body keep the step.</summary>
+    public void StepBy(int delta) => Cycle.StepBy(delta);
+
     public void ToggleBody()
     {
         BodyGender = IsMale ? Gender.Female : Gender.Male;
         ReleaseFrames();
     }
+
+    public void TogglePause() => Cycle.TogglePause();
 
     public void Turn(int delta)
     {
@@ -142,13 +149,7 @@ public sealed class GuildCloakPreview : UIElement
         if (!Visible)
             return;
 
-        StepElapsedMs += gameTime.ElapsedGameTime.TotalMilliseconds;
-
-        if (StepElapsedMs < STEP_MS)
-            return;
-
-        StepElapsedMs = 0;
-        Step = (Step + 1) % WALK_STEPS;
+        Cycle.Advance(gameTime.ElapsedGameTime.TotalMilliseconds);
     }
 
     private Texture2D? RenderStep(int step)

@@ -93,8 +93,18 @@ public sealed class GuildCloakGrid
 
     public static GuildCloakGrid FromFrame(EpfFrame frame) => new(frame.PixelWidth, frame.PixelHeight, frame.Data);
 
+    /// <summary>
+    ///     True when the frame's own box holds a pixel. DALib returns most retail frames with the later frames' bytes after
+    ///     their own (their table's end address is not a real one), so only the first width x height bytes are the frame.
+    /// </summary>
     public static bool HasPixels(EpfFrame frame)
-        => (frame.PixelWidth > 0) && (frame.PixelHeight > 0) && frame.Data.AsSpan().ContainsAnyExcept((byte)0);
+    {
+        var size = frame.PixelWidth * frame.PixelHeight;
+
+        return (frame.PixelWidth > 0)
+               && (frame.PixelHeight > 0)
+               && frame.Data.AsSpan(0, Math.Min(size, frame.Data.Length)).ContainsAnyExcept((byte)0);
+    }
 
     public bool IsFilled(int x, int y) => (x >= 0) && (y >= 0) && (x < Width) && (y < Height) && Filled[(y * Width) + x];
 

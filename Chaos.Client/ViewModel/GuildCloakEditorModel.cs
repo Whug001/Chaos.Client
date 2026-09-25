@@ -22,6 +22,7 @@ public sealed class GuildCloakEditorModel
 {
     public const int MAX_UNDO = 50;
 
+    private readonly Action<byte[]>? FillHiddenLining;
     private readonly Func<GuildCloakPart, int, int, bool> IsPaintable;
     private readonly List<GuildCloakDesign> RedoSteps = [];
     private readonly List<GuildCloakDesign> UndoSteps = [];
@@ -29,7 +30,15 @@ public sealed class GuildCloakEditorModel
     private bool StrokeRecorded;
 
     /// <param name="isPaintable">Whether a cell lies inside the cloak's outline (its reference frame has a pixel there).</param>
-    public GuildCloakEditorModel(Func<GuildCloakPart, int, int, bool> isPaintable) => IsPaintable = isPaintable;
+    /// <param name="fillHiddenLining">
+    ///     Recolors the lining cells the collar hides from the lining around them. Run after every change and on load, so
+    ///     the design that is saved and submitted never shows an unpainted strip.
+    /// </param>
+    public GuildCloakEditorModel(Func<GuildCloakPart, int, int, bool> isPaintable, Action<byte[]>? fillHiddenLining = null)
+    {
+        IsPaintable = isPaintable;
+        FillHiddenLining = fillHiddenLining;
+    }
 
     public bool CanRedo => RedoSteps.Count > 0;
     public bool CanUndo => UndoSteps.Count > 0;
@@ -107,10 +116,14 @@ public sealed class GuildCloakEditorModel
             _                     => GuildCloakProtocol.COLLAR_HEIGHT
         };
 
-    /// <summary>Starts over from a design sent by the server: no history, color 1 selected, nothing unsaved.</summary>
+    /// <summary>
+    ///     Starts over from a design sent by the server: no history, color 1 selected, nothing unsaved. The hidden lining
+    ///     cells are refilled without counting as a change.
+    /// </summary>
     public void Load(GuildCloakDesign design)
     {
         Design = design.DeepCopy();
+        FillHiddenLining?.Invoke(Design.Lining);
         SelectedColor = 1;
         UndoSteps.Clear();
         RedoSteps.Clear();
@@ -200,6 +213,7 @@ public sealed class GuildCloakEditorModel
 
     private void Changed()
     {
+        FillHiddenLining?.Invoke(Design.Lining);
         IsDirty = true;
         Version++;
     }

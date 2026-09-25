@@ -115,6 +115,22 @@ public class GuildCloakPainterTests
     }
 
     [Test]
+    public void HasPixels_reads_only_the_frame_box()
+    {
+        //DALib returns most retail frames with the later frames' bytes after their own: a blank 1x1 frame stays blank
+        var frame = new EpfFrame
+        {
+            Left = 0,
+            Top = 0,
+            Right = 1,
+            Bottom = 1,
+            Data = [0, 25, 25, 25]
+        };
+
+        GuildCloakGrid.HasPixels(frame).Should().BeFalse();
+    }
+
+    [Test]
     public void CellAt_skips_empty_rows_to_the_nearest_filled_row()
     {
         var data = new byte[15];

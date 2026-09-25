@@ -175,6 +175,36 @@ public class GuildCloakEditorModelTests
         model.Design.Colors.Should().HaveCount(1);
     }
 
+    /// <summary>A model whose only hidden lining cell is (0, 0), filled from the cell below it.</summary>
+    private static GuildCloakEditorModel HiddenCorner()
+        => new((_, _, _) => true, lining => lining[0] = lining[GuildCloakProtocol.LINING_WIDTH]);
+
+    [Test]
+    public void A_change_refills_the_hidden_lining()
+    {
+        var model = HiddenCorner();
+        model.AddColor(new GuildCloakColor(200, 0, 0));
+
+        model.Apply(GuildCloakPart.Lining, 0, 1);
+
+        model.CellAt(GuildCloakPart.Lining, 0, 0).Should().Be(2);
+    }
+
+    [Test]
+    public void Load_refills_the_hidden_lining_without_marking_a_change()
+    {
+        var model = HiddenCorner();
+        var design = GuildCloakDesign.CreateDefault();
+        design.Colors.Add(new GuildCloakColor(200, 0, 0));
+        design.Lining[GuildCloakProtocol.LINING_WIDTH] = 2;
+
+        model.Load(design);
+
+        model.CellAt(GuildCloakPart.Lining, 0, 0).Should().Be(2);
+        model.IsDirty.Should().BeFalse();
+        design.Lining[0].Should().Be(1);
+    }
+
     [Test]
     public void The_painted_design_is_always_valid()
     {
