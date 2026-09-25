@@ -21,7 +21,7 @@ namespace Chaos.Client.Controls.World.Popups.GuildCloak;
 /// </summary>
 /// <remarks>
 ///     Layout, left to right: the waiting list, the front canvas, the back canvas, the preview column. Below all of that (the
-///     list's page row and the preview's turn/body row are the tallest columns) sits the submission info line, the reject
+///     list's page row and the preview's turn/body and step rows are the tallest columns) sits the submission info line, the reject
 ///     reason box, and Approve / Reject; under that is the frame's ornate bottom border with the Close button. As in the
 ///     editor window (Task 8), the window's height follows the tallest column rather than a fixed constant, so it always
 ///     clears <see cref="FramedDialogPanelBase.BORDER_BOTTOM_HEIGHT" />.
@@ -91,12 +91,13 @@ public sealed class GuildCloakReviewControl : GuildCloakDialogBase
         var previewLeft = BackCanvas.X + BackCanvas.Width + GAP;
         var pageTop = CONTENT_TOP + (PAGE_SIZE * (CustomButton.HEIGHT + 3)) + 4;
         var turnTop = CONTENT_TOP + PREVIEW_HEIGHT + 4;
+        var stepTop = turnTop + CustomButton.HEIGHT + 4;
 
         //the tallest of the three columns decides where the info/reason/decide row starts: the list (page row),
-        //the canvases, or the preview (turn/body row). The brief placed this row right under the canvases alone,
-        //which the list's page row and the preview's turn row both run past (see task-9-report.md).
+        //the canvases, or the preview (turn/body row, then the step row). The brief placed this row right under the
+        //canvases alone, which the list's page row and the preview's rows both run past (see task-9-report.md).
         var contentBottom = Math.Max(
-            Math.Max(pageTop + CustomButton.HEIGHT, turnTop + CustomButton.HEIGHT),
+            Math.Max(pageTop + CustomButton.HEIGHT, stepTop + CustomButton.HEIGHT),
             Math.Max(FrontCanvas.Y + FrontCanvas.Height, BackCanvas.Y + BackCanvas.Height));
 
         var infoTop = contentBottom + BOTTOM_ROW_GAP;
@@ -145,6 +146,7 @@ public sealed class GuildCloakReviewControl : GuildCloakDialogBase
         AddButton("<", SMALL_BUTTON, previewLeft, turnTop, () => Preview.Turn(-1));
         AddButton(">", SMALL_BUTTON, previewLeft + SMALL_BUTTON + 4, turnTop, () => Preview.Turn(1));
         AddButton("Body", 50, previewLeft + PREVIEW_WIDTH - 50, turnTop, Preview.ToggleBody);
+        AddStepButtons(Preview, previewLeft, stepTop, PREVIEW_WIDTH);
 
         EmptyLabel = Caption(
             "No designs are waiting.",

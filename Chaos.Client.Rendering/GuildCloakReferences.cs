@@ -29,6 +29,16 @@ public sealed class GuildCloakReferences
         Back = GuildCloakGrid.FromFrame(backFrame);
         Lining = GuildCloakGrid.FromFrame(liningFrame);
         Collar = GuildCloakGrid.FromFrame(collarFrame);
+        HiddenLining = new bool[Lining.Width * Lining.Height];
+
+        //the Front canvas draws both frames at their own positions, so a collar cell sits on the lining cell this far away
+        var dx = collarFrame.Left - liningFrame.Left;
+        var dy = collarFrame.Top - liningFrame.Top;
+
+        for (var y = 0; y < Collar.Height; y++)
+            for (var x = 0; x < Collar.Width; x++)
+                if (Collar.IsFilled(x, y) && Lining.IsFilled(x + dx, y + dy))
+                    HiddenLining[((y + dy) * Lining.Width) + x + dx] = true;
     }
 
     public GuildCloakGrid Back { get; }
@@ -36,6 +46,10 @@ public sealed class GuildCloakReferences
     public EpfFrame? BodyFront { get; }
     public GuildCloakGrid Collar { get; }
     public EpfFrame CollarFrame { get; }
+
+    /// <summary>The lining cells a collar pixel covers on the Front canvas, row-major in the lining grid.</summary>
+    public bool[] HiddenLining { get; }
+
     public GuildCloakGrid Lining { get; }
     public EpfFrame LiningFrame { get; }
 
@@ -55,6 +69,33 @@ public sealed class GuildCloakReferences
             GuildCloakPart.Lining => design.Lining,
             _                     => design.Collar
         };
+
+    /// <summary>
+    ///     Gives each lining cell the collar hides on the Front canvas the color of the nearest visible lining cell below it.
+    ///     Those cells can't be painted, but they show when the cape swings out from under the collar. A cell with no visible
+    ///     lining below it keeps its color.
+    /// </summary>
+    public void FillHiddenLining(byte[] lining)
+    {
+        var width = Lining.Width;
+
+        for (var y = 0; y < Lining.Height; y++)
+            for (var x = 0; x < width; x++)
+            {
+                if (!HiddenLining[(y * width) + x])
+                    continue;
+
+                for (var below = y + 1; below < Lining.Height; below++)
+                {
+                    if (!Lining.IsFilled(x, below) || HiddenLining[(below * width) + x])
+                        continue;
+
+                    lining[(y * width) + x] = lining[(below * width) + x];
+
+                    break;
+                }
+            }
+    }
 
     public GuildCloakGrid Grid(GuildCloakPart part)
         => part switch

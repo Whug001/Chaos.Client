@@ -403,7 +403,8 @@ Two server tests already fail on master (`GiveAbility`, `OnItemDroppedOn` stacka
 ## Risks
 
 - **Stretched detail.** Turning and attacking frames squash the emblem. Accepted: large shapes stay
-  readable, and the editor's live preview shows it before submitting.
+  readable, and the editor's live preview shows it before submitting. What still stretches badly, and the
+  approaches to try, are in `2026-09-25-guild-cloak-stretch-notes.md` (deferred work).
 - **Bad designs.** Review stops them before anyone sees them. An approved design reported later can be
   cleared.
 - **Guild renames.** Designs are keyed by guild name, like the guild hall data. A renamed guild loses its

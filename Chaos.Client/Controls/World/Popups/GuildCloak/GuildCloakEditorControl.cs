@@ -93,7 +93,7 @@ public sealed class GuildCloakEditorControl : GuildCloakDialogBase
         : base("_nsett", false)
     {
         Renderer = renderer;
-        Model = new GuildCloakEditorModel((part, x, y) => references.Grid(part).IsFilled(x, y));
+        Model = new GuildCloakEditorModel((part, x, y) => references.Grid(part).IsFilled(x, y), references.FillHiddenLining);
         Name = "GuildCloakEditor";
         Visible = false;
         UsesControlStack = true;
@@ -113,12 +113,13 @@ public sealed class GuildCloakEditorControl : GuildCloakDialogBase
         //the size follows the canvases, which follow the art's frame sizes
         var previewLeft = BackCanvas.X + BackCanvas.Width + GAP;
         var turnTop = CONTENT_TOP + PREVIEW_HEIGHT + 4;
+        var stepTop = turnTop + CustomButton.HEIGHT + 4;
         var toolsTop = CONTENT_TOP + GuildCloakSwatches.TOTAL_HEIGHT + 10;
         var toolsBottom = toolsTop + (TOOL_COUNT * (CustomButton.HEIGHT + TOOL_SPACING)) - TOOL_SPACING;
 
         var contentBottom = Math.Max(
             Math.Max(FrontCanvas.Y + FrontCanvas.Height, BackCanvas.Y + BackCanvas.Height),
-            Math.Max(turnTop + CustomButton.HEIGHT, toolsBottom));
+            Math.Max(stepTop + CustomButton.HEIGHT, toolsBottom));
 
         var bottomRowTop = contentBottom + BOTTOM_ROW_GAP;
         Width = previewLeft + PREVIEW_WIDTH + LEFT;
@@ -181,6 +182,7 @@ public sealed class GuildCloakEditorControl : GuildCloakDialogBase
         AddButton("<", TURN_WIDTH, previewLeft, turnTop, () => Preview.Turn(-1));
         AddButton(">", TURN_WIDTH, previewLeft + TURN_WIDTH + 4, turnTop, () => Preview.Turn(1));
         BodyButton = AddButton("Female", BODY_WIDTH, previewLeft + PREVIEW_WIDTH - BODY_WIDTH, turnTop, ToggleBody);
+        AddStepButtons(Preview, previewLeft, stepTop, PREVIEW_WIDTH);
 
         SubmitButton = AddButton(
             "Submit",
