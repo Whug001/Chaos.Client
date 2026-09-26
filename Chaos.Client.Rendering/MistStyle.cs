@@ -175,7 +175,6 @@ public sealed record MistStyle
         VignetteInner = 0.6f
     };
 
-
     /// <summary>Dark violet dim with slow shadow wisps and heavy dark edges.</summary>
     public static MistStyle Gloom { get; } = new()
     {

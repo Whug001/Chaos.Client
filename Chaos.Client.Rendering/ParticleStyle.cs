@@ -99,7 +99,7 @@ public sealed record ParticleStyle
     /// <summary>1 draws one pair of wings; 2 adds a smaller lower pair, like fairy wings.</summary>
     public int WingPairs { get; init; } = 1;
 
-    /// <summary>Wing beats per second.</summary>
+    /// <summary>Wing flap cycles per second. The wings beat twice per cycle, so 7 gives 14 beats a second.</summary>
     public float WingFlapMin { get; init; } = 2f;
 
     public float WingFlapMax { get; init; } = 2f;
@@ -243,7 +243,6 @@ public sealed record ParticleStyle
         AlphaMin = 0.35f,
         AlphaMax = 0.7f
     };
-
 
     /// <summary>Golden motes rising and glimmering. Paired with the Radiance mist.</summary>
     public static ParticleStyle RadianceMotes { get; } = new()
