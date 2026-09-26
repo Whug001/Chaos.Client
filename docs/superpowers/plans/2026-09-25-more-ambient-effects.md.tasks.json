@@ -5,7 +5,7 @@
       "id": 8,
       "planTask": 1,
       "subject": "Task 1: Make the three worktrees and check the baseline",
-      "status": "pending",
+      "status": "completed",
       "blockedBy": [],
       "description": "**Goal:** Three `feat/more-ambient-effects` worktrees exist on the agreed bases, and both solutions build there before any change.\n\n**Files:**\n- Create: `C:\\Users\\Michael\\Documents\\GitHub\\worktrees\\ambient-server`, `...\\ambient-client`, `...\\ambient-unora` (git worktrees)\n\n**Acceptance Criteria:**\n- [ ] `git -C <worktree> branch --show-current` prints `feat/more-ambient-effects` in all three\n- [ ] Server worktree HEAD is `f90d470f3`, Unora worktree HEAD is `ad2031769`, and client worktree HEAD contains `2ba6bee`\n- [ ] `dotnet build Chaos.slnx` succeeds in the server worktree\n- [ ] The client test project builds against the server worktree\n\n**Verify:** `git -C C:/Users/Michael/Documents/GitHub/worktrees/ambient-server log --oneline -1` → `f90d470f3 ...`\n\n**Plan:** 2026-09-25-more-ambient-effects.md, Task 1\n\n```json:metadata\n{\"files\": [], \"verifyCommand\": \"git -C C:/Users/Michael/Documents/GitHub/worktrees/ambient-server log --oneline -1\", \"acceptanceCriteria\": [\"All three worktrees on feat/more-ambient-effects\", \"Server at f90d470f3, Unora at ad2031769, client contains 2ba6bee\", \"Server solution builds\", \"Client test project builds against the server worktree\"], \"modelTier\": \"mechanical\"}\n```"
     },
@@ -13,7 +13,7 @@
       "id": 3,
       "planTask": 2,
       "subject": "Task 2: Widen MapFlags to 8 bytes and add the 11 flags (server)",
-      "status": "pending",
+      "status": "completed",
       "blockedBy": [
         8
       ],
@@ -23,7 +23,7 @@
       "id": 5,
       "planTask": 3,
       "subject": "Task 3: Second page for the theatre stage-effects menu",
-      "status": "pending",
+      "status": "completed",
       "blockedBy": [
         3
       ],
@@ -33,7 +33,7 @@
       "id": 9,
       "planTask": 4,
       "subject": "Task 4: Optional wings on particles (client)",
-      "status": "pending",
+      "status": "completed",
       "blockedBy": [
         8
       ],
@@ -43,7 +43,7 @@
       "id": 4,
       "planTask": 5,
       "subject": "Task 5: The 11 effects in the client: presets, draw order and guard tests",
-      "status": "pending",
+      "status": "completed",
       "blockedBy": [
         3,
         9
@@ -54,7 +54,7 @@
       "id": 6,
       "planTask": 6,
       "subject": "Task 6: Docs for the new effects",
-      "status": "pending",
+      "status": "completed",
       "blockedBy": [
         5,
         4
@@ -65,7 +65,7 @@
       "id": 7,
       "planTask": 7,
       "subject": "Task 7: In-game check of every new effect and the theatre pages",
-      "status": "pending",
+      "status": "completed",
       "blockedBy": [
         5,
         4
@@ -76,7 +76,7 @@
       "id": 10,
       "planTask": 8,
       "subject": "Task 8: Commit the full implementation",
-      "status": "pending",
+      "status": "completed",
       "blockedBy": [
         8,
         3,
@@ -89,5 +89,5 @@
       "description": "**Goal:** One commit per repo on `feat/more-ambient-effects`: server first, then the client pointing its `Chaos-Server` submodule at that server commit, then Unora. Nothing is merged or pushed.\n\n**Files:** the files changed by Tasks 2–6, staged by explicit path.\n\n**Acceptance Criteria:**\n- [ ] The server worktree has one new commit containing exactly the Task 2 and Task 3 server files (plus any extra file Task 2 had to fix)\n- [ ] The client worktree has one new commit with the Task 4–6 client files, and `Chaos-Server` recorded at the new server commit\n- [ ] The Unora worktree has one new commit containing only the page-2 dialog JSON and `docs/ambient-map-effects.md`\n- [ ] No commit contains `appsettings.json`, `launchSettings.json`, `Data/Saved` or `Data/LocalStorage`\n- [ ] `git status --short` in each worktree shows nothing staged afterwards\n\n**Verify:** `git -C <each worktree> show --stat HEAD` lists exactly the expected files\n\n**Plan:** 2026-09-25-more-ambient-effects.md, Task 8\n\n```json:metadata\n{\"files\": [], \"verifyCommand\": \"git -C C:/Users/Michael/Documents/GitHub/worktrees/ambient-server show --stat --oneline HEAD\", \"acceptanceCriteria\": [\"One server commit with exactly the Task 2-3 server files\", \"One client commit with the Task 4-6 client files and Chaos-Server at the server commit\", \"One Unora commit with only the dialog JSON and the effects doc\", \"No appsettings, launchSettings, Data/Saved or Data/LocalStorage in any commit\", \"Nothing left staged\"], \"modelTier\": \"mechanical\"}\n```"
     }
   ],
-  "lastUpdated": "2026-09-25T23:21:51.633228+00:00"
+  "lastUpdated": "2026-09-26T00:08:00.624511+00:00"
 }
