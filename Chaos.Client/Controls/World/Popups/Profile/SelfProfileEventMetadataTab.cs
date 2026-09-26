@@ -5,26 +5,39 @@ using Chaos.Client.Controls.Scrolling;
 using Chaos.Client.Data.Models;
 using Chaos.DarkAges.Definitions;
 using Microsoft.Xna.Framework;
+using Microsoft.Xna.Framework.Graphics;
 #endregion
 
 namespace Chaos.Client.Controls.World.Popups.Profile;
 
 /// <summary>
-///     Events/quest tab page (_nui_ev). Three display pages, each with two columns (EV1 left, EV2 right).
+///     Events/quest tab page (_nui_ev). Four display pages, each with two columns (EV1 left, EV2 right).
 ///     Each column corresponds to one SEvent file (circle level). NEXT/PREV buttons cycle through pages.
 ///     Each row uses the _nui_ski prefab with a leicon.epf state icon (completed/available/unavailable).
-///     Layout: Page 0 = SEvent1|SEvent2, Page 1 = SEvent3|SEvent4, Page 2 = SEvent5|SEvent6+7.
+///     Layout: Page 0 = SEvent1|SEvent2, Page 1 = SEvent3|SEvent4, Page 2 = SEvent5|SEvent6+7,
+///     Page 3 = SEvent8 (Medenia quests)|SEvent9+ (Medenia dailies).
 /// </summary>
+/// <remarks>
+///     The prefab only has three backgrounds, each with its column headings baked in. The Medenia page reuses the
+///     third one with its "99+" and "Master" headings painted over, and draws its own headings as labels.
+/// </remarks>
 public sealed class SelfProfileEventMetadataTab : PrefabPanel
 {
     private const int ROW_HEIGHT = 45;
-    private const int MAX_DISPLAY_PAGES = 3;
+    private const int MAX_DISPLAY_PAGES = 4;
     private const int COLUMNS_PER_PAGE = 2;
     private const int MAX_DISPLAY_SLOTS = MAX_DISPLAY_PAGES * COLUMNS_PER_PAGE;
+    private const int MEDENIA_DISPLAY_PAGE = 3;
+    private const int MEDENIA_BACKGROUND_FRAME = 2;
 
-    //6 display slots (3 pages x 2 columns), each holding events for that slot
+    //matches the baked-in heading text on the prefab backgrounds
+    private static readonly Color HeadingColor = new(181, 162, 123);
+
+    //8 display slots (4 pages x 2 columns), each holding events for that slot
     private readonly List<EventMetadataEntry>[] DisplaySlots = new List<EventMetadataEntry>[MAX_DISPLAY_SLOTS];
     private readonly VirtualizedRowList<EventMetadataEntry> LeftList;
+    private readonly UILabel MedeniaDailyHeading;
+    private readonly UILabel MedeniaHeading;
     private readonly UIButton? NextButton;
     private readonly UIButton? PrevButton;
     private readonly VirtualizedRowList<EventMetadataEntry> RightList;
@@ -33,6 +46,7 @@ public sealed class SelfProfileEventMetadataTab : PrefabPanel
     private HashSet<string> CompletedEventIds = new(StringComparer.OrdinalIgnoreCase);
     private int CurrentPage;
     private bool EnableMasterQuests;
+    private Texture2D? MedeniaBackground;
 
     public SelfProfileEventMetadataTab(string prefabName)
         : base(prefabName, false)
@@ -63,6 +77,9 @@ public sealed class SelfProfileEventMetadataTab : PrefabPanel
         LeftList = CreateColumn(leftRect);
         RightList = CreateColumn(rightRect);
 
+        MedeniaHeading = CreateHeading("Medenia", 32, HorizontalAlignment.Left);
+        MedeniaDailyHeading = CreateHeading("Medenia Daily", 365, HorizontalAlignment.Right);
+
         NextButton = CreateButton("NEXT");
         PrevButton = CreateButton("PREV");
 
@@ -72,7 +89,6 @@ public sealed class SelfProfileEventMetadataTab : PrefabPanel
                 if (CurrentPage < (MAX_DISPLAY_PAGES - 1))
                 {
                     CurrentPage++;
-                    SetBackgroundFrame(CurrentPage);
                     ShowCurrentPage();
                 }
             };
@@ -83,7 +99,6 @@ public sealed class SelfProfileEventMetadataTab : PrefabPanel
                 if (CurrentPage > 0)
                 {
                     CurrentPage--;
-                    SetBackgroundFrame(CurrentPage);
                     ShowCurrentPage();
                 }
             };
@@ -110,7 +125,6 @@ public sealed class SelfProfileEventMetadataTab : PrefabPanel
 
         CompletedEventIds = new HashSet<string>(StringComparer.OrdinalIgnoreCase);
         CurrentPage = 0;
-        SetBackgroundFrame(0);
         ShowCurrentPage();
     }
 
@@ -214,32 +228,117 @@ public sealed class SelfProfileEventMetadataTab : PrefabPanel
         for (var i = 0; i < MAX_DISPLAY_SLOTS; i++)
             DisplaySlots[i] = [];
 
-        //distribute events to display slots: sevent page → slot = min(page - 1, 5)
-        //slot layout: 0=sevent1, 1=sevent2, 2=sevent3, 3=sevent4, 4=sevent5, 5=sevent6+7
+        //distribute events to display slots
+        //slot layout: 0=sevent1, 1=sevent2, 2=sevent3, 3=sevent4, 4=sevent5, 5=sevent6+7, 6=sevent8, 7=sevent9+
         foreach (var entry in events)
         {
-            var slotIndex = Math.Min(entry.Page - 1, MAX_DISPLAY_SLOTS - 1);
-
-            if (slotIndex < 0)
-                slotIndex = 0;
-
-            DisplaySlots[slotIndex]
+            DisplaySlots[GetSlotIndex(entry.Page)]
                 .Add(entry);
         }
 
         CurrentPage = 0;
-        SetBackgroundFrame(0);
         ShowCurrentPage();
     }
 
     //binds each column to its current page's display slot; SetItems resets that column's scroll to the top.
     private void ShowCurrentPage()
     {
+        var isMedeniaPage = CurrentPage == MEDENIA_DISPLAY_PAGE;
+
+        if (isMedeniaPage)
+            Background = MedeniaBackground ??= BuildMedeniaBackground();
+        else
+            SetBackgroundFrame(CurrentPage);
+
+        MedeniaHeading.Visible = isMedeniaPage;
+        MedeniaDailyHeading.Visible = isMedeniaPage;
+
         var leftSlot = CurrentPage * COLUMNS_PER_PAGE;
         var rightSlot = leftSlot + 1;
 
         LeftList.SetItems(leftSlot < MAX_DISPLAY_SLOTS ? DisplaySlots[leftSlot] : []);
         RightList.SetItems(rightSlot < MAX_DISPLAY_SLOTS ? DisplaySlots[rightSlot] : []);
+    }
+
+    //sevent6 and sevent7 share the master column, and anything past sevent9 lands in the Medenia daily column
+    private static int GetSlotIndex(int page)
+        => page switch
+        {
+            <= 5 => Math.Max(page - 1, 0),
+            <= 7 => 5,
+            8    => 6,
+            _    => 7
+        };
+
+    private UILabel CreateHeading(string text, int x, HorizontalAlignment alignment)
+    {
+        var heading = new UILabel
+        {
+            Name = text,
+            X = x,
+            Y = 12,
+            Width = 200,
+            Height = 16,
+            HorizontalAlignment = alignment,
+            ShadowStyle = ShadowStyle.BothSides,
+            IsHitTestVisible = false,
+            Visible = false
+        };
+
+        heading.ForegroundColor = HeadingColor;
+        heading.Text = text;
+        AddChild(heading);
+
+        return heading;
+    }
+
+    /// <summary>
+    ///     Copies the "99+ / Master" background and paints over both headings with plain header texture taken from
+    ///     the same rows, so the Medenia headings can be drawn in their place.
+    /// </summary>
+    private Texture2D BuildMedeniaBackground()
+    {
+        SetBackgroundFrame(MEDENIA_BACKGROUND_FRAME);
+
+        //the prefab texture is shared through the UiRenderer cache, so it is copied rather than changed in place
+        var source = Background!;
+        using var scope = new PixelBufferScope(source);
+
+        if (scope.Width >= 566)
+        {
+            CopyColumns(scope, 150, 30, 36, 11, 29); //"99+"
+            CopyColumns(scope, 420, 506, 62, 13, 30); //"Master"
+        }
+
+        var texture = new Texture2D(source.GraphicsDevice, scope.Width, scope.Height);
+        scope.CommitTo(texture);
+
+        return texture;
+    }
+
+    private static void CopyColumns(
+        PixelBufferScope scope,
+        int sourceX,
+        int destinationX,
+        int width,
+        int top,
+        int bottom)
+    {
+        for (var y = top; y < bottom; y++)
+        {
+            var row = y * scope.Width;
+            Array.Copy(scope.Pixels, row + sourceX, scope.Pixels, row + destinationX, width);
+        }
+    }
+
+    public override void Dispose()
+    {
+        base.Dispose();
+
+        //base.Dispose only disposes whichever background is showing; the Medenia one is owned here either way.
+        //Disposing a texture twice is harmless
+        MedeniaBackground?.Dispose();
+        MedeniaBackground = null;
     }
 
     public override void Update(GameTime gameTime)

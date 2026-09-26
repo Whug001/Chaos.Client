@@ -951,6 +951,8 @@ public sealed class ChaosGame : Game
         MetaPendingChecksums.Clear();
         MetaSyncStarted = true;
 
+        DeleteStaleMetaFiles(collection);
+
         foreach (var info in collection)
         {
             var localCheckSum = ComputeLocalMetaCheckSum(info.Name);
@@ -964,6 +966,35 @@ public sealed class ChaosGame : Game
 
         if (MetaPendingChecksums.Count == 0)
             OnMetaDataSyncComplete?.Invoke();
+    }
+
+    /// <summary>
+    ///     Deletes every local metadata file the server no longer lists.
+    /// </summary>
+    /// <remarks>
+    ///     Every file in the folder comes from the server, and the server's checksum list names all of them. When the
+    ///     server generates fewer files than before (item metadata is split by size, so the count moves whenever items
+    ///     change), the extra files would otherwise stay forever. They are still read: the item index loads all ItemInfo
+    ///     files in parallel and keeps whichever copy of a name it reads first, so an old file can show an item's old
+    ///     class or level.
+    /// </remarks>
+    private void DeleteStaleMetaFiles(ICollection<MetaDataInfo> collection)
+    {
+        var current = new HashSet<string>(collection.Select(info => info.Name), StringComparer.OrdinalIgnoreCase);
+
+        foreach (var filePath in Directory.GetFiles(MetaFilePath))
+        {
+            if (current.Contains(Path.GetFileName(filePath)))
+                continue;
+
+            try
+            {
+                File.Delete(filePath);
+            } catch
+            {
+                //a file that can't be deleted now is tried again at the next world entry
+            }
+        }
     }
 
     private void HandleMetaDataFileData(MetaDataInfo? info)
