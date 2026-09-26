@@ -93,7 +93,7 @@ The state file is new, so an older server ignores it and loads every guild norma
 
 ### Clickable spot
 
-`Abel_port_way/reactors.json` gets:
+`Abel_port_way/reactors.json` gets three entries like this one, at (5,19), (4,18) and (4,19):
 
 ```json
 {
@@ -103,6 +103,8 @@ The state file is new, so an older server ignores it and loads every guild norma
   "source": "(5, 19)"
 }
 ```
+
+The client turns a click into the ground tile under the cursor, and sends it only when that tile has rendered wall art. The board's image is taller than its tile, so most of it lies over hall-wall tiles behind it. Measured on the render: 18% of the board's pixels map to (5,19), 34% to (4,18) and 12% to (4,19), and those three have rendered art. The rest map to tiles whose only foreground is the invisible placeholder `1`, which the client never sends. So the two hall-wall tiles carry the same script, and clicking the hall wall just there opens the board too. (Added while planning.)
 
 `Chaos/Scripting/ReactorTileScripts/Temauir/GuildApplicationBoardScript.cs` handles `OnClicked`. Like `CaravanSiteScript`, it creates a `blank_merchant` at the board's point and displays `generic_guild_apply_initial` from it.
 
@@ -120,14 +122,14 @@ A new `GuildApplyScript` (script key `GuildApply`, deriving from `GuildScriptBas
 | `generic_guild_apply_mine` | Menu | One option per application: "{Guild} - waiting, 9 days left" or "{Guild} - accepted!". "You have no applications." when empty. |
 | `generic_guild_apply_waiting` | Menu | "Your application to {Guild} is waiting for an answer." Withdraw / Back. |
 | `generic_guild_apply_withdrawn` | Normal | "You withdrew your application to {Guild}." |
-| `generic_guild_apply_offers` | Menu | "These guilds have accepted you:" with one option per offer, then "Decide later". Used by "Join a guild" and by the login pop-up. |
+| `generic_guild_apply_offers` | Menu | "These guilds have accepted you. Pick one to join." with one option per offer, then "Decide later". Used by "Join a guild" and by the login pop-up. |
 | `generic_guild_apply_offer` | Menu | "{Guild} accepted you. Join now? Your other applications will be withdrawn." Join / Turn down / Back. |
 | `generic_guild_apply_joined` | Normal | Does the join and says "You joined {Guild}!" |
 | `generic_guild_apply_turned_down` | Normal | Calls `Withdraw` and says "You turned down {Guild}." |
 
 Rules:
 
-- The picked guild is found by reading the option text (`Subject.GetOptionText`), not by list position, so a list that changed between two clicks can't pick the wrong guild. `GuildPermissionsScript` reads option text the same way.
+- When a list screen is drawn, the guild names its options stand for are saved in that dialog's `Context`. The pick is looked up in that saved list, not in a freshly built one, so a list that changed between two clicks can't pick the wrong guild. Reading the option text instead would not work for "My applications", whose lines carry the state ("Alpha - waiting, 9 days left"), or for a guild named like a paging option. (Changed while implementing; see the plan's ledger ruling.)
 - The note is trimmed. A note over 60 characters is refused with "Keep the note to 60 characters." The client box already stops at 60, so this only guards against a modified client.
 - "Apply" re-checks everything the service checks, and that the guild still exists (`GuildStore.Exists`).
 - On a successful apply, every online member of that guild with `Admit` gets an active message: "*Name* has applied to join the guild. Review it at Quill or Aricin."
@@ -204,7 +206,7 @@ Chaos-Server:
 Unora:
 
 - `Data/Configuration/MapData/lod180.map`: the board at (5,19).
-- `Data/Configuration/MapInstances/Temuair/Towns/Abel/Abel_port_way/reactors.json`: the clickable spot.
+- `Data/Configuration/MapInstances/Temuair/Towns/Abel/Abel_port_way/reactors.json`: the three clickable spots.
 - The 16 dialog templates above, in `Data/Configuration/Templates/Dialogs/Temauir/generic/Guild/GuildApplications/`.
 - `docs/guild-hall-ideas.md`: mark idea 43 built, and describe applications under "What guild halls do today".
 
@@ -231,7 +233,7 @@ The full suite must pass, apart from the two failures already known on master (`
 
 In-game check after merging (two accounts: an officer and a guildless alt):
 
-1. Walk to Abel Port Way. The board stands left of the guild hall door, and you can't walk onto it. Clicking it opens the menu.
+1. Walk to Abel Port Way. The board stands left of the guild hall door, and you can't walk onto it. Clicking its lower half opens the menu, and so does the hall wall just behind it.
 2. As the alt, apply to guild A with a note, and to guild B without one.
 3. An online officer of A sees the "has applied" line.
 4. As A's officer, open Quill → Members → Applications (1). The alt shows with level, class and the note. Accept. The alt (online) gets the line and a letter.
