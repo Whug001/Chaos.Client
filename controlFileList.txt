@@ -379,6 +379,13 @@ _nusers.txt
     _nusersb.spf         — 44 button frames: 0-17 the original nine (normal, lit), 18-43 the added faces
                            (Temuair, Medenia, Ability, Berserker, Warlord, Archer, Assassin, Arcanist, Elemental,
                            Bard, Plague Dr, Adept, Druid) — see WorldListFaces
+  Control rects (left,top-right,bottom):
+    UsersList   15,24-341,276
+    TotalNum    447,39-479,51
+    CountryNum  447,65-479,77   (then every 22 px for the remaining 8 rows)
+    CountryBtn  365,62-431,78
+    MasterBtn   365,84-431,100  (stride 22 for the remaining 8 rows)
+    Close       392,277-453,299
 
 # ── Loading Screens ────────────────────────────────────────────────────────────
 

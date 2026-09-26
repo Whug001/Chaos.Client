@@ -8,7 +8,8 @@ using Microsoft.Xna.Framework.Graphics;
 namespace Chaos.Client.Controls.World.Popups.WorldList;
 
 /// <summary>
-///     A single row in the world list panel: title + name + social status icon (far right).
+///     A single row in the world list panel: title + name + social status icon, which sits in the inner icon
+///     cell (the emblem cell to its right stays empty until the emblem system fills it).
 /// </summary>
 public sealed class WorldListEntryControl : UIPanel
 {

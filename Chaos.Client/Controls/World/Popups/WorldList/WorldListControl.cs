@@ -121,7 +121,8 @@ public sealed class WorldListControl : PrefabPanel
         //social status icons from _nemots.spf (frame 0 of each 3-frame group)
         LoadStatusIcons();
 
-        //tab buttons — built from _nusersb.spf frames (9 tabs x 2 states)
+        //tab buttons — built from _nusersb.spf frames (each of the 9 buttons rotates through its own
+        //WorldListFaces.Buttons faces, each face a normal/lit frame pair)
         var countryBtnRect = GetRect("CountryBtn");
         var masterBtnRect = GetRect("MasterBtn");
 
@@ -158,7 +159,8 @@ public sealed class WorldListControl : PrefabPanel
                 Width = countryNumRect.Width,
                 Height = countryNumRect.Height,
                 HorizontalAlignment = HorizontalAlignment.Right,
-                PaddingLeft = 0
+                PaddingLeft = 0,
+                PaddingTop = 0
             };
 
             TabCountLabels[i].ForegroundColor = Color.White;
