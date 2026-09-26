@@ -88,15 +88,15 @@ Book order is file order. Files are read in name order, so a numeric prefix orde
 
 ### The five examples
 
-| File | Kind | Source |
-|---|---|---|
-| `carnun.json` | Permanent | Legend mark `carnunwon` (Challenged the Carnun and declared victory) |
-| `fisksecret.json` | Secret | Legend mark `FiskSecret` (Kept Fisk's Secret) |
-| `newyear2026.json` | Expiring, 30 days | Legend mark `2026` (Celebrated the New Year 2026) |
-| `pitfightchampion.json` | Record | Board `pitFight` |
-| `staffaward.json` | Staff only | `staff` |
+| File | Kind | Source | Art |
+|---|---|---|---|
+| `carnun.json` | Permanent | Legend mark `carnunwon` (Challenged the Carnun and declared victory) | 6 (skull) |
+| `fisksecret.json` | Secret | Legend mark `FiskSecret` (Kept Fisk's Secret) | 16 (green swirl) |
+| `newyear2026.json` | Expiring, 30 days | Legend mark `2026` (Celebrated the New Year 2026) | 11 (福, good fortune) |
+| `pitfightchampion.json` | Record | Board `pitFight` | 13 (crown) |
+| `staffaward.json` | Staff only | `staff` | 4 (star) |
 
-Art numbers for these are picked from the review sheet (see Art) when the files are written.
+The art numbers are a first pick from the contact sheet. Change them freely before launch.
 
 ## Server (Chaos-Server)
 
@@ -156,8 +156,10 @@ One singleton service owns the rules. It runs at these points:
   null. That includes an expired emblem and a record lost while offline.
 - **Legend mark added.** `Legend` gains a `MarkAdded` event. It's raised by `AddOrAccumulate` and `AddUnique` when a
   mark is new, not when a count goes up. The player's `Legend` wires it to the service.
-- **Board saved.** Each leaderboard script calls `EmblemService.OnBoardChanged(boardId)` after saving. The service
-  recomputes first place and updates `EmblemRecords.json`. If the holder changed:
+- **Record sweep.** Leaderboards are saved from eight places in seven scripts, plus resets. Instead of hooking each
+  one, a background service calls `EmblemService.SweepRecords()` at startup and every 30 seconds. The sweep reads
+  each board from its in-memory storage object, recomputes first place, and updates `EmblemRecords.json`. A new
+  record holder is noticed within 30 seconds. If the holder changed:
   - The new holder, if online, is treated as a grant (message and auto-show, below).
   - The old holder, if online, gets "You lost the <name> emblem." If it was shown, `Shown` becomes null.
   - Both get a fresh `EmblemBook` if online.
@@ -230,14 +232,17 @@ writes into `setoa.dat` and reads everything back, and review PNGs.
     field. Move the panels below it (y 58–245) up 24 px. Fill the freed band at the bottom with the blank panel
     texture from below the description box. The approved mock is `ebl-right-up.png` in the brainstorm session.
   - **Labels.** Replace `이전 페이지` and `다음 페이지` with carved "Prev Page" and "Next Page", keeping the arrows.
-    Replace the `남은기간` button face with "Time Left".
+    Each label has 64 px beside its arrow. If a label doesn't fit, it becomes "Prev" or "Next". Replace the
+    `남은기간` button face with "Time Left".
   - **Carving method.** Letters are cut from existing silver-button art, such as Name, Class, Guild, Title and
     Presentation. Missing letters (v, x and any others) are drawn by hand in the same style, as in spec 1's
     `letters.py`.
 - **Show/Hide button (`_nui_eblb.spf`).** New stone button frames: Show, Show lit, Hide, Hide lit. They match the
   size and style of the old Name button.
-- **Emblem tab.** A new frame in `_nui_tb2.spf`: "Emblem", carved from the existing tab labels. E comes from Event,
-  m from Family, b and l from Album, and e from Legend. `TAB_ALBUM` in `_nui.txt` points to the new frame.
+- **Emblem tab.** A tab has two frames: the big selected one in `_nui_tb2.spf` and the small normal one in
+  `_nui_tb1.spf`, both at index 4 for Album. Replace frame 4 in both files with "Emblem", carved from the existing
+  tab labels in the same file. E comes from Event, m from Family, b and l from Album, and e from Legend. `_nui.txt`
+  doesn't change. The other-player profile only shows the Intro and Legend tabs, so nothing else uses frame 4.
 - **Emblems.** `embl001.spf`–`embl173.spf` and `embl181.spf`–`embl183.spf` (176 files) go in unchanged. The client
   loads `emblNNN.spf` by art number.
 - **Review sheet.** The tool writes `review/emblems.png`, every emblem at 3× with its number under it, for picking
@@ -294,6 +299,7 @@ It replaces `SelfProfileBlankTab` for `StatusBookTab.Album`, and its prefab is `
   - It's disabled for locked emblems.
   - Clicking it sends `EmblemChoice` with the key, or with an empty key for Hide.
 - `controlFileList.txt` gets an `_nui_ebl` entry for the new rects.
+- `StatusBookTab.Album` is renamed `StatusBookTab.Emblem`.
 
 ## Edge cases
 
