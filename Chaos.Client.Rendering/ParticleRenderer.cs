@@ -12,6 +12,7 @@ namespace Chaos.Client.Rendering;
 ///     Camera movement shifts every particle by the same amount, so they drift over the MAP rather than being glued
 ///     to the screen. The whole effect fades in/out over <see cref="ParticleStyle.FadeSeconds" />. Touched only on
 ///     the game-loop thread.
+///     A style can also give each particle a pair (or two) of flapping wings.
 /// </summary>
 public sealed class ParticleRenderer : IAmbientOverlay
 {
@@ -20,6 +21,13 @@ public sealed class ParticleRenderer : IAmbientOverlay
     private const int SOFT_TEX = 32;                  // soft dot / bubble texture size
     private const int LEAF_TEX_W = 16;
     private const int LEAF_TEX_H = 8;
+    private const int WING_TEX_W = 32;
+    private const int WING_TEX_H = 16;
+    private const float UPPER_WING_ANGLE = -0.45f; // radians from horizontal for the right wing; negative tilts up
+    private const float LOWER_WING_ANGLE = 0.55f;
+    private const float LOWER_WING_LENGTH = 0.7f;  // lower wings are this fraction of the upper ones
+    private const float LOWER_WING_WIDTH = 0.8f;
+    private const float WING_PALE = 0.55f;         // how far the wing color moves from the particle color to white
 
     private readonly ParticleStyle Style;
     private readonly Random Rng = new();
@@ -33,6 +41,7 @@ public sealed class ParticleRenderer : IAmbientOverlay
     private Texture2D? SoftDotTexture;
     private Texture2D? LeafTexture;
     private Texture2D? BubbleTexture;
+    private Texture2D? WingTexture;
 
     private bool Active;
     private float EffectAlpha; // 0..1 current fade level
@@ -51,6 +60,8 @@ public sealed class ParticleRenderer : IAmbientOverlay
         public float SpinRate;
         public float TwinkleFreq;
         public float TwinklePhase;
+        public float FlapFreq;
+        public float FlapPhase;
     }
 
     public ParticleRenderer(ParticleStyle style) => Style = style;
@@ -158,6 +169,12 @@ public sealed class ParticleRenderer : IAmbientOverlay
                     0f);
             }
 
+            if (Style.WingScale > 0f)
+            {
+                WingTexture ??= BuildWingTexture(device);
+                DrawWings(spriteBatch, in p, position, alpha);
+            }
+
             var (rotation, scale) = ShapeTransform(in p, texture);
 
             spriteBatch.Draw(
@@ -184,6 +201,8 @@ public sealed class ParticleRenderer : IAmbientOverlay
         LeafTexture = null;
         BubbleTexture?.Dispose();
         BubbleTexture = null;
+        WingTexture?.Dispose();
+        WingTexture = null;
     }
 
     // ============================================================
@@ -214,7 +233,9 @@ public sealed class ParticleRenderer : IAmbientOverlay
                 Rotation = Roll(0f, MathF.Tau),
                 SpinRate = Roll(-Style.Spin, Style.Spin),
                 TwinkleFreq = Roll(Style.TwinkleFreqMin, Style.TwinkleFreqMax),
-                TwinklePhase = Roll(0f, MathF.Tau)
+                TwinklePhase = Roll(0f, MathF.Tau),
+                FlapFreq = Roll(Style.WingFlapMin, Style.WingFlapMax),
+                FlapPhase = Roll(0f, MathF.Tau)
             };
     }
 
@@ -251,6 +272,32 @@ public sealed class ParticleRenderer : IAmbientOverlay
             ParticleShape.Petal  => (p.Rotation, new Vector2(p.Size / texture.Width, p.Size * 0.6f / texture.Width * tumble)),
             _                    => (0f, new Vector2(p.Size / texture.Width))
         };
+    }
+
+    //wings sit on the body and sweep between nearly edge-on (0.2) and fully open (1). the texture's narrow end is the
+    //draw origin, so each wing grows outward from the particle
+    private void DrawWings(SpriteBatch spriteBatch, in Particle p, Vector2 position, float alpha)
+    {
+        var flap = 0.2f + (0.8f * MathF.Abs(MathF.Sin((MathF.Tau * p.FlapFreq * Clock) + p.FlapPhase)));
+        var length = p.Size * Style.WingScale * flap;
+        var width = p.Size * Style.WingWidth;
+        var color = WithAlpha(Color.Lerp(p.Color, Color.White, WING_PALE), alpha * Style.WingAlpha);
+
+        DrawWingPair(spriteBatch, position, color, UPPER_WING_ANGLE, length, width);
+
+        if (Style.WingPairs > 1)
+            DrawWingPair(spriteBatch, position, color, LOWER_WING_ANGLE, length * LOWER_WING_LENGTH, width * LOWER_WING_WIDTH);
+    }
+
+    //right wing at the given angle, left wing mirrored across the vertical. the wing is symmetric along its length, so
+    //turning it to PI - angle mirrors it exactly
+    private void DrawWingPair(SpriteBatch spriteBatch, Vector2 position, Color color, float angle, float length, float width)
+    {
+        var origin = new Vector2(0f, WING_TEX_H / 2f);
+        var scale = new Vector2(length / WING_TEX_W, width / WING_TEX_H);
+
+        spriteBatch.Draw(WingTexture!, position, null, color, angle, origin, scale, SpriteEffects.None, 0f);
+        spriteBatch.Draw(WingTexture!, position, null, color, MathF.PI - angle, origin, scale, SpriteEffects.None, 0f);
     }
 
     private Texture2D GetShapeTexture(GraphicsDevice device)
@@ -319,6 +366,25 @@ public sealed class ParticleRenderer : IAmbientOverlay
     //hard-edged pointed lens (leaf outline): inside where |v| <= 1 - u²
     private static Texture2D BuildLeafTexture(GraphicsDevice device)
         => BuildTexture(device, LEAF_TEX_W, LEAF_TEX_H, (u, v) => MathF.Abs(v) <= 1f - (u * u) ? 1f : 0f);
+
+    //soft-edged teardrop: narrow where it meets the body (left edge), round at the tip, a little brighter toward the tip
+    private static Texture2D BuildWingTexture(GraphicsDevice device)
+        => BuildTexture(
+            device,
+            WING_TEX_W,
+            WING_TEX_H,
+            (u, v) =>
+            {
+                var along = (u + 1f) / 2f; // 0 at the body end, 1 at the tip
+                var half = MathF.Sin(MathF.PI * MathF.Pow(along, 0.7f));
+
+                if (half <= 0f)
+                    return 0f;
+
+                var edge = 1f - (MathF.Abs(v) / half);
+
+                return Math.Clamp(edge * 2.5f, 0f, 1f) * (0.55f + (0.45f * along));
+            });
 
     //builds a white texture whose alpha is shape(u, v), with u and v the pixel center mapped to [-1, 1]
     private static Texture2D BuildTexture(GraphicsDevice device, int width, int height, Func<float, float, float> shape)

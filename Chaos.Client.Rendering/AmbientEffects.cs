@@ -7,28 +7,37 @@ using Microsoft.Xna.Framework.Graphics;
 namespace Chaos.Client.Rendering;
 
 /// <summary>
-///     Every map-flag-driven ambient overlay — fog, lightning, blood moon, sandstorm, miasma, ash, leaves, petals,
-///     fireflies and underwater — switched on and off together from the current <see cref="MapFlags" />. Several
-///     can be on at once (e.g. Leaves + Fireflies, or Rain + Lightning + Fog). Snow and rain stay with
-///     <see cref="WeatherRenderer" /> and darkness with <see cref="DarknessRenderer" />. Touched only on the
-///     game-loop thread.
+///     Every map-flag-driven ambient overlay — fog, lightning, the tints and mists, and the particle effects — switched
+///     on and off together from the current <see cref="MapFlags" />. Several can be on at once (e.g. Leaves +
+///     Fireflies, or Rain + Lightning + Fog). Snow and rain stay with <see cref="WeatherRenderer" /> and darkness with
+///     <see cref="DarknessRenderer" />. Touched only on the game-loop thread.
 /// </summary>
 public sealed class AmbientEffects : IDisposable
 {
     /// <summary>
-    ///     The flag bits above the low byte. The map info packet carries only the low byte; these arrive separately in
-    ///     the SetMapEffects packet.
+    ///     The flag bits above the low byte. The map info packet carries only the low byte; these arrive separately, as
+    ///     8 bytes, in the SetMapEffects packet.
     /// </summary>
-    public const MapFlags EXTENDED_FLAGS = (MapFlags)0xFFFFFF00u;
+    public const MapFlags EXTENDED_FLAGS = (MapFlags)0xFFFF_FFFF_FFFF_FF00UL;
 
-    //draw order, back to front: tints and mists first, lightning flashing through them, fog over the flash (as in
-    //the original storm), then particles last so glows and falling things read on top of every haze
+    //draw order, back to front: cloud shadows first because they lie on the ground, then tints and mists, lightning
+    //flashing through them, fog over the flash (as in the original storm), then particles last so glows and falling
+    //things read on top of every haze
     private readonly (MapFlags Flag, IAmbientOverlay Overlay)[] Overlays =
     [
+        (MapFlags.CloudShadows, new MistRenderer(MistStyle.CloudShadows)),
         (MapFlags.Underwater, new MistRenderer(MistStyle.Underwater)),
+        (MapFlags.Heat, new MistRenderer(MistStyle.Heat)),
+        (MapFlags.Gloom, new MistRenderer(MistStyle.Gloom)),
         (MapFlags.BloodMoon, new MistRenderer(MistStyle.BloodMoon)),
         (MapFlags.Miasma, new MistRenderer(MistStyle.Miasma)),
+        (MapFlags.Radiance, new MistRenderer(MistStyle.Radiance)),
+        (MapFlags.Arcane, new MistRenderer(MistStyle.Arcane)),
+        (MapFlags.Frost, new MistRenderer(MistStyle.Frost)),
+        (MapFlags.Dust, new MistRenderer(MistStyle.Dust)),
+        (MapFlags.SeaSpray, new MistRenderer(MistStyle.SeaSpray)),
         (MapFlags.Sandstorm, new MistRenderer(MistStyle.Sandstorm)),
+        (MapFlags.Blizzard, new MistRenderer(MistStyle.Blizzard)),
         (MapFlags.Lightning, new LightningRenderer()),
         (MapFlags.Fog, new MistRenderer(MistStyle.Fog)),
         (MapFlags.Sandstorm, new ParticleRenderer(ParticleStyle.SandGrains)),
@@ -37,8 +46,20 @@ public sealed class AmbientEffects : IDisposable
         (MapFlags.Ash, new ParticleRenderer(ParticleStyle.Embers)),
         (MapFlags.Leaves, new ParticleRenderer(ParticleStyle.Leaves)),
         (MapFlags.Petals, new ParticleRenderer(ParticleStyle.Petals)),
-        (MapFlags.Fireflies, new ParticleRenderer(ParticleStyle.Fireflies))
+        (MapFlags.Fireflies, new ParticleRenderer(ParticleStyle.Fireflies)),
+        (MapFlags.Radiance, new ParticleRenderer(ParticleStyle.RadianceMotes)),
+        (MapFlags.Arcane, new ParticleRenderer(ParticleStyle.ArcaneSparks)),
+        (MapFlags.Frost, new ParticleRenderer(ParticleStyle.FrostSparkles)),
+        (MapFlags.Dust, new ParticleRenderer(ParticleStyle.DustMotes)),
+        (MapFlags.SeaSpray, new ParticleRenderer(ParticleStyle.SeaSprayFlecks)),
+        (MapFlags.Blizzard, new ParticleRenderer(ParticleStyle.BlizzardFlakes)),
+        (MapFlags.Blizzard, new ParticleRenderer(ParticleStyle.BlizzardStreaks)),
+        (MapFlags.Wisps, new ParticleRenderer(ParticleStyle.Wisps)),
+        (MapFlags.Drips, new ParticleRenderer(ParticleStyle.Drips))
     ];
+
+    /// <summary>Every map flag that switches on at least one overlay.</summary>
+    public IReadOnlyCollection<MapFlags> CoveredFlags => Overlays.Select(entry => entry.Flag).ToHashSet();
 
     /// <summary>
     ///     Turns each overlay on or off to match <paramref name="flags" />. <paramref name="immediate" /> skips the

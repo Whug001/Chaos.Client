@@ -87,6 +87,23 @@ public sealed record ParticleStyle
 
     public float HaloAlpha { get; init; }
 
+    /// <summary>Wing length as a multiple of the particle size. Zero means no wings.</summary>
+    public float WingScale { get; init; }
+
+    /// <summary>Wing width as a multiple of the particle size.</summary>
+    public float WingWidth { get; init; } = 1f;
+
+    /// <summary>Wing opacity as a fraction of the particle's own. Wings are the particle's color, paled toward white.</summary>
+    public float WingAlpha { get; init; } = 0.5f;
+
+    /// <summary>1 draws one pair of wings; 2 adds a smaller lower pair, like fairy wings.</summary>
+    public int WingPairs { get; init; } = 1;
+
+    /// <summary>Wing flap cycles per second. The wings beat twice per cycle, so 7 gives 14 beats a second.</summary>
+    public float WingFlapMin { get; init; } = 2f;
+
+    public float WingFlapMax { get; init; } = 2f;
+
     // ============================================================
     // Presets
     // ============================================================
@@ -225,5 +242,195 @@ public sealed record ParticleStyle
         SwayFreqMax = 2f,
         AlphaMin = 0.35f,
         AlphaMax = 0.7f
+    };
+
+    /// <summary>Golden motes rising and glimmering. Paired with the Radiance mist.</summary>
+    public static ParticleStyle RadianceMotes { get; } = new()
+    {
+        Count = 30,
+        Shape = ParticleShape.Dot,
+        Additive = true,
+        Colors = [new Color(255, 220, 120), new Color(255, 240, 180), new Color(255, 200, 90)],
+        SizeMin = 1.5f,
+        SizeMax = 3f,
+        VelocityMin = new Vector2(-3f, -18f),
+        VelocityMax = new Vector2(3f, -8f),
+        Sway = new Vector2(6f, 0f),
+        SwayFreqMin = 0.3f,
+        SwayFreqMax = 0.7f,
+        AlphaMin = 0.6f,
+        AlphaMax = 1f,
+        Twinkle = 0.5f,
+        TwinkleFreqMin = 0.5f,
+        TwinkleFreqMax = 1.2f,
+        TwinkleSharpness = 1.5f,
+        HaloScale = 4f,
+        HaloAlpha = 0.25f
+    };
+
+    /// <summary>Violet and blue sparks drifting up and flickering. Paired with the Arcane mist.</summary>
+    public static ParticleStyle ArcaneSparks { get; } = new()
+    {
+        Count = 35,
+        Shape = ParticleShape.Dot,
+        Additive = true,
+        Colors = [new Color(170, 120, 255), new Color(110, 160, 255), new Color(220, 170, 255)],
+        SizeMin = 1.5f,
+        SizeMax = 3f,
+        VelocityMin = new Vector2(-5f, -25f),
+        VelocityMax = new Vector2(5f, -10f),
+        Sway = new Vector2(10f, 4f),
+        SwayFreqMin = 0.4f,
+        SwayFreqMax = 1f,
+        AlphaMin = 0.7f,
+        AlphaMax = 1f,
+        Twinkle = 0.8f,
+        TwinkleFreqMin = 1.5f,
+        TwinkleFreqMax = 3f,
+        TwinkleSharpness = 2.5f,
+        HaloScale = 3.5f,
+        HaloAlpha = 0.3f
+    };
+
+    /// <summary>Pale sparkles drifting down and twinkling. Paired with the Frost mist.</summary>
+    public static ParticleStyle FrostSparkles { get; } = new()
+    {
+        Count = 30,
+        Shape = ParticleShape.Dot,
+        Additive = true,
+        Colors = [new Color(190, 225, 255), new Color(235, 245, 255)],
+        SizeMin = 1.5f,
+        SizeMax = 2.5f,
+        VelocityMin = new Vector2(-3f, 4f),
+        VelocityMax = new Vector2(3f, 10f),
+        Sway = new Vector2(6f, 0f),
+        Twinkle = 0.8f,
+        TwinkleFreqMin = 0.5f,
+        TwinkleFreqMax = 1.5f,
+        TwinkleSharpness = 2f,
+        HaloScale = 3f,
+        HaloAlpha = 0.2f
+    };
+
+    /// <summary>Snow streaks driving sideways. Paired with the Blizzard mist and flakes.</summary>
+    public static ParticleStyle BlizzardStreaks { get; } = new()
+    {
+        FadeSeconds = 1.5f,
+        Count = 120,
+        Shape = ParticleShape.Streak,
+        Colors = [new Color(255, 255, 255), new Color(230, 238, 250), new Color(210, 222, 240)],
+        SizeMin = 3f,
+        SizeMax = 8f,
+        VelocityMin = new Vector2(-420f, 60f),
+        VelocityMax = new Vector2(-260f, 140f),
+        Sway = new Vector2(0f, 15f),
+        SwayFreqMin = 1f,
+        SwayFreqMax = 2f,
+        AlphaMin = 0.5f,
+        AlphaMax = 0.9f
+    };
+
+    /// <summary>Snow flakes blowing sideways, slower than the streaks. Paired with the Blizzard mist.</summary>
+    public static ParticleStyle BlizzardFlakes { get; } = new()
+    {
+        FadeSeconds = 1.5f,
+        Count = 70,
+        Shape = ParticleShape.Square,
+        Colors = [new Color(255, 255, 255), new Color(235, 242, 252)],
+        SizeMin = 1.5f,
+        SizeMax = 3f,
+        VelocityMin = new Vector2(-240f, 40f),
+        VelocityMax = new Vector2(-150f, 90f),
+        Sway = new Vector2(0f, 20f),
+        SwayFreqMin = 0.8f,
+        SwayFreqMax = 1.6f,
+        AlphaMin = 0.6f,
+        AlphaMax = 1f
+    };
+
+    /// <summary>Warm specks hanging in the air and catching the light. Paired with the Dust mist.</summary>
+    public static ParticleStyle DustMotes { get; } = new()
+    {
+        FadeSeconds = 2f,
+        Count = 70,
+        Shape = ParticleShape.Dot,
+        Additive = true,
+        Colors = [new Color(255, 235, 200), new Color(240, 220, 190)],
+        SizeMin = 1.5f,
+        SizeMax = 3f,
+        VelocityMin = new Vector2(-2f, -2f),
+        VelocityMax = new Vector2(2f, 3f),
+        Sway = new Vector2(4f, 3f),
+        SwayFreqMin = 0.05f,
+        SwayFreqMax = 0.2f,
+        AlphaMin = 0.5f,
+        AlphaMax = 0.9f,
+        Twinkle = 0.5f,
+        TwinkleFreqMin = 0.2f,
+        TwinkleFreqMax = 0.5f,
+        HaloScale = 2.5f,
+        HaloAlpha = 0.3f
+    };
+
+    /// <summary>White flecks of spray blowing sideways. Paired with the SeaSpray mist.</summary>
+    public static ParticleStyle SeaSprayFlecks { get; } = new()
+    {
+        Count = 45,
+        Shape = ParticleShape.Dot,
+        Colors = [new Color(245, 250, 255), new Color(225, 238, 245)],
+        SizeMin = 1f,
+        SizeMax = 2.5f,
+        VelocityMin = new Vector2(-160f, -20f),
+        VelocityMax = new Vector2(-90f, 10f),
+        Sway = new Vector2(0f, 20f),
+        SwayFreqMin = 0.8f,
+        SwayFreqMax = 1.5f,
+        AlphaMin = 0.4f,
+        AlphaMax = 0.8f
+    };
+
+    /// <summary>A few blue lights on small fluttering fairy wings, drifting slowly and dimming.</summary>
+    public static ParticleStyle Wisps { get; } = new()
+    {
+        FadeSeconds = 2f,
+        Count = 6,
+        Shape = ParticleShape.Dot,
+        Additive = true,
+        Colors = [new Color(120, 190, 255), new Color(160, 230, 255), new Color(100, 255, 230)],
+        SizeMin = 4f,
+        SizeMax = 6f,
+        VelocityMin = new Vector2(-6f, -4f),
+        VelocityMax = new Vector2(6f, 4f),
+        Sway = new Vector2(22f, 16f),
+        SwayFreqMin = 0.05f,
+        SwayFreqMax = 0.15f,
+        AlphaMin = 0.7f,
+        AlphaMax = 1f,
+        Twinkle = 0.4f,
+        TwinkleFreqMin = 0.2f,
+        TwinkleFreqMax = 0.4f,
+        TwinkleSharpness = 1.5f,
+        HaloScale = 6f,
+        HaloAlpha = 0.3f,
+        WingScale = 1.5f,
+        WingWidth = 0.6f,
+        WingAlpha = 0.5f,
+        WingPairs = 2,
+        WingFlapMin = 7f,
+        WingFlapMax = 9f
+    };
+
+    /// <summary>A few water drops falling from above.</summary>
+    public static ParticleStyle Drips { get; } = new()
+    {
+        Count = 8,
+        Shape = ParticleShape.Streak,
+        Colors = [new Color(170, 200, 230), new Color(200, 225, 250)],
+        SizeMin = 4f,
+        SizeMax = 7f,
+        VelocityMin = new Vector2(0f, 220f),
+        VelocityMax = new Vector2(0f, 320f),
+        AlphaMin = 0.35f,
+        AlphaMax = 0.6f
     };
 }
