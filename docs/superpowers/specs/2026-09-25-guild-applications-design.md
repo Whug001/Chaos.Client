@@ -180,7 +180,7 @@ Rules:
 | Case | What happens |
 |---|---|
 | An applicant joins a guild some other way (the tavern) | Their applications are cleared at their next login or board visit, or when an officer tries to accept them. |
-| Two officers accept the same application at once | The service lock makes the second a no-op; the second officer sees "{Name} was already accepted." |
+| Two officers accept the same application at once | The service lock makes the second a no-op. The second officer usually sees "That application is no longer waiting.", because an accepted application has left the waiting list; "{Name} was already accepted." shows only if both passed that check in the same instant. |
 | The applicant picks a guild that disbanded after accepting | `RemoveGuild` already removed the offer, so it isn't listed. If the menu was open at the time, Join says "That guild no longer exists." |
 | A character is renamed or deleted | Applications are keyed by name, so the old ones expire after 14 days. |
 | An empty folder under the guild directory | `ListGuilds` skips it. |
