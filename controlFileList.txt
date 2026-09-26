@@ -370,13 +370,15 @@ lemot.txt
 
 _nusers.txt
   Class:    WorldListControl : PrefabPanel
-  File:     Controls/World/Hud/WorldListControl.cs
-  Purpose:  World/server list display — scrollable entries, country/master tab buttons
+  File:     Controls/World/Popups/WorldList/WorldListControl.cs
+  Purpose:  World list drawer (Korean grid art, 498x303) — 15 px rows, 9 filter buttons that turn through faces
   Images referenced by controls:
-    _nusers.epf/.spf     — Anchor background
-    _nbtn.epf/.spf       — CountryBtn/MasterBtn button frames
+    _nusers.spf          — Anchor background (row lines run through the title column)
+    _nbtn.spf            — Close button frames
   Also manually loads:
-    _nusersb.spf         — Tab button frames (9 tabs x 2 states, TextureConverter.LoadSpfTextures)
+    _nusersb.spf         — 44 button frames: 0-17 the original nine (normal, lit), 18-43 the added faces
+                           (Temuair, Medenia, Ability, Berserker, Warlord, Archer, Assassin, Arcanist, Elemental,
+                           Bard, Plague Dr, Adept, Druid) — see WorldListFaces
 
 # ── Loading Screens ────────────────────────────────────────────────────────────
 

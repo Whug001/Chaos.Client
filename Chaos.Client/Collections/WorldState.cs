@@ -982,7 +982,10 @@ public static class WorldState
                                   m.IsMaster,
                                   m.IsGuilded,
                                   m.Color,
-                                  m.SocialStatus))
+                                  m.SocialStatus,
+                                  m.AdvClass,
+                                  m.Continent,
+                                  m.HasAbility))
                               .ToList();
 
             WorldList.Update(entries, args.WorldMemberCount);
