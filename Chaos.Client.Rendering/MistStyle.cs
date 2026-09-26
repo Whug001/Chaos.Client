@@ -174,4 +174,155 @@ public sealed record MistStyle
         VignetteAlpha = 0.40f,
         VignetteInner = 0.6f
     };
+
+
+    /// <summary>Dark violet dim with slow shadow wisps and heavy dark edges.</summary>
+    public static MistStyle Gloom { get; } = new()
+    {
+        WashColor = new Color(28, 16, 44),
+        WashAlpha = 0.32f,
+        Pulse = MistPulse.Sine,
+        PulseDepth = 0.15f,
+        PulsePeriod = 7f,
+        LayerTint = new Color(50, 30, 70),
+        Layers =
+        [
+            new MistLayer(4.0f, 0.35f, new Vector2(-5f, 1f)),
+            new MistLayer(2.6f, 0.40f, new Vector2(8f, -2f))
+        ],
+        Seed = 6661,
+        NoiseKnee = 0.45f,
+        NoiseRange = 0.4f,
+        VignetteColor = new Color(8, 0, 18),
+        VignetteAlpha = 0.6f,
+        VignetteInner = 0.5f
+    };
+
+    /// <summary>Warm gold glow breathing slowly. Paired with rising golden motes.</summary>
+    public static MistStyle Radiance { get; } = new()
+    {
+        WashColor = new Color(255, 210, 120),
+        WashAlpha = 0.10f,
+        Pulse = MistPulse.Sine,
+        PulseDepth = 0.3f,
+        PulsePeriod = 6f,
+        LayerTint = new Color(255, 236, 180),
+        Layers =
+        [
+            new MistLayer(3.5f, 0.16f, new Vector2(0f, -6f)),
+            new MistLayer(2.2f, 0.18f, new Vector2(3f, -10f))
+        ],
+        Seed = 7777,
+        NoiseKnee = 0.45f
+    };
+
+    /// <summary>Faint pulsing violet haze. Paired with violet and blue sparks.</summary>
+    public static MistStyle Arcane { get; } = new()
+    {
+        WashColor = new Color(60, 30, 120),
+        WashAlpha = 0.14f,
+        Pulse = MistPulse.Sine,
+        PulseDepth = 0.3f,
+        PulsePeriod = 4f,
+        LayerTint = new Color(150, 110, 230),
+        Layers = [new MistLayer(3.0f, 0.14f, new Vector2(-4f, -3f))],
+        Seed = 2718,
+        NoiseKnee = 0.5f,
+        NoiseRange = 0.4f,
+        VignetteColor = new Color(20, 0, 40),
+        VignetteAlpha = 0.3f,
+        VignetteInner = 0.6f
+    };
+
+    /// <summary>Cold blue tint with frosted white edges. Paired with pale sparkles.</summary>
+    public static MistStyle Frost { get; } = new()
+    {
+        WashColor = new Color(150, 190, 230),
+        WashAlpha = 0.14f,
+        LayerTint = new Color(230, 245, 255),
+        Layers = [new MistLayer(3.0f, 0.12f, new Vector2(4f, 1f))],
+        Seed = 1212,
+        NoiseKnee = 0.5f,
+        VignetteColor = new Color(220, 238, 255),
+        VignetteAlpha = 0.45f,
+        VignetteInner = 0.6f
+    };
+
+    /// <summary>White-out haze tearing sideways. Paired with snow flakes and streaks.</summary>
+    public static MistStyle Blizzard { get; } = new()
+    {
+        FadeSeconds = 1.5f,
+        WashColor = new Color(200, 210, 225),
+        WashAlpha = 0.26f,
+        LayerTint = new Color(240, 245, 255),
+        Layers =
+        [
+            new MistLayer(3.0f, 0.28f, new Vector2(-120f, 20f)),
+            new MistLayer(2.0f, 0.34f, new Vector2(-200f, 30f)),
+            new MistLayer(1.3f, 0.24f, new Vector2(-300f, 40f))
+        ],
+        Seed = 5150,
+        NoiseKnee = 0.32f,
+        VignetteColor = new Color(230, 238, 250),
+        VignetteAlpha = 0.35f,
+        VignetteInner = 0.55f
+    };
+
+    /// <summary>Faint warm haze. Paired with specks hanging in the air.</summary>
+    public static MistStyle Dust { get; } = new()
+    {
+        WashColor = new Color(170, 150, 110),
+        WashAlpha = 0.10f,
+        LayerTint = new Color(220, 200, 160),
+        Layers = [new MistLayer(3.5f, 0.14f, new Vector2(3f, -1f))],
+        Seed = 3030,
+        NoiseKnee = 0.5f
+    };
+
+    /// <summary>Large soft shadows of passing clouds sliding over the ground. No wash, so no tint.</summary>
+    public static MistStyle CloudShadows { get; } = new()
+    {
+        FadeSeconds = 2f,
+        LayerTint = new Color(8, 14, 24),
+        Layers = [new MistLayer(5.0f, 0.45f, new Vector2(14f, 6f))],
+        Seed = 4040,
+        NoiseKnee = 0.45f,
+        NoiseRange = 0.35f
+    };
+
+    /// <summary>Pale salt mist blowing sideways. Paired with white flecks of spray.</summary>
+    public static MistStyle SeaSpray { get; } = new()
+    {
+        WashColor = new Color(180, 200, 210),
+        WashAlpha = 0.08f,
+        LayerTint = new Color(235, 245, 250),
+        Layers =
+        [
+            new MistLayer(3.0f, 0.18f, new Vector2(-40f, -2f)),
+            new MistLayer(1.8f, 0.20f, new Vector2(-70f, -4f))
+        ],
+        Seed = 8080,
+        NoiseKnee = 0.45f
+    };
+
+    /// <summary>Orange tint throbbing gently, with faint haze rising.</summary>
+    public static MistStyle Heat { get; } = new()
+    {
+        WashColor = new Color(200, 110, 40),
+        WashAlpha = 0.14f,
+        Pulse = MistPulse.Sine,
+        PulseDepth = 0.25f,
+        PulsePeriod = 3f,
+        LayerTint = new Color(255, 190, 120),
+        Layers =
+        [
+            new MistLayer(2.5f, 0.12f, new Vector2(0f, -18f)),
+            new MistLayer(1.6f, 0.10f, new Vector2(3f, -28f))
+        ],
+        Seed = 9191,
+        NoiseKnee = 0.5f,
+        VignetteColor = new Color(120, 40, 0),
+        VignetteAlpha = 0.3f,
+        VignetteInner = 0.6f
+    };
 }
