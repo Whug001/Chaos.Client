@@ -17,7 +17,8 @@ public sealed class WorldListEntryControl : UIPanel
     //columns match the grid cells painted in _nusers.spf; x is relative to the list's left edge (x = 15 in the drawer)
     private const int ROW_HEIGHT = 15;
     private const int TEXT_HEIGHT = 12;
-    private const int TEXT_Y = -1;
+    //0, not -1: the row clips its children, so a negative y cuts off the glyphs' top pixel row
+    private const int TEXT_Y = 0;
     private const int TITLE_WIDTH = 168;
     private const int NAME_X = 178;
     private const int NAME_WIDTH = 94;
