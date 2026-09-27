@@ -24,11 +24,13 @@ public sealed class EmblemBook
         Changed?.Invoke();
     }
 
+    /// <summary>Empties the book (logout). Fires <see cref="Changed" /> so an open Emblem tab drops the old character's emblems.</summary>
     public void Clear()
     {
         Entries = [];
         ShownKey = string.Empty;
         ReceivedAtUtc = default;
+        Changed?.Invoke();
     }
 
     /// <summary>Seconds left on an expiring emblem at <paramref name="nowUtc" />, never below 0. 0 for emblems that never expire.</summary>

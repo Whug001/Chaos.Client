@@ -24,6 +24,9 @@ public class EmblemBookTests
         book.Clear();
         book.Entries.Should().BeEmpty();
         book.ShownKey.Should().BeEmpty();
+
+        //an open Emblem tab re-binds from the emptied book instead of showing the last character's emblems
+        changed.Should().Be(2);
         await Task.CompletedTask;
     }
 
