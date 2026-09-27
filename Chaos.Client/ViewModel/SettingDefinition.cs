@@ -10,6 +10,7 @@ namespace Chaos.Client.ViewModel;
 public enum SettingSection
 {
     Display,
+    MapEffects,
     DamageNumbers,
     Sound,
     Interaction,
@@ -71,7 +72,13 @@ public enum SettingKey
     DamageNumbersMyOutputOnly,
     GroundTargetSnapToEntity,
     ChatFilterMode,
-    HasConfiguredChatFilter
+    HasConfiguredChatFilter,
+    HideLightning,
+    HideRain,
+    HideBloodMoon,
+    HideSandstorm,
+    HideFrost,
+    HideBlizzard
 }
 
 /// <summary>
@@ -161,6 +168,52 @@ public static class SettingDefinitions
                 ClientSettings.MaxEffectAnimationsPerEntity = v;
                 ClientSettings.Save();
             }),
+
+        //── Triggering or Unsettling Map Effects ──
+        //a ticked box hides the effect on every map, for players who get headaches or migraines from the flicker.
+        //MapEffectFilter turns these into the map flags it strips before the weather and ambient renderers see them
+        new(
+            SettingKey.HideLightning,
+            "Disable Lightning",
+            SettingSection.MapEffects,
+            SettingCategory.ClientLocal,
+            Get: () => ClientSettings.HideLightning,
+            Set: v => ClientSettings.HideLightning = v),
+        new(
+            SettingKey.HideRain,
+            "Disable Rain",
+            SettingSection.MapEffects,
+            SettingCategory.ClientLocal,
+            Get: () => ClientSettings.HideRain,
+            Set: v => ClientSettings.HideRain = v),
+        new(
+            SettingKey.HideBloodMoon,
+            "Disable Blood Moon",
+            SettingSection.MapEffects,
+            SettingCategory.ClientLocal,
+            Get: () => ClientSettings.HideBloodMoon,
+            Set: v => ClientSettings.HideBloodMoon = v),
+        new(
+            SettingKey.HideSandstorm,
+            "Disable Sandstorm",
+            SettingSection.MapEffects,
+            SettingCategory.ClientLocal,
+            Get: () => ClientSettings.HideSandstorm,
+            Set: v => ClientSettings.HideSandstorm = v),
+        new(
+            SettingKey.HideFrost,
+            "Disable Frost",
+            SettingSection.MapEffects,
+            SettingCategory.ClientLocal,
+            Get: () => ClientSettings.HideFrost,
+            Set: v => ClientSettings.HideFrost = v),
+        new(
+            SettingKey.HideBlizzard,
+            "Disable Blizzard",
+            SettingSection.MapEffects,
+            SettingCategory.ClientLocal,
+            Get: () => ClientSettings.HideBlizzard,
+            Set: v => ClientSettings.HideBlizzard = v),
 
         //── Damage Numbers ──
         new(
@@ -308,6 +361,7 @@ public static class SettingDefinitions
     public static IReadOnlyList<SettingSection> PanelSections { get; } =
     [
         SettingSection.Display,
+        SettingSection.MapEffects,
         SettingSection.DamageNumbers,
         SettingSection.Sound,
         SettingSection.Interaction,

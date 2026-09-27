@@ -87,6 +87,15 @@ public static class ClientSettings
     // --- Ground-target aim snapping (client-local; applied in WorldScreen.GroundTargetTileAt) ---
     public static bool GroundTargetSnapToEntity { get; set; } = true;
 
+    // --- Map effects a player can hide, for flicker and flashing that bothers them (client-local; read by
+    // MapEffectFilter). Off by default: every effect shows until the player opts out. ---
+    public static bool HideLightning { get; set; }
+    public static bool HideRain { get; set; }
+    public static bool HideBloodMoon { get; set; }
+    public static bool HideSandstorm { get; set; }
+    public static bool HideFrost { get; set; }
+    public static bool HideBlizzard { get; set; }
+
     // --- Emote wheel slot assignments (client-local; middle-mouse radial wheel) ---
     public static BodyAnimation[] EmoteWheelSlots { get; set; } = (BodyAnimation[])EmoteCatalog.DefaultWheelSlots.Clone();
 
@@ -239,6 +248,36 @@ public static class ClientSettings
 
                         break;
 
+                    case "HideLightning":
+                        HideLightning = value == "1";
+
+                        break;
+
+                    case "HideRain":
+                        HideRain = value == "1";
+
+                        break;
+
+                    case "HideBloodMoon":
+                        HideBloodMoon = value == "1";
+
+                        break;
+
+                    case "HideSandstorm":
+                        HideSandstorm = value == "1";
+
+                        break;
+
+                    case "HideFrost":
+                        HideFrost = value == "1";
+
+                        break;
+
+                    case "HideBlizzard":
+                        HideBlizzard = value == "1";
+
+                        break;
+
                     case "WindowWidth":
                         if (int.TryParse(value, out var ww))
                             WindowWidth = Math.Max(ww, 0);
@@ -331,6 +370,12 @@ public static class ClientSettings
             writer.WriteLine($"TransparentGroupPanels : {(TransparentGroupPanels ? 1 : 0)}");
             writer.WriteLine($"GroundTargetSnapToEntity : {(GroundTargetSnapToEntity ? 1 : 0)}");
             writer.WriteLine($"MaxEffectAnimations : {MaxEffectAnimationsPerEntity}");
+            writer.WriteLine($"HideLightning : {(HideLightning ? 1 : 0)}");
+            writer.WriteLine($"HideRain : {(HideRain ? 1 : 0)}");
+            writer.WriteLine($"HideBloodMoon : {(HideBloodMoon ? 1 : 0)}");
+            writer.WriteLine($"HideSandstorm : {(HideSandstorm ? 1 : 0)}");
+            writer.WriteLine($"HideFrost : {(HideFrost ? 1 : 0)}");
+            writer.WriteLine($"HideBlizzard : {(HideBlizzard ? 1 : 0)}");
 
             for (var i = 0; i < EmoteCatalog.SLOT_COUNT; i++)
                 writer.WriteLine($"EmoteWheel{i} : {(int)EmoteWheelSlots[i]}");
