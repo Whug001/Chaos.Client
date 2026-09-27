@@ -28,8 +28,8 @@ namespace Chaos.Client.Controls.World.Popups.GuildCloak;
 /// </remarks>
 public sealed class GuildCloakReviewControl : GuildCloakDialogBase
 {
-    private const int OK_RIGHT_MARGIN = 14;
-    private const int OK_BOTTOM_MARGIN = 10;
+    private const int OK_RIGHT_MARGIN = 20;
+    private const int OK_BOTTOM_MARGIN = 3;
 
     //20, not 16: matches the editor's fix for the same "_nsett" frame's ornate side edges (Task 8)
     private const int LEFT = 20;

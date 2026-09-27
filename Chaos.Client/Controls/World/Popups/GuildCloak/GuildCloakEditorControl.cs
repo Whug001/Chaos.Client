@@ -27,8 +27,8 @@ namespace Chaos.Client.Controls.World.Popups.GuildCloak;
 /// </remarks>
 public sealed class GuildCloakEditorControl : GuildCloakDialogBase
 {
-    private const int OK_RIGHT_MARGIN = 14;
-    private const int OK_BOTTOM_MARGIN = 10;
+    private const int OK_RIGHT_MARGIN = 20;
+    private const int OK_BOTTOM_MARGIN = 3;
     private const int LEFT = 20;
     private const int GAP = 8;
     private const int TITLE_TOP = 10;
