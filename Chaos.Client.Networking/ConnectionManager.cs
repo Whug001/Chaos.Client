@@ -577,6 +577,9 @@ public sealed class ConnectionManager : IDisposable
     /// <summary>Fired when an approved guild cloak design arrives.</summary>
     public event GuildCloakDesignHandler? OnGuildCloakDesign;
 
+    /// <summary>Fired when the player's emblem book arrives.</summary>
+    public event EmblemBookHandler? OnEmblemBook;
+
     /// <summary>Fired when the server opens or updates the guild cloak review window.</summary>
     public event GuildCloakReviewListHandler? OnGuildCloakReviewList;
 
@@ -1305,6 +1308,10 @@ public sealed class ConnectionManager : IDisposable
     /// <summary>Asks for one approved guild cloak design.</summary>
     public void SendGuildCloakDesignRequest(int designId) => SendIfWorld(new GuildCloakDesignRequestArgs { DesignId = designId });
 
+    public void SendEmblemBookRequest() => SendIfWorld(new EmblemBookRequestArgs());
+
+    public void SendEmblemChoice(string key) => SendIfWorld(new EmblemChoiceArgs { Key = key });
+
     /// <summary>Sends an admin's approve or reject. The server checks the sender is an admin.</summary>
     public void SendGuildCloakReviewInteraction(GuildCloakReviewInteractionArgs args) => SendIfWorld(args);
 
@@ -1705,6 +1712,7 @@ public sealed class ConnectionManager : IDisposable
         PacketHandlers[(byte)ServerOpCode.GuildCloakEditor] = HandleGuildCloakEditor;
         PacketHandlers[(byte)ServerOpCode.GuildCloakLook] = HandleGuildCloakLook;
         PacketHandlers[(byte)ServerOpCode.GuildCloakDesign] = HandleGuildCloakDesign;
+        PacketHandlers[(byte)ServerOpCode.EmblemBook] = HandleEmblemBook;
         PacketHandlers[(byte)ServerOpCode.GuildCloakReviewList] = HandleGuildCloakReviewList;
         PacketHandlers[(byte)ServerOpCode.DisplayAisling] = HandleDisplayAisling;
 
@@ -2166,6 +2174,12 @@ public sealed class ConnectionManager : IDisposable
     {
         var args = Client.Deserialize<GuildCloakDesignArgs>(in pkt);
         OnGuildCloakDesign?.Invoke(args);
+    }
+
+    private void HandleEmblemBook(ServerPacket pkt)
+    {
+        var args = Client.Deserialize<EmblemBookArgs>(in pkt);
+        OnEmblemBook?.Invoke(args);
     }
 
     private void HandleGuildCloakReviewList(ServerPacket pkt)

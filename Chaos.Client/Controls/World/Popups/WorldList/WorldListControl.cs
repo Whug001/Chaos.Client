@@ -101,7 +101,15 @@ public sealed class WorldListControl : PrefabPanel
             () =>
             {
                 var row = new WorldListEntryControl(rowWidth);
-                row.OnWhisper += name => OnWhisperRequested?.Invoke(name);
+
+                //double-clicking your own row opens your Emblem tab; any other row whispers
+                row.OnWhisper += name =>
+                {
+                    if (name.EqualsI(PlayerName))
+                        OnEmblemBookRequested?.Invoke();
+                    else
+                        OnWhisperRequested?.Invoke(name);
+                };
 
                 return row;
             },
@@ -281,6 +289,9 @@ public sealed class WorldListControl : PrefabPanel
 
     public event CloseHandler? OnClose;
     public event WhisperRequestedHandler? OnWhisperRequested;
+
+    /// <summary>Raised when the player double-clicks their own row.</summary>
+    public event Action? OnEmblemBookRequested;
 
     public void SetFamilyNames(FamilyList? family)
     {

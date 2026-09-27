@@ -17,4 +17,5 @@ public sealed record WorldListEntry(
     SocialStatus SocialStatus,
     AdvClass AdvClass = AdvClass.None,
     Continent Continent = Continent.None,
-    bool HasAbility = false);
+    bool HasAbility = false,
+    ushort EmblemArt = 0);

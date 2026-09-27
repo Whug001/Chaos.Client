@@ -180,12 +180,17 @@ _nui_ev.txt
   Images referenced by controls:
     _nui_ev.epf/.spf     — Tab page background
 
-_nui_al.txt
-  Class:    StatusBookTabPage : PrefabPanel (generic)
-  File:     Controls/World/Hud/SelfProfile/StatusBookTabPage.cs
-  Purpose:  Album tab — placeholder/generic tab page
-  Images referenced by controls:
-    _nui_al.epf/.spf     — Tab page background
+_nui_ebl.txt
+  Class:    SelfProfileEmblemTab : PrefabPanel
+  File:     Controls/World/Popups/Profile/SelfProfileEmblemTab.cs
+  Purpose:  Emblem tab (was Album) — the simplified Korean emblem book: 5x5 grid at 2x, 3x preview, time left,
+            description, Show/Hide
+  Controls: GRID, PREV, PAGE, NEXT, PREVIEW, NAME, TIMELEFT, DESC, SHOW
+  Images:
+    _nui_ebl.spf         — Page background (the right page's top row removed, panels moved up 24 px)
+    _nui_eblb.spf        — Show, Show pressed, Hide, Hide pressed
+  Also manually loads:
+    emblNNN.spf          — Emblem art by number (1-173, 181-183); animated emblems advance every 120 ms
 
 _nui_fm.txt
   Class:    SelfProfileFamilyTab : PrefabPanel
@@ -608,7 +613,7 @@ msg.tbl
 # Control .txt files:        34 total
 #   Login flow:              _nstart, _nlogin, _nsvr, _ncreate, _nagree, _npw
 #   Main HUD:                _nbk_s, _nstatus
-#   Self-profile tabs:       _nui, _nui_eq, _nui_sk, _nui_dr, _nui_ev, _nui_al, _nui_fm
+#   Self-profile tabs:       _nui, _nui_eq, _nui_sk, _nui_dr, _nui_ev, _nui_ebl, _nui_fm
 #   Popups/dialogs:          _nexch, _nmoney, _nmaill, _nmailr, _nmails, _ngcmain, _ngcdlg0, _ngcdlg1, lgcpane, lnpcd, lssbook, _nhotkem, _nhotkey
 #   Options/settings:        _noptdlg, _nmacro, _nsett, _nfriend
 #   HUD sub-controls:        lback, lemot, _nusers

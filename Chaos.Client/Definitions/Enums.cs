@@ -84,7 +84,7 @@ public enum StatusBookTab
     Legend,
     Skills,
     Events,
-    Album,
+    Emblem,
     Family
 }
 

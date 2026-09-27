@@ -1,5 +1,6 @@
 #region
 using Chaos.Client.Controls.Components;
+using Chaos.Client.Controls.World.Emblems;
 using Chaos.Client.Models;
 using Microsoft.Xna.Framework;
 using Microsoft.Xna.Framework.Graphics;
@@ -8,8 +9,8 @@ using Microsoft.Xna.Framework.Graphics;
 namespace Chaos.Client.Controls.World.Popups.WorldList;
 
 /// <summary>
-///     A single row in the world list panel: title + name + social status icon, which sits in the inner icon
-///     cell (the emblem cell to its right stays empty until the emblem system fills it).
+///     A single row in the world list panel: title + name + social status icon (inner icon cell) + the player's
+///     emblem (outer cell).
 /// </summary>
 public sealed class WorldListEntryControl : UIPanel
 {
@@ -22,7 +23,9 @@ public sealed class WorldListEntryControl : UIPanel
     private const int NAME_WIDTH = 94;
     private const int STATUS_X = 278;
     private const int ICON_SIZE = 11;
+    private const int EMBLEM_X = 293;
 
+    private readonly EmblemIcon Emblem;
     private readonly UIImage Icon;
     private readonly UILabel NameLabel;
     private readonly UILabel TitleLabel;
@@ -58,7 +61,6 @@ public sealed class WorldListEntryControl : UIPanel
 
         AddChild(NameLabel);
 
-        //the emblem cell (x = 293) stays empty until the emblem system fills it
         Icon = new UIImage
         {
             Name = "StatusIcon",
@@ -69,6 +71,18 @@ public sealed class WorldListEntryControl : UIPanel
         };
 
         AddChild(Icon);
+
+        //the outer cell: the player's emblem, 1x, centered (some emblems are smaller than 11 px)
+        Emblem = new EmblemIcon
+        {
+            Name = "Emblem",
+            X = EMBLEM_X,
+            Y = 0,
+            Width = ICON_SIZE,
+            Height = ICON_SIZE
+        };
+
+        AddChild(Emblem);
     }
 
     public void Clear()
@@ -76,6 +90,7 @@ public sealed class WorldListEntryControl : UIPanel
         TitleLabel.Text = string.Empty;
         NameLabel.Text = string.Empty;
         Icon.Texture = null;
+        Emblem.Art = 0;
         Visible = false;
     }
 
@@ -99,6 +114,7 @@ public sealed class WorldListEntryControl : UIPanel
         NameLabel.Text = entry.Name;
         PlayerName = entry.Name;
         Icon.Texture = statusIcon;
+        Emblem.Art = entry.EmblemArt;
         Visible = true;
     }
 }

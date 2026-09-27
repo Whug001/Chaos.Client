@@ -224,6 +224,8 @@ public static class WorldState
     /// </summary>
     public static WorldList WorldList { get; } = new();
 
+    public static EmblemBook EmblemBook { get; } = new();
+
     /// <summary>
     ///     Adds or updates an aisling entity from a DisplayAisling packet.
     /// </summary>
@@ -440,6 +442,7 @@ public static class WorldState
         Exchange.Close();
         Bank.Clear();
         WorldList.Clear();
+        EmblemBook.Clear();
         UserOptions.ClearServerSettings();
         SlotMachine.Clear();
         GildedSpindle.Clear();
@@ -985,11 +988,14 @@ public static class WorldState
                                   m.SocialStatus,
                                   m.AdvClass,
                                   m.Continent,
-                                  m.HasAbility))
+                                  m.HasAbility,
+                                  m.EmblemArt))
                               .ToList();
 
             WorldList.Update(entries, args.WorldMemberCount);
         };
+
+        connection.OnEmblemBook += args => EmblemBook.Apply(args, DateTime.UtcNow);
 
         //poll
         connection.OnPoll += args => Poll.Apply(args);
