@@ -30,8 +30,8 @@ public sealed class BeautyShopControl : FramedDialogPanelBase
     private const int PANEL_HEIGHT = 470;
     private const int TOP_MARGIN = 5;
     private const int HEADER_TOP = 10;
-    private const int OK_RIGHT_MARGIN = 14;
-    private const int OK_BOTTOM_MARGIN = 10;
+    private const int OK_RIGHT_MARGIN = 20;
+    private const int OK_BOTTOM_MARGIN = 3;
 
     //preview column — pedestal must fit a 111px-wide composite at 2x (222px); the old 180px width forced 1x
     private const int PREVIEW_LEFT = 20;
@@ -196,8 +196,8 @@ public sealed class BeautyShopControl : FramedDialogPanelBase
         //── appearance column ──
         var y = APPEARANCE_TOP;
 
-        Caption("Gender", APPEARANCE_LEFT, y, 80);
-        GenderPicker = new GenderSelector { X = APPEARANCE_LEFT + 80, Y = y - 4 };
+        Caption("Gender", APPEARANCE_LEFT, y + ((GenderSelector.HEIGHT - TextRenderer.CHAR_HEIGHT) / 2), 80);
+        GenderPicker = new GenderSelector { X = APPEARANCE_LEFT + 80, Y = y };
         GenderPicker.GenderChosen += g => Select(v => v.SetGender(g));
         AddChild(GenderPicker);
         y += GenderSelector.HEIGHT + SECTION_GAP;

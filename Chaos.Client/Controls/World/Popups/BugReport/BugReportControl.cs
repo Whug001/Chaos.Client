@@ -27,8 +27,8 @@ public sealed class BugReportControl : FramedDialogPanelBase
 {
     private const int PANEL_WIDTH = 430;
     private const int PANEL_HEIGHT = 310;
-    private const int OK_RIGHT_MARGIN = 14;
-    private const int OK_BOTTOM_MARGIN = 10;
+    private const int OK_RIGHT_MARGIN = 20;
+    private const int OK_BOTTOM_MARGIN = 3;
     private const int LEFT = 22;
     private const int CONTENT_WIDTH = 374;
     private const int GAP = 4;
