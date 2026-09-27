@@ -1402,7 +1402,7 @@ public sealed partial class WorldScreen
         CurrentMapFlags = (CurrentMapFlags & ~AmbientEffects.EXTENDED_FLAGS)
                           | ((MapFlags)args.ExtendedFlags & AmbientEffects.EXTENDED_FLAGS);
 
-        AmbientEffects.Apply(CurrentMapFlags, SnapAmbientEffects);
+        AmbientEffects.Apply(MapEffectFilter.Visible(CurrentMapFlags), SnapAmbientEffects);
         SnapAmbientEffects = false;
     }
 

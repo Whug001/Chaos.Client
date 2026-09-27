@@ -112,6 +112,7 @@ public sealed class SettingsControl : FramedDialogPanelBase
         => section switch
         {
             SettingSection.Display       => "Display",
+            SettingSection.MapEffects    => "Triggering or Unsettling Map Effects",
             SettingSection.DamageNumbers => "Damage Numbers",
             SettingSection.Sound         => "Sound",
             SettingSection.Interaction   => "Interaction",

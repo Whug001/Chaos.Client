@@ -2,6 +2,7 @@
 using Chaos.Client.Collections;
 using Chaos.Client.Data;
 using Chaos.Client.Systems;
+using Chaos.Client.ViewModel;
 using Chaos.DarkAges.Definitions;
 using Chaos.Geometry;
 using Chaos.Geometry.Abstractions;
@@ -49,10 +50,10 @@ public sealed partial class WorldScreen
             {
                 CurrentMapFlags = newFlags;
                 DarknessRenderer.OnMapChanged(args.MapId, CurrentMapFlags.HasFlag(MapFlags.Darkness));
-                WeatherRenderer.OnMapChanged(CurrentMapFlags);
+                WeatherRenderer.OnMapChanged(MapEffectFilter.Visible(CurrentMapFlags));
 
                 //same map, flag toggled live (e.g. /mapFlag) — fade effects in/out and let an in-flight strike finish
-                AmbientEffects.Apply(CurrentMapFlags, immediate: false);
+                AmbientEffects.Apply(MapEffectFilter.Visible(CurrentMapFlags), immediate: false);
             }
 
             SnapAmbientEffects = false;
@@ -136,11 +137,11 @@ public sealed partial class WorldScreen
 
         //reset darkness state and load hea light map for the new map
         DarknessRenderer.OnMapChanged(args.MapId, CurrentMapFlags.HasFlag(MapFlags.Darkness));
-        WeatherRenderer.OnMapChanged(CurrentMapFlags);
+        WeatherRenderer.OnMapChanged(MapEffectFilter.Visible(CurrentMapFlags));
 
         //new map — snap the ambient effects so the previous map's don't linger over this one. map info carries no
         //ambient-effect bits above the low byte; the SetMapEffects packet right behind snaps those in
-        AmbientEffects.Apply(CurrentMapFlags, immediate: true);
+        AmbientEffects.Apply(MapEffectFilter.Visible(CurrentMapFlags), immediate: true);
         SnapAmbientEffects = true;
 
         WorldState.CurrentZoneName = args.Name ?? string.Empty;
@@ -234,6 +235,23 @@ public sealed partial class WorldScreen
         MapLoading.Hide();
         FollowPlayerCamera();
         Game.GcRequested = true;
+    }
+
+    /// <summary>
+    ///     Re-runs the player's map effect filter over the current map, after a box in F4's "Triggering or Unsettling
+    ///     Map Effects" section changes. Snaps rather than fades: a player hiding lightning wants the flash gone now.
+    /// </summary>
+    private void ReapplyMapEffects()
+    {
+        var visible = MapEffectFilter.Visible(CurrentMapFlags);
+        WeatherRenderer.OnMapChanged(visible);
+        AmbientEffects.Apply(visible, immediate: true);
+    }
+
+    private void HandleMapEffectSettingChanged(SettingKey key, bool value)
+    {
+        if (MapEffectFilter.Keys.Contains(key))
+            ReapplyMapEffects();
     }
 
     /// <summary>

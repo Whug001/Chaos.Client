@@ -382,6 +382,10 @@ public sealed partial class WorldScreen : IScreen
         var userOptions = WorldState.UserOptions;
         userOptions.SeedLocalDefaults();
 
+        //a map effect ticked on or off in F4 takes hold on the current map straight away. UserOptions is static and
+        //outlives this screen, so this is unwired on unload
+        userOptions.ValueChanged += HandleMapEffectSettingChanged;
+
         //route user-initiated toggles for server-controlled settings to the network (sent as an explicit Set)
         userOptions.UserToggled += (key, newValue) =>
         {
@@ -1070,6 +1074,8 @@ public sealed partial class WorldScreen : IScreen
         WorldHud.SpellBookAlt.OnSlotClicked -= HandleSpellSlotClicked;
         WorldHud.Tools.WorldSkills.OnSlotClicked -= HandleSkillSlotClicked;
         WorldHud.Tools.WorldSpells.OnSlotClicked -= HandleSpellSlotClicked;
+
+        WorldState.UserOptions.ValueChanged -= HandleMapEffectSettingChanged;
 
         WorldState.ResetAll();
 
