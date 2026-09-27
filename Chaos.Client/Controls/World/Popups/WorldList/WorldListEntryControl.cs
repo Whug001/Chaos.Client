@@ -1,5 +1,6 @@
 #region
 using Chaos.Client.Controls.Components;
+using Chaos.Client.Controls.World.Emblems;
 using Chaos.Client.Models;
 using Microsoft.Xna.Framework;
 using Microsoft.Xna.Framework.Graphics;
@@ -8,14 +9,23 @@ using Microsoft.Xna.Framework.Graphics;
 namespace Chaos.Client.Controls.World.Popups.WorldList;
 
 /// <summary>
-///     A single row in the world list panel: title + name + social status icon (far right).
+///     A single row in the world list panel: title + name + social status icon (inner icon cell) + the player's
+///     emblem (outer cell).
 /// </summary>
 public sealed class WorldListEntryControl : UIPanel
 {
+    //columns match the grid cells painted in _nusers.spf; x is relative to the list's left edge (x = 15 in the drawer)
+    private const int ROW_HEIGHT = 15;
+    private const int TEXT_HEIGHT = 12;
+    private const int TEXT_Y = -1;
+    private const int TITLE_WIDTH = 168;
+    private const int NAME_X = 178;
+    private const int NAME_WIDTH = 94;
+    private const int STATUS_X = 278;
     private const int ICON_SIZE = 11;
-    private const int TITLE_WIDTH = 134;
-    private const int NAME_WIDTH = 91;
+    private const int EMBLEM_X = 293;
 
+    private readonly EmblemIcon Emblem;
     private readonly UIImage Icon;
     private readonly UILabel NameLabel;
     private readonly UILabel TitleLabel;
@@ -23,15 +33,15 @@ public sealed class WorldListEntryControl : UIPanel
     public WorldListEntryControl(int rowWidth)
     {
         Width = rowWidth;
-        Height = 12;
+        Height = ROW_HEIGHT;
 
         TitleLabel = new UILabel
         {
             Name = "Title",
             X = 0,
-            Y = 0,
+            Y = TEXT_Y,
             Width = TITLE_WIDTH,
-            Height = 12,
+            Height = TEXT_HEIGHT,
             HorizontalAlignment = HorizontalAlignment.Right,
             PaddingLeft = 0
         };
@@ -41,10 +51,10 @@ public sealed class WorldListEntryControl : UIPanel
         NameLabel = new UILabel
         {
             Name = "Name",
-            X = TITLE_WIDTH,
-            Y = 0,
+            X = NAME_X,
+            Y = TEXT_Y,
             Width = NAME_WIDTH,
-            Height = 12,
+            Height = TEXT_HEIGHT,
             HorizontalAlignment = HorizontalAlignment.Right,
             PaddingLeft = 0
         };
@@ -54,13 +64,25 @@ public sealed class WorldListEntryControl : UIPanel
         Icon = new UIImage
         {
             Name = "StatusIcon",
-            X = rowWidth - ICON_SIZE,
-            Y = (12 - ICON_SIZE) / 2,
+            X = STATUS_X,
+            Y = 0,
             Width = ICON_SIZE,
             Height = ICON_SIZE
         };
 
         AddChild(Icon);
+
+        //the outer cell: the player's emblem, 1x, centered (some emblems are smaller than 11 px)
+        Emblem = new EmblemIcon
+        {
+            Name = "Emblem",
+            X = EMBLEM_X,
+            Y = 0,
+            Width = ICON_SIZE,
+            Height = ICON_SIZE
+        };
+
+        AddChild(Emblem);
     }
 
     public void Clear()
@@ -68,6 +90,7 @@ public sealed class WorldListEntryControl : UIPanel
         TitleLabel.Text = string.Empty;
         NameLabel.Text = string.Empty;
         Icon.Texture = null;
+        Emblem.Art = 0;
         Visible = false;
     }
 
@@ -91,6 +114,7 @@ public sealed class WorldListEntryControl : UIPanel
         NameLabel.Text = entry.Name;
         PlayerName = entry.Name;
         Icon.Texture = statusIcon;
+        Emblem.Art = entry.EmblemArt;
         Visible = true;
     }
 }

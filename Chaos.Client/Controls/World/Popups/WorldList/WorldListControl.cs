@@ -17,27 +17,26 @@ namespace Chaos.Client.Controls.World.Popups.WorldList;
 /// <summary>
 ///     Online users list panel loaded from _nusers prefab.
 ///     Right-aligned, slides in from the right edge of the viewport.
-///     Shows a scrollable user list and 9 class filter tabs.
+///     Shows a scrollable user list and 9 filter buttons that turn through class and continent faces.
 /// </summary>
 public sealed class WorldListControl : PrefabPanel
 {
-    private const int ROW_HEIGHT = 12;
-    private const int TAB_COUNT = 9;
-
+    private const int ROW_HEIGHT = 15;
     private const int STATUS_ICON_COUNT = 8;
+    private const string BUTTON_FRAMES = "_nusersb.spf";
+
     private readonly List<WorldListEntry> FilterBuffer = [];
+    private readonly WorldListFilterState Filter = new();
 
     private readonly VirtualizedRowList<WorldListEntry> RowList;
     private readonly Texture2D?[] StatusIcons = new Texture2D?[STATUS_ICON_COUNT];
 
     //tab buttons
-    private readonly UIButton[] TabButtons = new UIButton[TAB_COUNT];
-    private readonly UILabel[] TabCountLabels = new UILabel[TAB_COUNT];
+    private readonly UIButton[] TabButtons = new UIButton[WorldListFaces.BUTTON_COUNT];
+    private readonly UILabel[] TabCountLabels = new UILabel[WorldListFaces.BUTTON_COUNT];
     private readonly UILabel TotalNumLabel;
 
     private readonly Rectangle UsersListRect;
-
-    private int ActiveTab;
 
     //player data
     private IReadOnlyList<WorldListEntry> AllEntries = [];
@@ -102,7 +101,15 @@ public sealed class WorldListControl : PrefabPanel
             () =>
             {
                 var row = new WorldListEntryControl(rowWidth);
-                row.OnWhisper += name => OnWhisperRequested?.Invoke(name);
+
+                //double-clicking your own row opens your Emblem tab; any other row whispers
+                row.OnWhisper += name =>
+                {
+                    if (name.EqualsI(PlayerName))
+                        OnEmblemBookRequested?.Invoke();
+                    else
+                        OnWhisperRequested?.Invoke(name);
+                };
 
                 return row;
             },
@@ -122,7 +129,8 @@ public sealed class WorldListControl : PrefabPanel
         //social status icons from _nemots.spf (frame 0 of each 3-frame group)
         LoadStatusIcons();
 
-        //tab buttons — built from _nusersb.spf frames (9 tabs x 2 states)
+        //tab buttons — built from _nusersb.spf frames (each of the 9 buttons rotates through its own
+        //WorldListFaces.Buttons faces, each face a normal/lit frame pair)
         var countryBtnRect = GetRect("CountryBtn");
         var masterBtnRect = GetRect("MasterBtn");
 
@@ -135,13 +143,9 @@ public sealed class WorldListControl : PrefabPanel
         //label stride derived from the y gap between first two prefab labels (same stride)
         var labelStride = tabStride;
 
-        var cache = UiRenderer.Instance!;
-
-        for (var i = 0; i < TAB_COUNT; i++)
+        for (var i = 0; i < WorldListFaces.BUTTON_COUNT; i++)
         {
-            var tabIndex = i;
-            var normalIdx = i * 2;
-            var activeIdx = i * 2 + 1;
+            var button = i;
 
             TabButtons[i] = new UIButton
             {
@@ -149,12 +153,10 @@ public sealed class WorldListControl : PrefabPanel
                 X = countryBtnRect.X,
                 Y = countryBtnRect.Y + i * tabStride,
                 Width = countryBtnRect.Width,
-                Height = countryBtnRect.Height,
-                NormalTexture = cache.GetSpfTexture("_nusersb.spf", normalIdx),
-                SelectedTexture = cache.GetSpfTexture("_nusersb.spf", activeIdx)
+                Height = countryBtnRect.Height
             };
 
-            TabButtons[i].Clicked += () => SelectTab(tabIndex);
+            TabButtons[i].Clicked += () => OnTabClicked(button);
             AddChild(TabButtons[i]);
 
             TabCountLabels[i] = new UILabel
@@ -173,7 +175,7 @@ public sealed class WorldListControl : PrefabPanel
             AddChild(TabCountLabels[i]);
         }
 
-        TabButtons[0].IsSelected = true;
+        RefreshTabs();
 
         //close button
         var closeButton = CreateButton("Close");
@@ -186,35 +188,44 @@ public sealed class WorldListControl : PrefabPanel
 
     private void ApplyFilter()
     {
-        if (ActiveTab == 0)
+        var face = Filter.ActiveFace;
+
+        if ((Filter.ActiveButton == 0) && (Filter.FaceOf(0) == 0))
             FilteredEntries = AllEntries;
         else
         {
             FilterBuffer.Clear();
 
-            foreach (var e in AllEntries)
-            {
-                var match = ActiveTab switch
-                {
-                    1 => e.IsMaster,
-                    2 => e.BaseClass == BaseClass.Warrior,
-                    3 => e.BaseClass == BaseClass.Rogue,
-                    4 => e.BaseClass == BaseClass.Wizard,
-                    5 => e.BaseClass == BaseClass.Priest,
-                    6 => e.BaseClass == BaseClass.Monk,
-                    7 => e.BaseClass == BaseClass.Peasant,
-                    8 => e.IsGuilded,
-                    _ => false
-                };
-
-                if (match)
-                    FilterBuffer.Add(e);
-            }
+            foreach (var entry in AllEntries)
+                if (face.Matches(entry))
+                    FilterBuffer.Add(entry);
 
             FilteredEntries = FilterBuffer;
         }
 
         RowList.SetItems(FilteredEntries);
+    }
+
+    private void OnTabClicked(int button)
+    {
+        Filter.Click(button);
+        RefreshTabs();
+        ApplyFilter();
+        UpdateCountLabels();
+    }
+
+    //every button shows its current face's carved frames; only the active button is lit
+    private void RefreshTabs()
+    {
+        var cache = UiRenderer.Instance!;
+
+        for (var i = 0; i < WorldListFaces.BUTTON_COUNT; i++)
+        {
+            var face = Filter.CurrentFace(i);
+            TabButtons[i].NormalTexture = cache.GetSpfTexture(BUTTON_FRAMES, face.NormalFrame);
+            TabButtons[i].SelectedTexture = cache.GetSpfTexture(BUTTON_FRAMES, face.LitFrame);
+            TabButtons[i].IsSelected = i == Filter.ActiveButton;
+        }
     }
 
     private void AutoScrollToSelf()
@@ -279,6 +290,9 @@ public sealed class WorldListControl : PrefabPanel
     public event CloseHandler? OnClose;
     public event WhisperRequestedHandler? OnWhisperRequested;
 
+    /// <summary>Raised when the player double-clicks their own row.</summary>
+    public event Action? OnEmblemBookRequested;
+
     public void SetFamilyNames(FamilyList? family)
     {
         FamilyNames.Clear();
@@ -328,15 +342,6 @@ public sealed class WorldListControl : PrefabPanel
         ((WorldListEntryControl)row).SetEntry(entry, statusIcon, nameColor);
     }
 
-    private void SelectTab(int tab)
-    {
-        TabButtons[ActiveTab].IsSelected = false;
-        ActiveTab = tab;
-        TabButtons[ActiveTab].IsSelected = true;
-        ApplyFilter();
-        UpdateCountLabels();
-    }
-
     public void SetViewportBounds(Rectangle viewport)
     {
         Slide.SetViewportBounds(viewport, Width);
@@ -347,8 +352,8 @@ public sealed class WorldListControl : PrefabPanel
     {
         AllEntries = entries;
         TotalOnline = totalOnline;
-        ActiveTab = 0;
-        TabButtons[0].IsSelected = true;
+        Filter.ResetForOpen();
+        RefreshTabs();
 
         ApplyFilter();
         UpdateCountLabels();
@@ -397,49 +402,8 @@ public sealed class WorldListControl : PrefabPanel
     private void UpdateCountLabels()
     {
         TotalNumLabel.Text = $"{TotalOnline}";
-        var counts = new int[TAB_COUNT];
-        counts[0] = AllEntries.Count;
 
-        foreach (var entry in AllEntries)
-        {
-            if (entry.IsMaster)
-                counts[1]++;
-
-            if (entry.IsGuilded)
-                counts[8]++;
-
-            switch (entry.BaseClass)
-            {
-                case BaseClass.Warrior:
-                    counts[2]++;
-
-                    break;
-                case BaseClass.Rogue:
-                    counts[3]++;
-
-                    break;
-                case BaseClass.Wizard:
-                    counts[4]++;
-
-                    break;
-                case BaseClass.Priest:
-                    counts[5]++;
-
-                    break;
-                case BaseClass.Monk:
-                    counts[6]++;
-
-                    break;
-                case BaseClass.Peasant:
-                    counts[7]++;
-
-                    break;
-                default:
-                    continue;
-            }
-        }
-
-        for (var i = 0; i < TAB_COUNT; i++)
-            TabCountLabels[i].Text = $"{counts[i]}";
+        for (var i = 0; i < WorldListFaces.BUTTON_COUNT; i++)
+            TabCountLabels[i].Text = $"{WorldListFaces.Count(AllEntries, Filter.CurrentFace(i))}";
     }
 }

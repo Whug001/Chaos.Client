@@ -13,7 +13,8 @@ namespace Chaos.Client.Controls.World.Popups.Profile;
 
 /// <summary>
 ///     Status book container using _nui prefab (main page). Contains tab navigation and hosts sub-pages: Equipment,
-///     Skills, Legend, Events, Family. Each tab page is a separate prefab that swaps in when the tab is selected.
+///     Skills, Legend, Events, Emblem, Family. Each tab page is a separate prefab that swaps in when the tab is
+///     selected.
 /// </summary>
 public sealed class SelfProfileTabControl : PrefabPanel, IInventoryDropTarget
 {
@@ -113,7 +114,7 @@ public sealed class SelfProfileTabControl : PrefabPanel, IInventoryDropTarget
         TabPages[StatusBookTab.Skills] = null;
         TabPages[StatusBookTab.Legend] = null;
         TabPages[StatusBookTab.Events] = null;
-        TabPages[StatusBookTab.Album] = null;
+        TabPages[StatusBookTab.Emblem] = null;
         TabPages[StatusBookTab.Family] = null;
 
         //load the default tab so content is visible immediately
@@ -128,7 +129,7 @@ public sealed class SelfProfileTabControl : PrefabPanel, IInventoryDropTarget
             StatusBookTab.Skills    => "_nui_sk",
             StatusBookTab.Legend    => "_nui_dr",
             StatusBookTab.Events    => "_nui_ev",
-            StatusBookTab.Album     => "_nui_al",
+            StatusBookTab.Emblem    => "_nui_ebl",
             StatusBookTab.Family    => "_nui_fm",
             _                       => null
         };
@@ -146,7 +147,7 @@ public sealed class SelfProfileTabControl : PrefabPanel, IInventoryDropTarget
             StatusBookTab.Skills    => new SelfProfileAbilityMetadataTab(prefabName),
             StatusBookTab.Legend    => new SelfProfileLegendTab(prefabName),
             StatusBookTab.Events    => new SelfProfileEventMetadataTab(prefabName),
-            StatusBookTab.Album     => new SelfProfileBlankTab(prefabName),
+            StatusBookTab.Emblem    => new SelfProfileEmblemTab(prefabName),
             StatusBookTab.Family    => new SelfProfileFamilyTab(prefabName),
             _                       => new SelfProfileBlankTab(prefabName)
         };
@@ -168,6 +169,12 @@ public sealed class SelfProfileTabControl : PrefabPanel, IInventoryDropTarget
 
         if (page is SelfProfileEventMetadataTab eventsTab)
             eventsTab.OnEntryClicked += (entry, state) => OnEventDetailRequested?.Invoke(entry, state);
+
+        if (page is SelfProfileEmblemTab emblemTab)
+        {
+            emblemTab.OnBookRequested += () => OnEmblemBookRequested?.Invoke();
+            emblemTab.OnChoice += key => OnEmblemChoice?.Invoke(key);
+        }
 
         return page;
     }
@@ -212,6 +219,12 @@ public sealed class SelfProfileTabControl : PrefabPanel, IInventoryDropTarget
 
     public event UnequipHandler? OnUnequip;
     public event Action<int>? OnTitleSelected;
+
+    /// <summary>Raised when the Emblem tab wants a fresh emblem book.</summary>
+    public event Action? OnEmblemBookRequested;
+
+    /// <summary>Raised with the emblem key to show, or an empty key to hide.</summary>
+    public event Action<string>? OnEmblemChoice;
 
     /// <summary>
     ///     Pushes the server's hidden-equipment flags (echoed in SelfProfile) onto the Equipment tab's visibility dots.

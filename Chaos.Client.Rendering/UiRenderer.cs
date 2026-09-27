@@ -122,6 +122,9 @@ public sealed class UiRenderer : IDisposable
         return EpfFrameCounts.GetValueOrDefault(fileName);
     }
 
+    /// <summary>Returns the number of frames in an SPF file in setoa.dat, or 0 when the file is missing.</summary>
+    public int GetSpfFrameCount(string fileName) => DataContext.UserControls.GetSpfFrameCount(fileName);
+
     /// <summary>
     ///     Loads a single EPF frame from setoa.dat (GUI palette) and caches the resulting texture. The first call for a given
     ///     file bulk-caches all frames.

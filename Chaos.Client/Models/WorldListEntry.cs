@@ -14,4 +14,8 @@ public sealed record WorldListEntry(
     bool IsMaster,
     bool IsGuilded,
     WorldListColor Color,
-    SocialStatus SocialStatus);
+    SocialStatus SocialStatus,
+    AdvClass AdvClass = AdvClass.None,
+    Continent Continent = Continent.None,
+    bool HasAbility = false,
+    ushort EmblemArt = 0);

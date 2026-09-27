@@ -180,12 +180,17 @@ _nui_ev.txt
   Images referenced by controls:
     _nui_ev.epf/.spf     — Tab page background
 
-_nui_al.txt
-  Class:    StatusBookTabPage : PrefabPanel (generic)
-  File:     Controls/World/Hud/SelfProfile/StatusBookTabPage.cs
-  Purpose:  Album tab — placeholder/generic tab page
-  Images referenced by controls:
-    _nui_al.epf/.spf     — Tab page background
+_nui_ebl.txt
+  Class:    SelfProfileEmblemTab : PrefabPanel
+  File:     Controls/World/Popups/Profile/SelfProfileEmblemTab.cs
+  Purpose:  Emblem tab (was Album) — the simplified Korean emblem book: 5x5 grid at 2x, 3x preview, time left,
+            description, Show/Hide
+  Controls: GRID, PREV, PAGE, NEXT, PREVIEW, NAME, TIMELEFT, DESC, SHOW
+  Images:
+    _nui_ebl.spf         — Page background (the right page's top row removed, panels moved up 24 px)
+    _nui_eblb.spf        — Show, Show pressed, Hide, Hide pressed
+  Also manually loads:
+    emblNNN.spf          — Emblem art by number (1-173, 181-183); animated emblems advance every 120 ms
 
 _nui_fm.txt
   Class:    SelfProfileFamilyTab : PrefabPanel
@@ -370,13 +375,22 @@ lemot.txt
 
 _nusers.txt
   Class:    WorldListControl : PrefabPanel
-  File:     Controls/World/Hud/WorldListControl.cs
-  Purpose:  World/server list display — scrollable entries, country/master tab buttons
+  File:     Controls/World/Popups/WorldList/WorldListControl.cs
+  Purpose:  World list drawer (Korean grid art, 498x303) — 15 px rows, 9 filter buttons that turn through faces
   Images referenced by controls:
-    _nusers.epf/.spf     — Anchor background
-    _nbtn.epf/.spf       — CountryBtn/MasterBtn button frames
+    _nusers.spf          — Anchor background (row lines run through the title column)
+    _nbtn.spf            — Close button frames
   Also manually loads:
-    _nusersb.spf         — Tab button frames (9 tabs x 2 states, TextureConverter.LoadSpfTextures)
+    _nusersb.spf         — 44 button frames: 0-17 the original nine (normal, lit), 18-43 the added faces
+                           (Temuair, Medenia, Ability, Berserker, Warlord, Archer, Assassin, Arcanist, Elemental,
+                           Bard, Plague Dr, Adept, Druid) — see WorldListFaces
+  Control rects (left,top-right,bottom):
+    UsersList   15,24-341,276
+    TotalNum    447,39-479,51
+    CountryNum  447,65-479,77   (then every 22 px for the remaining 8 rows)
+    CountryBtn  365,62-431,78
+    MasterBtn   365,84-431,100  (stride 22 for the remaining 8 rows)
+    Close       392,277-453,299
 
 # ── Loading Screens ────────────────────────────────────────────────────────────
 
@@ -599,7 +613,7 @@ msg.tbl
 # Control .txt files:        34 total
 #   Login flow:              _nstart, _nlogin, _nsvr, _ncreate, _nagree, _npw
 #   Main HUD:                _nbk_s, _nstatus
-#   Self-profile tabs:       _nui, _nui_eq, _nui_sk, _nui_dr, _nui_ev, _nui_al, _nui_fm
+#   Self-profile tabs:       _nui, _nui_eq, _nui_sk, _nui_dr, _nui_ev, _nui_ebl, _nui_fm
 #   Popups/dialogs:          _nexch, _nmoney, _nmaill, _nmailr, _nmails, _ngcmain, _ngcdlg0, _ngcdlg1, lgcpane, lnpcd, lssbook, _nhotkem, _nhotkey
 #   Options/settings:        _noptdlg, _nmacro, _nsett, _nfriend
 #   HUD sub-controls:        lback, lemot, _nusers

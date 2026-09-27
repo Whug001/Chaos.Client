@@ -1016,6 +1016,14 @@ public sealed partial class WorldScreen
 
         WorldList.OnWhisperRequested += name => WorldHud.ChatInput.FocusWhisper(name);
 
+        //double-clicking your own world list row opens your profile on the Emblem tab
+        WorldList.OnEmblemBookRequested += () =>
+        {
+            SelfProfileRequested = true;
+            SelfProfileRequestedTab = StatusBookTab.Emblem;
+            Game.Connection.RequestSelfProfile();
+        };
+
         if (hud.BulletinButton is not null)
         {
             hud.BulletinButton.Clicked += () =>

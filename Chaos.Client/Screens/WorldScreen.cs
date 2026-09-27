@@ -700,6 +700,8 @@ public sealed partial class WorldScreen : IScreen
         };
         StatusBook.OnEventDetailRequested += (entry, state) => EventMetadataDetails.ShowEntry(entry, state, WorldHud.ViewportBounds);
         StatusBook.OnTitleSelected += idx => Game.Connection.SendSetActiveTitle((byte)idx);
+        StatusBook.OnEmblemBookRequested += () => Game.Connection.SendEmblemBookRequest();
+        StatusBook.OnEmblemChoice += key => Game.Connection.SendEmblemChoice(key);
 
         SelfProfileTextEditor = new SelfProfileTextEditorControl
         {

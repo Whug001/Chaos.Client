@@ -306,6 +306,12 @@ public sealed class UiComponentRepository : RepositoryBase
         return images;
     }
 
+    /// <summary>Returns the number of frames in an SPF file in setoa.dat, or 0 when the file is missing.</summary>
+    public int GetSpfFrameCount(string fileName) =>
+        DatArchives.Setoa.TryGetValue(fileName, out _)
+            ? GetOrCreate($"SPF_{fileName}", () => LoadSpfFile(fileName))?.Count ?? 0
+            : 0;
+
     private static FrozenDictionary<int, Palette> LoadGuiPalettes()
     {
         var palettes = Palette.FromArchive("gui", DatArchives.Setoa);

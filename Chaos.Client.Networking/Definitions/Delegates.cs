@@ -432,6 +432,9 @@ public delegate void GuildCloakLookHandler(GuildCloakLookArgs args);
 /// <summary>Handles one approved guild cloak design arriving.</summary>
 public delegate void GuildCloakDesignHandler(GuildCloakDesignArgs args);
 
+/// <summary>Handles the player's emblem book arriving.</summary>
+public delegate void EmblemBookHandler(EmblemBookArgs args);
+
 /// <summary>Handles the guild cloak review list opening or changing.</summary>
 public delegate void GuildCloakReviewListHandler(GuildCloakReviewListArgs args);
 #endregion
