@@ -325,18 +325,8 @@ public sealed partial class WorldScreen
         return blocked;
     }
 
-    private bool TileHasForeground(int tileX, int tileY)
-    {
-        if (MapFile is null)
-            return false;
-
-        if ((tileX < 0) || (tileY < 0) || (tileX >= MapFile.Width) || (tileY >= MapFile.Height))
-            return false;
-
-        var tile = MapFile.Tiles[tileX, tileY];
-
-        return tile.LeftForeground.IsRenderedTileIndex() || tile.RightForeground.IsRenderedTileIndex();
-    }
+    private bool IsTileOnMap(int tileX, int tileY)
+        => MapFile is not null && (tileX >= 0) && (tileY >= 0) && (tileX < MapFile.Width) && (tileY < MapFile.Height);
 
     /// <summary>
     ///     True when the foreground is a walk-blocking wall. Authoritative source is <c>sotp.dat</c>, indexed by the tile's

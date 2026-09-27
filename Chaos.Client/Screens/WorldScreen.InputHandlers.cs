@@ -1805,7 +1805,8 @@ public sealed partial class WorldScreen
 
         if (entity?.Type is ClientEntityType.Creature)
             Game.Connection.ClickEntity(entity.Id);
-        else if (TileHasForeground(tileX, tileY))
+        else if (IsTileOnMap(tileX, tileY))
+            //sent for every tile, not only ones with art, so the server can react to clicks on bare floor
             Game.Connection.ClickTile(tileX, tileY);
     }
 
