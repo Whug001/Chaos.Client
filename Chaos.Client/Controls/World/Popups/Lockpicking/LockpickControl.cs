@@ -198,6 +198,14 @@ public sealed class LockpickControl : FramedDialogPanelBase
 
                 break;
         }
+
+        //a late Opened/Broke reply can arrive after the animator's own 2-second timeout has already
+        //returned it to Idle (or sent it back toward Idle via Returning). The animation can no longer show
+        //the result, so close the window the same way a server Close does, with the outcome's message
+        //already set above
+        if ((outcome is LockpickTurnOutcome.Opened or LockpickTurnOutcome.Broke)
+            && (Animator.State is LockpickAnimState.Idle or LockpickAnimState.Returning))
+            CloseAfterSeconds = CLOSE_MESSAGE_SECONDS;
     }
 
     /// <summary>The server ended the session. A reason is shown for a moment first.</summary>
