@@ -36,6 +36,24 @@ public static class AvatarCapture
         return sb.Length == 0 ? "_" : sb.ToString();
     }
 
+    /// <summary>The name the card files are written under. A client started by a card auto-login can log out and
+    /// log in to another character, so the files follow the character that is logged in, not DA_AUTO_USERNAME.
+    /// When that character is the card's own, the card's spelling is kept, because the launcher looks the file up
+    /// by it. Returns null when no character is logged in, so nothing is written.</summary>
+    public static string? ResolveCardName(string? autoUsername, string? playerName)
+    {
+        if (string.IsNullOrWhiteSpace(playerName))
+            return null;
+
+        if (!string.IsNullOrEmpty(autoUsername) && playerName.Equals(autoUsername, StringComparison.OrdinalIgnoreCase))
+            return autoUsername;
+
+        return playerName;
+    }
+
+    private static string? CurrentCardName =>
+        ResolveCardName(GlobalSettings.AutoUsername, Collections.WorldState.PlayerName);
+
     public static string BuildPath(string dir, string username) =>
         System.IO.Path.Combine(dir, Sanitize(username) + ".png");
 
@@ -46,7 +64,7 @@ public static class AvatarCapture
 
     public static void CaptureAndSave(AislingRenderer renderer, in AislingAppearance appearance)
     {
-        if (!IsEnabled)
+        if (!IsEnabled || CurrentCardName is not { } cardName)
             return;
 
         try
@@ -65,7 +83,7 @@ public static class AvatarCapture
             var dir = GlobalSettings.CardAvatarDir!;
             System.IO.Directory.CreateDirectory(dir);
 
-            var path = BuildPath(dir, GlobalSettings.AutoUsername!);
+            var path = BuildPath(dir, cardName);
             var tmp = path + ".tmp";
 
             using (var fs = System.IO.File.Create(tmp))
@@ -87,7 +105,7 @@ public static class AvatarCapture
     /// Chaos.Launcher.Core.Cards.CharacterStats.</summary>
     public static void SaveStats()
     {
-        if (!IsEnabled)
+        if (!IsEnabled || CurrentCardName is not { } cardName)
             return;
 
         try
@@ -99,7 +117,7 @@ public static class AvatarCapture
             var dir = GlobalSettings.CardAvatarDir!;
             System.IO.Directory.CreateDirectory(dir);
 
-            var path = BuildStatsPath(dir, GlobalSettings.AutoUsername!);
+            var path = BuildStatsPath(dir, cardName);
 
             //class comes from the class enums only. The SelfProfile display string is deliberately NOT used:
             //for a master-class player the server sends "Master", which is a profile title rather than a
