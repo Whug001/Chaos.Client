@@ -18,6 +18,7 @@ using Chaos.Client.Controls.World.Popups.Poker;
 using Chaos.Client.Controls.World.Popups.Profile;
 using Chaos.Client.Controls.World.Popups.Slots;
 using Chaos.Client.Controls.World.Popups.Theatre;
+using Chaos.Client.Controls.World.Popups.Lockpicking;
 using Chaos.Client.Controls.World.Popups.Wheel;
 using Chaos.Client.Controls.World.Popups.WorldList;
 using Chaos.Client.Controls.World.ViewPort;
@@ -178,6 +179,9 @@ public sealed partial class WorldScreen : IScreen
 
     //gilded spindle wheel window — opened by the server's wheel Open display when the player sits at a Spindle
     private GildedSpindleControl Spindle = null!;
+
+    //lockpicking window — opened by the server's lockpick Open display when a rogue starts picking a chest
+    private LockpickControl LockpickWindow = null!;
 
     //poker table window — opened by the server's poker Open display when the player sits at a table's stool
     private PokerTableControl Poker = null!;
@@ -826,6 +830,12 @@ public sealed partial class WorldScreen : IScreen
         };
         WireSpindle();
 
+        LockpickWindow = new LockpickControl(Game.SoundSystem)
+        {
+            ZIndex = 2
+        };
+        WireLockpick();
+
         Poker = new PokerTableControl(Game.SoundSystem, Game.AislingRenderer, Game.CreatureRenderer)
         {
             ZIndex = 2
@@ -922,6 +932,7 @@ public sealed partial class WorldScreen : IScreen
         Root.AddChild(Bank);
         Root.AddChild(Slots);
         Root.AddChild(Spindle);
+        Root.AddChild(LockpickWindow);
         Root.AddChild(Poker);
         Root.AddChild(BeautyShop);
         Root.AddChild(BugReport);
@@ -1060,6 +1071,7 @@ public sealed partial class WorldScreen : IScreen
         Game.Connection.OnBankDisplay -= HandleBankDisplay;
         Game.Connection.OnSlotMachineDisplay -= HandleSlotMachineDisplay;
         Game.Connection.OnWheelDisplay -= HandleWheelDisplay;
+        Game.Connection.OnLockpickDisplay -= HandleLockpickDisplay;
         Game.Connection.OnPokerTableDisplay -= HandlePokerTableDisplay;
         Game.Connection.OnBeautyShopDisplay -= HandleBeautyShopDisplay;
         Game.Connection.OnBugReportOpen -= HandleBugReportOpen;

@@ -547,6 +547,11 @@ public sealed class ConnectionManager : IDisposable
     public event WheelDisplayHandler? OnWheelDisplay;
 
     /// <summary>
+    ///     Fired when a lockpick window display packet is received from the server.
+    /// </summary>
+    public event LockpickDisplayHandler? OnLockpickDisplay;
+
+    /// <summary>
     ///     Fired when a poker table display packet is received from the server.
     /// </summary>
     public event PokerTableDisplayHandler? OnPokerTableDisplay;
@@ -1219,6 +1224,19 @@ public sealed class ConnectionManager : IDisposable
     /// </summary>
     public void SendWheelClose() => SendIfWorld(new WheelInteractionArgs { Type = WheelInteractionType.Close });
 
+
+    /// <summary>
+    ///     Tries to turn the lock of the chest this character is picking, with the pick at the given angle
+    ///     (0 = left, 90 = up, 180 = right).
+    /// </summary>
+    public void SendLockpickTurn(byte pickDegrees)
+        => SendIfWorld(new LockpickInteractionArgs { Type = LockpickInteractionType.Turn, PickDegrees = pickDegrees });
+
+    /// <summary>
+    ///     Tells the server this character closed the lockpick window.
+    /// </summary>
+    public void SendLockpickClose() => SendIfWorld(new LockpickInteractionArgs { Type = LockpickInteractionType.Close });
+
     /// <summary>
     ///     Takes the given poker action at the table this character currently occupies.
     /// </summary>
@@ -1704,6 +1722,7 @@ public sealed class ConnectionManager : IDisposable
         PacketHandlers[(byte)ServerOpCode.BankDisplay] = HandleBankDisplay;
         PacketHandlers[(byte)ServerOpCode.SlotMachineDisplay] = HandleSlotMachineDisplay;
         PacketHandlers[(byte)ServerOpCode.WheelDisplay] = HandleWheelDisplay;
+        PacketHandlers[(byte)ServerOpCode.LockpickDisplay] = HandleLockpickDisplay;
         PacketHandlers[(byte)ServerOpCode.PokerTableDisplay] = HandlePokerTableDisplay;
         PacketHandlers[(byte)ServerOpCode.BeautyShopDisplay] = HandleBeautyShopDisplay;
         PacketHandlers[(byte)ServerOpCode.BugReportOpen] = HandleBugReportOpen;
@@ -2124,6 +2143,12 @@ public sealed class ConnectionManager : IDisposable
     {
         var args = Client.Deserialize<WheelDisplayArgs>(in pkt);
         OnWheelDisplay?.Invoke(args);
+    }
+
+    private void HandleLockpickDisplay(ServerPacket pkt)
+    {
+        var args = Client.Deserialize<LockpickDisplayArgs>(in pkt);
+        OnLockpickDisplay?.Invoke(args);
     }
 
     private void HandlePokerTableDisplay(ServerPacket pkt)

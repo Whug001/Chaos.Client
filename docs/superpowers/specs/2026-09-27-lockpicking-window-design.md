@@ -290,3 +290,27 @@ chests.
 - **Economy.** Crypt gold per chest does not change. How often chests open does change, and that depends
   on player skill. After release, run the gold audit tool to compare lockpick-chest gold before and
   after.
+
+## Amendments (2026-09-27, while planning)
+
+1. **Composition, not a base class.** The crypt chest script has no `scriptVars`, so it derives from
+   `MerchantScriptBase`. The item chest script needs `scriptVars`, so it derives from
+   `ConfigurableMerchantScriptBase`. One abstract base can't serve both. The session logic therefore lives in a
+   plain class, `LockpickChest` (lock + session + turn handling + update checks). Each chest script owns one
+   and exposes it through `ILockpickChestScript : IMerchantScript { LockpickChest Lockpick { get; } }`. The
+   world server looks it up with `Script.As<ILockpickChestScript>()`.
+2. **Item-chest tuning.** A simulation showed that, with one probe, the sweet-spot width barely changes a
+   sensible player's odds. The warm range drives them. The item set is Easy 12° / 20°, Medium 12° / 15°,
+   Hard 6° / 30° (width / warm range), with the pick still breaking on the second jam. That simulates to
+   27% / 24% / 25%. The odds test may tune width **and** warm range. The crypt set simulates to
+   88% / 73% / 52% for a careful player.
+3. **Names.** The client folder is `Controls/World/Popups/Lockpicking/`, and its state class is
+   `ViewModel/LockpickState.cs`, exposed as `WorldState.Lockpick`. A class named `Lockpick` would collide
+   with a namespace named `Lockpick`. The server classes live in `Chaos/Scripting/MerchantScripts/Lockpicking/`.
+4. **Item chests and the removed dialog.** `*picklock_initial.json` stays as a normal dialog, because the
+   "Attempt to pick the lock" option points at it. Its script starts the session and closes the dialog. Only
+   `*picklock_PickChestNext.json` is deleted.
+5. **Pick size.** The pick sprite is about 8 × 86 so that, turning about the lock's center, it stays inside
+   the 184 × 184 lock face.
+6. **Opening order.** On Opened, the prize callback runs **before** the chest is removed. The Asilon
+   explosion and monster spawn need the chest's position on the map.
