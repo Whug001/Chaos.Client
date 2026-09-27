@@ -18,8 +18,9 @@ namespace Chaos.Client.Controls.World.Popups.Profile;
 ///     Page 3 = SEvent8 (Medenia quests)|SEvent9+ (Medenia dailies).
 /// </summary>
 /// <remarks>
-///     The prefab only has three backgrounds, each with its column headings baked in. The Medenia page reuses the
-///     third one with its "99+" and "Master" headings painted over, and draws its own headings as labels.
+///     The prefab only has three backgrounds, each with its column headings baked in. Every page paints those
+///     headings over and draws its own as labels, so all four pages share one font. The Medenia page reuses the
+///     third background.
 /// </remarks>
 public sealed class SelfProfileEventMetadataTab : PrefabPanel
 {
@@ -27,26 +28,44 @@ public sealed class SelfProfileEventMetadataTab : PrefabPanel
     private const int MAX_DISPLAY_PAGES = 4;
     private const int COLUMNS_PER_PAGE = 2;
     private const int MAX_DISPLAY_SLOTS = MAX_DISPLAY_PAGES * COLUMNS_PER_PAGE;
-    private const int MEDENIA_DISPLAY_PAGE = 3;
-    private const int MEDENIA_BACKGROUND_FRAME = 2;
+    private const int BACKGROUND_FRAMES = 3;
 
     //matches the baked-in heading text on the prefab backgrounds
     private static readonly Color HeadingColor = new(181, 162, 123);
 
+    //the left and right column headings of each display page
+    private static readonly (string Left, string Right)[] PageHeadings =
+    [
+        ("Quest Log", "11-40"),
+        ("41-70", "71-98"),
+        ("99+", "Master"),
+        ("Medenia", "Medenia Daily")
+    ];
+
+    //per background frame, the baked-in headings to paint over: plain header texture is copied from sourceX onto
+    //destinationX, over the same rows. Each area covers the heading text and its shadow
+    private static readonly (int SourceX, int DestinationX, int Width, int Top, int Bottom)[][] HeadingPatches =
+    [
+        [(150, 30, 83, 9, 31), (420, 525, 43, 10, 27)], //"Quest Log", "11-40"
+        [(150, 30, 44, 11, 28), (420, 523, 45, 11, 28)], //"41-70", "71-98"
+        [(150, 30, 36, 11, 29), (420, 506, 62, 13, 30)] //"99+", "Master"
+    ];
+
     //8 display slots (4 pages x 2 columns), each holding events for that slot
     private readonly List<EventMetadataEntry>[] DisplaySlots = new List<EventMetadataEntry>[MAX_DISPLAY_SLOTS];
+    //the prefab backgrounds with their baked-in headings painted over, built on first use and owned here
+    private readonly Texture2D?[] CleanBackgrounds = new Texture2D?[BACKGROUND_FRAMES];
+    private readonly UILabel LeftHeading;
     private readonly VirtualizedRowList<EventMetadataEntry> LeftList;
-    private readonly UILabel MedeniaDailyHeading;
-    private readonly UILabel MedeniaHeading;
     private readonly UIButton? NextButton;
     private readonly UIButton? PrevButton;
+    private readonly UILabel RightHeading;
     private readonly VirtualizedRowList<EventMetadataEntry> RightList;
 
     private BaseClass BaseClass;
     private HashSet<string> CompletedEventIds = new(StringComparer.OrdinalIgnoreCase);
     private int CurrentPage;
     private bool EnableMasterQuests;
-    private Texture2D? MedeniaBackground;
 
     public SelfProfileEventMetadataTab(string prefabName)
         : base(prefabName, false)
@@ -77,8 +96,8 @@ public sealed class SelfProfileEventMetadataTab : PrefabPanel
         LeftList = CreateColumn(leftRect);
         RightList = CreateColumn(rightRect);
 
-        MedeniaHeading = CreateHeading("Medenia", 32, HorizontalAlignment.Left);
-        MedeniaDailyHeading = CreateHeading("Medenia Daily", 365, HorizontalAlignment.Right);
+        LeftHeading = CreateHeading("LeftHeading", 32, HorizontalAlignment.Left);
+        RightHeading = CreateHeading("RightHeading", 365, HorizontalAlignment.Right);
 
         NextButton = CreateButton("NEXT");
         PrevButton = CreateButton("PREV");
@@ -243,15 +262,13 @@ public sealed class SelfProfileEventMetadataTab : PrefabPanel
     //binds each column to its current page's display slot; SetItems resets that column's scroll to the top.
     private void ShowCurrentPage()
     {
-        var isMedeniaPage = CurrentPage == MEDENIA_DISPLAY_PAGE;
+        //the Medenia page has no background of its own and reuses the last one
+        var frame = Math.Min(CurrentPage, BACKGROUND_FRAMES - 1);
+        Background = CleanBackgrounds[frame] ??= BuildCleanBackground(frame);
 
-        if (isMedeniaPage)
-            Background = MedeniaBackground ??= BuildMedeniaBackground();
-        else
-            SetBackgroundFrame(CurrentPage);
-
-        MedeniaHeading.Visible = isMedeniaPage;
-        MedeniaDailyHeading.Visible = isMedeniaPage;
+        var (left, right) = PageHeadings[CurrentPage];
+        LeftHeading.Text = left;
+        RightHeading.Text = right;
 
         var leftSlot = CurrentPage * COLUMNS_PER_PAGE;
         var rightSlot = leftSlot + 1;
@@ -270,45 +287,41 @@ public sealed class SelfProfileEventMetadataTab : PrefabPanel
             _    => 7
         };
 
-    private UILabel CreateHeading(string text, int x, HorizontalAlignment alignment)
+    private UILabel CreateHeading(string name, int x, HorizontalAlignment alignment)
     {
         var heading = new UILabel
         {
-            Name = text,
+            Name = name,
             X = x,
             Y = 12,
             Width = 200,
             Height = 16,
             HorizontalAlignment = alignment,
             ShadowStyle = ShadowStyle.BothSides,
-            IsHitTestVisible = false,
-            Visible = false
+            IsHitTestVisible = false
         };
 
         heading.ForegroundColor = HeadingColor;
-        heading.Text = text;
         AddChild(heading);
 
         return heading;
     }
 
     /// <summary>
-    ///     Copies the "99+ / Master" background and paints over both headings with plain header texture taken from
-    ///     the same rows, so the Medenia headings can be drawn in their place.
+    ///     Copies one prefab background and paints over both baked-in headings with plain header texture taken from
+    ///     the same rows, so the page's headings can be drawn as labels in their place.
     /// </summary>
-    private Texture2D BuildMedeniaBackground()
+    private Texture2D BuildCleanBackground(int frame)
     {
-        SetBackgroundFrame(MEDENIA_BACKGROUND_FRAME);
+        SetBackgroundFrame(frame);
 
         //the prefab texture is shared through the UiRenderer cache, so it is copied rather than changed in place
         var source = Background!;
         using var scope = new PixelBufferScope(source);
 
-        if (scope.Width >= 566)
-        {
-            CopyColumns(scope, 150, 30, 36, 11, 29); //"99+"
-            CopyColumns(scope, 420, 506, 62, 13, 30); //"Master"
-        }
+        if (scope.Width >= 568)
+            foreach (var (sourceX, destinationX, width, top, bottom) in HeadingPatches[frame])
+                CopyColumns(scope, sourceX, destinationX, width, top, bottom);
 
         var texture = new Texture2D(source.GraphicsDevice, scope.Width, scope.Height);
         scope.CommitTo(texture);
@@ -335,10 +348,13 @@ public sealed class SelfProfileEventMetadataTab : PrefabPanel
     {
         base.Dispose();
 
-        //base.Dispose only disposes whichever background is showing; the Medenia one is owned here either way.
-        //Disposing a texture twice is harmless
-        MedeniaBackground?.Dispose();
-        MedeniaBackground = null;
+        //base.Dispose only disposes whichever background is showing; the painted-over ones are owned here either
+        //way. Disposing a texture twice is harmless
+        for (var i = 0; i < CleanBackgrounds.Length; i++)
+        {
+            CleanBackgrounds[i]?.Dispose();
+            CleanBackgrounds[i] = null;
+        }
     }
 
     public override void Update(GameTime gameTime)
