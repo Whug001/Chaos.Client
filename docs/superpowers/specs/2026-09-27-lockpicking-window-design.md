@@ -314,3 +314,6 @@ chests.
    the 184 × 184 lock face.
 6. **Opening order.** On Opened, the prize callback runs **before** the chest is removed. The Asilon
    explosion and monster spawn need the chest's position on the map.
+7. **Easier item chests (after release testing).** Item chests now break the pick on the **third** jam, not the
+   second, with the same widths and warm ranges. A careful player opens about 42% / 37% / 43% (Easy / Medium
+   / Hard) instead of about 25%. Crypt chests don't change. The odds test's band is now 30–50%.
