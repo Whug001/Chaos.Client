@@ -1833,6 +1833,33 @@ public sealed partial class WorldScreen
         }
     }
 
+    /// <summary>
+    ///     Dispatches a lockpick display packet. Open and TurnResult update <see cref="WorldState.Lockpick" /> first,
+    ///     then tell the window, the same way the Spindle is driven.
+    /// </summary>
+    private void HandleLockpickDisplay(LockpickDisplayArgs args)
+    {
+        switch (args.Type)
+        {
+            case LockpickDisplayType.Open:
+                WorldState.Lockpick.ApplyOpen(args);
+                LockpickWindow.Show();
+
+                break;
+
+            case LockpickDisplayType.TurnResult:
+                WorldState.Lockpick.ApplyTurnResult(args);
+                LockpickWindow.OnTurnResult(args.Outcome, args.TurnPercent);
+
+                break;
+
+            case LockpickDisplayType.Close:
+                LockpickWindow.OnServerClose(args.Reason);
+
+                break;
+        }
+    }
+
     private static MarketListing MapResultEntry(MarketResultEntry e)
         => new(
             e.ListingId,

@@ -207,6 +207,18 @@ public sealed partial class WorldScreen
     }
     #endregion
 
+    #region Lockpick Wiring
+    private void WireLockpick()
+    {
+        Game.Connection.OnLockpickDisplay += HandleLockpickDisplay;
+
+        LockpickWindow.TurnRequested += pickDegrees => Game.Connection.SendLockpickTurn(pickDegrees);
+
+        //like the Spindle: the session is the server's, so it is told whenever the window goes away
+        LockpickWindow.Closed += () => Game.Connection.SendLockpickClose();
+    }
+    #endregion
+
     #region Poker Wiring
     private void WirePoker()
     {

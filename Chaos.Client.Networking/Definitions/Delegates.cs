@@ -400,6 +400,11 @@ public delegate void SlotMachineDisplayHandler(SlotMachineDisplayArgs args);
 public delegate void WheelDisplayHandler(WheelDisplayArgs args);
 
 /// <summary>
+///     Fired when a lockpick window display packet is received.
+/// </summary>
+public delegate void LockpickDisplayHandler(LockpickDisplayArgs args);
+
+/// <summary>
 ///     Fired when a poker table display packet is received.
 /// </summary>
 public delegate void PokerTableDisplayHandler(PokerTableDisplayArgs args);

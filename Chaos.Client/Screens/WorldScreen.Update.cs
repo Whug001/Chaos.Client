@@ -316,6 +316,9 @@ public sealed partial class WorldScreen
         //from the inherited GameTime-based Update and must be ticked explicitly, in seconds.
         Spindle.Update(elapsedMs / 1000f);
 
+        //the lockpick window's animation is in seconds, like the Spindle's
+        LockpickWindow.Update(elapsedMs / 1000f);
+
         //spacebar assail is handled in OnRootKeyDown — the dispatcher delivers both the
         //initial press and os key-repeat keydowns through the event pipeline, so dialogs
         //that consume spacebar (via e.Handled = true) naturally block it.

@@ -166,6 +166,11 @@ public static class WorldState
     public static GildedSpindle GildedSpindle { get; } = new();
 
     /// <summary>
+    ///     Authoritative lockpick window state (lock difficulty, title, and rogue's pick count).
+    /// </summary>
+    public static LockpickState Lockpick { get; } = new();
+
+    /// <summary>
     ///     Authoritative poker table state (table properties, seat roster, board, pot, whose turn it is, legal
     ///     actions).
     /// </summary>
@@ -406,6 +411,8 @@ public static class WorldState
         SlotMachine.Clear();
         GildedSpindle.Clear();
 
+        Lockpick.Clear();
+
         //deliberately NOT PokerTable.Clear(): unlike the two above, the poker session is not transient to a
         //same-map refresh. The server still holds the seat and the pot, does not know the client refreshed, and
         //only re-sends a snapshot when the table's state changes -- so wiping the view model here would leave
@@ -446,6 +453,7 @@ public static class WorldState
         UserOptions.ClearServerSettings();
         SlotMachine.Clear();
         GildedSpindle.Clear();
+        Lockpick.Clear();
         PokerTable.Clear();
         BeautyShop.Clear();
     }
