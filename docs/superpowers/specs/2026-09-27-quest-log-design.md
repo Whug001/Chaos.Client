@@ -262,3 +262,9 @@ These override the sections above where the two differ.
    shows that list, so the user can pull any of them back in.
 8. **Real-data check.** The test that loads the real `QuestLog` folder reads the Unora path from the `UNORA_DIR`
    environment variable. It is skipped when `UNORA_DIR` is not set.
+9. **A third enum namespace (added during execution).** Terror of the Crypt is tracked by `QuestFlag1`, which lives
+   in `Chaos.Common.Definitions`. The loader's enum lookup now covers `Chaos.Definitions`,
+   `Chaos.DarkAges.Definitions` and `Chaos.Common.Definitions`. A name found in more than one is still an error; no
+   name is shared today. A flag member whose value is 0 is rejected, because it would always test as set.
+10. **The quest log survives map changes.** The client keeps the list across map changes and F5 refreshes, and clears
+   it only on logout. The server re-sends only on a change, so clearing it on a map change would leave the window empty.
