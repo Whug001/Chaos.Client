@@ -1007,7 +1007,8 @@ public static class WorldState
                                   m.AdvClass,
                                   m.Continent,
                                   m.HasAbility,
-                                  m.EmblemArt))
+                                  m.EmblemArt,
+                                  m.EmblemName))
                               .ToList();
 
             WorldList.Update(entries, args.WorldMemberCount);

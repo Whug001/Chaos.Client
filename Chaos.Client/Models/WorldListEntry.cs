@@ -18,4 +18,5 @@ public sealed record WorldListEntry(
     AdvClass AdvClass = AdvClass.None,
     Continent Continent = Continent.None,
     bool HasAbility = false,
-    ushort EmblemArt = 0);
+    ushort EmblemArt = 0,
+    string EmblemName = "");
