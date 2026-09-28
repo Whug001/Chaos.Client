@@ -83,7 +83,7 @@ public sealed class LargeWorldHudControl : PrefabPanel, IWorldHud
     public UIButton? ExpandButton { get; }
     public UIButton? GroupButton { get; }
     public UIButton? GroupIndicator { get; }
-    public UIButton? HelpButton { get; }
+    public UIButton? QuestButton { get; }
     public Rectangle InventoryBounds { get; }
 
     /// <inheritdoc />
@@ -220,7 +220,12 @@ public sealed class LargeWorldHudControl : PrefabPanel, IWorldHud
             ChangeLayoutButton.NormalTexture = ChangeLayoutButton.PressedTexture;
             ChangeLayoutButton.PressedTexture = null;
         }
-        HelpButton = CreateButton("BTN_HELP");
+        QuestButton = CreateButton("BTN_HELP");
+
+        //the Hotkeys slot now opens the quest log; hotkey help moved to Terminus (F1)
+        QuestButton?.NormalTexture = UiRenderer.Instance!.GetSpfTexture("q_btm.spf");
+        QuestButton?.PressedTexture = UiRenderer.Instance!.GetSpfTexture("q_btm.spf", 1);
+        QuestButton?.CenterTexture = true;
         LegendButton = CreateButton("BTN_LEGEND");
         TownMapButton = CreateButton("BTN_TOWNMAP");
         GroupButton = CreateButton("BTN_GROUP");
@@ -257,7 +262,7 @@ public sealed class LargeWorldHudControl : PrefabPanel, IWorldHud
         WireTooltip(ScreenshotButton, "Portraits");
         WireTooltip(SettingsButton, "Settings");
         WireTooltip(CharScreenshotButton, "ScreenShot");
-        WireTooltip(HelpButton, "Hotkeys");
+        WireTooltip(QuestButton, "Quests");
 
         for (var i = 0; i < 6; i++)
             InventoryTabButtons[i] = CreateButton($"BTN_INV{i}");

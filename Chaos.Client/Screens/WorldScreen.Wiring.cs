@@ -219,6 +219,36 @@ public sealed partial class WorldScreen
     }
     #endregion
 
+    #region Quest Log Wiring
+    private void WireQuestLog()
+    {
+        Game.Connection.OnQuestLogDisplay += HandleQuestLogDisplay;
+        Game.Connection.OnHotkeyHelpOpen += HandleHotkeyHelpOpen;
+
+        QuestLogWindow.GiveUpRequested += key => Game.Connection.SendQuestLogGiveUp(key);
+
+        QuestLogWindow.Closed += () =>
+        {
+            QuestLogOpenPending = false;
+            Game.Connection.SendQuestLogClose();
+        };
+    }
+
+    /// <summary>The Q button: closes an open quest log, or asks the server for the list and shows it when it arrives.</summary>
+    private void ToggleQuestLog()
+    {
+        if (QuestLogWindow.Visible)
+        {
+            QuestLogWindow.Close();
+
+            return;
+        }
+
+        QuestLogOpenPending = true;
+        Game.Connection.SendQuestLogOpen();
+    }
+    #endregion
+
     #region Poker Wiring
     private void WirePoker()
     {
@@ -988,8 +1018,8 @@ public sealed partial class WorldScreen
             MainOptions.OnClose += () => hud.OptionButton.IsSelected = false;
         }
 
-        if (hud.HelpButton is not null)
-            hud.HelpButton.Clicked += () => HotkeyHelp.Show();
+        if (hud.QuestButton is not null)
+            hud.QuestButton.Clicked += ToggleQuestLog;
 
         if (hud.SettingsButton is not null)
             hud.SettingsButton.Clicked += () =>

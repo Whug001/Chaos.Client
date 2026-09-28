@@ -1860,6 +1860,24 @@ public sealed partial class WorldScreen
         }
     }
 
+    /// <summary>
+    ///     The server's quest list. Always applied; the window only appears if this answers the player's own Open, so a
+    ///     late update after Close doesn't reopen it.
+    /// </summary>
+    private void HandleQuestLogDisplay(QuestLogDisplayArgs args)
+    {
+        WorldState.QuestLog.Apply(args.Entries);
+
+        if (!QuestLogOpenPending)
+            return;
+
+        QuestLogOpenPending = false;
+        QuestLogWindow.Show();
+    }
+
+    /// <summary>Terminus's "Hotkeys" option. The server has already closed its dialog.</summary>
+    private void HandleHotkeyHelpOpen() => HotkeyHelp.Show();
+
     private static MarketListing MapResultEntry(MarketResultEntry e)
         => new(
             e.ListingId,

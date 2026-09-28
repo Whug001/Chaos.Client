@@ -19,6 +19,7 @@ using Chaos.Client.Controls.World.Popups.Profile;
 using Chaos.Client.Controls.World.Popups.Slots;
 using Chaos.Client.Controls.World.Popups.Theatre;
 using Chaos.Client.Controls.World.Popups.Lockpicking;
+using Chaos.Client.Controls.World.Popups.QuestLog;
 using Chaos.Client.Controls.World.Popups.Wheel;
 using Chaos.Client.Controls.World.Popups.WorldList;
 using Chaos.Client.Controls.World.ViewPort;
@@ -182,6 +183,12 @@ public sealed partial class WorldScreen : IScreen
 
     //lockpicking window — opened by the server's lockpick Open display when a rogue starts picking a chest
     private LockpickControl LockpickWindow = null!;
+
+    //quest log window — opened by the Q HUD button; the server sends the list
+    private QuestLogControl QuestLogWindow = null!;
+
+    //set when Open was sent; the window shows on the first QuestLogDisplay after it
+    private bool QuestLogOpenPending;
 
     //poker table window — opened by the server's poker Open display when the player sits at a table's stool
     private PokerTableControl Poker = null!;
@@ -836,6 +843,15 @@ public sealed partial class WorldScreen : IScreen
         };
         WireLockpick();
 
+        //zindex=-1, same tier as the HUD: added after SmallHud/LargeHud/SystemMessagePane above, so it draws over
+        //them, but every dialog and popup below (NpcSession, HotkeyHelp, GroupPanel, GroupVitals, etc.) defaults to
+        //ZIndex 0 or higher and so still draws on top of it.
+        QuestLogWindow = new QuestLogControl
+        {
+            ZIndex = -1
+        };
+        WireQuestLog();
+
         Poker = new PokerTableControl(Game.SoundSystem, Game.AislingRenderer, Game.CreatureRenderer)
         {
             ZIndex = 2
@@ -933,6 +949,7 @@ public sealed partial class WorldScreen : IScreen
         Root.AddChild(Slots);
         Root.AddChild(Spindle);
         Root.AddChild(LockpickWindow);
+        Root.AddChild(QuestLogWindow);
         Root.AddChild(Poker);
         Root.AddChild(BeautyShop);
         Root.AddChild(BugReport);
@@ -1072,6 +1089,8 @@ public sealed partial class WorldScreen : IScreen
         Game.Connection.OnSlotMachineDisplay -= HandleSlotMachineDisplay;
         Game.Connection.OnWheelDisplay -= HandleWheelDisplay;
         Game.Connection.OnLockpickDisplay -= HandleLockpickDisplay;
+        Game.Connection.OnQuestLogDisplay -= HandleQuestLogDisplay;
+        Game.Connection.OnHotkeyHelpOpen -= HandleHotkeyHelpOpen;
         Game.Connection.OnPokerTableDisplay -= HandlePokerTableDisplay;
         Game.Connection.OnBeautyShopDisplay -= HandleBeautyShopDisplay;
         Game.Connection.OnBugReportOpen -= HandleBugReportOpen;

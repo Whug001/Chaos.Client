@@ -27,7 +27,7 @@ public interface IWorldHud
     ExtendedStatsPanel ExtendedStatsPanel { get; }
     UIButton? GroupButton { get; }
     UIButton? GroupIndicator { get; }
-    UIButton? HelpButton { get; }
+    UIButton? QuestButton { get; }
     InventoryPanel Inventory { get; }
     Rectangle InventoryBounds { get; }
     UIButton?[] InventoryTabButtons { get; }

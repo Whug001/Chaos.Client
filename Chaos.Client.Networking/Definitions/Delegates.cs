@@ -405,6 +405,16 @@ public delegate void WheelDisplayHandler(WheelDisplayArgs args);
 public delegate void LockpickDisplayHandler(LockpickDisplayArgs args);
 
 /// <summary>
+///     Fired when the quest log list is received.
+/// </summary>
+public delegate void QuestLogDisplayHandler(QuestLogDisplayArgs args);
+
+/// <summary>
+///     Fired when the server asks the client to open its hotkey help.
+/// </summary>
+public delegate void HotkeyHelpOpenHandler();
+
+/// <summary>
 ///     Fired when a poker table display packet is received.
 /// </summary>
 public delegate void PokerTableDisplayHandler(PokerTableDisplayArgs args);
