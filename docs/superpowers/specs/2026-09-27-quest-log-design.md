@@ -237,3 +237,28 @@ another, and Terminus → Hotkeys opens the hotkey help.
 - A quest whose progress isn't stored as a stage, flag, counter or inventory item can only show text, with no
   count. Examples are map visits and conversation-only steps.
 - The quest text is only as correct as the entries. A later change to a quest script needs a matching entry edit.
+
+## Amendments (added while planning, 2026-09-27)
+
+These override the sections above where the two differ.
+
+1. **Item names.** Most older quests count items by display name (`Inventory.HasCount("Beetle Horn", 5)`, 93
+   places) rather than by template key (23 places). A progress line may use `itemName` instead of `item`. It is
+   counted with `Inventory.CountOf(name)` and checked at load against the item templates' names. Exactly one of
+   `item`, `itemName` and `counter` is set.
+2. **Reviewer notes.** An entry may carry `notes`: plain text for the reviewer, such as why give up is or isn't
+   safe. The server never reads or sends it.
+3. **Limits checked at load.** `key` is at most 40 characters. `title`, `area`, `givenBy`, progress labels and
+   counter keys are at most 60. `text` is at most 2000. A stage has at most 8 progress lines. `need` is 1 to 65535.
+   A `giveUp` that clears nothing is an error. `stageFlag` and `removeFlags` values must name a `[Flags]` enum.
+4. **Enum lookup.** `stageEnum` and flag names are simple type names, looked up among the enums in the
+   `Chaos.Definitions` and `Chaos.DarkAges.Definitions` namespaces. A name found in both is an error.
+5. **Open windows.** The server keeps open windows in a `ConditionalWeakTable<Aisling, …>`, so a player who logs
+   out is forgotten without a logout hook.
+6. **Packet strings.** `text` is written as a 2-byte-length string (`WriteString16`). Every other string uses a
+   1-byte length.
+7. **Exclusions.** The quest inventory (plan Task 10) lists every script it leaves out, with the reason. Examples
+   are teleports, chests, class choice and bounty boards (Terminus already lists active bounties). The review page
+   shows that list, so the user can pull any of them back in.
+8. **Real-data check.** The test that loads the real `QuestLog` folder reads the Unora path from the `UNORA_DIR`
+   environment variable. It is skipped when `UNORA_DIR` is not set.
