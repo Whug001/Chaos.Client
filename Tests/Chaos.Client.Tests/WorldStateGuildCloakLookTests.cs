@@ -78,4 +78,27 @@ public class WorldStateGuildCloakLookTests
 
         WorldState.GetEntity(5)!.Appearance!.Value.GuildCloakDesignId.Should().Be(0);
     }
+
+    [Test]
+    public void Clear_does_not_clear_the_quest_log()
+    {
+        WorldState.QuestLog.Apply(
+            [
+                new QuestLogEntryInfo
+                {
+                    Key = "a",
+                    Title = "A",
+                    Area = "Mileth",
+                    GivenBy = "Noahn",
+                    Text = "Do a.",
+                    CanGiveUp = true,
+                    Progress = []
+                }
+            ]);
+
+        WorldState.Clear();
+
+        WorldState.QuestLog.Entries.Should().NotBeEmpty();
+        WorldState.QuestLog.SelectedKey.Should().Be("a");
+    }
 }

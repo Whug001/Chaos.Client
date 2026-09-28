@@ -552,6 +552,16 @@ public sealed class ConnectionManager : IDisposable
     public event LockpickDisplayHandler? OnLockpickDisplay;
 
     /// <summary>
+    ///     Fired when the quest log list is received from the server.
+    /// </summary>
+    public event QuestLogDisplayHandler? OnQuestLogDisplay;
+
+    /// <summary>
+    ///     Fired when the server asks for the hotkey help window (Terminus's "Hotkeys").
+    /// </summary>
+    public event HotkeyHelpOpenHandler? OnHotkeyHelpOpen;
+
+    /// <summary>
     ///     Fired when a poker table display packet is received from the server.
     /// </summary>
     public event PokerTableDisplayHandler? OnPokerTableDisplay;
@@ -1238,6 +1248,22 @@ public sealed class ConnectionManager : IDisposable
     public void SendLockpickClose() => SendIfWorld(new LockpickInteractionArgs { Type = LockpickInteractionType.Close });
 
     /// <summary>
+    ///     Opens the quest log. The server answers with the list and keeps it current until Close.
+    /// </summary>
+    public void SendQuestLogOpen() => SendIfWorld(new QuestLogRequestArgs { Type = QuestLogRequestType.Open });
+
+    /// <summary>
+    ///     Tells the server the quest log closed, so it stops sending updates.
+    /// </summary>
+    public void SendQuestLogClose() => SendIfWorld(new QuestLogRequestArgs { Type = QuestLogRequestType.Close });
+
+    /// <summary>
+    ///     Gives up a quest. The server checks it is active and safe to abandon.
+    /// </summary>
+    public void SendQuestLogGiveUp(string questKey)
+        => SendIfWorld(new QuestLogRequestArgs { Type = QuestLogRequestType.GiveUp, QuestKey = questKey });
+
+    /// <summary>
     ///     Takes the given poker action at the table this character currently occupies.
     /// </summary>
     /// <param name="action">The <c>PokerAction</c> byte value being taken.</param>
@@ -1723,6 +1749,8 @@ public sealed class ConnectionManager : IDisposable
         PacketHandlers[(byte)ServerOpCode.SlotMachineDisplay] = HandleSlotMachineDisplay;
         PacketHandlers[(byte)ServerOpCode.WheelDisplay] = HandleWheelDisplay;
         PacketHandlers[(byte)ServerOpCode.LockpickDisplay] = HandleLockpickDisplay;
+        PacketHandlers[(byte)ServerOpCode.QuestLogDisplay] = HandleQuestLogDisplay;
+        PacketHandlers[(byte)ServerOpCode.HotkeyHelpOpen] = HandleHotkeyHelpOpen;
         PacketHandlers[(byte)ServerOpCode.PokerTableDisplay] = HandlePokerTableDisplay;
         PacketHandlers[(byte)ServerOpCode.BeautyShopDisplay] = HandleBeautyShopDisplay;
         PacketHandlers[(byte)ServerOpCode.BugReportOpen] = HandleBugReportOpen;
@@ -2149,6 +2177,18 @@ public sealed class ConnectionManager : IDisposable
     {
         var args = Client.Deserialize<LockpickDisplayArgs>(in pkt);
         OnLockpickDisplay?.Invoke(args);
+    }
+
+    private void HandleQuestLogDisplay(ServerPacket pkt)
+    {
+        var args = Client.Deserialize<QuestLogDisplayArgs>(in pkt);
+        OnQuestLogDisplay?.Invoke(args);
+    }
+
+    private void HandleHotkeyHelpOpen(ServerPacket pkt)
+    {
+        Client.Deserialize<HotkeyHelpOpenArgs>(in pkt);
+        OnHotkeyHelpOpen?.Invoke();
     }
 
     private void HandlePokerTableDisplay(ServerPacket pkt)

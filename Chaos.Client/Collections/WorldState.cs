@@ -171,6 +171,11 @@ public static class WorldState
     public static LockpickState Lockpick { get; } = new();
 
     /// <summary>
+    ///     Authoritative quest log state (list of active quests, selected quest, and GiveUp confirm).
+    /// </summary>
+    public static QuestLogState QuestLog { get; } = new();
+
+    /// <summary>
     ///     Authoritative poker table state (table properties, seat roster, board, pot, whose turn it is, legal
     ///     actions).
     /// </summary>
@@ -413,6 +418,10 @@ public static class WorldState
 
         Lockpick.Clear();
 
+        //deliberately NOT QuestLog.Clear(): the quest log is server-owned and survives map changes/F5 refresh --
+        //wiping it here would empty the open window while the server's last-sent list is unchanged, so it never
+        //re-sends and the window just stays empty. ResetAll() below clears it on logout.
+
         //deliberately NOT PokerTable.Clear(): unlike the two above, the poker session is not transient to a
         //same-map refresh. The server still holds the seat and the pot, does not know the client refreshed, and
         //only re-sends a snapshot when the table's state changes -- so wiping the view model here would leave
@@ -454,6 +463,7 @@ public static class WorldState
         SlotMachine.Clear();
         GildedSpindle.Clear();
         Lockpick.Clear();
+        QuestLog.Clear();
         PokerTable.Clear();
         BeautyShop.Clear();
     }
