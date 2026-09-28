@@ -17,6 +17,10 @@ public sealed class EmblemIcon : UIElement
 
     public ushort Art { get; set; }
     public bool Dimmed { get; set; }
+
+    //true while the mouse is over the icon; a host reads it to show a tooltip
+    public bool IsHovered { get; private set; }
+
     public int Scale { get; set; } = 1;
 
     public event Action? Clicked;
@@ -40,6 +44,10 @@ public sealed class EmblemIcon : UIElement
             new Rectangle(ScreenX + (Width - width) / 2, ScreenY + (Height - height) / 2, width, height),
             Dimmed ? DimTint : Color.White);
     }
+
+    public override void OnMouseEnter() => IsHovered = true;
+
+    public override void OnMouseLeave() => IsHovered = false;
 
     public override void OnClick(ClickEvent e)
     {

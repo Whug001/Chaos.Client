@@ -92,10 +92,17 @@ public sealed class WorldListEntryControl : UIPanel
         NameLabel.Text = string.Empty;
         Icon.Texture = null;
         Emblem.Art = 0;
+        EmblemName = string.Empty;
         Visible = false;
     }
 
     public string? PlayerName { get; private set; }
+
+    //the shown emblem's name, or empty; the drawer shows it while the emblem cell is hovered
+    public string EmblemName { get; private set; } = string.Empty;
+
+    //the emblem cell, when the mouse is over it and the row shows a named emblem
+    public UIElement? HoveredEmblem => Visible && Emblem.IsHovered && (EmblemName.Length > 0) ? Emblem : null;
 
     public event WhisperRequestedHandler? OnWhisper;
 
@@ -116,6 +123,7 @@ public sealed class WorldListEntryControl : UIPanel
         PlayerName = entry.Name;
         Icon.Texture = statusIcon;
         Emblem.Art = entry.EmblemArt;
+        EmblemName = entry.EmblemArt == 0 ? string.Empty : entry.EmblemName;
         Visible = true;
     }
 }

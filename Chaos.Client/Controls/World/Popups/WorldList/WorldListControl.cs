@@ -29,6 +29,8 @@ public sealed class WorldListControl : PrefabPanel
     private readonly WorldListFilterState Filter = new();
 
     private readonly VirtualizedRowList<WorldListEntry> RowList;
+    private readonly List<WorldListEntryControl> Rows = [];
+    private readonly UILabel EmblemTooltip;
     private readonly Texture2D?[] StatusIcons = new Texture2D?[STATUS_ICON_COUNT];
 
     //tab buttons
@@ -94,13 +96,18 @@ public sealed class WorldListControl : PrefabPanel
         //width keeps the original 5px gap before the scrollbar gutter via ContentRightPadding.
         var rowWidth = UsersListRect.Width - ScrollBarControl.DEFAULT_WIDTH - 5;
 
+        //the prefab rect is 252 px tall but the drawer art paints 17 rows of 15 px, so round up to whole rows or the
+        //last painted row is never filled (the 3 extra px stay inside the art's scrollbar trough)
+        var listHeight = (UsersListRect.Height + ROW_HEIGHT - 1) / ROW_HEIGHT * ROW_HEIGHT;
+
         RowList = new VirtualizedRowList<WorldListEntry>(
             rowWidth,
-            UsersListRect.Height,
+            listHeight,
             ROW_HEIGHT,
             () =>
             {
                 var row = new WorldListEntryControl(rowWidth);
+                Rows.Add(row);
 
                 //double-clicking your own row opens your Emblem tab; any other row whispers
                 row.OnWhisper += name =>
@@ -120,11 +127,27 @@ public sealed class WorldListControl : PrefabPanel
             X = UsersListRect.X,
             Y = UsersListRect.Y,
             Width = UsersListRect.Width,
-            Height = UsersListRect.Height,
+            Height = listHeight,
             ContentRightPadding = 5
         };
 
         AddChild(viewer);
+
+        //names the emblem under the mouse; drawn above the list and never hit-tested, so it can't steal the hover
+        EmblemTooltip = new UILabel
+        {
+            Name = "EmblemTooltip",
+            Visible = false,
+            IsHitTestVisible = false,
+            PaddingLeft = 1,
+            PaddingTop = 1,
+            BackgroundColor = new Color(0, 0, 0, 128),
+            BorderColor = LegendColors.White,
+            ForegroundColor = LegendColors.White,
+            ZIndex = 100
+        };
+
+        AddChild(EmblemTooltip);
 
         //social status icons from _nemots.spf (frame 0 of each 3-frame group)
         LoadStatusIcons();
@@ -265,6 +288,7 @@ public sealed class WorldListControl : PrefabPanel
     public override void Hide()
     {
         InputDispatcher.Instance?.RemoveControl(this);
+        EmblemTooltip.Visible = false;
         Slide.Hide(this);
     }
 
@@ -385,6 +409,53 @@ public sealed class WorldListControl : PrefabPanel
         }
 
         base.Update(gameTime);
+        UpdateEmblemTooltip();
+    }
+
+    //read every frame, not on hover events: rows are recycled, so a wheel scroll under a still mouse changes which
+    //emblem sits in the hovered cell
+    private void UpdateEmblemTooltip()
+    {
+        WorldListEntryControl? row = null;
+        UIElement? cell = null;
+
+        foreach (var candidate in Rows)
+            if (candidate.HoveredEmblem is { } hovered)
+            {
+                row = candidate;
+                cell = hovered;
+
+                break;
+            }
+
+        if ((row is null) || (cell is null))
+        {
+            EmblemTooltip.Visible = false;
+
+            return;
+        }
+
+        var text = row.EmblemName;
+
+        if (EmblemTooltip.Text != text)
+        {
+            EmblemTooltip.Text = text;
+            EmblemTooltip.Width = TextRenderer.MeasureWidth(text) + 4;
+            EmblemTooltip.Height = TextRenderer.CHAR_HEIGHT + 4;
+        }
+
+        //right edge on the cell's right edge, just above it; below it when the top of the drawer would cut it off
+        var cellX = cell.ScreenX - ScreenX;
+        var cellY = cell.ScreenY - ScreenY;
+        var x = Math.Clamp(cellX + cell.Width - EmblemTooltip.Width, 0, Math.Max(0, Width - EmblemTooltip.Width));
+        var y = cellY - EmblemTooltip.Height - 1;
+
+        if (y < 0)
+            y = cellY + cell.Height + 1;
+
+        EmblemTooltip.X = x;
+        EmblemTooltip.Y = y;
+        EmblemTooltip.Visible = true;
     }
 
     public override void OnKeyDown(KeyDownEvent e)
