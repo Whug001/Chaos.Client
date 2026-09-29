@@ -40,9 +40,9 @@ public abstract class GuildCloakDialogBase : FramedDialogPanelBase
 
     /// <summary>
     ///     The preview's step row across <paramref name="width" />: Prev, Pause/Play and Next. Prev and Next move one walk step
-    ///     and pause the preview, so each frame can be looked at.
+    ///     and pause the preview, so each frame can be looked at. Returns the three buttons.
     /// </summary>
-    protected void AddStepButtons(GuildCloakPreview preview, int x, int y, int width)
+    protected IReadOnlyList<CustomButton> AddStepButtons(GuildCloakPreview preview, int x, int y, int width)
     {
         const int GAP = 4;
         var side = (width - (2 * GAP)) * 3 / 10;
@@ -52,7 +52,7 @@ public abstract class GuildCloakDialogBase : FramedDialogPanelBase
 
         play.Clicked += ShowState;
 
-        AddButton(
+        var prev = AddButton(
             "Prev",
             side,
             x,
@@ -63,7 +63,7 @@ public abstract class GuildCloakDialogBase : FramedDialogPanelBase
                 ShowState();
             });
 
-        AddButton(
+        var next = AddButton(
             "Next",
             side,
             x + width - side,
@@ -73,6 +73,8 @@ public abstract class GuildCloakDialogBase : FramedDialogPanelBase
                 preview.StepBy(1);
                 ShowState();
             });
+
+        return [prev, play, next];
     }
 
     protected UILabel Caption(

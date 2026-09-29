@@ -57,4 +57,13 @@ public class EmblemBookLayoutTests
         EmblemBookLayout.IndexOf(entries, null).Should().Be(-1);
         await Task.CompletedTask;
     }
+
+    [Test]
+    public void Guild_emblem_texts_name_the_guild()
+    {
+        var entry = new EmblemBookEntry { Key = "guild", Name = "Richards", Owned = true, Guild = true, GuildEmblemId = 42 };
+
+        EmblemBookLayout.StatusText(entry).Should().Be("While you are in Richards");
+        EmblemBookLayout.TimeLeftText(entry, 0).Should().Be("While in guild");
+    }
 }

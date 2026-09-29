@@ -2,6 +2,7 @@
 using Chaos.Client.Collections;
 using Chaos.Client.Controls.Components;
 using Chaos.Client.Controls.Generic;
+using Chaos.Client.Controls.World.Emblems;
 using Chaos.Client.Controls.World.Hud;
 using Chaos.Client.Controls.World.Hud.Panel.Slots;
 using Chaos.Client.Controls.World.Popups;
@@ -876,6 +877,7 @@ public sealed partial class WorldScreen : IScreen
         };
         WireStageLighting();
         WireGuildCloak();
+        WireGuildEmblem();
 
         //buy-confirm popup for the market: lives on Root (it centers on-screen and must not be clipped inside the Market
         //panel) and draws above the Market window (ZIndex 3 > 2). Shown when the Results tab raises BuyRequested.
@@ -1096,6 +1098,7 @@ public sealed partial class WorldScreen : IScreen
         Game.Connection.OnBugReportOpen -= HandleBugReportOpen;
         UnwireStageLighting();
         UnwireGuildCloak();
+        UnwireGuildEmblem();
 
         //unwire panel click-to-use events
         WorldHud.Inventory.OnSlotClicked -= HandleInventorySlotClicked;
@@ -1125,6 +1128,7 @@ public sealed partial class WorldScreen : IScreen
         Game.AislingRenderer.ClearCompositeCache();
         Game.AislingRenderer.ClearGroupTintCache();
         Game.AislingRenderer.GuildCloaks.Clear();
+        GuildEmblemTextures.Clear();
         Game.CreatureRenderer.ClearTintCaches();
         Game.ItemRenderer.Clear();
         Overlays.Clear();

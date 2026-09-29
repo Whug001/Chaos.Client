@@ -9,7 +9,7 @@ namespace Chaos.Client.Controls.World.Emblems;
 /// <summary>
 ///     Draws one emblem centered in its bounds at a whole-number <see cref="Scale" />, pixel-sharp. Locked emblems are
 ///     drawn <see cref="Dimmed" />. Raises <see cref="Clicked" /> on a left click when something listens. It never disposes
-///     its texture: emblem textures belong to UiRenderer's cache.
+///     its texture: emblem textures belong to UiRenderer's cache, and guild emblem textures to <see cref="GuildEmblemTextures" />.
 /// </summary>
 public sealed class EmblemIcon : UIElement
 {
@@ -17,6 +17,9 @@ public sealed class EmblemIcon : UIElement
 
     public ushort Art { get; set; }
     public bool Dimmed { get; set; }
+
+    /// <summary>A guild emblem's id; when not 0 it is drawn instead of <see cref="Art" />.</summary>
+    public int GuildEmblemId { get; set; }
 
     //true while the mouse is over the icon; a host reads it to show a tooltip
     public bool IsHovered { get; private set; }
@@ -32,7 +35,9 @@ public sealed class EmblemIcon : UIElement
 
         base.Draw(spriteBatch);
 
-        if (EmblemTextures.Get(Art, Environment.TickCount64) is not { } texture)
+        var texture = GuildEmblemId != 0 ? GuildEmblemTextures.Get(GuildEmblemId) : EmblemTextures.Get(Art, Environment.TickCount64);
+
+        if (texture is null)
             return;
 
         var width = texture.Width * Scale;

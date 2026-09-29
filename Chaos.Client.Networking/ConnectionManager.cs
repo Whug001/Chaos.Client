@@ -598,6 +598,12 @@ public sealed class ConnectionManager : IDisposable
     /// <summary>Fired when the server opens or updates the guild cloak review window.</summary>
     public event GuildCloakReviewListHandler? OnGuildCloakReviewList;
 
+    /// <summary>Fired when the server opens the guild emblem editor or updates its status line.</summary>
+    public event GuildEmblemEditorHandler? OnGuildEmblemEditor;
+
+    /// <summary>Fired when an approved guild emblem arrives.</summary>
+    public event GuildEmblemDesignHandler? OnGuildEmblemDesign;
+
     /// <summary>
     ///     Fired when door states are updated.
     /// </summary>
@@ -1359,6 +1365,12 @@ public sealed class ConnectionManager : IDisposable
     /// <summary>Sends an admin's approve or reject. The server checks the sender is an admin.</summary>
     public void SendGuildCloakReviewInteraction(GuildCloakReviewInteractionArgs args) => SendIfWorld(args);
 
+    /// <summary>Sends a save or submit from the guild emblem editor. The server checks the sender and the emblem.</summary>
+    public void SendGuildEmblemEditorInteraction(GuildEmblemEditorInteractionArgs args) => SendIfWorld(args);
+
+    /// <summary>Asks for one approved guild emblem.</summary>
+    public void SendGuildEmblemDesignRequest(int designId) => SendIfWorld(new GuildEmblemDesignRequestArgs { DesignId = designId });
+
     /// <summary>
     ///     Sends a market buy request for a specific listing.
     /// </summary>
@@ -1761,6 +1773,8 @@ public sealed class ConnectionManager : IDisposable
         PacketHandlers[(byte)ServerOpCode.GuildCloakDesign] = HandleGuildCloakDesign;
         PacketHandlers[(byte)ServerOpCode.EmblemBook] = HandleEmblemBook;
         PacketHandlers[(byte)ServerOpCode.GuildCloakReviewList] = HandleGuildCloakReviewList;
+        PacketHandlers[(byte)ServerOpCode.GuildEmblemEditor] = HandleGuildEmblemEditor;
+        PacketHandlers[(byte)ServerOpCode.GuildEmblemDesign] = HandleGuildEmblemDesign;
         PacketHandlers[(byte)ServerOpCode.DisplayAisling] = HandleDisplayAisling;
 
         //world entities
@@ -2251,6 +2265,18 @@ public sealed class ConnectionManager : IDisposable
     {
         var args = Client.Deserialize<GuildCloakReviewListArgs>(in pkt);
         OnGuildCloakReviewList?.Invoke(args);
+    }
+
+    private void HandleGuildEmblemEditor(ServerPacket pkt)
+    {
+        var args = Client.Deserialize<GuildEmblemEditorArgs>(in pkt);
+        OnGuildEmblemEditor?.Invoke(args);
+    }
+
+    private void HandleGuildEmblemDesign(ServerPacket pkt)
+    {
+        var args = Client.Deserialize<GuildEmblemDesignArgs>(in pkt);
+        OnGuildEmblemDesign?.Invoke(args);
     }
 
     private void HandleDisplayAisling(ServerPacket pkt)

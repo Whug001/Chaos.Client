@@ -19,4 +19,5 @@ public sealed record WorldListEntry(
     Continent Continent = Continent.None,
     bool HasAbility = false,
     ushort EmblemArt = 0,
-    string EmblemName = "");
+    string EmblemName = "",
+    int GuildEmblemId = 0);
