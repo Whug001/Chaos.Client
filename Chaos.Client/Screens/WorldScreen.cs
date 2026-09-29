@@ -880,6 +880,7 @@ public sealed partial class WorldScreen : IScreen
         WireGuildEmblem();
         WireChatTranslation();
         WireTownImports();
+        WireTownBallot();
 
         //buy-confirm popup for the market: lives on Root (it centers on-screen and must not be clipped inside the Market
         //panel) and draws above the Market window (ZIndex 3 > 2). Shown when the Results tab raises BuyRequested.
@@ -1103,6 +1104,7 @@ public sealed partial class WorldScreen : IScreen
         UnwireGuildEmblem();
         UnwireChatTranslation();
         UnwireTownImports();
+        UnwireTownBallot();
 
         //unwire panel click-to-use events
         WorldHud.Inventory.OnSlotClicked -= HandleInventorySlotClicked;

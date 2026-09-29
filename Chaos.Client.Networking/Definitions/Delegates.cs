@@ -457,6 +457,9 @@ public delegate void TownImportBoardHandler(TownImportBoardArgs args);
 
 public delegate void TownImportAdminHandler(TownImportAdminArgs args);
 
+/// <summary>Handles the ballot window opening or refreshing.</summary>
+public delegate void TownBallotHandler(TownBallotArgs args);
+
 /// <summary>Handles the guild emblem editor opening or its status line changing.</summary>
 public delegate void GuildEmblemEditorHandler(GuildEmblemEditorArgs args);
 
