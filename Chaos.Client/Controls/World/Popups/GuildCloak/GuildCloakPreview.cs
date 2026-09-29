@@ -13,7 +13,8 @@ namespace Chaos.Client.Controls.World.Popups.GuildCloak;
 /// <summary>
 ///     A walking figure in a guild cloak for the editor and review windows, modeled on the beauty shop's preview. It turns
 ///     through four facings and switches body type. Each walk step is rendered once and kept until the design, the facing or
-///     the body changes.
+///     the body changes. The town import windows reuse it with <see cref="SetLook" />, which walks a whole given figure (the
+///     viewer wearing an import) instead of the cloak mannequin.
 /// </summary>
 public sealed class GuildCloakPreview : UIElement
 {
@@ -47,6 +48,9 @@ public sealed class GuildCloakPreview : UIElement
     private Gender BodyGender = Gender.Male;
     private int DesignId;
     private int Facing;
+
+    //a whole figure to draw instead of the cloak mannequin; set by the town import windows
+    private AislingAppearance? Look;
 
     public GuildCloakPreview(AislingRenderer renderer, int width, int height)
     {
@@ -125,6 +129,16 @@ public sealed class GuildCloakPreview : UIElement
         ReleaseFrames();
     }
 
+    /// <summary>Draws <paramref name="look" /> instead of the cloak figure; null goes back to the cloak figure.</summary>
+    public void SetLook(AislingAppearance? look)
+    {
+        if (Nullable.Equals(look, Look))
+            return;
+
+        Look = look;
+        ReleaseFrames();
+    }
+
     /// <summary>Pauses and moves <paramref name="delta" /> walk steps. Turning and switching body keep the step.</summary>
     public void StepBy(int delta) => Cycle.StepBy(delta);
 
@@ -155,6 +169,9 @@ public sealed class GuildCloakPreview : UIElement
     private Texture2D? RenderStep(int step)
     {
         (var frame, var flip, var isFront) = Facings[Facing];
+
+        if (Look is { } custom)
+            return Renderer.Render(in custom, frame + FIRST_WALK_FRAME + step, AislingRenderer.WALK_ANIM, flip, isFront);
 
         var appearance = new AislingAppearance
         {

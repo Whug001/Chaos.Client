@@ -603,6 +603,12 @@ public sealed class ConnectionManager : IDisposable
     /// <summary>Fired when the server opens or updates the guild cloak review window.</summary>
     public event GuildCloakReviewListHandler? OnGuildCloakReviewList;
 
+    /// <summary>Fired when the server opens or refreshes the mayor's town import window.</summary>
+    public event TownImportBoardHandler? OnTownImportBoard;
+
+    /// <summary>Fired when the server opens or refreshes the admin town import window.</summary>
+    public event TownImportAdminHandler? OnTownImportAdmin;
+
     /// <summary>Fired when the server opens the guild emblem editor or updates its status line.</summary>
     public event GuildEmblemEditorHandler? OnGuildEmblemEditor;
 
@@ -1370,6 +1376,10 @@ public sealed class ConnectionManager : IDisposable
     /// <summary>Sends an admin's approve or reject. The server checks the sender is an admin.</summary>
     public void SendGuildCloakReviewInteraction(GuildCloakReviewInteractionArgs args) => SendIfWorld(args);
 
+    public void SendTownImportBoardInteraction(TownImportBoardInteractionArgs args) => SendIfWorld(args);
+
+    public void SendTownImportAdminInteraction(TownImportAdminInteractionArgs args) => SendIfWorld(args);
+
     /// <summary>Sends a save or submit from the guild emblem editor. The server checks the sender and the emblem.</summary>
     public void SendGuildEmblemEditorInteraction(GuildEmblemEditorInteractionArgs args) => SendIfWorld(args);
 
@@ -1778,6 +1788,8 @@ public sealed class ConnectionManager : IDisposable
         PacketHandlers[(byte)ServerOpCode.GuildCloakDesign] = HandleGuildCloakDesign;
         PacketHandlers[(byte)ServerOpCode.EmblemBook] = HandleEmblemBook;
         PacketHandlers[(byte)ServerOpCode.GuildCloakReviewList] = HandleGuildCloakReviewList;
+        PacketHandlers[(byte)ServerOpCode.TownImportBoard] = HandleTownImportBoard;
+        PacketHandlers[(byte)ServerOpCode.TownImportAdmin] = HandleTownImportAdmin;
         PacketHandlers[(byte)ServerOpCode.GuildEmblemEditor] = HandleGuildEmblemEditor;
         PacketHandlers[(byte)ServerOpCode.GuildEmblemDesign] = HandleGuildEmblemDesign;
         PacketHandlers[(byte)ServerOpCode.DisplayAisling] = HandleDisplayAisling;
@@ -2271,6 +2283,18 @@ public sealed class ConnectionManager : IDisposable
     {
         var args = Client.Deserialize<GuildCloakReviewListArgs>(in pkt);
         OnGuildCloakReviewList?.Invoke(args);
+    }
+
+    private void HandleTownImportBoard(ServerPacket pkt)
+    {
+        var args = Client.Deserialize<TownImportBoardArgs>(in pkt);
+        OnTownImportBoard?.Invoke(args);
+    }
+
+    private void HandleTownImportAdmin(ServerPacket pkt)
+    {
+        var args = Client.Deserialize<TownImportAdminArgs>(in pkt);
+        OnTownImportAdmin?.Invoke(args);
     }
 
     private void HandleGuildEmblemEditor(ServerPacket pkt)

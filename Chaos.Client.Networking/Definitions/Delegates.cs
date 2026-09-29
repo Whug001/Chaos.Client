@@ -453,6 +453,10 @@ public delegate void EmblemBookHandler(EmblemBookArgs args);
 /// <summary>Handles the guild cloak review list opening or changing.</summary>
 public delegate void GuildCloakReviewListHandler(GuildCloakReviewListArgs args);
 
+public delegate void TownImportBoardHandler(TownImportBoardArgs args);
+
+public delegate void TownImportAdminHandler(TownImportAdminArgs args);
+
 /// <summary>Handles the guild emblem editor opening or its status line changing.</summary>
 public delegate void GuildEmblemEditorHandler(GuildEmblemEditorArgs args);
 
