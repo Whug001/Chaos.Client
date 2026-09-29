@@ -41,9 +41,15 @@ public static class EmblemBookLayout
     /// <summary>A grid slot's offset from the grid's top-left corner.</summary>
     public static (int X, int Y) SlotOffset(int slot) => (slot % COLUMNS * SLOT_STRIDE_X, slot / COLUMNS * SLOT_STRIDE_Y);
 
-    /// <summary>The line under the description: who holds a record, when the player earned it, or Locked.</summary>
+    /// <summary>
+    ///     The line under the description: the guild for the guild emblem, who holds a record, when the player earned it, or
+    ///     Locked.
+    /// </summary>
     public static string StatusText(EmblemBookEntry entry)
     {
+        if (entry.Guild)
+            return $"While you are in {entry.Name}";
+
         if (entry.Record && (entry.Holder.Length > 0))
             return $"Held by {entry.Holder}";
 
@@ -55,6 +61,9 @@ public static class EmblemBookLayout
 
     public static string TimeLeftText(EmblemBookEntry entry, long secondsLeftNow)
     {
+        if (entry.Guild)
+            return "While in guild";
+
         if (entry.Record)
             return "While first place";
 

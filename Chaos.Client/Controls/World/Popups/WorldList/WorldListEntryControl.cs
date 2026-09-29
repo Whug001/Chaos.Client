@@ -92,6 +92,7 @@ public sealed class WorldListEntryControl : UIPanel
         NameLabel.Text = string.Empty;
         Icon.Texture = null;
         Emblem.Art = 0;
+        Emblem.GuildEmblemId = 0;
         EmblemName = string.Empty;
         Visible = false;
     }
@@ -123,7 +124,8 @@ public sealed class WorldListEntryControl : UIPanel
         PlayerName = entry.Name;
         Icon.Texture = statusIcon;
         Emblem.Art = entry.EmblemArt;
-        EmblemName = entry.EmblemArt == 0 ? string.Empty : entry.EmblemName;
+        Emblem.GuildEmblemId = entry.GuildEmblemId;
+        EmblemName = (entry.EmblemArt == 0) && (entry.GuildEmblemId == 0) ? string.Empty : entry.EmblemName;
         Visible = true;
     }
 }

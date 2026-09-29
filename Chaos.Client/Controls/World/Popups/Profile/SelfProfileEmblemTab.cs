@@ -223,6 +223,7 @@ public sealed class SelfProfileEmblemTab : PrefabPanel
             var entry = index < entries.Count ? entries[index] : null;
 
             Slots[i].Art = entry?.Art ?? 0;
+            Slots[i].GuildEmblemId = entry?.GuildEmblemId ?? 0;
             Slots[i].Dimmed = entry is { Owned: false };
         }
 
@@ -234,6 +235,7 @@ public sealed class SelfProfileEmblemTab : PrefabPanel
         var entry = SelectedEntry();
 
         Preview.Art = entry?.Art ?? 0;
+        Preview.GuildEmblemId = entry?.GuildEmblemId ?? 0;
         Preview.Dimmed = entry is { Owned: false };
         NameLabel.Text = entry?.Name ?? string.Empty;
         DescriptionLabel.Text = entry?.Description ?? string.Empty;

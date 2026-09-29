@@ -1,7 +1,9 @@
 #region
 using Chaos.Client.Controls.Components;
 using Chaos.Client.Controls.Custom;
+using Chaos.Client.Controls.World.Emblems;
 using Chaos.Client.Controls.World.Popups.Dialog;
+using Chaos.Client.Controls.World.Popups.GuildEmblem;
 using Chaos.Client.Definitions;
 using Chaos.Client.Extensions;
 using Chaos.Client.Rendering;
@@ -15,9 +17,9 @@ using Microsoft.Xna.Framework;
 namespace Chaos.Client.Controls.World.Popups.GuildCloak;
 
 /// <summary>
-///     The admins' guild cloak review window: the waiting designs (oldest first, 8 per page), the selected design's front and
-///     back, a walking preview, and Approve / Reject with a reason. Opened by the server's GuildCloakReviewList Open from the
-///     admin trinket.
+///     The admins' review window for guild designs: waiting cloaks and emblems in one list, labeled by kind. A cloak shows its
+///     front, back and a walking preview; an emblem shows enlarged with its world list and Emblem tab sizes. Approve / Reject
+///     with a reason. Opened by the server's GuildCloakReviewList Open from the admin trinket.
 /// </summary>
 /// <remarks>
 ///     Layout, left to right: the waiting list, the front canvas, the back canvas, the preview column. Below all of that (the
@@ -37,7 +39,7 @@ public sealed class GuildCloakReviewControl : GuildCloakDialogBase
     private const int TITLE_TOP = 10;
     private const int CAPTION_TOP = 30;
     private const int CONTENT_TOP = 44;
-    private const int LIST_WIDTH = 120;
+    private const int LIST_WIDTH = 140;
     private const int PAGE_SIZE = 8;
     private const int ZOOM = 4;
     private const int PREVIEW_WIDTH = 120;
@@ -49,19 +51,26 @@ public sealed class GuildCloakReviewControl : GuildCloakDialogBase
 
     private readonly CustomButton ApproveButton;
     private readonly GuildCloakCanvas BackCanvas;
+    private readonly UILabel BackCaption;
+    private readonly UIElement[] CloakViews;
+    private readonly GuildEmblemCanvas EmblemCanvas;
+    private readonly GuildEmblemPreviewStrip EmblemPreview;
     private readonly UILabel EmptyLabel;
     private readonly CustomButton[] EntryButtons = new CustomButton[PAGE_SIZE];
     private readonly GuildCloakCanvas FrontCanvas;
+    private readonly UILabel FrontCaption;
     private readonly UILabel InfoLabel;
     private readonly CustomButton NextPageButton;
     private readonly UILabel PageLabel;
     private readonly CustomButton PrevPageButton;
     private readonly GuildCloakPreview Preview;
+    private readonly UILabel PreviewCaption;
     private readonly CustomTextBox ReasonBox;
     private readonly CustomButton RejectButton;
     private readonly AislingRenderer Renderer;
 
     private IReadOnlyList<GuildCloakReviewEntry> Entries = [];
+    private int EmblemPreviewId;
     private int Page;
     private int PreviewDesignId;
     private int SelectedIndex = -1;
@@ -110,11 +119,11 @@ public sealed class GuildCloakReviewControl : GuildCloakDialogBase
 
         OkButton = CreateCloseButton(Hide, OK_RIGHT_MARGIN, OK_BOTTOM_MARGIN);
 
-        Caption("Guild Cloak Review", 0, TITLE_TOP, Width, HorizontalAlignment.Center, LegendColors.Gold);
+        Caption("Guild Design Review", 0, TITLE_TOP, Width, HorizontalAlignment.Center, LegendColors.Gold);
         Caption("WAITING", LEFT, CAPTION_TOP, LIST_WIDTH, color: LegendColors.Gray);
-        Caption("FRONT", FrontCanvas.X, CAPTION_TOP, FrontCanvas.Width, color: LegendColors.Gray);
-        Caption("BACK", BackCanvas.X, CAPTION_TOP, BackCanvas.Width, color: LegendColors.Gray);
-        Caption("PREVIEW", previewLeft, CAPTION_TOP, PREVIEW_WIDTH, color: LegendColors.Gray);
+        FrontCaption = Caption("FRONT", FrontCanvas.X, CAPTION_TOP, FrontCanvas.Width, color: LegendColors.Gray);
+        BackCaption = Caption("BACK", BackCanvas.X, CAPTION_TOP, BackCanvas.Width, color: LegendColors.Gray);
+        PreviewCaption = Caption("PREVIEW", previewLeft, CAPTION_TOP, PREVIEW_WIDTH, color: LegendColors.Gray);
 
         for (var i = 0; i < PAGE_SIZE; i++)
         {
@@ -143,13 +152,32 @@ public sealed class GuildCloakReviewControl : GuildCloakDialogBase
 
         AddChild(Preview);
 
-        AddButton("<", SMALL_BUTTON, previewLeft, turnTop, () => Preview.Turn(-1));
-        AddButton(">", SMALL_BUTTON, previewLeft + SMALL_BUTTON + 4, turnTop, () => Preview.Turn(1));
-        AddButton("Body", 50, previewLeft + PREVIEW_WIDTH - 50, turnTop, Preview.ToggleBody);
-        AddStepButtons(Preview, previewLeft, stepTop, PREVIEW_WIDTH);
+        var turnLeft = AddButton("<", SMALL_BUTTON, previewLeft, turnTop, () => Preview.Turn(-1));
+        var turnRight = AddButton(">", SMALL_BUTTON, previewLeft + SMALL_BUTTON + 4, turnTop, () => Preview.Turn(1));
+        var body = AddButton("Body", 50, previewLeft + PREVIEW_WIDTH - 50, turnTop, Preview.ToggleBody);
+
+        CloakViews = [FrontCanvas, BackCanvas, Preview, turnLeft, turnRight, body, .. AddStepButtons(Preview, previewLeft, stepTop, PREVIEW_WIDTH)];
+
+        EmblemCanvas = new GuildEmblemCanvas(12)
+        {
+            X = FrontCanvas.X,
+            Y = CONTENT_TOP,
+            ReadOnly = true,
+            Visible = false
+        };
+
+        EmblemPreview = new GuildEmblemPreviewStrip
+        {
+            X = FrontCanvas.X,
+            Y = CONTENT_TOP + EmblemCanvas.Height + 8,
+            Visible = false
+        };
+
+        AddChild(EmblemCanvas);
+        AddChild(EmblemPreview);
 
         EmptyLabel = Caption(
-            "No designs are waiting.",
+            "Nothing is waiting.",
             FrontCanvas.X,
             CONTENT_TOP + 60,
             (BackCanvas.X + BackCanvas.Width) - FrontCanvas.X,
@@ -270,7 +298,7 @@ public sealed class GuildCloakReviewControl : GuildCloakDialogBase
             if (!button.Visible)
                 continue;
 
-            button.Caption = Entries[index].GuildName;
+            button.Caption = GuildDesignReviewText.EntryCaption(Entries[index]);
             button.Selected = index == SelectedIndex;
         }
 
@@ -288,13 +316,25 @@ public sealed class GuildCloakReviewControl : GuildCloakDialogBase
         ReasonBox.Text = string.Empty;
 
         var entry = Selected;
-        FrontCanvas.Visible = entry is not null;
-        BackCanvas.Visible = entry is not null;
-        Preview.Visible = entry is not null;
+        var showsEmblem = GuildDesignReviewText.ShowsEmblem(entry);
+
+        foreach (var view in CloakViews)
+            view.Visible = entry is not null && !showsEmblem;
+
+        EmblemCanvas.Visible = showsEmblem;
+        EmblemPreview.Visible = showsEmblem;
+        FrontCaption.Text = showsEmblem ? "EMBLEM" : "FRONT";
+        BackCaption.Visible = !showsEmblem;
+        PreviewCaption.Visible = !showsEmblem;
         EmptyLabel.Visible = entry is null;
         InfoLabel.Text = entry is null ? string.Empty : $"{entry.GuildName}, by {entry.LeaderName}, {entry.SubmittedAtUtc:yyyy-MM-dd HH:mm} UTC";
 
-        if (entry is not null)
+        if (entry is not null && showsEmblem)
+        {
+            EmblemCanvas.SetDesign(entry.EmblemDesign);
+            EmblemPreviewId = GuildEmblemTextures.SetLocal(EmblemPreviewId, entry.EmblemDesign.DeepCopy());
+            EmblemPreview.DesignId = EmblemPreviewId;
+        } else if (entry is not null)
         {
             FrontCanvas.SetDesign(entry.Design);
             BackCanvas.SetDesign(entry.Design);

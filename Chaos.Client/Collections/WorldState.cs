@@ -1008,7 +1008,8 @@ public static class WorldState
                                   m.Continent,
                                   m.HasAbility,
                                   m.EmblemArt,
-                                  m.EmblemName))
+                                  m.EmblemName,
+                                  m.GuildEmblemId))
                               .ToList();
 
             WorldList.Update(entries, args.WorldMemberCount);
