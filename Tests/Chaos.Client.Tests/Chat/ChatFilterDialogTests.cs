@@ -97,12 +97,13 @@ public class ChatFilterDialogTests
         => SettingDefinitions.PanelSections.Should().Contain(SettingSection.Chat);
 
     [Test]
-    public void SettingsPanel_ChatSectionIsOnlyTheModeDropdown()
+    public void SettingsPanel_ChatSectionHasModeAndLanguageDropdowns()
     {
         var rows = SettingDefinitions.PanelRows(SettingSection.Chat).ToList();
 
-        rows.Select(d => d.Key).Should().Equal(SettingKey.ChatFilterMode);
+        rows.Select(d => d.Key).Should().Equal(SettingKey.ChatFilterMode, SettingKey.ChatLanguage);
         rows[0].Choices.Should().NotBeNull();
+        rows[1].Choices.Should().NotBeNull();
     }
 
     [Test]

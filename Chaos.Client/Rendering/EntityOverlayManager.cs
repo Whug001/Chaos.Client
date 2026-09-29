@@ -65,7 +65,7 @@ public sealed class EntityOverlayManager
     /// <summary>
     ///     Adds a chat bubble for the given entity, replacing any existing bubble or chant overlay.
     /// </summary>
-    public void AddChatBubble(uint entityId, string message, bool isShout)
+    public void AddChatBubble(uint entityId, string message, bool isShout, uint lineId = 0)
     {
         //chat bubble replaces any active chant overlay
         RemoveChantOverlay(entityId);
@@ -73,7 +73,38 @@ public sealed class EntityOverlayManager
         if (ChatBubbles.TryGetValue(entityId, out var existing))
             existing.Dispose();
 
-        ChatBubbles[entityId] = ChatBubble.Create(entityId, message, isShout);
+        var bubble = ChatBubble.Create(entityId, message, isShout);
+        bubble.LineId = lineId;
+        ChatBubbles[entityId] = bubble;
+    }
+
+    /// <summary>
+    ///     Swaps the bubble showing chat line <paramref name="lineId" /> for one with <paramref name="message" />, keeping
+    ///     its entity, shout style and line id and restarting its timer. Returns false when no bubble shows that line.
+    /// </summary>
+    public bool TryReplaceChatBubble(uint lineId, string message)
+    {
+        if (lineId == 0)
+            return false;
+
+        uint? entityId = null;
+        var isShout = false;
+
+        foreach ((var id, var bubble) in ChatBubbles)
+            if (bubble.LineId == lineId)
+            {
+                entityId = id;
+                isShout = bubble.IsShout;
+
+                break;
+            }
+
+        if (entityId is null)
+            return false;
+
+        AddChatBubble(entityId.Value, message, isShout, lineId);
+
+        return true;
     }
 
     /// <summary>

@@ -211,6 +211,41 @@ internal sealed class VirtualizedRowList<T> : UIPanel, IVerticalScrollable
     }
 
     /// <summary>
+    ///     Notifies the list that <paramref name="removed" /> items at <paramref name="index" /> were replaced by
+    ///     <paramref name="added" /> items in the backing list (a chat line re-wrapped by a translation). A view scrolled
+    ///     up whose top row lies at or below the changed span shifts by the row-count difference so the same line stays
+    ///     first; a pinned view is left for the re-pin in <see cref="Invalidate" />. Call before Invalidate.
+    /// </summary>
+    public void NotifyReplaced(int index, int removed, int added)
+    {
+        if (!Pinned && (index + removed <= ScrollOffset))
+            ScrollOffset = Math.Max(0, ScrollOffset + added - removed);
+    }
+
+    /// <summary>
+    ///     The item index and the screen Y of the top of the row under the given screen point, or false when the point is
+    ///     outside the list or past the last item.
+    /// </summary>
+    public bool TryGetItemAt(int screenX, int screenY, out int itemIndex, out int rowScreenY)
+    {
+        itemIndex = -1;
+        rowScreenY = 0;
+
+        if ((screenX < ScreenX) || (screenX >= ScreenX + Width))
+            return false;
+
+        var index = RowAt(screenY);
+
+        if ((index < 0) || (index >= Items.Count))
+            return false;
+
+        itemIndex = index;
+        rowScreenY = ScreenY + ((index - ScrollOffset) * (RowHeight + RowGap));
+
+        return true;
+    }
+
+    /// <summary>
     ///     Scrolls so the given item index is centered in the viewport (clamped). Used for "scroll to self"-style jumps.
     /// </summary>
     public void ScrollToIndex(int index)

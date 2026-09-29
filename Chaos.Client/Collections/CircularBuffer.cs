@@ -29,6 +29,12 @@ public sealed class CircularBuffer<T> : IReadOnlyList<T>
 
             return Buffer[(Head - Count + index + Buffer.Length) % Buffer.Length];
         }
+        set
+        {
+            ArgumentOutOfRangeException.ThrowIfGreaterThanOrEqual((uint)index, (uint)Count);
+
+            Buffer[(Head - Count + index + Buffer.Length) % Buffer.Length] = value;
+        }
     }
 
     public void Add(T item)

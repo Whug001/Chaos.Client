@@ -94,4 +94,29 @@ public class SettingDefinitionsTests
             ClientSettings.TransparentGroupPanels = wasTransparent;
         }
     }
+
+    /// <summary>
+    ///     Chat translation setting is in the Chat section right after chat filter with the correct three choices.
+    /// </summary>
+    [Test]
+    public void ChatLanguageIsInChatSectionAfterChatFilter()
+    {
+        var chatDefinitions = SettingDefinitions.PanelRows(SettingSection.Chat).ToList();
+
+        var filterModeIndex = chatDefinitions.FindIndex(d => d.Key == SettingKey.ChatFilterMode);
+        filterModeIndex.Should().BeGreaterThanOrEqualTo(0, "chat filter mode should exist in Chat section");
+
+        var chatLanguageIndex = chatDefinitions.FindIndex(d => d.Key == SettingKey.ChatLanguage);
+        chatLanguageIndex.Should().Be(
+            filterModeIndex + 1,
+            "chat language should be right after chat filter (configured flag is hidden)");
+
+        var chatLanguageDef = SettingDefinitions.ByKey(SettingKey.ChatLanguage);
+
+        chatLanguageDef.Section.Should().Be(SettingSection.Chat);
+        chatLanguageDef.Category.Should().Be(SettingCategory.ServerOption);
+        chatLanguageDef.Span.Should().Be(SettingSpan.Full);
+        chatLanguageDef.Choices.Should().HaveCount(3);
+        chatLanguageDef.Choices.Should().Equal("Off", "English", "Korean (한국어)");
+    }
 }

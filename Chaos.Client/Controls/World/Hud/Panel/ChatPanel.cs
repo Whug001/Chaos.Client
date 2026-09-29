@@ -3,6 +3,7 @@ using Chaos.Client.Collections;
 using Chaos.Client.Controls.Components;
 using Chaos.Client.Controls.Generic;
 using Chaos.Client.Controls.Scrolling;
+using Chaos.Client.Definitions;
 using Chaos.Client.ViewModel;
 using Microsoft.Xna.Framework;
 using Microsoft.Xna.Framework.Graphics;
@@ -26,6 +27,7 @@ public sealed class ChatPanel : ExpandablePanel
     private readonly int PanelOriginY;
     private readonly VirtualizedRowList<ChatLine> RowList;
     private readonly ScrollViewerControl Viewer;
+    private readonly UILabel HoverTooltip;
 
     private Rectangle DisplayBounds;
     private Rectangle ExpandedDisplayBounds;
@@ -69,15 +71,36 @@ public sealed class ChatPanel : ExpandablePanel
         LayoutViewer(NormalDisplayBounds);
 
         AddChild(Viewer);
+
+        //shows the untranslated original over a translated row; drawn above the list and never hit-tested, so it
+        //can't steal the hover or the wheel
+        HoverTooltip = new UILabel
+        {
+            Name = "ChatHoverTooltip",
+            Visible = false,
+            IsHitTestVisible = false,
+            PaddingLeft = 1,
+            PaddingTop = 1,
+            BackgroundColor = new Color(0, 0, 0, 128),
+            BorderColor = LegendColors.White,
+            ForegroundColor = LegendColors.White,
+            WordWrap = true,
+            ZIndex = 100
+        };
+
+        AddChild(HoverTooltip);
         WorldState.Chat.MessageAdded += OnMessageAdded;
+        WorldState.Chat.MessageReplaced += OnMessageReplaced;
     }
 
-    private void AddMessage(string text, Color color)
+    //word-wraps one message into rows that all carry its line id and hover text
+    private List<ChatLine> Wrap(string text, Color color, uint lineId, string? hoverText)
     {
+        var rows = new List<ChatLine>();
         var maxWidth = DisplayBounds.Width - ScrollBarControl.DEFAULT_WIDTH;
 
         if (maxWidth <= 0)
-            return;
+            return rows;
 
         var remaining = text;
 
@@ -93,8 +116,15 @@ public sealed class ChatPanel : ExpandablePanel
             remaining = remaining[lineEnd..]
                 .TrimStart();
 
-            ChatLog.Add(new ChatLine(line, color));
+            rows.Add(new ChatLine(line, color, lineId, hoverText));
         }
+
+        return rows;
+    }
+
+    private void AddMessage(string text, Color color, uint lineId = 0, string? hoverText = null)
+    {
+        ChatLog.AddRange(Wrap(text, color, lineId, hoverText));
 
         if (ChatLog.Count > MAX_CHAT_LINES)
         {
@@ -134,11 +164,68 @@ public sealed class ChatPanel : ExpandablePanel
     public override void Dispose()
     {
         WorldState.Chat.MessageAdded -= OnMessageAdded;
+        WorldState.Chat.MessageReplaced -= OnMessageReplaced;
 
         base.Dispose();
     }
 
-    private void OnMessageAdded(ViewModel.Chat.ChatMessage msg) => AddMessage(msg.Text, msg.Color);
+    private void OnMessageAdded(ViewModel.Chat.ChatMessage msg) => AddMessage(msg.Text, msg.Color, msg.LineId, msg.HoverText);
+
+    //swaps the line's rows in place; a reader scrolled up keeps the same first visible line, a pinned one stays pinned
+    private void OnMessageReplaced(ViewModel.Chat.ChatMessage previous, ViewModel.Chat.ChatMessage current)
+    {
+        var newRows = Wrap(current.Text, current.Color, current.LineId, current.HoverText);
+        var (index, removed) = ChatRows.Replace(ChatLog, current.LineId, newRows);
+
+        //the line already scrolled out of the panel's row cap
+        if (index < 0)
+            return;
+
+        RowList.NotifyReplaced(index, removed, newRows.Count);
+        RowList.Invalidate();
+    }
+
+    public override void Update(GameTime gameTime)
+    {
+        base.Update(gameTime);
+        UpdateHoverTooltip();
+    }
+
+    //read every frame, not on hover events: rows are recycled and a scroll under a still mouse changes the hovered row
+    private void UpdateHoverTooltip()
+    {
+        if (Visible
+            && RowList.TryGetItemAt(
+                InputBuffer.MouseX,
+                InputBuffer.MouseY,
+                out var itemIndex,
+                out var rowScreenY)
+            && ChatLog[itemIndex].HoverText is { Length: > 0 } text)
+        {
+            //the label wraps itself (WordWrap) inside its padding; the same wrap is computed here to size the height
+            var tooltipWidth = Math.Clamp(TextRenderer.MeasureWidth(text) + 4, 1, Math.Max(1, Width));
+
+            if (HoverTooltip.Text != text)
+            {
+                var lines = ChatRows.WrapTooltip(text, tooltipWidth - HoverTooltip.PaddingLeft - HoverTooltip.PaddingRight, static (t, w) => TextRenderer.FindLineBreak(t, w));
+
+                HoverTooltip.Width = tooltipWidth;
+                HoverTooltip.Height = (Math.Max(1, lines.Count) * TextRenderer.CHAR_HEIGHT) + 4;
+                HoverTooltip.Text = text;
+            }
+
+            //above the hovered row, else below it, else pinned to the panel top so it stays in the visible area
+            var rowY = rowScreenY - ScreenY;
+
+            HoverTooltip.X = Math.Clamp(InputBuffer.MouseX - ScreenX, 0, Math.Max(0, Width - HoverTooltip.Width));
+            HoverTooltip.Y = ChatRows.TooltipY(rowY, GLYPH_HEIGHT, HoverTooltip.Height, Height);
+            HoverTooltip.Visible = true;
+
+            return;
+        }
+
+        HoverTooltip.Visible = false;
+    }
 
     public override void SetExpanded(bool expanded)
     {
@@ -182,6 +269,4 @@ public sealed class ChatPanel : ExpandablePanel
     //positive delta scrolls toward older messages (matching the wheel + Shift+Up); top-anchored offset moves the
     //opposite way, hence the sign flip into the list.
     public bool Scroll(int delta) => RowList.ScrollByRows(-delta);
-
-    private record struct ChatLine(string Text, Color Color);
 }

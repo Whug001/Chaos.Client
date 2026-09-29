@@ -129,8 +129,12 @@ target language, they skip `Submit` entirely.
    the day sends the speaker one orange-bar line: "You've reached today's translation limit. Your lines are shown
    untranslated until tomorrow."
 5. **Protect names.** Split the body into segments: plain text and protected names. Protected names are matched
-   case-insensitively as whole words, longest match first, from the game-name list plus the names of online
-   players. Korean spellings from the hand-made map become their English name, marked protected.
+   as whole words, longest match first, from the game-name list plus the names of online players. A single-word name
+   is protected only when typed with a capital first letter, so ordinary words like "wolf" still translate.
+   Multi-word names match in any case. Korean spellings from the hand-made map match anywhere and become their
+   English name, marked protected. Words the chat filter tagged in the original are also protected and stay exactly
+   as typed. The English filter rules then catch them again in the Korean output, because there are no Korean rules.
+   Speakers are not charged, and get no notice, when no provider is usable.
 6. **Provider chain.** Try each usable provider in order with a per-attempt timeout (default 2,000 ms) and an
    overall budget (default 4,000 ms). Each provider renders the protected segments in its own markup and strips it
    from the response (see below). The first success wins.
@@ -163,7 +167,7 @@ or TransientFailure. All three use one shared `HttpClient` (pooled connections, 
 |---|---|---|---|
 | Azure | `POST https://api.cognitive.microsofttranslator.com/translate?api-version=3.0&to={ko\|en}&textType=html`, headers `Ocp-Apim-Subscription-Key` and `Ocp-Apim-Subscription-Region` (when configured), body `[{"Text":…}]`. No `from`, so it auto-detects. | `<span class="notranslate">Mileth</span>` | 403 → exhausted until the monthly reset. 429 → transient. |
 | DeepL | `POST https://api-free.deepl.com/v2/translate`, header `Authorization: DeepL-Auth-Key {key}`, JSON `{"text":[…],"target_lang":"KO"\|"EN-US","tag_handling":"xml","ignore_tags":["x"],"show_billed_characters":true}` | `<x>Mileth</x>` | 456 → exhausted until the monthly reset. 429 → transient. |
-| Google | `POST https://translation.googleapis.com/language/translate/v2?key={key}`, JSON `{"q":…,"target":"ko"\|"en","format":"html"}` | `<span translate="no">Mileth</span>` | 403, or 429 whose body mentions a daily limit → exhausted until the next UTC day. Other 429s → transient. |
+| Google | `POST https://translation.googleapis.com/language/translate/v2`, header `x-goog-api-key: {key}` (kept out of the URL so it never appears in a logged URI), JSON `{"q":…,"target":"ko"\|"en","format":"html"}` | `<span translate="no">Mileth</span>` | 403, or 429 whose body mentions a daily limit → exhausted until the next UTC day. Other 429s → transient. |
 
 The plain-text parts are XML-escaped before markup is added. The response is decoded after the markup is removed.
 
@@ -204,13 +208,25 @@ The `ChatTranslationOptions` section in `appsettings.json` holds the defaults wi
 }
 ```
 
-The keys go in a new optional file, **`appsettings.translation.json`**, loaded after the others and gitignored.
-The feature is enabled when at least one provider has a key. A deploy must never overwrite that file.
+The keys go in a new optional file, **`appsettings.translation.json`**. It is loaded after the others, gitignored,
+and never copied into publish output. Keys are matched to providers **by name**. The tracked
+`appsettings.translation.example.json` shows the layout:
+
+```json
+{ "Options": { "ChatTranslationOptions": { "Keys": {
+  "Azure":  { "Key": "", "Region": "" },
+  "DeepL":  { "Key": "" },
+  "Google": { "Key": "" } } } } }
+```
+
+The `Providers` list sets the chain order and the limits. When a server's `appsettings.json` has no `Providers`
+list, as on a live server that keeps its own copy, the built-in Azure → DeepL → Google defaults above apply. The
+feature is enabled when at least one provider has a key. A deploy must never overwrite the keys file.
 
 ### Admin command
 
 `/translation` (admin only) prints to the orange bar: whether translation is enabled, each provider's
-characters used, its limit and state (usable / over 90% / exhausted until …), cache entry count, the cache hit
+characters used, its limit and state (usable / over limit / used up until …), cache entry count, the cache hit
 rate since startup, and the jobs in flight.
 
 ### Logging
@@ -224,8 +240,8 @@ Provider failures are logged at Warning.
 - **Packets:** read `LineId` from `DisplayPublicMessage` and `ServerMessage`. Handle `ChatTranslation` (opcode 140)
   with the usual `ConnectionManager` event plus a `WorldScreen` handler.
 - **Chat log model:** `Chat.ChatMessage` gains `LineId` (0 = none). `Chat.AddMessage` takes it.
-  `Chat.TryReplaceMessage(lineId, text, originalText, tags)` replaces the stored message and raises
-  `MessageReplaced(lineId, message)`. A line that already scrolled out of the 1,000-message buffer is ignored.
+  `Chat.TryReplaceMessage(lineId, text, tags, hoverText)` replaces the stored message and raises
+  `MessageReplaced(previous, current)`. A line that already scrolled out of the 1,000-message buffer is ignored.
 - **Chat panel:** each wrapped `ChatLine` row carries its `LineId` and the original text. On `MessageReplaced`, the
   rows of that line are removed and the re-wrapped rows are inserted at the same index. A reader who scrolled up
   keeps their place. Hovering a translated row shows the original line in a tooltip, reusing the existing tooltip

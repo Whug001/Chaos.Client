@@ -73,6 +73,7 @@ public enum SettingKey
     GroundTargetSnapToEntity,
     ChatFilterMode,
     HasConfiguredChatFilter,
+    ChatLanguage,
     HideLightning,
     HideRain,
     HideBloodMoon,
@@ -354,7 +355,21 @@ public static class SettingDefinitions
             SettingSection.Chat,
             SettingCategory.ServerOption,
             UserOption.HasConfiguredChatFilter,
-            Hidden: true)
+            Hidden: true),
+
+        //── Chat translation ──
+        //Same round-trip as the chat filter mode: the index travels in OptionToggleArgs.Value on UserOption.ChatLanguage
+        //(31) and comes back in UserOptionsArgs.ChatLanguage. Choices order MUST match ChatLanguage (Off, English, Korean).
+        new(
+            SettingKey.ChatLanguage,
+            "Chat translation",
+            SettingSection.Chat,
+            SettingCategory.ServerOption,
+            UserOption.ChatLanguage,
+            Span: SettingSpan.Full,
+            Choices: ["Off", "English", "Korean (한국어)"],
+            GetChoice: () => WorldState.UserOptions.ChoiceValue(SettingKey.ChatLanguage),
+            SetChoice: i => WorldState.UserOptions.SelectChoice(SettingKey.ChatLanguage, i))
     ];
 
     /// <summary>The sections the F4 settings panel draws, top to bottom.</summary>

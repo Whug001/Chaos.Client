@@ -468,6 +468,11 @@ public sealed class ConnectionManager : IDisposable
     public event DisplayPublicMessageHandler? OnDisplayPublicMessage;
 
     /// <summary>
+    ///     Fired when a chat translation is received.
+    /// </summary>
+    public event ChatTranslationHandler? OnChatTranslation;
+
+    /// <summary>
     ///     Fired when a read-only notepad should be displayed.
     /// </summary>
     public event DisplayReadonlyNotepadHandler? OnDisplayReadonlyNotepad;
@@ -1786,6 +1791,7 @@ public sealed class ConnectionManager : IDisposable
         //chat / messages
         PacketHandlers[(byte)ServerOpCode.ServerMessage] = HandleServerMessage;
         PacketHandlers[(byte)ServerOpCode.DisplayPublicMessage] = HandleDisplayPublicMessage;
+        PacketHandlers[(byte)ServerOpCode.ChatTranslation] = HandleChatTranslation;
 
         //inventory
         PacketHandlers[(byte)ServerOpCode.AddItemToPane] = HandleAddItemToPane;
@@ -2339,6 +2345,12 @@ public sealed class ConnectionManager : IDisposable
     {
         var args = Client.Deserialize<DisplayPublicMessageArgs>(in pkt);
         OnDisplayPublicMessage?.Invoke(args);
+    }
+
+    private void HandleChatTranslation(ServerPacket pkt)
+    {
+        var args = Client.Deserialize<ChatTranslationArgs>(in pkt);
+        OnChatTranslation?.Invoke(args);
     }
 
     //--- inventory ---
