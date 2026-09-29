@@ -32,6 +32,9 @@ public sealed class ChatPanel : ExpandablePanel
     private Rectangle DisplayBounds;
     private Rectangle ExpandedDisplayBounds;
 
+    //the panel width the hover tooltip was last sized for; -1 until the first hover
+    private int TooltipSizedForWidth = -1;
+
     public ChatPanel(Rectangle displayBounds, Rectangle panelBounds)
     {
         Name = "Chat";
@@ -202,16 +205,17 @@ public sealed class ChatPanel : ExpandablePanel
                 out var rowScreenY)
             && ChatLog[itemIndex].HoverText is { Length: > 0 } text)
         {
-            //the label wraps itself (WordWrap) inside its padding; the same wrap is computed here to size the height
-            var tooltipWidth = Math.Clamp(TextRenderer.MeasureWidth(text) + 4, 1, Math.Max(1, Width));
-
-            if (HoverTooltip.Text != text)
+            //measured and sized only when the hovered text or the panel width changes, not on every frame of a hover
+            if ((HoverTooltip.Text != text) || (TooltipSizedForWidth != Width))
             {
+                //the label wraps itself (WordWrap) inside its padding; the same wrap is computed here to size the height
+                var tooltipWidth = Math.Clamp(TextRenderer.MeasureWidth(text) + 4, 1, Math.Max(1, Width));
                 var lines = ChatRows.WrapTooltip(text, tooltipWidth - HoverTooltip.PaddingLeft - HoverTooltip.PaddingRight, static (t, w) => TextRenderer.FindLineBreak(t, w));
 
                 HoverTooltip.Width = tooltipWidth;
                 HoverTooltip.Height = (Math.Max(1, lines.Count) * TextRenderer.CHAR_HEIGHT) + 4;
                 HoverTooltip.Text = text;
+                TooltipSizedForWidth = Width;
             }
 
             //above the hovered row, else below it, else pinned to the panel top so it stays in the visible area
