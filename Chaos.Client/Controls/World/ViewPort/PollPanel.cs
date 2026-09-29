@@ -15,7 +15,9 @@ namespace Chaos.Client.Controls.World.ViewPort;
 /// </summary>
 public sealed class PollPanel : UIPanel
 {
-    private const int PANEL_WIDTH = 178;
+    private const int MIN_PANEL_WIDTH = 178;
+    private const int MAX_PANEL_WIDTH = 300;
+    private const string OPEN_HINT = "Click an option to vote";
     private const int PAD = 12;
     private const int TITLE_Y = 7;
     private const int DIVIDER_Y = 23;
@@ -42,7 +44,7 @@ public sealed class PollPanel : UIPanel
     {
         Name = "PollPanel";
         ViewportBounds = viewportBounds;
-        Width = PANEL_WIDTH;
+        Width = MIN_PANEL_WIDTH;
         //stay Visible=true so the parent UIPanel keeps invoking Update/Draw (it skips hidden
         //children). Rendering + hit-testing are gated on WorldState.Poll.ShouldShow instead.
         IsHitTestVisible = false;
@@ -50,6 +52,32 @@ public sealed class PollPanel : UIPanel
     }
 
     public void SetViewportBounds(Microsoft.Xna.Framework.Rectangle bounds) => ViewportBounds = bounds;
+
+    //wide enough for the title (plus the countdown), the longest choice, and the footer hint
+    private static int FitWidth(Chaos.Client.ViewModel.Poll poll)
+    {
+        var width = MIN_PANEL_WIDTH;
+
+        var titleWidth = TextRenderer.MeasureWidth(poll.Title) + 88;
+
+        if (titleWidth > width)
+            width = titleWidth;
+
+        foreach (var option in poll.Options)
+        {
+            var rowWidth = TextRenderer.MeasureWidth(option.Text) + 72;
+
+            if (rowWidth > width)
+                width = rowWidth;
+        }
+
+        var hintWidth = TextRenderer.MeasureWidth(OPEN_HINT) + (PAD * 2);
+
+        if (hintWidth > width)
+            width = hintWidth;
+
+        return width > MAX_PANEL_WIDTH ? MAX_PANEL_WIDTH : width;
+    }
 
     public override void Update(GameTime gameTime)
     {
@@ -63,10 +91,11 @@ public sealed class PollPanel : UIPanel
             return;
         }
 
-        //size to current option count; anchor top-right
+        //size to the current option count and the longest line; anchor top-right
         var rows = poll.Options.Count;
+        Width = FitWidth(poll);
         Height = ROWS_TOP + (rows * ROW_H) + ROWS_GAP + OrnateFrame.BORDER_BOTTOM_HEIGHT;
-        X = ViewportBounds.Right - PANEL_WIDTH - 2;
+        X = ViewportBounds.Right - Width - 2;
         Y = ViewportBounds.Top + 2;
         IsHitTestVisible = true;
     }
@@ -247,7 +276,7 @@ public sealed class PollPanel : UIPanel
         }
 
         //── footer hint ──
-        var hint = poll.IsClosed ? "Vote complete" : "Click a match to vote";
+        var hint = poll.IsClosed ? "Vote complete" : OPEN_HINT;
         TextRenderer.DrawShadowedText(
             spriteBatch,
             new Vector2(sx + ((w - TextRenderer.MeasureWidth(hint)) / 2), sy + h - OrnateFrame.BORDER_BOTTOM_HEIGHT + 6),
