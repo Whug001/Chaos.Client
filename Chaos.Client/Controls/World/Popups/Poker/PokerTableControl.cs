@@ -1587,7 +1587,7 @@ public sealed class PokerTableControl : FramedDialogPanelBase
     ///     both places and neither can drift from the other. Anyone who is not seated here is ignored -- their
     ///     bubble is drawn on the floor behind this panel, where it belongs.
     /// </remarks>
-    public void ShowChatBubble(uint entityId, string message, bool isShout)
+    public void ShowChatBubble(uint entityId, string message, bool isShout, uint lineId = 0)
     {
         if (!Visible || string.IsNullOrWhiteSpace(message))
             return;
@@ -1601,11 +1601,43 @@ public sealed class PokerTableControl : FramedDialogPanelBase
         //the speaker's name here printed it twice
         AppendChatLog(message);
 
+        PlaceBubble(entityId, seat, message, isShout, lineId);
+    }
+
+    /// <summary>
+    ///     Swaps the bubble showing chat line <paramref name="lineId" /> for one with <paramref name="message" />, keeping
+    ///     its seat, shout style and line id and restarting its timer. Returns false when no bubble shows that line.
+    /// </summary>
+    public bool TryReplaceChatBubble(uint lineId, string message)
+    {
+        if ((lineId == 0) || string.IsNullOrWhiteSpace(message))
+            return false;
+
+        var existing = Bubbles.Find(bubble => bubble.LineId == lineId);
+
+        if (existing is null)
+            return false;
+
+        var seat = SeatOfEntity(existing.EntityId);
+
+        if (seat < 0)
+            return false;
+
+        PlaceBubble(existing.EntityId, seat, message, existing.IsShout, lineId);
+
+        return true;
+    }
+
+    private void PlaceBubble(uint entityId, int seat, string message, bool isShout, uint lineId)
+    {
         //one bubble per seat: a player who talks twice replaces their own bubble rather than stacking two on top
         //of each other over the same head
         RemoveBubblesFor(entityId);
 
         var bubble = ChatBubble.Create(entityId, message, isShout, BubbleName(entityId));
+
+        bubble.LineId = lineId;
+
         var (seatX, seatY) = SeatAnchor(seat);
 
         //the top row speaks downward and everyone else upward, so a bubble always opens onto the felt instead of

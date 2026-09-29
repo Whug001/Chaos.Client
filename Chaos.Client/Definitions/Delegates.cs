@@ -54,6 +54,11 @@ public delegate void GoldChangedHandler();
 public delegate void ChatMessageAddedHandler(ViewModel.Chat.ChatMessage message);
 
 /// <summary>
+///     A stored chat message was replaced in place by line id (a translation arrived).
+/// </summary>
+public delegate void ChatMessageReplacedHandler(ViewModel.Chat.ChatMessage previous, ViewModel.Chat.ChatMessage current);
+
+/// <summary>
 ///     An orange bar message was added (system messages, whisper/group/guild echoes).
 /// </summary>
 public delegate void OrangeBarMessageAddedHandler(ViewModel.Chat.OrangeBarMessage message);

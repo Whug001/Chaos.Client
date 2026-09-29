@@ -48,6 +48,16 @@ public sealed class ChatBubble : UIImage
 
     public uint EntityId { get; }
 
+    /// <summary>
+    ///     The chat line this bubble shows (0 = none), so a translation of that line can replace it.
+    /// </summary>
+    public uint LineId { get; set; }
+
+    /// <summary>
+    ///     Whether the bubble is drawn in the shout color.
+    /// </summary>
+    public bool IsShout { get; private init; }
+
     public bool IsExpired => ElapsedMs >= DISPLAY_DURATION_MS;
 
     private ChatBubble(
@@ -123,7 +133,8 @@ public sealed class ChatBubble : UIImage
             bubbleWidth,
             totalHeight)
         {
-            Name = name ?? string.Empty
+            Name = name ?? string.Empty,
+            IsShout = isShout
         };
     }
 

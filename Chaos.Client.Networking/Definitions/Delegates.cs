@@ -458,4 +458,7 @@ public delegate void GuildEmblemEditorHandler(GuildEmblemEditorArgs args);
 
 /// <summary>Handles one approved guild emblem design arriving.</summary>
 public delegate void GuildEmblemDesignHandler(GuildEmblemDesignArgs args);
+
+/// <summary>Handles when a chat translation is received.</summary>
+public delegate void ChatTranslationHandler(ChatTranslationArgs args);
 #endregion

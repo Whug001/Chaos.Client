@@ -142,7 +142,7 @@ public static class ChatDisplayBuilder
             && (tag.Start < bodyLength)
             && (tag.Length <= bodyLength - tag.Start);
 
-    private static (string Prefix, string Body) SplitPrefix(string message)
+    public static (string Prefix, string Body) SplitPrefix(string message)
     {
         //whispers lead with a bracketed name: split right after "]:" / "]>" so body text holding those
         //sequences can never mis-split

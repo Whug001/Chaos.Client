@@ -297,21 +297,31 @@ public sealed partial class WorldScreen
                 publicMessage.DisplayText,
                 color,
                 publicMessage.OriginalText,
-                publicMessage.Tags);
+                publicMessage.Tags,
+                args.LineId);
 
         var isShout = args.PublicMessageType == PublicMessageType.Shout;
+
+        //channel lines (world shout) arrive with the max id and no entity: no bubble, an orange bar copy instead
+        RememberTranslatableLine(
+            args.LineId,
+            args.SourceId == uint.MaxValue ? TranslatedLineKind.WorldChannel : TranslatedLineKind.Public,
+            args.SourceId,
+            isShout,
+            color,
+            args.Message);
 
         //over the speaker's portrait if they are sitting at the poker table, whose panel is covering the floor
         //the bubble below would be drawn on. Ahead of the entity check on purpose: the panel resolves seats by
         //entity id, not by presence in WorldState, so a seated speaker whose entity is momentarily absent (the
         //list being rebuilt by a same-map refresh) still gets their bubble on the table. Ignored outright when
         //they are not seated there.
-        Poker.ShowChatBubble(args.SourceId, publicMessage.DisplayText, isShout);
+        Poker.ShowChatBubble(args.SourceId, publicMessage.DisplayText, isShout, args.LineId);
 
         if (entity is null)
             return;
 
-        Overlays.AddChatBubble(args.SourceId, publicMessage.DisplayText, isShout);
+        Overlays.AddChatBubble(args.SourceId, publicMessage.DisplayText, isShout, args.LineId);
     }
 
     /// <summary>
@@ -348,7 +358,8 @@ public sealed partial class WorldScreen
                     WorldState.UserOptions.ChatFilterMode,
                     FantasyDictionary.Default);
 
-                WorldState.Chat.AddMessage(whisper.DisplayText, TextColors.Whisper, whisper.OriginalText, whisper.Tags);
+                WorldState.Chat.AddMessage(whisper.DisplayText, TextColors.Whisper, whisper.OriginalText, whisper.Tags, args.LineId);
+                RememberTranslatableLine(args.LineId, TranslatedLineKind.Whisper, 0, false, TextColors.Whisper, args.Message);
                 WorldState.Chat.AddOrangeBarMessage(whisper.DisplayText, TextColors.Whisper);
                 SystemMessagePane.AddMessage(whisper.DisplayText, TextColors.Whisper);
 
@@ -362,7 +373,8 @@ public sealed partial class WorldScreen
                     WorldState.UserOptions.ChatFilterMode,
                     FantasyDictionary.Default);
 
-                WorldState.Chat.AddMessage(groupChat.DisplayText, TextColors.GroupChat, groupChat.OriginalText, groupChat.Tags);
+                WorldState.Chat.AddMessage(groupChat.DisplayText, TextColors.GroupChat, groupChat.OriginalText, groupChat.Tags, args.LineId);
+                RememberTranslatableLine(args.LineId, TranslatedLineKind.Group, 0, false, TextColors.GroupChat, args.Message);
                 WorldState.Chat.AddOrangeBarMessage(groupChat.DisplayText, TextColors.GroupChat);
                 SystemMessagePane.AddMessage(groupChat.DisplayText, TextColors.GroupChat);
 
@@ -376,7 +388,8 @@ public sealed partial class WorldScreen
                     WorldState.UserOptions.ChatFilterMode,
                     FantasyDictionary.Default);
 
-                WorldState.Chat.AddMessage(guildChat.DisplayText, TextColors.GuildChat, guildChat.OriginalText, guildChat.Tags);
+                WorldState.Chat.AddMessage(guildChat.DisplayText, TextColors.GuildChat, guildChat.OriginalText, guildChat.Tags, args.LineId);
+                RememberTranslatableLine(args.LineId, TranslatedLineKind.Guild, 0, false, TextColors.GuildChat, args.Message);
                 WorldState.Chat.AddOrangeBarMessage(guildChat.DisplayText, TextColors.GuildChat);
                 SystemMessagePane.AddMessage(guildChat.DisplayText, TextColors.GuildChat);
 
@@ -459,6 +472,10 @@ public sealed partial class WorldScreen
         //read, so the login sync flips every chat path at once; out-of-range indices are ignored.
         userOptions.ApplyChoice(SettingKey.ChatFilterMode, args.ChatFilterMode);
         userOptions.Apply(SettingKey.HasConfiguredChatFilter, args.HasConfiguredChatFilter);
+
+        //stored chat language pref: only mirrored here so the F4 dropdown shows the player's choice;
+        //the server uses the value to pick which lines get translated.
+        userOptions.ApplyChoice(SettingKey.ChatLanguage, args.ChatLanguage);
 
         //first-run dialog (Task 7): the login sync is the only source of the stored flag, so an
         //unconfigured player lands here once; the session guard (fresh WorldScreen per world entry)
