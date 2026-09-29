@@ -17,7 +17,8 @@ public sealed class QuestLogRow : UIPanel
     private const int AREA_WIDTH = 70;
     private const int GAP = 4;
 
-    private static readonly Color SelectedColor = new(255, 220, 140, 56);
+    private static readonly Color SelectedColor = new(156, 96, 12, 180);
+    private static readonly Color SelectedAreaColor = new(255, 230, 186);
 
     private readonly UILabel AreaLabel;
     private readonly Action<string> OnSelect;
@@ -64,6 +65,7 @@ public sealed class QuestLogRow : UIPanel
         TitleLabel.Text = entry.Title;
         AreaLabel.Text = entry.Area;
         BackgroundColor = selected ? SelectedColor : null;
+        AreaLabel.ForegroundColor = selected ? SelectedAreaColor : Color.Gray;
         Visible = true;
     }
 
