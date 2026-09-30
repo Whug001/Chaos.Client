@@ -105,7 +105,8 @@ public sealed record SettingDefinition(
     SettingKey? GatedBy = null,            //non-null ⇒ this setting is enabled only while GatedBy's value is true
     Func<int>? GetSliderValue = null,      //non-null ⇒ rendered as a 0–10 slider instead of a checkbox
     Action<int>? SetSliderValue = null,    //called with the new value on slider change (slider only)
-    bool Hidden = false);                  //true ⇒ synced state with no control; F4 never draws a row for it
+    bool Hidden = false,                   //true ⇒ synced state with no control; F4 never draws a row for it
+    IReadOnlyList<string>? Help = null);   //non-null ⇒ help paragraphs drawn (word-wrapped, dim) under the row
 
 /// <summary>
 ///     The single ordered source of truth for the F4 settings, replacing the old fixed 20-slot magic-index model.
@@ -369,7 +370,12 @@ public static class SettingDefinitions
             Span: SettingSpan.Full,
             Choices: ["Off", "English", "Korean (한국어)", "Spanish (Espanol)", "French (Francais)", "German (Deutsch)"],
             GetChoice: () => WorldState.UserOptions.ChoiceValue(SettingKey.ChatLanguage),
-            SetChoice: i => WorldState.UserOptions.SelectChoice(SettingKey.ChatLanguage, i))
+            SetChoice: i => WorldState.UserOptions.SelectChoice(SettingKey.ChatLanguage, i),
+            Help:
+            [
+                "Pick the language you read. Chat in other languages is translated into it. Your own chat counts as this language. Translations can be wrong.",
+                "읽는 언어를 고르세요. 다른 언어의 채팅이 이 언어로 번역됩니다. 내 채팅도 이 언어로 봅니다. 번역은 틀릴 수 있습니다."
+            ])
     ];
 
     /// <summary>The sections the F4 settings panel draws, top to bottom.</summary>

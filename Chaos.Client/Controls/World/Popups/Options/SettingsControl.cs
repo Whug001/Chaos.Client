@@ -32,6 +32,10 @@ public sealed class SettingsControl : FramedDialogPanelBase
     private const int OK_RIGHT_MARGIN = 20;
     private const int OK_BOTTOM_MARGIN = 3;
 
+    //help text drawn under a row: one line per TextRenderer.CHAR_HEIGHT, with a small gap above and below the block.
+    private const int HELP_LINE_HEIGHT = TextRenderer.CHAR_HEIGHT;
+    private const int HELP_GAP = 3;
+
     //height of the frame's bottom border (mirrors FramedDialogPanelBase.BORDER_BOTTOM, which is private); the
     //scrollable viewport ends above it so scrolled content never overlaps the OK/rivet edge.
     private const int FRAME_BOTTOM = 47;
@@ -154,7 +158,7 @@ public sealed class SettingsControl : FramedDialogPanelBase
 
             foreach (var def in defs)
             {
-                var full = ResolveSpan(def, columnW) == SettingSpan.Full;
+                var full = (def.Help is not null) || (ResolveSpan(def, columnW) == SettingSpan.Full);
                 var width = full ? contentW : columnW;
                 (var cell, var height) = BuildSettingCell(def, width);
                 Content.AddChild(cell);
@@ -171,6 +175,9 @@ public sealed class SettingsControl : FramedDialogPanelBase
                     cell.X = 0;
                     cell.Y = y;
                     y += height;
+
+                    if (def.Help is not null)
+                        y += AddHelp(def, y, contentW);
                 } else if (pendingHalf is null)
                 {
                     //left column — hold open until a right partner or the section ends.
@@ -220,6 +227,45 @@ public sealed class SettingsControl : FramedDialogPanelBase
             OkButton.X = Width - OkButton.Width - OK_RIGHT_MARGIN;
             OkButton.Y = Height - OkButton.Height - OK_BOTTOM_MARGIN;
         }
+    }
+
+    /// <summary>
+    ///     Word-wraps help paragraphs to <paramref name="width" /> pixels. Returns every wrapped line in order plus the
+    ///     block's total height (a line per <see cref="HELP_LINE_HEIGHT" /> plus the gap above and below); an empty list
+    ///     is zero height.
+    /// </summary>
+    public static (IReadOnlyList<string> Lines, int Height) HelpLayout(IReadOnlyList<string> paragraphs, int width)
+    {
+        var lines = paragraphs.SelectMany(paragraph => TextRenderer.WrapLines(paragraph, width))
+                              .ToList();
+
+        return (lines, lines.Count == 0 ? 0 : (lines.Count * HELP_LINE_HEIGHT) + (2 * HELP_GAP));
+    }
+
+    //Mounts the setting's help lines (dim, one UILabel per wrapped line) on Content starting at `y`; returns the block height.
+    private int AddHelp(SettingDefinition def, int y, int width)
+    {
+        (var lines, var height) = HelpLayout(def.Help!, width);
+
+        for (var i = 0; i < lines.Count; i++)
+            Content.AddChild(
+                new UILabel
+                {
+                    Name = $"help_{def.Key}_{i}",
+                    X = 0,
+                    Y = y + HELP_GAP + (i * HELP_LINE_HEIGHT),
+                    Width = width,
+                    Height = HELP_LINE_HEIGHT,
+                    PaddingLeft = 0,
+                    PaddingRight = 0,
+                    PaddingTop = 0,
+                    PaddingBottom = 0,
+                    TruncateWithEllipsis = false,
+                    ForegroundColor = LegendColors.Gray,
+                    Text = lines[i]
+                });
+
+        return height;
     }
 
     //Decides a setting's column span. Explicit Full always wins; an unmarked (Half) setting is
