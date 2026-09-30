@@ -359,7 +359,7 @@ public static class SettingDefinitions
 
         //── Chat translation ──
         //Same round-trip as the chat filter mode: the index travels in OptionToggleArgs.Value on UserOption.ChatLanguage
-        //(31) and comes back in UserOptionsArgs.ChatLanguage. Choices order MUST match ChatLanguage (Off, English, Korean).
+        //(31) and comes back in UserOptionsArgs.ChatLanguage. Choices order MUST match ChatLanguage (Off, English, Korean, Spanish, French, German).
         new(
             SettingKey.ChatLanguage,
             "Chat translation",
@@ -367,7 +367,7 @@ public static class SettingDefinitions
             SettingCategory.ServerOption,
             UserOption.ChatLanguage,
             Span: SettingSpan.Full,
-            Choices: ["Off", "English", "Korean (한국어)"],
+            Choices: ["Off", "English", "Korean (한국어)", "Spanish (Espanol)", "French (Francais)", "German (Deutsch)"],
             GetChoice: () => WorldState.UserOptions.ChoiceValue(SettingKey.ChatLanguage),
             SetChoice: i => WorldState.UserOptions.SelectChoice(SettingKey.ChatLanguage, i))
     ];

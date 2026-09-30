@@ -1,6 +1,7 @@
 #region
 using Chaos.Client.Chat;
 using Chaos.Client.Systems;
+using Chaos.DarkAges.Definitions;
 #endregion
 
 namespace Chaos.Client.ViewModel;
@@ -42,6 +43,8 @@ public sealed class UserOptions
     /// </summary>
     public ChatFilterMode ChatFilterMode => (ChatFilterMode)ChoiceValue(SettingKey.ChatFilterMode);
 
+
+    public ChatLanguage ChatLanguage => (ChatLanguage)ChoiceValue(SettingKey.ChatLanguage);
     public bool Value(SettingKey key) => Values.TryGetValue(key, out var v) && v;
 
     public int ChoiceValue(SettingKey key) => ChoiceValues.GetValueOrDefault(key);

@@ -58,6 +58,7 @@ public sealed partial class WorldScreen
             args.Text,
             args.Tags,
             args.SourceLanguage,
+            WorldState.UserOptions.ChatLanguage,
             WorldState.UserOptions.ChatFilterMode,
             FantasyDictionary.Default);
 
