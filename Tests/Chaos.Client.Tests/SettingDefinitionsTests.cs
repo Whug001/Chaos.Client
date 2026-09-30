@@ -96,7 +96,7 @@ public class SettingDefinitionsTests
     }
 
     /// <summary>
-    ///     Chat translation setting is in the Chat section right after chat filter with the correct three choices.
+    ///     Chat translation setting is in the Chat section right after chat filter with the correct six choices.
     /// </summary>
     [Test]
     public void ChatLanguageIsInChatSectionAfterChatFilter()
@@ -116,7 +116,11 @@ public class SettingDefinitionsTests
         chatLanguageDef.Section.Should().Be(SettingSection.Chat);
         chatLanguageDef.Category.Should().Be(SettingCategory.ServerOption);
         chatLanguageDef.Span.Should().Be(SettingSpan.Full);
-        chatLanguageDef.Choices.Should().HaveCount(3);
-        chatLanguageDef.Choices.Should().Equal("Off", "English", "Korean (한국어)");
+        chatLanguageDef.Choices.Should().HaveCount(6);
     }
+
+    [Test]
+    public void ChatLanguageChoicesMatchWireOrder()
+        => SettingDefinitions.ByKey(SettingKey.ChatLanguage).Choices.Should().Equal(
+            "Off", "English", "Korean (한국어)", "Spanish (Espanol)", "French (Francais)", "German (Deutsch)");
 }
