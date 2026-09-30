@@ -1,5 +1,7 @@
 using Chaos.Client.Systems;
 using Chaos.Client.ViewModel;
+using Chaos.Client.Controls.World.Popups.Options;
+using Chaos.Client.Rendering;
 using FluentAssertions;
 
 namespace Chaos.Client.Tests;
@@ -123,4 +125,35 @@ public class SettingDefinitionsTests
     public void ChatLanguageChoicesMatchWireOrder()
         => SettingDefinitions.ByKey(SettingKey.ChatLanguage).Choices.Should().Equal(
             "Off", "English", "Korean (한국어)", "Spanish (Espanol)", "French (Francais)", "German (Deutsch)");
+
+    [Test]
+    public void OnlyChatLanguageHasHelp()
+    {
+        SettingDefinitions.ByKey(SettingKey.ChatLanguage).Help.Should().Equal(
+            "Pick the language you read. Chat in other languages is translated into it. Your own chat counts as this language. Translations can be wrong.",
+            "읽는 언어를 고르세요. 다른 언어의 채팅이 이 언어로 번역됩니다. 내 채팅도 이 언어로 봅니다. 번역은 틀릴 수 있습니다.");
+
+        SettingDefinitions.All
+                          .Where(definition => definition.Key != SettingKey.ChatLanguage)
+                          .Should()
+                          .OnlyContain(definition => definition.Help == null);
+    }
+
+    /// <summary>
+    ///     SettingsControl needs a graphics device to construct, so the help block's layout is tested through its pure
+    ///     static helper.
+    /// </summary>
+    [Test]
+    public void HelpLayoutWrapsEveryParagraphWithinWidthAndGrowsHeight()
+    {
+        var help = SettingDefinitions.ByKey(SettingKey.ChatLanguage).Help!;
+        const int WIDTH = 200;
+
+        (var lines, var height) = SettingsControl.HelpLayout(help, WIDTH);
+
+        lines.Count.Should().BeGreaterThan(help.Count);
+        lines.Should().OnlyContain(line => TextRenderer.MeasureWidth(line) <= WIDTH);
+        height.Should().Be((lines.Count * TextRenderer.CHAR_HEIGHT) + 6);
+        SettingsControl.HelpLayout([], WIDTH).Height.Should().Be(0);
+    }
 }
