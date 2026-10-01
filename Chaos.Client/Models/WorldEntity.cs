@@ -131,6 +131,27 @@ public sealed class WorldEntity
 
     public string? GroupBoxText { get; set; }
     public uint Id { get; init; }
+
+    /// <summary>
+    ///     The id renderers cache this entity's composed image under. It is <see cref="Id" />, except on a copy made by
+    ///     <see cref="CopyForMirror" />, so a reflection never evicts the real character's cached image mid-frame.
+    /// </summary>
+    public uint RenderCacheId => RenderCacheIdOverride ?? Id;
+
+    private uint? RenderCacheIdOverride { get; set; }
+
+    /// <summary>
+    ///     A shallow copy for drawing in a mirror, cached under <paramref name="renderCacheId" />. The caller moves and
+    ///     turns the copy; the original is not touched.
+    /// </summary>
+    public WorldEntity CopyForMirror(uint renderCacheId)
+    {
+        var copy = (WorldEntity)MemberwiseClone();
+        copy.RenderCacheIdOverride = renderCacheId;
+
+        return copy;
+    }
+
     public float IdleAnimElapsedMs { get; set; }
 
     //idle animation — frames per direction in "04" epf (0 = no idle anim)

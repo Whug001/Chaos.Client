@@ -432,6 +432,10 @@ public delegate void BugReportOpenHandler(BugReportOpenArgs args);
 /// </summary>
 public delegate void StageLightingStateHandler(StageLightingStateArgs args);
 
+public delegate void MirrorLayoutHandler(MirrorLayoutArgs args);
+
+public delegate void MirrorDoubleHandler(MirrorDoubleArgs args);
+
 /// <summary>
 ///     Fired when the server opens, updates or closes the Stage Lighting window.
 /// </summary>

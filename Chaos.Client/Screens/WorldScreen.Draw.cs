@@ -72,6 +72,10 @@ public sealed partial class WorldScreen
                     batch.End();
                 }
             });
+
+            //mirrors: paint the characters they need into the atlas and compose the glass layer. like the silhouettes,
+            //this must happen before the main target's drawing starts, because switching targets discards it
+            PreRenderMirrors(sortedEntities);
         }
 
         //pass 1: world rendering — clipped to the hud viewport area, camera transform
@@ -118,6 +122,10 @@ public sealed partial class WorldScreen
                 //overlay so it always composites at AlphaBlend regardless of which blend the last stripe draw left.
                 BlendScope.Require(BlendState.AlphaBlend);
                 SilhouetteRenderer.DrawSilhouettes(BlendScope.Batch);
+
+                //mirror doubles, then dark stretches: after the silhouettes, so the dark also hides silhouettes inside it
+                DrawMirrorDoubles(BlendScope);
+                DrawDarkStretches(BlendScope);
             } finally
             {
                 BlendScope.End();
@@ -374,6 +382,8 @@ public sealed partial class WorldScreen
         while ((entityIndex < entityCount) && (sortedEntities[entityIndex].SortDepth < minDepth))
             entityIndex++;
 
+        var mirrorsOn = WorldState.Mirrors.HasMirrors && MirrorRenderer.LayerReady;
+
         for (var depth = minDepth; depth <= maxDepth; depth++)
         {
             //collect entities at this depth stripe
@@ -417,6 +427,7 @@ public sealed partial class WorldScreen
             var tileXEnd = Math.Min(fgMaxX, depth - fgMinY);
 
             for (var tileX = tileXStart; tileX <= tileXEnd; tileX++)
+            {
                 MapRenderer.DrawForegroundTile(
                     scope,
                     MapFile,
@@ -424,6 +435,10 @@ public sealed partial class WorldScreen
                     tileX,
                     depth - tileX,
                     AnimationTick);
+
+                if (mirrorsOn)
+                    DrawMirrorTile(scope, tileX, depth - tileX);
+            }
         }
     }
 
@@ -859,7 +874,7 @@ public sealed partial class WorldScreen
             : 1f;
 
         var drawParams = new AislingDrawParams(
-            entity.Id,
+            entity.RenderCacheId,
             appearance,
             frameIndex,
             flip,
@@ -883,7 +898,7 @@ public sealed partial class WorldScreen
         //paths have already returned above.
         if (isFrontFacing && (textureBottomY != 0) && entity.ActiveCustomEmote is { } customEmote)
         {
-            Game.AislingRenderer.TryGetCompositeTopPadding(entity.Id, out var topPadding);
+            Game.AislingRenderer.TryGetCompositeTopPadding(entity.RenderCacheId, out var topPadding);
 
             Game.CustomEmoteRenderer.Draw(
                 spriteBatch,

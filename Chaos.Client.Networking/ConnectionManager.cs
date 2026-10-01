@@ -583,6 +583,12 @@ public sealed class ConnectionManager : IDisposable
     /// </summary>
     public event StageLightingStateHandler? OnStageLightingState;
 
+    /// <summary>Fired when the current map's mirrors arrive (on entering a map with the mirror script).</summary>
+    public event MirrorLayoutHandler? OnMirrorLayout;
+
+    /// <summary>Fired when a player's reflection climbs out of a haunted mirror nearby.</summary>
+    public event MirrorDoubleHandler? OnMirrorDouble;
+
     /// <summary>
     ///     Fired when the server opens, updates the scene list of, or closes the Stage Lighting window.
     /// </summary>
@@ -1787,6 +1793,8 @@ public sealed class ConnectionManager : IDisposable
         PacketHandlers[(byte)ServerOpCode.BeautyShopDisplay] = HandleBeautyShopDisplay;
         PacketHandlers[(byte)ServerOpCode.BugReportOpen] = HandleBugReportOpen;
         PacketHandlers[(byte)ServerOpCode.StageLightingState] = HandleStageLightingState;
+        PacketHandlers[(byte)ServerOpCode.MirrorLayout] = HandleMirrorLayout;
+        PacketHandlers[(byte)ServerOpCode.MirrorDouble] = HandleMirrorDouble;
         PacketHandlers[(byte)ServerOpCode.StageLightingBoard] = HandleStageLightingBoard;
         PacketHandlers[(byte)ServerOpCode.GuildCloakEditor] = HandleGuildCloakEditor;
         PacketHandlers[(byte)ServerOpCode.GuildCloakLook] = HandleGuildCloakLook;
@@ -2252,6 +2260,18 @@ public sealed class ConnectionManager : IDisposable
     {
         var args = Client.Deserialize<StageLightingStateArgs>(in pkt);
         OnStageLightingState?.Invoke(args);
+    }
+
+    private void HandleMirrorLayout(ServerPacket pkt)
+    {
+        var args = Client.Deserialize<MirrorLayoutArgs>(in pkt);
+        OnMirrorLayout?.Invoke(args);
+    }
+
+    private void HandleMirrorDouble(ServerPacket pkt)
+    {
+        var args = Client.Deserialize<MirrorDoubleArgs>(in pkt);
+        OnMirrorDouble?.Invoke(args);
     }
 
     private void HandleStageLightingBoard(ServerPacket pkt)

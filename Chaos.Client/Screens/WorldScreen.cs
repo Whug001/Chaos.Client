@@ -360,6 +360,7 @@ public sealed partial class WorldScreen : IScreen
         MapRenderer = new MapRenderer();
         TabMapRenderer = new TabMapRenderer();
         SilhouetteRenderer = new SilhouetteRenderer(graphicsDevice);
+        MirrorRenderer = new MirrorRenderer(graphicsDevice);
         DarknessRenderer = new DarknessRenderer(graphicsDevice);
         WeatherRenderer = new WeatherRenderer();
         AmbientEffects = new AmbientEffects();
@@ -876,6 +877,7 @@ public sealed partial class WorldScreen : IScreen
             ZIndex = 2
         };
         WireStageLighting();
+        WireMirrors();
         WireGuildCloak();
         WireGuildEmblem();
         WireChatTranslation();
@@ -1100,6 +1102,7 @@ public sealed partial class WorldScreen : IScreen
         Game.Connection.OnBeautyShopDisplay -= HandleBeautyShopDisplay;
         Game.Connection.OnBugReportOpen -= HandleBugReportOpen;
         UnwireStageLighting();
+        UnwireMirrors();
         UnwireGuildCloak();
         UnwireGuildEmblem();
         UnwireChatTranslation();
@@ -1127,6 +1130,7 @@ public sealed partial class WorldScreen : IScreen
         AmbientEffects.Dispose();
         SpotlightRenderer.Dispose();
         SilhouetteRenderer.Dispose();
+        MirrorRenderer.Dispose();
         Root?.Dispose();
         SongBar?.Dispose();
         ClassResourceBar?.Dispose();

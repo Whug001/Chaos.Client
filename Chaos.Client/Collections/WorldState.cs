@@ -192,6 +192,12 @@ public static class WorldState
     public static StageLightingPanelState StageLightingPanel { get; } = new();
 
     /// <summary>
+    ///     The current map's mirrors and the doubles now showing. Not cleared by <see cref="Clear" />: a same-map refresh
+    ///     keeps them. WorldScreen clears it on a real map change; <see cref="ResetAll" /> clears it on logout.
+    /// </summary>
+    public static MirrorState Mirrors { get; } = new();
+
+    /// <summary>
     ///     Which guild cloak design each player's cloak shows (0 = plain), from the server's GuildCloakLook. Kept across
     ///     DisplayAisling updates; cleared with the entities.
     /// </summary>
@@ -445,6 +451,7 @@ public static class WorldState
         Song.Reset();
         StageLights.Clear();
         StageLightingPanel.Reset();
+        Mirrors.Clear();
         ClassResource.Reset();
         Oxygen.Reset();
         Equipment.Clear();
