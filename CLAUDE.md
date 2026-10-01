@@ -282,7 +282,7 @@ Draw order (painter's algorithm -- diagonal stripe, see WorldScreen.Draw.cs):
   5. DarknessRenderer -- light/darkness overlay (if MapFlags has Darkness; strength follows the Theatre house level)
   5b. SpotlightRenderer -- Theatre spotlight colour (additive), whenever a stage lighting setup has lights
   6. WeatherRenderer -- snow/rain overlay (low nibble 1/2 of MapFlags)
-  6b. AmbientEffects -- fog, lightning, mists, particles (one screen-space batch per active overlay)
+  6b. AmbientEffects -- fog, lightning, mists, particles (ghosts among them), then fly-bys (bats) last (one screen-space batch per active overlay)
   7. Viewport overlays (health bars, chat bubbles, chant text, etc.)
   8. Debug renderer (draw counts, gridlines, toggled via debug flags)
   9. Tab map overlay -- on top of world, under HUD (Tab key toggle)

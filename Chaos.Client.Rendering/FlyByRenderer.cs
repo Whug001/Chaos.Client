@@ -30,15 +30,19 @@ public sealed class FlyByRenderer : IAmbientOverlay
     /// <inheritdoc />
     public BlendState BlendState => BlendState.NonPremultiplied;
 
+    /// <summary>How many flyers are in the air. Tests use it.</summary>
+    public int FlyerCount => Flock.Flyers.Count;
+
     /// <inheritdoc />
     public bool IsActive => Active || (EffectAlpha > 0f);
 
     /// <inheritdoc />
     public void SetActive(bool on, bool immediate = false)
     {
-        //starting from nothing (a map change, or switched on after a full fade-out): drop any flyers left over, so a
-        //stale group never resumes mid-screen
-        if (immediate || (on && !IsActive))
+        //clear the flyers when the effect starts from nothing (a map change, or switched on after a full fade-out, so a
+        //stale group never resumes mid-screen) or is switched off immediately. An immediate "on" while already active
+        //(an unrelated F4 re-apply) keeps the bats in flight.
+        if ((on && !IsActive) || (immediate && !on))
         {
             Flock.Reset();
             LastWorldOrigin = null;

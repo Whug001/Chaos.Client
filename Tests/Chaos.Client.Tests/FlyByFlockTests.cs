@@ -196,4 +196,20 @@ public class FlyByFlockTests
                      .BeInRange(0, FlyByStyle.Bats.Frames.Count - 1);
         }
     }
+
+    [Test]
+    public void FlyerPushedBackPastItsEntryEdge_IsRemoved()
+    {
+        var flock = NewFlock(7);
+
+        while (flock.GroupsSpawned == 0)
+            Run(flock, STEP);
+
+        var dir = flock.Flyers[0].Direction;
+
+        for (var i = 0; (i < 60) && (flock.Flyers.Count > 0); i++)
+            flock.Update(STEP, Viewport, new Vector2(-dir * 200f, 0f), false);
+
+        flock.Flyers.Should().BeEmpty("a flyer pushed back past its entry edge is gone for good");
+    }
 }

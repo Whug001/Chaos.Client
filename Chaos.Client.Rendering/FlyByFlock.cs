@@ -154,8 +154,16 @@ public sealed class FlyByFlock
         flyer.Position += cameraShift + (velocity * dt);
     }
 
+    //gone once past the far edge, or pushed back (a player walking with the bats) further outside the entry edge than
+    //a group can stretch
     private bool HasLeft(Flyer flyer, float viewportWidth)
-        => flyer.Direction > 0 ? flyer.Position.X > viewportWidth + Style.ExitMargin : flyer.Position.X < -Style.ExitMargin;
+    {
+        var entryLimit = Style.EntryMargin + Style.SpreadAlong + Style.ExitMargin;
+
+        return flyer.Direction > 0
+            ? (flyer.Position.X > viewportWidth + Style.ExitMargin) || (flyer.Position.X < -entryLimit)
+            : (flyer.Position.X < -Style.ExitMargin) || (flyer.Position.X > viewportWidth + entryLimit);
+    }
 
     private float Roll(float min, float max) => min + ((float)Rng.NextDouble() * (max - min));
 }
