@@ -98,6 +98,16 @@ public static class MirrorMath
            && IsInFront(segment, x, y, REFLECT_DEPTH, REFLECT_MARGIN)
            && HasClearView(segment, x, y, isWall);
 
+    /// <summary>
+    ///     True when a face's 28x89 canvas, with its top-left at the screen-local <paramref name="origin" />, overlaps
+    ///     the viewport. Only these faces get a face-atlas cell; the maze has more faces than the atlas has cells.
+    /// </summary>
+    public static bool FaceOnScreen(Vector2 origin, int viewportWidth, int viewportHeight)
+        => (origin.X + MirrorGeometry.FACE_WIDTH > 0)
+           && (origin.X < viewportWidth)
+           && (origin.Y + MirrorGeometry.CANVAS_HEIGHT > 0)
+           && (origin.Y < viewportHeight);
+
     public static Vector2 ReflectPoint(MirrorSegmentInfo segment, Vector2 tile)
         => segment.Side == MirrorSide.North
             ? new Vector2(tile.X, 2 * segment.Y + 1 - tile.Y)

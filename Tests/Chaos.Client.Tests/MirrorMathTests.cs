@@ -190,6 +190,21 @@ public class MirrorMathTests
     }
 
     [Test]
+    public async Task A_face_is_on_screen_when_its_canvas_overlaps_the_viewport()
+    {
+        //the face canvas is 28 x 89 from its top-left origin
+        MirrorMath.FaceOnScreen(new Vector2(100, 100), 640, 480).Should().BeTrue();
+        MirrorMath.FaceOnScreen(new Vector2(-27, -88), 640, 480).Should().BeTrue();
+        MirrorMath.FaceOnScreen(new Vector2(639, 479), 640, 480).Should().BeTrue();
+
+        MirrorMath.FaceOnScreen(new Vector2(-28, 100), 640, 480).Should().BeFalse();
+        MirrorMath.FaceOnScreen(new Vector2(100, -89), 640, 480).Should().BeFalse();
+        MirrorMath.FaceOnScreen(new Vector2(640, 100), 640, 480).Should().BeFalse();
+        MirrorMath.FaceOnScreen(new Vector2(100, 480), 640, 480).Should().BeFalse();
+        await Task.CompletedTask;
+    }
+
+    [Test]
     public async Task The_local_player_shows_only_in_the_mirrors_they_are_at()
     {
         //the maze's rows: mirror walls at y = 3 and y = 6, corridors at y = 4-5 and 7-8

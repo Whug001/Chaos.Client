@@ -588,11 +588,14 @@ public sealed partial class WorldScreen
             for (var k = 0; k < segment.Length; k++)
             {
                 var wall = MirrorMath.WallTile(segment, k);
-
-                if (!MirrorRenderer.TryReserveFace(wall.X, wall.Y, segment.Side, out var cell, out var isNew) || !isNew)
-                    continue;
-
                 var origin = MirrorFaceOrigin(wall, segment.Side);
+
+                //off-screen faces get no cell: the visible segments can hold more faces than the atlas has cells, and a
+                //face that misses out draws as an empty frame
+                if (!MirrorMath.FaceOnScreen(origin, Camera.ViewportWidth, Camera.ViewportHeight)
+                    || !MirrorRenderer.TryReserveFace(wall.X, wall.Y, segment.Side, out var cell, out var isNew)
+                    || !isNew)
+                    continue;
 
                 MirrorRenderer.ComposeFace(
                     cell,
