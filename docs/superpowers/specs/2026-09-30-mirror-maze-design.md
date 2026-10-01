@@ -324,9 +324,14 @@ These override the sections above where the two differ.
    Macabre Unseelie wisp). Clicking it gives the piece. The prize chest is a merchant with the chest sprite 456.
 6. **Art.** Two panel frame sprites (`mirpnl01.spf` north face, `mirpnl02.spf` west face) and the Mirror Walker
    emblem icon (`embl256.spf`) ship in `setoa.dat`. No new map tiles or monster sprites.
-7. **Map.** `lod10231`, 60x60. Floor: the mansion checker (`11056` / `11462` by `(x + y) % 2`). Outer north wall
+7. **Map.** `lod10231`, 58x58 (19x19 cells of 2x2 floor plus 1-tile wall lines), built only by `Unora/Tools/MirrorMaze/generate_maze.py`. Inside walls sit on the dark mansion floor `11507`. Floor: the mansion checker (`11056` / `11462` by `(x + y) % 2`). Outer north wall
    `lfg` cycles `10903, 10904, 10905`; outer west wall `rfg` cycles `10888, 10887, 10886`. Verified by rendering
    test maps with DALib.
 8. **Amounts.** The daily prize is 20 candy. Thulin trades 100 candy for one Macabre Box.
 9. **Render cache.** The client draws a mirrored copy of a character with its own render cache id, so the
    character's real cached image is never rebuilt or disposed mid-frame.
+10. **The heart is entered from the haunted wing.** A mirror is only visible on a wall north or west of the player, so
+    the heart's mirror door is on its south wall, reached from the haunted wing, not from the lobby. Its way out is a
+    mirror door on its north wall that leads back to the lobby.
+11. **Funhouse wave tint** is lavender `rgb(230,210,255)` (one colour, not alternating per tile).
+12. **Terminus** lists the timers under "Other": "Mirror Shard: Funhouse/Endless/Haunted" and "Mirror Maze Prize".
