@@ -299,3 +299,34 @@ the client.
 - The glass rectangle offsets, once the mirror art exists.
 - Whether the client needs a packet to clear mirrors on leaving the map, or can clear them on every map change
   (expected: clear on map change, no extra packet).
+
+## 8. Amendments made while planning (2026-09-30)
+
+These override the sections above where the two differ.
+
+1. **Inside walls are mirror panels.** The mansion's wall art is about 170 px tall. In a 2-tile corridor the near
+   wall would hide every mirror on the far wall; a mirror stays visible only when the wall in front of it is under
+   about 80 px. So the maze's inside walls are invisible blocking tiles (foreground tile `1`, which `sotp.dat`
+   marks as a wall and the client never draws). The client draws a framed mirror panel, 76 px tall, on every face
+   of an inside wall that faces the camera. The map's outer north and west walls keep the Macabre Mansion
+   wallpaper. The user chose this ("Mirror panels").
+2. **Every visible inside face is a mirror.** `mirrors.json` therefore lists every face. The generator writes it.
+3. **Faces and sides.** A segment's `x`, `y` is its first **wall** tile. `north` is the wall tile's left face
+   (the `lfg` slot), which faces +y; the run goes along +x. `west` is the wall tile's right face (the `rfg` slot),
+   which faces +x; the run goes along +y. A north segment on wall row `wy` reflects `(x, y)` to
+   `(x, 2·wy + 1 − y)`; a west segment on wall column `wx` reflects `(x, y)` to `(2·wx + 1 − x, y)`.
+4. **Mirror doors replace clicking props.** A click lands on the floor tile under the cursor, which is behind a
+   wall, so a mirror cannot be clicked. The theatre entrance, the lobby exit, the heart entrance and the heart exit
+   are mirror doors: a reactor on the floor tile in front of a mirror opens "Step through the glass?" when a player
+   steps onto it **facing the mirror**. The heart has no door tile; it is walled in and reached only through its
+   mirror door, which checks the three key pieces.
+5. **Key pieces are wisps.** Each wing's key piece is held by a wisp NPC (merchant, sprite 179, the House
+   Macabre Unseelie wisp). Clicking it gives the piece. The prize chest is a merchant with the chest sprite 456.
+6. **Art.** Two panel frame sprites (`mirpnl01.spf` north face, `mirpnl02.spf` west face) and the Mirror Walker
+   emblem icon (`embl256.spf`) ship in `setoa.dat`. No new map tiles or monster sprites.
+7. **Map.** `lod10231`, 60x60. Floor: the mansion checker (`11056` / `11462` by `(x + y) % 2`). Outer north wall
+   `lfg` cycles `10903, 10904, 10905`; outer west wall `rfg` cycles `10888, 10887, 10886`. Verified by rendering
+   test maps with DALib.
+8. **Amounts.** The daily prize is 20 candy. Thulin trades 100 candy for one Macabre Box.
+9. **Render cache.** The client draws a mirrored copy of a character with its own render cache id, so the
+   character's real cached image is never rebuilt or disposed mid-frame.
