@@ -51,8 +51,6 @@ public sealed class SoundSystem : IDisposable
     private readonly Dictionary<int, List<int>> SoundIdToChannels = [];
     //decoded Mix_Chunk pointers indexed by sound id, with a monotonic timestamp for LRU eviction
     private readonly Dictionary<int, (nint Chunk, long Timestamp)> SoundCache = [];
-    //generated waves (the mirror scare sting) keyed by a negative id so they never meet a legend.dat sound
-    private readonly Dictionary<int, nint> WaveChunks = [];
     //same-frame dedup (e.g. AOE hitting multiple targets in one tick trying to play the same sound N times)
     private readonly HashSet<int> PlayedThisFrame = [];
 
@@ -100,12 +98,6 @@ public sealed class SoundSystem : IDisposable
                 SdlMixer.Mix_FreeChunk(entry.Chunk);
 
         SoundCache.Clear();
-
-        foreach (var chunk in WaveChunks.Values)
-            if (chunk != nint.Zero)
-                SdlMixer.Mix_FreeChunk(chunk);
-
-        WaveChunks.Clear();
 
         SdlMixer.Mix_CloseAudio();
         SdlMixer.Mix_Quit();
@@ -189,32 +181,10 @@ public sealed class SoundSystem : IDisposable
         PlayChunk(soundId, chunk);
     }
 
-    /// <summary>Plays a generated WAV, cached by <paramref name="key" />. Keys are negative so they never meet a legend.dat id.</summary>
-    public void PlayWave(int key, byte[] wav)
+    /// <summary>Fades a playing sound out. Used when a mirror scare is cut short.</summary>
+    public void StopSound(int soundId)
     {
-        if (IsDisposed || !Initialized || (SfxVolume <= 0))
-            return;
-
-        if (!PlayedThisFrame.Add(key))
-            return;
-
-        if (!WaveChunks.TryGetValue(key, out var chunk))
-        {
-            chunk = LoadChunkFromBytes(wav);
-
-            if (chunk == nint.Zero)
-                return;
-
-            WaveChunks[key] = chunk;
-        }
-
-        PlayChunk(key, chunk);
-    }
-
-    /// <summary>Fades a generated wave out. Used when a mirror scare is cut short.</summary>
-    public void StopWave(int key)
-    {
-        if (!SoundIdToChannels.TryGetValue(key, out var existing))
+        if (!SoundIdToChannels.TryGetValue(soundId, out var existing))
             return;
 
         foreach (var channel in existing)

@@ -43,6 +43,7 @@ public sealed partial class WorldScreen
     private double ScareStartedAt = double.NaN;
     private double ScareCooldownUntil;
     private int ScareFrameIndex = -1;
+    private int ScareSoundId;
 
     private void WireMirrors()
     {
@@ -135,9 +136,12 @@ public sealed partial class WorldScreen
         if (!double.IsNaN(ScareStartedAt))
         {
             var frame = MirrorMath.ScareFrame(seconds - ScareStartedAt);
+            var left = (player is null) || (ScareSegmentId is null) || !PlayerInFrontOf(ScareSegmentId, player);
 
-            if ((player is null) || (ScareSegmentId is null) || (frame < 0) || !PlayerInFrontOf(ScareSegmentId, player))
-                EndScare(stopSound: true);
+            //the legend stinger outlasts the four frames, so it keeps playing when the face ends. leaving the
+            //mirror, or a map change, cuts it off.
+            if (left || (frame < 0))
+                EndScare(stopSound: left);
             else
                 ScareFrameIndex = frame;
 
@@ -166,7 +170,8 @@ public sealed partial class WorldScreen
             ScareStartedAt = seconds;
             ScareCooldownUntil = seconds + MirrorMath.SCARE_COOLDOWN_SECONDS;
             ScareFrameIndex = 0;
-            Game.SoundSystem.PlayWave(MirrorScareSound.KEY, MirrorScareSound.Wav);
+            ScareSoundId = MirrorScareSound.Pick(Random.Shared);
+            Game.SoundSystem.PlaySound(ScareSoundId);
 
             return;
         }
@@ -184,9 +189,10 @@ public sealed partial class WorldScreen
 
     private void EndScare(bool stopSound)
     {
-        if (stopSound && (ScareFrameIndex >= 0))
-            Game.SoundSystem.StopWave(MirrorScareSound.KEY);
+        if (stopSound && (ScareSoundId != 0))
+            Game.SoundSystem.StopSound(ScareSoundId);
 
+        ScareSoundId = 0;
         ScareStartedAt = double.NaN;
         ScareFrameIndex = -1;
     }
