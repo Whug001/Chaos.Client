@@ -14,8 +14,8 @@ namespace Chaos.Client.Screens;
 
 /// <summary>
 ///     Mirrors: the layout and doubles from the server, and their drawing. Before the world pass,
-///     <see cref="PreRenderMirrors" /> paints the characters the mirrors need into the atlas and composes all visible glass
-///     into the layer; during the stripe pass, <see cref="DrawMirrorTile" /> pastes each wall tile's slice and frame.
+///     <see cref="PreRenderMirrors" /> paints the characters the mirrors need into the atlas and composes each visible
+///     face into its own cell; during the stripe pass, <see cref="DrawMirrorTile" /> draws that cell and the frame.
 /// </summary>
 public sealed partial class WorldScreen
 {
@@ -37,6 +37,12 @@ public sealed partial class WorldScreen
     private readonly EntityTrail MirrorTrail = new();
     private readonly List<int> VisibleMirrorSegments = [];
     private MirrorRenderer MirrorRenderer = null!;
+    private MirrorScareFrames? ScareFrames;
+    private string? ScareSegmentId;
+    private long ScareSlot = long.MinValue;
+    private double ScareStartedAt = double.NaN;
+    private double ScareCooldownUntil;
+    private int ScareFrameIndex = -1;
 
     private void WireMirrors()
     {
@@ -60,6 +66,10 @@ public sealed partial class WorldScreen
     {
         WorldState.Mirrors.Clear();
         MirrorTrail.Clear();
+        EndScare(stopSound: true);
+        ScareSegmentId = null;
+        ScareSlot = long.MinValue;
+        ScareCooldownUntil = 0;
     }
 
     private static Vector2 EntityTile(WorldEntity entity) => new Vector2(entity.TileX, entity.TileY) + MirrorMath.OffsetToTiles(entity.VisualOffset);
@@ -98,6 +108,7 @@ public sealed partial class WorldScreen
             }
 
         MirrorTrail.Prune(nowMs);
+        UpdateMirrorScare(seconds);
         CollectVisibleMirrorSegments();
         CollectMirrorPlacements(nowMs, seconds);
 
@@ -110,7 +121,83 @@ public sealed partial class WorldScreen
         CollectMirrorDoubles(nowMs);
 
         MirrorRenderer.RenderAtlas(PaintMirrorCells);
-        MirrorRenderer.RenderLayer(DrawMirrorGlass, batch => DrawMirrorReflections(batch, seconds));
+        MirrorRenderer.RenderFaces(() => ComposeMirrorFaces(seconds));
+    }
+
+    /// <summary>
+    ///     Starts a scare when the local player is in front of a haunted mirror during a scare slot's slip, and cuts it
+    ///     off if they leave or the four frames are done. At most one scare a minute.
+    /// </summary>
+    private void UpdateMirrorScare(double seconds)
+    {
+        var player = WorldState.GetPlayerEntity();
+
+        if (!double.IsNaN(ScareStartedAt))
+        {
+            var frame = MirrorMath.ScareFrame(seconds - ScareStartedAt);
+
+            if ((player is null) || (ScareSegmentId is null) || (frame < 0) || !PlayerInFrontOf(ScareSegmentId, player))
+                EndScare(stopSound: true);
+            else
+                ScareFrameIndex = frame;
+
+            return;
+        }
+
+        ScareFrameIndex = -1;
+
+        if ((player is null) || (seconds < ScareCooldownUntil))
+            return;
+
+        foreach (var segment in WorldState.Mirrors.Segments)
+        {
+            if ((segment.Style != MirrorStyle.Haunted)
+                || !MirrorMath.InScareWindow(segment.Id, seconds)
+                || !MirrorMath.IsInFront(segment, player.TileX, player.TileY, MirrorMath.REFLECT_DEPTH, MirrorMath.REFLECT_MARGIN))
+                continue;
+
+            var slot = MirrorMath.HauntedSlot(segment.Id, seconds);
+
+            if ((segment.Id == ScareSegmentId) && (slot == ScareSlot))
+                continue;
+
+            ScareSegmentId = segment.Id;
+            ScareSlot = slot;
+            ScareStartedAt = seconds;
+            ScareCooldownUntil = seconds + MirrorMath.SCARE_COOLDOWN_SECONDS;
+            ScareFrameIndex = 0;
+            Game.SoundSystem.PlayWave(MirrorScareSound.KEY, MirrorScareSound.Wav);
+
+            return;
+        }
+    }
+
+    private static bool PlayerInFrontOf(string segmentId, WorldEntity player)
+    {
+        foreach (var segment in WorldState.Mirrors.Segments)
+            if ((segment.Id == segmentId)
+                && MirrorMath.IsInFront(segment, player.TileX, player.TileY, MirrorMath.REFLECT_DEPTH, MirrorMath.REFLECT_MARGIN))
+                return true;
+
+        return false;
+    }
+
+    private void EndScare(bool stopSound)
+    {
+        if (stopSound && (ScareFrameIndex >= 0))
+            Game.SoundSystem.StopWave(MirrorScareSound.KEY);
+
+        ScareStartedAt = double.NaN;
+        ScareFrameIndex = -1;
+    }
+
+    /// <summary>The scare face, on top of the world and the HUD. Absent when no scare is playing.</summary>
+    private void DrawMirrorScare(SpriteBatch spriteBatch)
+    {
+        if ((ScareFrameIndex < 0) || ScareFrames is null)
+            return;
+
+        spriteBatch.Draw(ScareFrames[ScareFrameIndex], Device.Viewport.Bounds, Color.White);
     }
 
     private void CollectVisibleMirrorSegments()
@@ -142,9 +229,10 @@ public sealed partial class WorldScreen
         var centre = player is null ? Vector2.Zero : EntityTile(player);
         var segments = WorldState.Mirrors.Segments;
 
-        void Add(WorldEntity entity, Direction facing, bool idle, Vector2 tile, float scaleX, float scaleY, bool ripple, Color tint, float alpha)
+        void Add(int segmentIndex, WorldEntity entity, Direction facing, bool idle, Vector2 tile, float scaleX, float scaleY, bool ripple, Color tint, float alpha)
             => MirrorPlacements.Add(
                 new MirrorPlacement(
+                    segmentIndex,
                     entity.Id,
                     facing,
                     idle,
@@ -154,7 +242,7 @@ public sealed partial class WorldScreen
                     ripple,
                     tint,
                     alpha,
-                    Vector2.Distance(EntityTile(entity), centre)));
+                    Vector2.Distance(tile, centre)));
 
         foreach (var index in VisibleMirrorSegments)
         {
@@ -170,8 +258,9 @@ public sealed partial class WorldScreen
                 foreach (var entity in MirrorCandidates)
                     if (MirrorMath.IsInFront(partner, entity.TileX, entity.TileY, MirrorMath.REFLECT_DEPTH, MirrorMath.REFLECT_MARGIN))
                         Add(
+                            index,
                             entity,
-                            MirrorMath.ReflectFacing(partner.Side, entity.Direction),
+                            entity.Direction,
                             false,
                             MirrorMath.WindowPoint(segment, partner, EntityTile(entity)),
                             1,
@@ -183,7 +272,16 @@ public sealed partial class WorldScreen
                 continue;
             }
 
-            var slip = segment.Style == MirrorStyle.Haunted ? MirrorMath.HauntedSlipAt(segment.Id, seconds) : (HauntedSlip.None, 0d);
+            var slip = (HauntedSlip.None, 0d);
+
+            if (segment.Style == MirrorStyle.Haunted)
+            {
+                slip = MirrorMath.HauntedSlipAt(segment.Id, seconds);
+
+                //a scare slot keeps an honest reflection; the face is drawn over the view instead
+                if (MirrorMath.IsScareSlot(segment.Id, seconds))
+                    slip = (HauntedSlip.None, 0);
+            }
 
             foreach (var entity in MirrorCandidates)
             {
@@ -206,7 +304,7 @@ public sealed partial class WorldScreen
                             _                   => FunhouseWaveTint
                         };
 
-                        Add(entity, facing, false, MirrorMath.ReflectPoint(segment, tile), sx, sy, true, tint, MirrorMath.GLASS_ALPHA);
+                        Add(index, entity, facing, false, MirrorMath.ReflectPoint(segment, tile), sx, sy, true, tint, MirrorMath.GLASS_ALPHA);
 
                         break;
                     }
@@ -219,6 +317,7 @@ public sealed partial class WorldScreen
                             var scale = MirrorMath.EndlessScale(copy);
 
                             Add(
+                                index,
                                 entity,
                                 MirrorMath.EndlessFacing(copy, entity.Direction, facing),
                                 false,
@@ -265,19 +364,19 @@ public sealed partial class WorldScreen
                                 break;
                         }
 
-                        Add(entity, facing, idle, MirrorMath.ReflectPoint(segment, at), 1, 1, false, tint, alpha);
+                        Add(index, entity, facing, idle, MirrorMath.ReflectPoint(segment, at), 1, 1, false, tint, alpha);
 
                         break;
                     }
                     default:
-                        Add(entity, facing, false, MirrorMath.ReflectPoint(segment, tile), 1, 1, false, GlassTint, MirrorMath.GLASS_ALPHA);
+                        Add(index, entity, facing, false, MirrorMath.ReflectPoint(segment, tile), 1, 1, false, GlassTint, MirrorMath.GLASS_ALPHA);
 
                         break;
                 }
             }
         }
 
-        //the cap keeps the nearest; then paint far to near so nearer reflections overlap farther ones
+        //the cap keeps the reflections nearest the player; then paint far to near so nearer ones overlap farther ones
         if (MirrorPlacements.Count > MirrorMath.SPRITE_CAP)
         {
             MirrorPlacements.Sort((a, b) => a.Distance.CompareTo(b.Distance));
@@ -399,7 +498,7 @@ public sealed partial class WorldScreen
 
         scope.Require(BlendState.AlphaBlend);
 
-        if (!MirrorRenderer.LayerReady)
+        if (!MirrorRenderer.FacesReady)
             return;
 
         foreach (var index in VisibleMirrorSegments)
@@ -457,7 +556,7 @@ public sealed partial class WorldScreen
         }
     }
 
-    private void DrawMirrorGlass(SpriteBatch batch)
+    private void ComposeMirrorFaces(double seconds)
     {
         var segments = WorldState.Mirrors.Segments;
 
@@ -474,14 +573,26 @@ public sealed partial class WorldScreen
                 _                    => new Color(58, 70, 96)
             };
 
-            var glass = MirrorRenderer.Glass(segment.Side);
-
             for (var k = 0; k < segment.Length; k++)
-                batch.Draw(glass, MirrorFaceOrigin(MirrorMath.WallTile(segment, k), segment.Side), colour);
+            {
+                var wall = MirrorMath.WallTile(segment, k);
+
+                if (!MirrorRenderer.TryReserveFace(wall.X, wall.Y, segment.Side, out var cell, out var isNew) || !isNew)
+                    continue;
+
+                var origin = MirrorFaceOrigin(wall, segment.Side);
+
+                MirrorRenderer.ComposeFace(
+                    cell,
+                    segment.Side,
+                    origin,
+                    colour,
+                    batch => DrawMirrorReflections(batch, seconds, index, wall));
+            }
         }
     }
 
-    private void DrawMirrorReflections(SpriteBatch batch, double seconds)
+    private void DrawMirrorReflections(SpriteBatch batch, double seconds, int segmentIndex, Point wall)
     {
         var atlas = MirrorRenderer.AtlasTexture;
 
@@ -492,7 +603,9 @@ public sealed partial class WorldScreen
 
         foreach (var p in MirrorPlacements)
         {
-            if (!MirrorRenderer.TryGetCell(MirrorCellKey(p.EntityId, p.Facing, p.Idle), out var cell))
+            if ((p.SegmentIndex != segmentIndex)
+                || (MathF.Max(MathF.Abs(p.Tile.X - wall.X), MathF.Abs(p.Tile.Y - wall.Y)) > 8)
+                || !MirrorRenderer.TryGetCell(MirrorCellKey(p.EntityId, p.Facing, p.Idle), out var cell))
                 continue;
 
             var feet = Camera.WorldToScreen(MirrorMath.TileCenterWorld(p.Tile, MapFile!.Height));
@@ -517,30 +630,26 @@ public sealed partial class WorldScreen
             }
         }
 
-        //glints: a faint streak sweeping along each glass, endless or window run
-        var segments = WorldState.Mirrors.Segments;
+        //a faint streak sweeping along this glass, endless or window run; the face clips it to its own glass
+        var segment = WorldState.Mirrors.Segments[segmentIndex];
 
-        foreach (var index in VisibleMirrorSegments)
+        if (segment.Style is MirrorStyle.Glass or MirrorStyle.Endless or MirrorStyle.Window)
         {
-            var segment = segments[index];
-
-            if (segment.Style is not (MirrorStyle.Glass or MirrorStyle.Endless or MirrorStyle.Window))
-                continue;
 
             var fraction = MirrorMath.GlintFraction(seconds + MirrorMath.Fnv1a(segment.Id) % 9);
 
-            if (fraction is null)
-                continue;
+            if (fraction is not null)
+            {
+                var step = segment.Side == MirrorSide.North ? new Vector2(28, 14) : new Vector2(-28, 14);
+                var start = MirrorFaceOrigin(MirrorMath.WallTile(segment, 0), segment.Side) + new Vector2(14, 82);
+                var at = start + step * (fraction.Value * segment.Length);
 
-            var step = segment.Side == MirrorSide.North ? new Vector2(28, 14) : new Vector2(-28, 14);
-            var start = MirrorFaceOrigin(MirrorMath.WallTile(segment, 0), segment.Side) + new Vector2(14, 82);
-            var at = start + step * (fraction.Value * segment.Length);
-
-            batch.Draw(MirrorRenderer.Pixel, at, null, Color.White * 0.18f, 0.35f, new Vector2(0.5f, 1f), new Vector2(3, 70), SpriteEffects.None, 0f);
+                batch.Draw(MirrorRenderer.Pixel, at, null, Color.White * 0.18f, 0.35f, new Vector2(0.5f, 1f), new Vector2(3, 70), SpriteEffects.None, 0f);
+            }
         }
     }
 
-    /// <summary>During the stripe pass, right after wall tile (x, y)'s foreground: its faces' glass slices and frames.</summary>
+    /// <summary>During the stripe pass, right after wall tile (x, y)'s foreground: its faces and frames.</summary>
     private void DrawMirrorTile(BatchBlendScope scope, int x, int y)
     {
         var faces = WorldState.Mirrors.FacesAt(x, y);
@@ -556,17 +665,11 @@ public sealed partial class WorldScreen
 
     private void DrawMirrorFace(SpriteBatch batch, Point wall, MirrorSide side)
     {
-        var layer = MirrorRenderer.LayerTexture;
-
-        if (layer is null)
-            return;
-
         var origin = MirrorFaceOrigin(wall, side);
-        var source = new Rectangle((int)origin.X, (int)origin.Y, MirrorGeometry.FACE_WIDTH, MirrorGeometry.CANVAS_HEIGHT);
-        var clipped = Rectangle.Intersect(source, layer.Bounds);
+        var faces = MirrorRenderer.FaceAtlasTexture;
 
-        if (clipped.Width > 0 && clipped.Height > 0)
-            batch.Draw(layer, new Vector2(clipped.X, clipped.Y), clipped, Color.White);
+        if (faces is not null && MirrorRenderer.TryGetFace(wall.X, wall.Y, side, out var cell))
+            batch.Draw(faces, origin, cell, Color.White);
 
         var ui = UiRenderer.Instance;
         var frame = ui?.GetSpfTexture(side == MirrorSide.North ? "mirpnl01.spf" : "mirpnl02.spf");
@@ -576,6 +679,7 @@ public sealed partial class WorldScreen
     }
 
     private readonly record struct MirrorPlacement(
+        int SegmentIndex,
         uint EntityId,
         Direction Facing,
         bool Idle,

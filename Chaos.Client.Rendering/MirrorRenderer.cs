@@ -8,9 +8,9 @@ namespace Chaos.Client.Rendering;
 
 /// <summary>
 ///     Owns the mirror render targets and textures. Each frame, before the world pass, WorldScreen paints every character
-///     a mirror needs into the atlas (one cell per character and pose), then composes all visible glass and reflections
-///     into the layer, which is the size of the back buffer, like the silhouette target. The world pass pastes each wall
-///     tile's slice of the layer and then its frame sprite.
+///     a mirror needs into the character atlas (one cell per character and pose), then composes each visible face into
+///     its own cell of the face atlas: glass first, then reflections clipped to that glass. A reflection therefore
+///     cannot land on a neighbouring face. The world pass draws that cell and then the frame sprite.
 /// </summary>
 public sealed class MirrorRenderer : IDisposable
 {
@@ -19,6 +19,8 @@ public sealed class MirrorRenderer : IDisposable
     public const int CELL_ANCHOR_Y = 136;
     public const int ATLAS_COLUMNS = 12;
     public const int ATLAS_ROWS = 8;
+    public const int FACE_COLUMNS = 32;
+    public const int FACE_ROWS = 16;
 
     /// <summary>Draws only where the target already has alpha (the glass) and keeps the target's alpha.</summary>
     public static readonly BlendState SourceAtop = new()
@@ -37,13 +39,15 @@ public sealed class MirrorRenderer : IDisposable
     };
 
     private readonly Dictionary<ulong, int> CellByKey = [];
+    private readonly Dictionary<(int X, int Y, MirrorSide Side), int> FaceByWall = [];
     private readonly GraphicsDevice Device;
     private RenderTarget2D? Atlas;
     private SpriteBatch? Batch;
     private Texture2D? DiamondTexture;
+    private RenderTarget2D? FaceAtlas;
     private Texture2D? GlowTexture;
-    private RenderTarget2D? Layer;
     private int NextCell;
+    private int NextFace;
     private Texture2D? NorthGlass;
     private Texture2D? PixelTexture;
     private Texture2D? WestGlass;
@@ -52,23 +56,23 @@ public sealed class MirrorRenderer : IDisposable
 
     public Texture2D? AtlasTexture => Atlas;
 
+    public Texture2D? FaceAtlasTexture => FaceAtlas;
+
+    /// <summary>True once this frame's faces have been composed.</summary>
+    public bool FacesReady { get; private set; }
+
     /// <summary>A white 56x27 tile diamond.</summary>
     public Texture2D Diamond => DiamondTexture ??= BuildDiamond();
 
     /// <summary>A soft white 64x32 ellipse, premultiplied, for additive light.</summary>
     public Texture2D Glow => GlowTexture ??= BuildGlow();
 
-    public Texture2D? LayerTexture => Layer;
-
-    /// <summary>True once this frame's layer has been composed.</summary>
-    public bool LayerReady { get; private set; }
-
     public Texture2D Pixel => PixelTexture ??= BuildPixel();
 
     public void Dispose()
     {
         Atlas?.Dispose();
-        Layer?.Dispose();
+        FaceAtlas?.Dispose();
         Batch?.Dispose();
         DiamondTexture?.Dispose();
         GlowTexture?.Dispose();
@@ -81,12 +85,14 @@ public sealed class MirrorRenderer : IDisposable
     public Texture2D Glass(MirrorSide side)
         => side == MirrorSide.North ? NorthGlass ??= BuildGlass(MirrorSide.North) : WestGlass ??= BuildGlass(MirrorSide.West);
 
-    /// <summary>Forgets last frame's cells and marks the layer stale. Call once a frame before reserving cells.</summary>
+    /// <summary>Forgets last frame's cells and marks the faces stale. Call once a frame before reserving cells.</summary>
     public void BeginFrame()
     {
         CellByKey.Clear();
+        FaceByWall.Clear();
         NextCell = 0;
-        LayerReady = false;
+        NextFace = 0;
+        FacesReady = false;
     }
 
     public static Rectangle CellRect(int index)
@@ -177,47 +183,118 @@ public sealed class MirrorRenderer : IDisposable
         }
     }
 
-    /// <summary>
-    ///     Clears the layer, runs <paramref name="drawGlass" /> with normal blending, then
-    ///     <paramref name="drawReflections" /> with <see cref="SourceAtop" />, so reflections and glints only land on glass.
-    /// </summary>
-    public void RenderLayer(Action<SpriteBatch> drawGlass, Action<SpriteBatch> drawReflections)
-    {
-        Batch ??= new SpriteBatch(Device);
+    public static Rectangle FaceRect(int index)
+        => new(
+            index % FACE_COLUMNS * MirrorGeometry.FACE_WIDTH,
+            index / FACE_COLUMNS * MirrorGeometry.CANVAS_HEIGHT,
+            MirrorGeometry.FACE_WIDTH,
+            MirrorGeometry.CANVAS_HEIGHT);
 
-        Layer = EnsureTarget(Layer, Device.PresentationParameters.BackBufferWidth, Device.PresentationParameters.BackBufferHeight);
+    /// <summary>Finds or reserves the face-atlas cell for the wall tile's face. False when the atlas is full.</summary>
+    public bool TryReserveFace(int x, int y, MirrorSide side, out Rectangle cell, out bool isNew)
+    {
+        isNew = false;
+
+        if (FaceByWall.TryGetValue((x, y, side), out var index))
+        {
+            cell = FaceRect(index);
+
+            return true;
+        }
+
+        if (NextFace >= FACE_COLUMNS * FACE_ROWS)
+        {
+            cell = default;
+
+            return false;
+        }
+
+        index = NextFace++;
+        FaceByWall[(x, y, side)] = index;
+        cell = FaceRect(index);
+        isNew = true;
+
+        return true;
+    }
+
+    public bool TryGetFace(int x, int y, MirrorSide side, out Rectangle cell)
+    {
+        if (FaceByWall.TryGetValue((x, y, side), out var index))
+        {
+            cell = FaceRect(index);
+
+            return true;
+        }
+
+        cell = default;
+
+        return false;
+    }
+
+    /// <summary>
+    ///     Clears the face atlas and runs <paramref name="compose" />. Each face is drawn into its own cell, so a
+    ///     reflection cannot land on a neighbouring face.
+    /// </summary>
+    public void RenderFaces(Action compose)
+    {
+        FaceAtlas = EnsureTarget(
+            FaceAtlas,
+            FACE_COLUMNS * MirrorGeometry.FACE_WIDTH,
+            FACE_ROWS * MirrorGeometry.CANVAS_HEIGHT);
+
         var previous = CurrentTarget();
-        Device.SetRenderTarget(Layer);
-        Device.ScissorRectangle = new Rectangle(0, 0, Layer.Width, Layer.Height);
+        Device.SetRenderTarget(FaceAtlas);
+        Device.ScissorRectangle = new Rectangle(0, 0, FaceAtlas.Width, FaceAtlas.Height);
         Device.Clear(Color.Transparent);
 
         try
         {
-            Batch.Begin(SpriteSortMode.Deferred, BlendState.AlphaBlend, SamplerState.PointClamp);
-
-            try
-            {
-                drawGlass(Batch);
-            } finally
-            {
-                Batch.End();
-            }
-
-            Batch.Begin(SpriteSortMode.Deferred, SourceAtop, SamplerState.PointClamp);
-
-            try
-            {
-                drawReflections(Batch);
-            } finally
-            {
-                Batch.End();
-            }
+            compose();
         } finally
         {
             Device.SetRenderTarget(previous);
         }
 
-        LayerReady = true;
+        FacesReady = true;
+    }
+
+    /// <summary>
+    ///     Draws one face into <paramref name="cell" />: its glass, then <paramref name="drawScreenSpace" /> (reflections
+    ///     and the glint, in screen pixels) clipped to that glass.
+    /// </summary>
+    public void ComposeFace(
+        Rectangle cell,
+        MirrorSide side,
+        Vector2 screenOrigin,
+        Color glassColour,
+        Action<SpriteBatch> drawScreenSpace)
+    {
+        Batch ??= new SpriteBatch(Device);
+        Device.ScissorRectangle = cell;
+
+        Batch.Begin(SpriteSortMode.Deferred, BlendState.AlphaBlend, SamplerState.PointClamp, null, CellScissor);
+
+        try
+        {
+            Batch.Draw(Glass(side), new Vector2(cell.X, cell.Y), glassColour);
+        } finally
+        {
+            Batch.End();
+        }
+
+        Device.ScissorRectangle = cell;
+
+        var transform = Matrix.CreateTranslation(cell.X - screenOrigin.X, cell.Y - screenOrigin.Y, 0);
+
+        Batch.Begin(SpriteSortMode.Deferred, SourceAtop, SamplerState.PointClamp, null, CellScissor, null, transform);
+
+        try
+        {
+            drawScreenSpace(Batch);
+        } finally
+        {
+            Batch.End();
+        }
     }
 
     private RenderTarget2D? CurrentTarget()

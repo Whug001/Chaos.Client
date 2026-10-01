@@ -71,9 +71,14 @@ public class MirrorMathTests
         MirrorMath.EndlessFacing(1, Direction.Up, Direction.Down).Should().Be(Direction.Up);
         MirrorMath.EndlessFacing(2, Direction.Up, Direction.Down).Should().Be(Direction.Down);
 
+        // (15, 7) is one tile east and two south of partner (14, 5), so it shows the same offset from self (10, 5)
         var self = new MirrorSegmentInfo { Id = "a", X = 10, Y = 5, Side = MirrorSide.North, Length = 2 };
         var partner = new MirrorSegmentInfo { Id = "b", X = 14, Y = 5, Side = MirrorSide.North, Length = 2 };
-        MirrorMath.WindowPoint(self, partner, new Vector2(15, 7)).Should().Be(new Vector2(11, 4));
+        MirrorMath.WindowPoint(self, partner, new Vector2(15, 7)).Should().Be(new Vector2(11, 7));
+
+        var westSelf = new MirrorSegmentInfo { Id = "c", X = 4, Y = 8, Side = MirrorSide.West, Length = 3 };
+        var westPartner = new MirrorSegmentInfo { Id = "d", X = 4, Y = 14, Side = MirrorSide.West, Length = 3 };
+        MirrorMath.WindowPoint(westSelf, westPartner, new Vector2(6, 16)).Should().Be(new Vector2(6, 10));
 
         MirrorMath.FunhouseScale(MirrorFunhouse.Tall).Should().Be((0.75f, 1.5f));
         MirrorMath.FunhouseScale(MirrorFunhouse.Wide).Should().Be((1.35f, 0.7f));
@@ -131,6 +136,32 @@ public class MirrorMathTests
         MirrorMath.GhostAlpha(0).Should().BeApproximately(0.35f, 0.001f);
         MirrorMath.GhostAlpha(0.25).Should().BeApproximately(0.5f, 0.001f);
         MirrorMath.GhostAlpha(0.75).Should().BeApproximately(0.2f, 0.001f);
+        await Task.CompletedTask;
+    }
+
+    [Test]
+    public async Task Scare_slots_are_about_one_in_six_and_the_face_lasts_four_frames()
+    {
+        const double START = 1_790_000_000;
+
+        MirrorMath.IsScareSlot("hau-n-12-30", START + 3).Should().Be(MirrorMath.IsScareSlot("hau-n-12-30", START + 3));
+        MirrorMath.HauntedSlot("hau-n-12-30", START + 3).Should().Be(MirrorMath.HauntedSlot("hau-n-12-30", START + 3.5));
+
+        var scares = Enumerable.Range(0, 600)
+                               .Count(i => MirrorMath.IsScareSlot("hau-n-12-30", START + i * MirrorMath.HAUNTED_SLOT_SECONDS + 1));
+
+        scares.Should().BeInRange(60, 140);
+
+        Enumerable.Range(0, 4000)
+                  .Select(i => START + i / 10.0)
+                  .Any(t => MirrorMath.InScareWindow("hau-n-12-30", t))
+                  .Should()
+                  .BeTrue();
+
+        MirrorMath.ScareFrame(0).Should().Be(0);
+        MirrorMath.ScareFrame(0.1).Should().Be(1);
+        MirrorMath.ScareFrame(0.31).Should().Be(3);
+        MirrorMath.ScareFrame(0.4).Should().Be(-1);
         await Task.CompletedTask;
     }
 

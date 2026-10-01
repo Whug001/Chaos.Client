@@ -44,6 +44,13 @@ public static class MirrorMath
     public const double HAUNTED_SLIP_SECONDS = 3;
     public const double HAUNTED_LAG_SECONDS = 1.1;
 
+    /// <summary>One haunted slip in this many is a fullscreen scare instead of a reflection trick.</summary>
+    public const int SCARE_ONE_IN = 6;
+
+    public const double SCARE_COOLDOWN_SECONDS = 60;
+    public const int SCARE_FRAMES = 4;
+    public const double SCARE_FRAME_SECONDS = 0.1;
+
     public const int ENDLESS_COPIES = 4;
     public const float ENDLESS_STEP_TILES = 0.9f;
 
@@ -110,9 +117,13 @@ public static class MirrorMath
 
     public static Direction EndlessFacing(int copy, Direction original, Direction reflected) => copy % 2 == 1 ? original : reflected;
 
-    /// <summary>Where a character in front of <paramref name="partner" /> shows in <paramref name="self" />.</summary>
+    /// <summary>
+    ///     Where a character standing at <paramref name="tile" /> in front of <paramref name="partner" /> shows in
+    ///     <paramref name="self" />. The runs differ by their first wall tile, so the character is slid by that
+    ///     difference. A window does not reflect.
+    /// </summary>
     public static Vector2 WindowPoint(MirrorSegmentInfo self, MirrorSegmentInfo partner, Vector2 tile)
-        => ReflectPoint(partner, tile) + new Vector2(self.X - partner.X, self.Y - partner.Y);
+        => new(tile.X + self.X - partner.X, tile.Y + self.Y - partner.Y);
 
     public static (float X, float Y) FunhouseScale(MirrorFunhouse kind)
         => kind switch
@@ -142,17 +153,51 @@ public static class MirrorMath
     /// </summary>
     public static (HauntedSlip Kind, double SecondsInto) HauntedSlipAt(string segmentId, double unixSeconds)
     {
+        var clock = Clock(segmentId, unixSeconds);
+        var mixed = Mix(clock.Hash, clock.Slot);
+        var start = 2 + mixed % 7;
+
+        if ((clock.Into < start) || (clock.Into >= start + HAUNTED_SLIP_SECONDS))
+            return (HauntedSlip.None, 0);
+
+        return ((HauntedSlip)(1 + mixed / 7 % 3), clock.Into - start);
+    }
+
+    /// <summary>The 17 s haunted slot containing <paramref name="unixSeconds" />. Scare cooldown remembers it.</summary>
+    public static long HauntedSlot(string segmentId, double unixSeconds) => Clock(segmentId, unixSeconds).Slot;
+
+    /// <summary>True for the whole slot when this slip is a scare instead of lag, stare, or ghost. About one slot in six.</summary>
+    public static bool IsScareSlot(string segmentId, double unixSeconds)
+    {
+        var clock = Clock(segmentId, unixSeconds);
+
+        return Mix(clock.Hash, clock.Slot) % SCARE_ONE_IN == 0;
+    }
+
+    /// <summary>True during the 3 s slip of a scare slot: the moment the face may lunge.</summary>
+    public static bool InScareWindow(string segmentId, double unixSeconds)
+        => IsScareSlot(segmentId, unixSeconds) && (HauntedSlipAt(segmentId, unixSeconds).Kind != HauntedSlip.None);
+
+    /// <summary>Which of the four scare frames <paramref name="secondsInto" /> shows, or -1 when the scare is over.</summary>
+    public static int ScareFrame(double secondsInto)
+    {
+        if (secondsInto < 0)
+            return -1;
+
+        var frame = (int)(secondsInto / SCARE_FRAME_SECONDS);
+
+        return frame < SCARE_FRAMES ? frame : -1;
+    }
+
+    private readonly record struct HauntedClock(uint Hash, long Slot, double Into);
+
+    private static HauntedClock Clock(string segmentId, double unixSeconds)
+    {
         var hash = Fnv1a(segmentId);
         var shifted = unixSeconds + hash % 17;
         var slot = (long)Math.Floor(shifted / HAUNTED_SLOT_SECONDS);
-        var into = shifted - slot * HAUNTED_SLOT_SECONDS;
-        var mixed = Mix(hash, slot);
-        var start = 2 + mixed % 7;
 
-        if ((into < start) || (into >= start + HAUNTED_SLIP_SECONDS))
-            return (HauntedSlip.None, 0);
-
-        return ((HauntedSlip)(1 + mixed / 7 % 3), into - start);
+        return new HauntedClock(hash, slot, shifted - slot * HAUNTED_SLOT_SECONDS);
     }
 
     /// <summary>The ghost slip's opacity: 0.2 to 0.5, once a second.</summary>

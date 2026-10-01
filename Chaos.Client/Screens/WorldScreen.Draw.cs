@@ -305,6 +305,7 @@ public sealed partial class WorldScreen
         Root!.Draw(spriteBatch);
         DrawStatusStrips(spriteBatch, gameTime);
         DrawDragIcon(spriteBatch);
+        DrawMirrorScare(spriteBatch);
         spriteBatch.End();
     }
 
@@ -382,7 +383,7 @@ public sealed partial class WorldScreen
         while ((entityIndex < entityCount) && (sortedEntities[entityIndex].SortDepth < minDepth))
             entityIndex++;
 
-        var mirrorsOn = WorldState.Mirrors.HasMirrors && MirrorRenderer.LayerReady;
+        var mirrorsOn = WorldState.Mirrors.HasMirrors && MirrorRenderer.FacesReady;
 
         for (var depth = minDepth; depth <= maxDepth; depth++)
         {
