@@ -70,6 +70,34 @@ public static class MirrorMath
             ? (y > segment.Y) && (y <= segment.Y + depth) && (x >= segment.X - margin) && (x <= segment.X + segment.Length - 1 + margin)
             : (x > segment.X) && (x <= segment.X + depth) && (y >= segment.Y - margin) && (y <= segment.Y + segment.Length - 1 + margin);
 
+    /// <summary>
+    ///     True when no wall stands between tile (x, y) and the run, looking straight at the glass. A tile in front of a
+    ///     run but past another wall (the next corridor over) has no clear view.
+    /// </summary>
+    public static bool HasClearView(MirrorSegmentInfo segment, int x, int y, Func<int, int, bool> isWall)
+    {
+        if (segment.Side == MirrorSide.North)
+        {
+            for (var ty = segment.Y + 1; ty < y; ty++)
+                if (isWall(x, ty))
+                    return false;
+        } else
+            for (var tx = segment.X + 1; tx < x; tx++)
+                if (isWall(tx, y))
+                    return false;
+
+        return true;
+    }
+
+    /// <summary>
+    ///     True when the local player at (x, y) should see themself in the run: in front of it with a clear view. A window
+    ///     shows its partner's side of the maze, so it never shows the local player. Other players see every reflection.
+    /// </summary>
+    public static bool ShowsLocalPlayer(MirrorSegmentInfo segment, int x, int y, Func<int, int, bool> isWall)
+        => (segment.Style != MirrorStyle.Window)
+           && IsInFront(segment, x, y, REFLECT_DEPTH, REFLECT_MARGIN)
+           && HasClearView(segment, x, y, isWall);
+
     public static Vector2 ReflectPoint(MirrorSegmentInfo segment, Vector2 tile)
         => segment.Side == MirrorSide.North
             ? new Vector2(tile.X, 2 * segment.Y + 1 - tile.Y)
