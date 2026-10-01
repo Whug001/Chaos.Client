@@ -324,4 +324,25 @@ public sealed record MistStyle
         VignetteAlpha = 0.3f,
         VignetteInner = 0.6f
     };
+
+    /// <summary>Orange evening wash breathing slowly, faint amber haze, dark edges. Paired with rising orange sparks.</summary>
+    public static MistStyle HarvestMoon { get; } = new()
+    {
+        WashColor = new Color(120, 55, 10),
+        WashAlpha = 0.22f,
+        Pulse = MistPulse.Sine,
+        PulseDepth = 0.12f,
+        PulsePeriod = 6f,
+        LayerTint = new Color(230, 120, 40),
+        Layers =
+        [
+            new MistLayer(3.5f, 0.14f, new Vector2(4f, 0f)),
+            new MistLayer(2.5f, 0.18f, new Vector2(7f, -1f))
+        ],
+        Seed = 1031,
+        NoiseKnee = 0.45f,
+        NoiseRange = 0.45f,
+        VignetteColor = new Color(25, 8, 0),
+        VignetteAlpha = 0.45f
+    };
 }
