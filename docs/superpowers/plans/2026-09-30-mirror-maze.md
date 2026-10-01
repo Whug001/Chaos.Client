@@ -143,7 +143,7 @@ Expected: `0 Error(s)`.
 **Files:**
 - Modify: `SERVER/Chaos.DarkAges/Definitions/Enums.cs` (three enums after `LockpickTurnOutcome`)
 - Modify: `SERVER/Chaos.Networking.Abstractions/Definitions/Enums.cs` (`ServerOpCode.MirrorLayout = 146`, `ServerOpCode.MirrorDouble = 147`)
-- Modify: `SERVER/Chaos.DarkAges/Definitions/CONSTANTS.cs` (`CLIENT_VERSION = 765`)
+- Modify: `SERVER/Chaos.DarkAges/Definitions/CONSTANTS.cs` (`CLIENT_VERSION` up by one)
 - Create: `SERVER/Chaos.Networking/Entities/Server/MirrorLayoutArgs.cs`
 - Create: `SERVER/Chaos.Networking/Converters/Server/MirrorLayoutConverter.cs`
 - Create: `SERVER/Chaos.Networking/Entities/Server/MirrorDoubleArgs.cs`
@@ -3887,7 +3887,7 @@ Run: the Verify command. Expected: `done: C:\Users\Michael\Desktop\Mirror maze a
 
 **Files:**
 - Create: `CLIENT/Chaos.Client/ViewModel/MirrorState.cs`
-- Create: `CLIENT/Chaos.Client/Screens/WorldScreen.Mirrors.cs` (wiring and reset only in this task; Tasks 13 and 14 add drawing)
+- Create: `CLIENT/Chaos.Client/Screens/WorldScreen.Mirrors.cs` (wiring and reset only in this task; Tasks 14 and 15 add drawing)
 - Modify: `CLIENT/Chaos.Client.Networking/Definitions/Delegates.cs` (two delegates)
 - Modify: `CLIENT/Chaos.Client.Networking/ConnectionManager.cs` (two events, two handlers, two registrations)
 - Modify: `CLIENT/Chaos.Client/Collections/WorldState.cs` (`Mirrors` property; `ResetAll` clears it)
@@ -4235,7 +4235,7 @@ using Chaos.Networking.Entities.Server;
 
 namespace Chaos.Client.Screens;
 
-/// <summary>Mirrors: the layout and doubles from the server, and (Tasks 13-14) their drawing.</summary>
+/// <summary>Mirrors: the layout and doubles from the server, and (Tasks 14-15) their drawing.</summary>
 public sealed partial class WorldScreen
 {
     private void WireMirrors()
