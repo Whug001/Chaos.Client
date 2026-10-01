@@ -32,20 +32,6 @@ public static class TranslatedLineBuilder
     /// <summary>The chat log tag naming the line's original language: in Korean for a Korean reader, else a short English code.</summary>
     public static string SourceTag(ChatLanguage source, ChatLanguage reader)
         => reader == ChatLanguage.Korean
-            ? source switch
-            {
-                ChatLanguage.Spanish => "[스페인어] ",
-                ChatLanguage.French  => "[프랑스어] ",
-                ChatLanguage.German  => "[독일어] ",
-                ChatLanguage.Korean  => "[한국어] ",
-                _                    => "[영어] "
-            }
-            : source switch
-            {
-                ChatLanguage.Korean  => "[Kor] ",
-                ChatLanguage.Spanish => "[Spa] ",
-                ChatLanguage.French  => "[Fre] ",
-                ChatLanguage.German  => "[Ger] ",
-                _                    => "[Eng] "
-            };
+            ? source == ChatLanguage.Korean ? "[한국어] " : "[영어] "
+            : source == ChatLanguage.Korean ? "[Kor] " : "[Eng] ";
 }
