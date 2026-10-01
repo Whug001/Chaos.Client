@@ -360,7 +360,7 @@ public static class SettingDefinitions
 
         //── Chat translation ──
         //Same round-trip as the chat filter mode: the index travels in OptionToggleArgs.Value on UserOption.ChatLanguage
-        //(31) and comes back in UserOptionsArgs.ChatLanguage. Choices order MUST match ChatLanguage (Off, English, Korean, Spanish, French, German).
+        //(31) and comes back in UserOptionsArgs.ChatLanguage. Choices order MUST match ChatLanguage (Off, English, Korean).
         new(
             SettingKey.ChatLanguage,
             "Chat translation",
@@ -368,13 +368,13 @@ public static class SettingDefinitions
             SettingCategory.ServerOption,
             UserOption.ChatLanguage,
             Span: SettingSpan.Full,
-            Choices: ["Off", "English", "Korean (한국어)", "Spanish (Espanol)", "French (Francais)", "German (Deutsch)"],
+            Choices: ["Off", "English", "Korean (한국어)"],
             GetChoice: () => WorldState.UserOptions.ChoiceValue(SettingKey.ChatLanguage),
             SetChoice: i => WorldState.UserOptions.SelectChoice(SettingKey.ChatLanguage, i),
             Help:
             [
-                "Pick the language you read. Chat in other languages is translated into it. Your own chat counts as this language. Translations can be wrong.",
-                "읽는 언어를 고르세요. 다른 언어의 채팅이 이 언어로 번역됩니다. 내 채팅도 이 언어로 봅니다. 번역은 틀릴 수 있습니다."
+                "Pick English to read Korean chat in English, or Korean to read English chat in Korean. Translations can be wrong.",
+                "영어를 고르면 한국어 채팅을 영어로, 한국어를 고르면 영어 채팅을 한국어로 봅니다. 번역은 틀릴 수 있습니다."
             ])
     ];
 
