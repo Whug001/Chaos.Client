@@ -37,8 +37,6 @@ public static class MirrorMath
 
     public const float GLASS_ALPHA = 0.6f;
     public const float WINDOW_ALPHA = 0.7f;
-    public const double GLINT_PERIOD_SECONDS = 9;
-    public const double GLINT_SWEEP_SECONDS = 3;
 
     public const double HAUNTED_SLOT_SECONDS = 17;
     public const double HAUNTED_SLIP_SECONDS = 3;
@@ -173,17 +171,6 @@ public static class MirrorMath
 
     /// <summary>Sideways shift of a 2-pixel row of a funhouse reflection.</summary>
     public static float RippleOffset(double seconds, int row) => (float)(Math.Sin(seconds * 5 + row * 0.18) * 3);
-
-    /// <summary>
-    ///     How far along its run the glint is, from -0.3 to 1.3, during the first 3 s of every 9 s; null the rest of
-    ///     the time.
-    /// </summary>
-    public static float? GlintFraction(double seconds)
-    {
-        var into = seconds % GLINT_PERIOD_SECONDS;
-
-        return into >= GLINT_SWEEP_SECONDS ? null : (float)(into / GLINT_SWEEP_SECONDS * 1.6 - 0.3);
-    }
 
     /// <summary>
     ///     The haunted schedule. Time is cut into 17 s slots (offset per run); in each slot one 3 s slip starts 2-8 s

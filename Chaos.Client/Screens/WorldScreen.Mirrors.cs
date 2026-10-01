@@ -644,24 +644,6 @@ public sealed partial class WorldScreen
                 batch.Draw(atlas, at, source, colour, 0f, Vector2.Zero, new Vector2(p.ScaleX, p.ScaleY), SpriteEffects.None, 0f);
             }
         }
-
-        //a faint streak sweeping along this glass, endless or window run; the face clips it to its own glass
-        var segment = WorldState.Mirrors.Segments[segmentIndex];
-
-        if (segment.Style is MirrorStyle.Glass or MirrorStyle.Endless or MirrorStyle.Window)
-        {
-
-            var fraction = MirrorMath.GlintFraction(seconds + MirrorMath.Fnv1a(segment.Id) % 9);
-
-            if (fraction is not null)
-            {
-                var step = segment.Side == MirrorSide.North ? new Vector2(28, 14) : new Vector2(-28, 14);
-                var start = MirrorFaceOrigin(MirrorMath.WallTile(segment, 0), segment.Side) + new Vector2(14, 82);
-                var at = start + step * (fraction.Value * segment.Length);
-
-                batch.Draw(MirrorRenderer.Pixel, at, null, Color.White * 0.18f, 0.35f, new Vector2(0.5f, 1f), new Vector2(3, 70), SpriteEffects.None, 0f);
-            }
-        }
     }
 
     /// <summary>During the stripe pass, right after wall tile (x, y)'s foreground: its faces and frames.</summary>
