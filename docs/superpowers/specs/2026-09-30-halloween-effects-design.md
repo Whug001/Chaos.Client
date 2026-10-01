@@ -37,14 +37,15 @@ checkout. Its JavaScript holds the exact sprites and numbers this spec copies.
    `new("Bats", MapFlags.Bats, 2)`, `new("Ghosts", MapFlags.Ghosts, 2)` and
    `new("Harvest Moon", MapFlags.HarvestMoon, 2)`. Page 2 then holds 14 of its 16 slots.
 4. Tests: update `Tests/Chaos.Tests/MapFlagVisibilityTests.cs` and `Tests/Chaos.Tests/Theatre/TheatreStageEffectsTests.cs`
-   where they list effects or count page 2. Check `Tests/Chaos.Tests/Networking/MapEffectsPacketConverterTests.cs`;
-   it should need no change, because the packet already carries all 8 bytes.
+   where they list effects or count page 2. Add the three flags to the `AmbientFlags` list in
+   `Tests/Chaos.Tests/Networking/MapEffectsPacketConverterTests.cs`. The packet code itself needs no change, because
+   it already carries all 8 bytes.
 
 No packet change and no CLIENT_VERSION bump. An older client receives the new bits and draws nothing for them.
 
 ## Part 2: client (`Chaos.Client.Rendering`)
 
-### 2a. Pixel sprite helper (new: `PixelSprite.cs`)
+### 2a. Pixel sprite helper (new: `SpriteGrid.cs`)
 
 A static helper that turns a text grid into a texture:
 
@@ -78,7 +79,7 @@ HaloScale 3, HaloAlpha 0.3.
 
 A new `ParticleShape.Ghost` in `ParticleRenderer`:
 
-- Two textures built by `PixelSprite` from the two 11×13 ghost frames below. The dark detail color is (36, 34, 58).
+- Two textures built by `SpriteGrid` from the two 11×13 ghost frames below. The dark detail color is (36, 34, 58).
 - The frame alternates at 2.2 per second. Each particle's `SwayPhase` offsets its frame so the ghosts don't ripple in
   step.
 - Drawn at scale 1, rotation 0, at a position rounded to whole pixels so the sprite stays crisp.
@@ -142,7 +143,7 @@ Three pieces, split so the flight logic can be tested without a graphics device:
     as in `ParticleRenderer`.
   - `Bats` exposes each bat's position and current frame index for drawing.
 - **`FlyByRenderer : IAmbientOverlay`**: owns a `FlyByFlock`, fades the whole effect in and out like the other
-  renderers, and draws each bat's frame texture (built by `PixelSprite`) at a rounded position. When switched off, no
+  renderers, and draws each bat's frame texture (built by `SpriteGrid`) at a rounded position. When switched off, no
   new groups spawn; bats already in the air finish crossing while the effect fades. `SetActive(false, immediate: true)`
   clears the flock, so a map change never carries bats over. Blend state is `NonPremultiplied`.
 
@@ -176,7 +177,7 @@ server commit from part 1.
 
 Client (`Tests/Chaos.Client.Tests`):
 
-- `PixelSpriteTests`: `'X'`, `'o'` and `'.'` map to white, the dark color and clear; uneven rows throw; every bat and
+- `SpriteGridTests`: `'X'`, `'o'` and `'.'` map to white, the dark color and clear; uneven rows throw; every bat and
   ghost frame in the presets has even rows.
 - `FlyByFlockTests`, with a seeded `Random` and fixed time steps:
   - No bats before the first-group timer runs out; a group of 4–8 appears after it.

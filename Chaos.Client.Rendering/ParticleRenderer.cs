@@ -28,6 +28,9 @@ public sealed class ParticleRenderer : IAmbientOverlay
     private const float LOWER_WING_LENGTH = 0.7f;  // lower wings are this fraction of the upper ones
     private const float LOWER_WING_WIDTH = 0.8f;
     private const float WING_PALE = 0.55f;         // how far the wing color moves from the particle color to white
+    private const float GHOST_FRAME_RATE = 2.2f;   // ghost hem frames per second
+
+    private static readonly Color GhostDetail = new(36, 34, 58); // ghost eyes and mouth
 
     private readonly ParticleStyle Style;
     private readonly Random Rng = new();
@@ -42,6 +45,7 @@ public sealed class ParticleRenderer : IAmbientOverlay
     private Texture2D? LeafTexture;
     private Texture2D? BubbleTexture;
     private Texture2D? WingTexture;
+    private Texture2D[]? GhostTextures;
 
     private bool Active;
     private float EffectAlpha; // 0..1 current fade level
@@ -175,6 +179,13 @@ public sealed class ParticleRenderer : IAmbientOverlay
                 DrawWings(spriteBatch, in p, position, alpha);
             }
 
+            if (Style.Shape == ParticleShape.Ghost)
+            {
+                DrawGhost(spriteBatch, in p, position, alpha);
+
+                continue;
+            }
+
             var (rotation, scale) = ShapeTransform(in p, texture);
 
             spriteBatch.Draw(
@@ -203,6 +214,12 @@ public sealed class ParticleRenderer : IAmbientOverlay
         BubbleTexture = null;
         WingTexture?.Dispose();
         WingTexture = null;
+
+        if (GhostTextures is not null)
+            foreach (var ghostTexture in GhostTextures)
+                ghostTexture.Dispose();
+
+        GhostTextures = null;
     }
 
     // ============================================================
@@ -300,11 +317,33 @@ public sealed class ParticleRenderer : IAmbientOverlay
         spriteBatch.Draw(WingTexture!, position, null, color, MathF.PI - angle, origin, scale, SpriteEffects.None, 0f);
     }
 
+    /// <summary>
+    ///     The ghost frame shown at <paramref name="clock" /> seconds for a particle with sway phase
+    ///     <paramref name="phase" />. The phase shifts each ghost's hem so they don't ripple in step.
+    /// </summary>
+    public static int GhostFrameAt(float clock, float phase)
+        => (int)((clock * GHOST_FRAME_RATE) + phase) % SpriteGrid.GhostFrames.Count;
+
+    //1:1 pixel sprite at a whole-pixel position, so it stays crisp
+    private void DrawGhost(SpriteBatch spriteBatch, in Particle p, Vector2 position, float alpha)
+    {
+        var frame = GhostTextures![GhostFrameAt(Clock, p.SwayPhase)];
+        var topLeft = new Vector2(MathF.Round(position.X - (frame.Width / 2f)), MathF.Round(position.Y - (frame.Height / 2f)));
+
+        spriteBatch.Draw(frame, topLeft, WithAlpha(p.Color, alpha));
+    }
+
+    private static Texture2D[] BuildGhostTextures(GraphicsDevice device)
+        => SpriteGrid.GhostFrames
+                      .Select(rows => SpriteGrid.Build(device, rows, GhostDetail))
+                      .ToArray();
+
     private Texture2D GetShapeTexture(GraphicsDevice device)
         => Style.Shape switch
         {
             ParticleShape.Square or ParticleShape.Streak => PixelTexture ??= BuildPixelTexture(device),
             ParticleShape.Leaf                           => LeafTexture ??= BuildLeafTexture(device),
+            ParticleShape.Ghost                          => (GhostTextures ??= BuildGhostTextures(device))[0],
             ParticleShape.Bubble                         => BubbleTexture ??= BuildBubbleTexture(device),
             _                                            => SoftDotTexture ??= BuildSoftDotTexture(device)
         };

@@ -21,8 +21,8 @@ public sealed class AmbientEffects : IDisposable
     public const MapFlags EXTENDED_FLAGS = (MapFlags)0xFFFF_FFFF_FFFF_FF00UL;
 
     //draw order, back to front: cloud shadows first because they lie on the ground, then tints and mists, lightning
-    //flashing through them, fog over the flash (as in the original storm), then particles last so glows and falling
-    //things read on top of every haze
+    //flashing through them, fog over the flash (as in the original storm), then particles so glows and falling
+    //things read on top of every haze, and bats last of all, flying over everything
     private readonly (MapFlags Flag, IAmbientOverlay Overlay)[] Overlays =
     [
         (MapFlags.CloudShadows, new MistRenderer(MistStyle.CloudShadows)),
@@ -30,6 +30,7 @@ public sealed class AmbientEffects : IDisposable
         (MapFlags.Heat, new MistRenderer(MistStyle.Heat)),
         (MapFlags.Gloom, new MistRenderer(MistStyle.Gloom)),
         (MapFlags.BloodMoon, new MistRenderer(MistStyle.BloodMoon)),
+        (MapFlags.HarvestMoon, new MistRenderer(MistStyle.HarvestMoon)),
         (MapFlags.Miasma, new MistRenderer(MistStyle.Miasma)),
         (MapFlags.Radiance, new MistRenderer(MistStyle.Radiance)),
         (MapFlags.Arcane, new MistRenderer(MistStyle.Arcane)),
@@ -55,7 +56,10 @@ public sealed class AmbientEffects : IDisposable
         (MapFlags.Blizzard, new ParticleRenderer(ParticleStyle.BlizzardFlakes)),
         (MapFlags.Blizzard, new ParticleRenderer(ParticleStyle.BlizzardStreaks)),
         (MapFlags.Wisps, new ParticleRenderer(ParticleStyle.Wisps)),
-        (MapFlags.Drips, new ParticleRenderer(ParticleStyle.Drips))
+        (MapFlags.Drips, new ParticleRenderer(ParticleStyle.Drips)),
+        (MapFlags.HarvestMoon, new ParticleRenderer(ParticleStyle.HarvestSparks)),
+        (MapFlags.Ghosts, new ParticleRenderer(ParticleStyle.Ghosts)),
+        (MapFlags.Bats, new FlyByRenderer(FlyByStyle.Bats))
     ];
 
     /// <summary>Every map flag that switches on at least one overlay.</summary>

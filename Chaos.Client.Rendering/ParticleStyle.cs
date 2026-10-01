@@ -23,7 +23,13 @@ public enum ParticleShape
     Bubble,
 
     /// <summary>Thin line aligned to its motion — blowing sand.</summary>
-    Streak
+    Streak,
+
+    /// <summary>
+    ///     Pixel-art sheet ghost with a rippling hem, drawn 1:1 from <see cref="SpriteGrid.GhostFrames" />. Size and
+    ///     spin are ignored.
+    /// </summary>
+    Ghost
 }
 
 /// <summary>
@@ -432,5 +438,58 @@ public sealed record ParticleStyle
         VelocityMax = new Vector2(0f, 320f),
         AlphaMin = 0.35f,
         AlphaMax = 0.6f
+    };
+
+    /// <summary>
+    ///     Pumpkin-orange sparks rising and flickering gently. Paired with the HarvestMoon mist. The flicker stays slower
+    ///     than <see cref="Embers" /> so the effect can stay out of the F4 flicker section.
+    /// </summary>
+    public static ParticleStyle HarvestSparks { get; } = new()
+    {
+        Count = 22,
+        Shape = ParticleShape.Dot,
+        Additive = true,
+        Colors = [new Color(255, 140, 30), new Color(255, 170, 50), new Color(255, 110, 20)],
+        SizeMin = 2f,
+        SizeMax = 3f,
+        VelocityMin = new Vector2(-6f, -22f),
+        VelocityMax = new Vector2(6f, -10f),
+        Sway = new Vector2(12f, 0f),
+        SwayFreqMin = 0.4f,
+        SwayFreqMax = 0.9f,
+        AlphaMin = 0.6f,
+        AlphaMax = 1f,
+        Twinkle = 0.5f,
+        TwinkleFreqMin = 1f,
+        TwinkleFreqMax = 2.5f,
+        HaloScale = 3f,
+        HaloAlpha = 0.3f
+    };
+
+    /// <summary>
+    ///     A few pale sheet ghosts floating slowly upward, swaying, and fading fully out and back in. The halo on a
+    ///     size-1 particle is a 32 px glow.
+    /// </summary>
+    public static ParticleStyle Ghosts { get; } = new()
+    {
+        FadeSeconds = 2f,
+        Count = 7,
+        Shape = ParticleShape.Ghost,
+        Colors = [new Color(225, 232, 255)],
+        SizeMin = 1f,
+        SizeMax = 1f,
+        VelocityMin = new Vector2(-5f, -14f),
+        VelocityMax = new Vector2(5f, -7f),
+        Sway = new Vector2(14f, 4f),
+        SwayFreqMin = 0.12f,
+        SwayFreqMax = 0.25f,
+        AlphaMin = 0.55f,
+        AlphaMax = 0.55f,
+        Twinkle = 1f,
+        TwinkleFreqMin = 0.07f,
+        TwinkleFreqMax = 0.14f,
+        TwinkleSharpness = 2f,
+        HaloScale = 32f,
+        HaloAlpha = 0.18f
     };
 }
