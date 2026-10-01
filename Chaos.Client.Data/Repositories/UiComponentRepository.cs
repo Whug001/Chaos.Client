@@ -264,6 +264,10 @@ public sealed class UiComponentRepository : RepositoryBase
     /// </summary>
     public SKImage? GetNationalSpfImage(string fileName, int frameIndex = 0)
     {
+        //GetOrCreate throws on a null load, so a missing file is turned away before it
+        if (!DatArchives.National.TryGetValue(fileName, out _))
+            return null;
+
         var spf = GetOrCreate($"NSPF_{fileName}", () => LoadNationalSpfFile(fileName));
 
         if (spf is null || (frameIndex >= spf.Count))
@@ -277,6 +281,10 @@ public sealed class UiComponentRepository : RepositoryBase
     /// </summary>
     public SKImage? GetSpfImage(string fileName, int frameIndex = 0)
     {
+        //GetOrCreate throws on a null load, so a missing file is turned away before it
+        if (!DatArchives.Setoa.TryGetValue(fileName, out _))
+            return null;
+
         var spf = GetOrCreate($"SPF_{fileName}", () => LoadSpfFile(fileName));
 
         if (spf is null || (frameIndex >= spf.Count))
@@ -293,6 +301,9 @@ public sealed class UiComponentRepository : RepositoryBase
     /// </remarks>
     public SKImage[] GetSpfImages(string fileName)
     {
+        if (!DatArchives.Setoa.TryGetValue(fileName, out _))
+            return [];
+
         var spf = GetOrCreate($"SPF_{fileName}", () => LoadSpfFile(fileName));
 
         if (spf is null || (spf.Count == 0))
