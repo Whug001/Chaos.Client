@@ -188,4 +188,29 @@ public class MirrorMathTests
         MirrorMath.MirrorCacheId(43, Direction.Up, false).Should().NotBe(a);
         await Task.CompletedTask;
     }
+
+    [Test]
+    public async Task The_local_player_shows_only_in_the_mirrors_they_are_at()
+    {
+        //the maze's rows: mirror walls at y = 3 and y = 6, corridors at y = 4-5 and 7-8
+        var upper = new MirrorSegmentInfo { Id = "u", X = 10, Y = 3, Side = MirrorSide.North, Length = 4 };
+        var lower = new MirrorSegmentInfo { Id = "l", X = 10, Y = 6, Side = MirrorSide.North, Length = 4 };
+        var window = new MirrorSegmentInfo { Id = "win", X = 10, Y = 6, Side = MirrorSide.North, Length = 4, Style = MirrorStyle.Window };
+        var west = new MirrorSegmentInfo { Id = "w", X = 3, Y = 10, Side = MirrorSide.West, Length = 4 };
+        bool IsWall(int x, int y) => (y == 6) || (x == 6);
+
+        //y = 7 is in front of both runs, but the y = 6 wall hides the upper one
+        MirrorMath.IsInFront(upper, 11, 7, MirrorMath.REFLECT_DEPTH, MirrorMath.REFLECT_MARGIN).Should().BeTrue();
+        MirrorMath.ShowsLocalPlayer(upper, 11, 7, IsWall).Should().BeFalse();
+        MirrorMath.ShowsLocalPlayer(lower, 11, 7, IsWall).Should().BeTrue();
+        MirrorMath.ShowsLocalPlayer(upper, 11, 5, IsWall).Should().BeTrue();
+
+        //west runs look along x the same way
+        MirrorMath.ShowsLocalPlayer(west, 5, 11, IsWall).Should().BeTrue();
+        MirrorMath.ShowsLocalPlayer(west, 7, 11, IsWall).Should().BeFalse();
+
+        //a window shows the far side, never you, even standing right at it
+        MirrorMath.ShowsLocalPlayer(window, 11, 7, IsWall).Should().BeFalse();
+        await Task.CompletedTask;
+    }
 }

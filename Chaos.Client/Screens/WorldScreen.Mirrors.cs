@@ -157,7 +157,7 @@ public sealed partial class WorldScreen
         {
             if ((segment.Style != MirrorStyle.Haunted)
                 || !MirrorMath.InScareWindow(segment.Id, seconds)
-                || !MirrorMath.IsInFront(segment, player.TileX, player.TileY, MirrorMath.REFLECT_DEPTH, MirrorMath.REFLECT_MARGIN))
+                || !MirrorMath.ShowsLocalPlayer(segment, player.TileX, player.TileY, IsTileWallBlocked))
                 continue;
 
             var slot = MirrorMath.HauntedSlot(segment.Id, seconds);
@@ -177,11 +177,10 @@ public sealed partial class WorldScreen
         }
     }
 
-    private static bool PlayerInFrontOf(string segmentId, WorldEntity player)
+    private bool PlayerInFrontOf(string segmentId, WorldEntity player)
     {
         foreach (var segment in WorldState.Mirrors.Segments)
-            if ((segment.Id == segmentId)
-                && MirrorMath.IsInFront(segment, player.TileX, player.TileY, MirrorMath.REFLECT_DEPTH, MirrorMath.REFLECT_MARGIN))
+            if ((segment.Id == segmentId) && MirrorMath.ShowsLocalPlayer(segment, player.TileX, player.TileY, IsTileWallBlocked))
                 return true;
 
         return false;
@@ -234,6 +233,11 @@ public sealed partial class WorldScreen
         var player = WorldState.GetPlayerEntity();
         var centre = player is null ? Vector2.Zero : EntityTile(player);
         var segments = WorldState.Mirrors.Segments;
+        Func<int, int, bool> isWall = IsTileWallBlocked;
+
+        //your own reflection shows only in the mirrors you're at; other players still see it in the far ones
+        bool HiddenSelf(MirrorSegmentInfo segment, WorldEntity entity)
+            => (entity.Id == player?.Id) && !MirrorMath.ShowsLocalPlayer(segment, entity.TileX, entity.TileY, isWall);
 
         void Add(int segmentIndex, WorldEntity entity, Direction facing, bool idle, Vector2 tile, float scaleX, float scaleY, bool ripple, Color tint, float alpha)
             => MirrorPlacements.Add(
@@ -262,7 +266,8 @@ public sealed partial class WorldScreen
                 var partner = segments[segment.PartnerIndex];
 
                 foreach (var entity in MirrorCandidates)
-                    if (MirrorMath.IsInFront(partner, entity.TileX, entity.TileY, MirrorMath.REFLECT_DEPTH, MirrorMath.REFLECT_MARGIN))
+                    if (MirrorMath.IsInFront(partner, entity.TileX, entity.TileY, MirrorMath.REFLECT_DEPTH, MirrorMath.REFLECT_MARGIN)
+                        && !HiddenSelf(segment, entity))
                         Add(
                             index,
                             entity,
@@ -291,7 +296,8 @@ public sealed partial class WorldScreen
 
             foreach (var entity in MirrorCandidates)
             {
-                if (!MirrorMath.IsInFront(segment, entity.TileX, entity.TileY, MirrorMath.REFLECT_DEPTH, MirrorMath.REFLECT_MARGIN))
+                if (!MirrorMath.IsInFront(segment, entity.TileX, entity.TileY, MirrorMath.REFLECT_DEPTH, MirrorMath.REFLECT_MARGIN)
+                    || HiddenSelf(segment, entity))
                     continue;
 
                 var tile = EntityTile(entity);
