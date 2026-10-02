@@ -42,7 +42,7 @@ guild in the world; a guild emblem shows it in the world list, where players loo
 | Action | Who |
 |---|---|
 | Buy the guild emblem from Tibbs | Council or leader (`IsOfficerRank`), like the other hall additions |
-| Open the editor, save a draft, submit | The current leader only (`IsLeaderRank`) |
+| Open the editor, save a draft, submit | The current leader, or (since 2026-10-01) a Council rank the leader gave the "Design the guild emblem" switch. See the amendment at the end |
 | Show or hide it in the world list | Any member, once the guild has an approved emblem |
 | Review, approve, reject | Admins (`IsAdmin`) |
 | Clear a guild's approved emblem | Admins (`IsAdmin`) |
@@ -59,7 +59,7 @@ The server checks the role on every request, not only when a window opens.
 
 ### Designing
 
-- Quill gets "Design the guild emblem" for the leader, once the guild owns it.
+- Quill gets "Design the guild emblem" for the leader (and for a Council rank allowed to, see the amendment), once the guild owns it.
 - It opens the editor with the guild's draft. With no draft, it opens the approved emblem. With neither, it opens the
   default: an empty (all see-through) grid with one gold color (RGB 212, 175, 55) in the first box.
 - "Save draft" stores the draft on the server. The draft belongs to the guild, so a new leader continues from it.
@@ -202,7 +202,7 @@ follow-up by kind.
 
 | Case | Message |
 |---|---|
-| Not the leader | "Only the guild leader can design the guild emblem." |
+| Not allowed | "Only the guild leader, or a council rank the leader allows, can design the guild emblem." (before 2026-10-01: "Only the guild leader can design the guild emblem.") |
 | Not owned | "Your guild does not own a guild emblem." |
 | Not in a guild | "You are not part of a guild." |
 | Too fast | "Please wait a moment before saving again." |
@@ -290,10 +290,10 @@ Opcode numbers are chosen in the plan, from the next free values in `ClientOpCod
 - Save draft, submit, approve and reject change the emblem slots as described. Cloak slots are untouched.
 - Emblem and cloak submissions share the id counter. A decision finds the right kind by id.
 - A resubmit replaces the waiting emblem. A decision on an older id is refused.
-- Only the leader can save or submit. Only admins can review or clear.
+- Only the leader, or a Council rank given the emblem switch, can save or submit. Only admins can review or clear.
 - Validation refuses a wrong grid size, more than 6 colors, out-of-range values, and an unpainted submit.
 - The Tibbs purchase takes 5,000,000 gold, sets `emblem`, and does not morph the map.
-- Quill offers "Design the guild emblem" only to the leader, and only when the guild owns it.
+- Quill offers "Design the guild emblem" only to the leader or a Council rank given the emblem switch, and only when the guild owns it.
 - `EmblemCatalog` rejects a file with key `guild`.
 - The Emblem book lists the guild entry first while owned, and not at all otherwise.
 - `EmblemChoice` accepts `guild` only when owned.
@@ -383,3 +383,16 @@ Two server tests already fail on master (`GiveAbility`, `OnItemDroppedOn` stacka
   can move into its own child control inside the window.
 - **Shared storage file.** A bug in the emblem code could damage cloak data in `GuildCloakState.json`. The storage
   tests cover both kinds side by side.
+
+## Amendment, 2026-10-01: the leader can let Council design the emblem
+
+The leader can now let the Council rank design the guild emblem. The spec above says "leader only"; this section replaces that.
+
+- **New switch.** `DesignEmblem` (512), "Design the guild emblem", is in the leader's Permissions menu (see `2026-09-25-guild-rank-permissions-design.md`). It is separate from `DesignCloak`, so a leader can allow one without the other. Only the Council rank is offered it. It starts off for every rank.
+- **Who can open the editor, save a draft and submit.** The leader always. Otherwise a member of a Council-tier rank whose rank has `DesignEmblem`. `GuildCloakService.CanDesign(aisling, permission)` makes the decision and `GuildCloakScript` uses it for the Quill option. It is checked on every request. A switch on a tier that `ForTier` doesn't offer it to is ignored.
+- **Shared draft.** As for the cloak: one draft and one waiting emblem per guild, last save wins. The admin review list shows a Council submitter's name.
+- **Outcome messages.** Approved, rejected (with the reason) and cleared messages go to every online member who can design the emblem.
+- **Refusal.** "Only the guild leader, or a council rank the leader allows, can design the guild emblem." The constant keeps the name `EMBLEM_NOT_LEADER`.
+- **Not changed.** Buying the emblem (still `BuyHallRooms`), the world list and Emblem book, and admin review.
+- **Rollback.** Same as the cloak: a server from before `DesignEmblem` can't load a guild that has it switched on.
+- **Tests.** `GuildEmblemServiceTests` and `GuildEmblemScriptTests`, the same cases as the cloak.

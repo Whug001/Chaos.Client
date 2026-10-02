@@ -36,6 +36,8 @@ The guild leader chooses what each lower rank may do. Today every rule is a fixe
 | `Kick` | 32 | Kick lower ranks | Kicking someone of a lower rank |
 | `PromoteDemote` | 64 | Promote and demote | Promoting and demoting, within the gap rules |
 
+Three more switches were added after this spec was written: `SetMessageOfTheDay`, `DesignCloak` and `DesignEmblem`. See the amendment at the end. Counts below that say "seven" are for the original set.
+
 The enum has no `All` value. The server writes flags as names, so a saved `"All"` would quietly grant any switch added later. The full Council set is a constant in `GuildPermissionRules` instead.
 
 ### Which switches each rank can have
@@ -175,3 +177,18 @@ In-game check after deploy: the leader turns off Council's gold withdrawal and a
 - Limits on how many items a rank may withdraw per week. That's a separate idea that could build on these switches.
 - More than four ranks, or permissions for individual members.
 - A guild chat message when a switch changes.
+
+## Amendment, 2026-10-01: three newer switches
+
+The tables and counts above describe the original seven switches. Three more have been added since.
+
+| Value | Bit | Menu text | Allows | Offered to |
+|---|---|---|---|---|
+| `SetMessageOfTheDay` | 128 | Set the message of the day | Changing or clearing the guild's message of the day (see `2026-09-25-guild-roster-and-message-of-the-day-design.md`) | Council, Member, Applicant |
+| `DesignCloak` | 256 | Design the guild cloak | Opening the cloak editor, saving a draft and submitting (see `2026-09-25-guild-cloak-design.md`) | Council only |
+| `DesignEmblem` | 512 | Design the guild emblem | The same for the guild emblem (see `2026-09-28-guild-emblem-design.md`) | Council only |
+
+- **Counts.** `ForTier` now gives Council ten switches, Member seven and Applicant six. The menu for Council has ten lines plus "Done".
+- **Defaults.** `COUNCIL_DEFAULT` is still the original seven. The three newer switches start off for every rank, so adding them changed nothing for existing guilds.
+- **Design switches are Council only.** Member and Applicant menus don't list them. `GuildCloakService.CanDesign` also ignores them on any tier `ForTier` doesn't offer them to, because the gap rules that make other stray switches harmless don't apply here.
+- **Rollback.** The names are written to rank files, so a server rolled back past a switch can't load a guild that has it on. The `GuildPermission` comment says so.

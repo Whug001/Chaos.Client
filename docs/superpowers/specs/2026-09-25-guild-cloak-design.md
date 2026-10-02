@@ -45,7 +45,7 @@ ground and town, which also answers the complaint that guild halls pull players 
 | Action | Who |
 |---|---|
 | Buy the cloak deed from Tibbs | Council or leader (`IsOfficerRank`), like the other hall additions |
-| Open the editor, save a draft, submit | The current leader only (`IsLeaderRank`) |
+| Open the editor, save a draft, submit | The current leader, or (since 2026-10-01) a Council rank the leader gave the "Design the guild cloak" switch. See the amendment at the end |
 | Buy a guild cloak from Quill | Any member, once the guild owns the deed |
 | Review, approve, reject | Admins (`IsAdmin`) |
 | Clear a guild's approved design | Admins (`IsAdmin`) |
@@ -62,7 +62,7 @@ The server checks the role on every request, not only when a window opens.
 
 ### Designing
 
-- Quill gets "Design the guild cloak" for the leader, once the guild owns the deed.
+- Quill gets "Design the guild cloak" for the leader (and for a Council rank allowed to, see the amendment), once the guild owns the deed.
 - It opens the editor with the guild's draft. With no draft, it opens the approved design. With neither, it
   opens a default design: one dark color (RGB 40, 40, 48) on every pixel.
 - "Save draft" stores the draft on the server. The draft belongs to the guild, so a new leader continues
@@ -220,7 +220,7 @@ A new storage object, saved as JSON through `IStorage<T>` like `GuildHouseState`
 
 | Case | Message |
 |---|---|
-| Not the leader | "Only the guild leader can design the guild cloak." |
+| Not allowed | "Only the guild leader, or a council rank the leader allows, can design the guild cloak." (before 2026-10-01: "Only the guild leader can design the guild cloak.") |
 | No deed | "Your guild does not own the cloak deed." |
 | Not in a guild | "You are not part of a guild." |
 | Too fast | "Please wait a moment before saving again." |
@@ -329,11 +329,11 @@ emblem reads the right way round in every direction.
 
 - Save draft, submit, approve and reject change the stored state as described.
 - A resubmit replaces the waiting design. A decision on an older submission id is refused.
-- Only the leader can save or submit. Only admins can review or clear.
+- Only the leader, or a Council rank given the cloak switch, can save or submit. Only admins can review or clear.
 - Validation refuses a wrong grid size, more than 6 colors, and out-of-range color numbers.
 - The Tibbs deed takes 5,000,000 gold, sets `cloaks`, and does not morph the map.
 - Quill offers the cloak options only when the guild owns the deed, and the design option only to the
-  leader.
+  leader or a Council rank given the cloak switch.
 - Buying a cloak takes 50,000 gold and gives the item.
 - Disbanding a guild deletes its cloak data.
 - The cloak-look id is the current guild's approved id, or 0.
@@ -413,3 +413,16 @@ Two server tests already fail on master (`GiveAbility`, `OnItemDroppedOn` stacka
   because the guild cloak has its own sprite number.
 - **Memory.** Each cached cloak layer is about 30 by 45 pixels. A crowded map with a few designs adds a
   few hundred small images at most.
+
+## Amendment, 2026-10-01: the leader can let Council design the cloak
+
+The leader can now let the Council rank design the guild cloak. The spec above says "leader only"; this section replaces that.
+
+- **New switch.** `DesignCloak` (256), "Design the guild cloak", is in the leader's Permissions menu (see `2026-09-25-guild-rank-permissions-design.md`). Only the Council rank is offered it. It starts off for every rank, including ranks in existing guilds, so nothing changes until a leader turns it on.
+- **Who can open the editor, save a draft and submit.** The leader always. Otherwise a member of a Council-tier rank whose rank has `DesignCloak`. `GuildCloakService.CanDesign(aisling, permission)` makes the decision and `GuildCloakScript` uses it for the Quill option. It is checked on every request, so a Council member who loses the switch is refused on their next save. A switch set on a tier that `GuildPermissionRules.ForTier` doesn't offer it to (a hand-edited rank file, say) is ignored.
+- **Shared draft.** The draft and the waiting design still belong to the guild. The leader and Council members share them, and the last save wins. A submit by a Council member can replace a waiting design. The admin review window shows that member as the submitter (the field is still called `LeaderName`).
+- **Outcome messages.** Approved, rejected (with the reason) and cleared messages go to every online member who can design the cloak, not only the leader. The member who submitted sees the answer.
+- **Refusal.** The message is now "Only the guild leader, or a council rank the leader allows, can design the guild cloak." The constant keeps the name `NOT_LEADER`.
+- **Not changed.** Buying the deed (still `BuyHallRooms`), buying a cloak, and admin review.
+- **Rollback.** Rank files store switches by name. A server rolled back to a build from before `DesignCloak` can't load a guild whose leader turned it on.
+- **Tests.** `GuildCloakServiceTests`, `GuildCloakScriptTests` and `GuildPermissionDataTests` cover: refused until allowed, opens once allowed, the emblem switch doesn't open the cloak editor, losing the switch, a plain member with a Council switch, a switch on a lower tier, and the Quill menu.
