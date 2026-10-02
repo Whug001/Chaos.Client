@@ -61,7 +61,7 @@ At the start of a round, drop anyone in the set who is no longer on the stage. T
 - 1 person: that person wins, with no further sweep.
 - 2 or more: turn on `count - 1` lights.
 
-Light `i` (counting from 0) sweeps row `y = 12 + i`, from x 0 to x 8 when `i` is even and from x 8 to x 0 when `i` is odd. Eight lights use rows 12 through 19. Row 20 stays unused, and two lights never share a tile. Each light is white, medium, brightness 80, beam on, no effect, motion Sweep, speed 3. Speed 3 has an 8000 ms there-and-back period, the same table the client uses (`16000, 11000, 8000, 5500, 4000` for speeds 1 through 5).
+Light `i` (counting from 0) sweeps row `y = 12 + i`, from x 1 to x 7 when `i` is even and from x 7 to x 1 when `i` is odd. Column 0 of rows 12 through 19 is the backstage warp, so a chair there would send its sitter off the map (changed 2026-10-02; it was 0 to 8). Eight lights use rows 12 through 19. Row 20 stays unused, and two lights never share a tile. Each light is white, medium, brightness 80, beam on, no effect, motion Sweep, speed 3. Speed 3 has an 8000 ms there-and-back period, the same table the client uses (`16000, 11000, 8000, 5500, 4000` for speeds 1 through 5).
 
 The moving phase lasts a random whole number of seconds from 6 through 10, rolled at the start of that round. The house hears "The lights are moving."
 
@@ -78,7 +78,7 @@ The server clock from the moment the light was added is the authority. Clients a
 
 ### 3.3 Freeze
 
-On the first tick at or after the rolled duration, each light becomes Still on the center of its chair tile (`X = tileX * 16`, `Y = tileY * 16`, the unit `StageLightInfo` already uses). The house hears "The lights have stopped."
+On the first tick at or after the rolled duration, each light becomes Still on the center of its chair tile (`X = tileX * 16`, `Y = tileY * 16`, the unit `StageLightInfo` already uses). The house hears "The lights have stopped." The chairs are the lights sent when the sweep began, even if someone left during it, so every beam a player could see is still a chair.
 
 A participant who is on the stage and standing on a chair tile can claim it. The claim goes to the one who stepped onto that tile earliest. A visit starts when they enter the tile, or at the beginning of the sweep if they were already standing there. An equal entry time goes to the lower aisling id. Everyone else on that tile is out. A chair with nobody on it saves nobody.
 
