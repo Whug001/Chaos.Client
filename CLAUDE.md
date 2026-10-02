@@ -222,6 +222,19 @@ Per-frame processor that reads `InputBuffer` state and produces UI events. Key c
 - Emote hotkeys: Ctrl+1-0/- (BodyAnimation 9-19), Ctrl+Alt+1-0/- (23-33), Alt+1-0/- (34-44)
 - Slot hotkeys: 1-9, 0, -, = -> UseItem/UseSkill/UseSpell depending on active panel
 
+### Quest & Dialog Conventions
+- Always implement quests with `Quest<TStage>` (QuestBuilder). No quest logic in dialog scripts or reactor scripts.
+- Quest dialogs go in `Dialogs/[Region]/Quests/[QuestName]/`, never in the NPC's own dialog folder.
+- Inject quest options via `InsertOption(optionText, dialogKey, 0)` in `OnDisplaying("npc_initial")` — never modify the NPC's `*_initial` dialog directly.
+- Always send an orange bar message when advancing a quest stage.
+- Use `DialogMenu` when offering a quest — include an accept option and a decline option with `dialogKey: "close"`.
+
+**Hard limits:**
+- Orange bar text: 45 characters max
+- Dialog option text: 35 characters max
+- Dialog text: 90 characters per line, 360 characters total in the dialog box (4 lines)
+- No em dashes (`—`) in JSON — use hyphens (`-`)
+
 ### Architecture Patterns
 - **Screens own controls:** WorldScreen creates and manages all world UI controls as children of its Root UIPanel
 - **WorldScreen partial classes:** Split by concern (Draw, Update, Input, ServerHandlers, Wiring, Map) for maintainability
