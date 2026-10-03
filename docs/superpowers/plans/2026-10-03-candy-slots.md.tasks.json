@@ -4,14 +4,14 @@
     {
       "id": 1,
       "subject": "Task 1: Create the three worktrees",
-      "status": "pending",
+      "status": "completed",
       "blockedBy": [],
       "description": "**Goal:** `feat/candy-slots` worktrees for the server, client and Unora, each starting from its local main line.\n\n**Files:**\n- Create: `C:\\Users\\Michael\\Documents\\GitHub\\worktrees\\candy-slots-server` (from Chaos-Server `master`)\n- Create: `C:\\Users\\Michael\\Documents\\GitHub\\worktrees\\candy-slots-client` (from Chaos.Client `main`)\n- Create: `C:\\Users\\Michael\\Documents\\GitHub\\worktrees\\candy-slots-unora` (from Unora `main`)\n\n**Acceptance Criteria:**\n- [ ] `git -C <each worktree> branch --show-current` prints `feat/candy-slots`\n- [ ] The client worktree's `Chaos-Server` submodule is initialized (`Chaos-Server/Chaos.slnx` exists)\n- [ ] The shared checkouts' branches and status are unchanged\n\n**Verify:** `for w in server client unora; do git -C /c/Users/Michael/Documents/GitHub/worktrees/candy-slots-$w branch --show-current; done` \u2192 three lines of `feat/candy-slots`\n\n```json:metadata\n{\"files\": [], \"verifyCommand\": \"for w in server client unora; do git -C /c/Users/Michael/Documents/GitHub/worktrees/candy-slots-$w branch --show-current; done\", \"acceptanceCriteria\": [\"`git -C <each worktree> branch --show-current` prints `feat/candy-slots`\", \"The client worktree's `Chaos-Server` submodule is initialized (`Chaos-Server/Chaos.slnx` exists)\", \"The shared checkouts' branches and status are unchanged\"], \"modelTier\": \"mechanical\"}\n```"
     },
     {
       "id": 2,
       "subject": "Task 2: Server: no-jackpot and item-currency machine settings",
-      "status": "pending",
+      "status": "completed",
       "blockedBy": [
         1
       ],
@@ -20,7 +20,7 @@
     {
       "id": 3,
       "subject": "Task 3: Server: the spin pays and takes the item currency",
-      "status": "pending",
+      "status": "completed",
       "blockedBy": [
         2
       ],
@@ -29,7 +29,7 @@
     {
       "id": 4,
       "subject": "Task 4: Server: window packet, stool, jackpot shout and version",
-      "status": "pending",
+      "status": "completed",
       "blockedBy": [
         3
       ],
@@ -38,7 +38,7 @@
     {
       "id": 5,
       "subject": "Task 5: Client: candy in the slot window",
-      "status": "pending",
+      "status": "completed",
       "blockedBy": [
         4
       ],
@@ -47,7 +47,7 @@
     {
       "id": 6,
       "subject": "Task 6: Unora: candy slot art and the packed hades.dat",
-      "status": "pending",
+      "status": "completed",
       "blockedBy": [
         1
       ],
@@ -56,7 +56,7 @@
     {
       "id": 7,
       "subject": "Task 7: Unora: catalog entry, merchant template and theatre placement",
-      "status": "pending",
+      "status": "completed",
       "blockedBy": [
         6,
         2
@@ -66,7 +66,7 @@
     {
       "id": 8,
       "subject": "Task 8: Boot check, commit and merge locally",
-      "status": "pending",
+      "status": "completed",
       "blockedBy": [
         4,
         5,
@@ -75,5 +75,5 @@
       "description": "**Goal:** The server boots against the Unora worktree data with no slot catalog problems. Each repo gets one commit on `feat/candy-slots`, merged into its local main line. Nothing is pushed.\n\n**Files:**\n- Modify (temporarily, restored after): the server worktree's `Chaos/appsettings.local.json` `StagingDirectory`, only if a local override file is how this machine points the server at data (see memory \"Local StagingDirectory\"); otherwise skip the boot and say so\n- Commit: all files from Tasks 2-7, by explicit path\n- Modify: client gitlink `Chaos-Server` \u2192 the server merge commit\n\n**Acceptance Criteria:**\n- [ ] The server boot log has the line \"Slot machine catalog validated\" and no \"Slot machine catalog problem\" line; or the reason the boot could not run is reported word for word\n- [ ] Server, client and Unora each have one `feat/candy-slots` commit, merged with `--no-ff` into `master`/`main`\n- [ ] The client `main`'s `Chaos-Server` gitlink equals the server merge commit\n- [ ] `git status` in each shared checkout shows no new changes from this work; nothing pushed\n\n**Verify:** `for r in Chaos.Client/Chaos-Server Chaos.Client Unora; do git -C /c/Users/Michael/Documents/GitHub/$r log --oneline -2; done` \u2192 each shows the candy slots merge on top\n\n```json:metadata\n{\"files\": [\"Chaos/appsettings.local.json\"], \"verifyCommand\": \"for r in Chaos.Client/Chaos-Server Chaos.Client Unora; do git -C /c/Users/Michael/Documents/GitHub/$r log --oneline -2; done\", \"acceptanceCriteria\": [\"The server boot log has the line \\\"Slot machine catalog validated\\\" and no \\\"Slot machine catalog problem\\\" line; or the reason the boot could not run is reported word for word\", \"Server, client and Unora each have one `feat/candy-slots` commit, merged with `--no-ff` into `master`/`main`\", \"The client `main`'s `Chaos-Server` gitlink equals the server merge commit\", \"`git status` in each shared checkout shows no new changes from this work; nothing pushed\"], \"modelTier\": \"standard\"}\n```"
     }
   ],
-  "lastUpdated": "2026-10-03T00:00:00Z"
+  "lastUpdated": "2026-10-03T22:54:10.159727Z"
 }
