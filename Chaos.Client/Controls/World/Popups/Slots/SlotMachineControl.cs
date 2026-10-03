@@ -604,6 +604,8 @@ public sealed class SlotMachineControl : FramedDialogPanelBase
         //live for the whole session, not just while open: a spin's cost lands as a gold update, and the label has
         //to follow it mid-spin. Unsubscribed in Dispose, mirroring InventoryPanel.
         WorldState.Inventory.GoldChanged += RefreshGold;
+        //an item-currency machine's count changes through slot updates, not gold updates
+        WorldState.Inventory.SlotChanged += OnInventorySlotChanged;
 
         MessageLabel = new UILabel
         {
@@ -698,7 +700,7 @@ public sealed class SlotMachineControl : FramedDialogPanelBase
             Reels[i].SetStrip(i < vm.Reels.Count ? vm.Reels[i] : [], spriteIds);
 
         TitleLabel.Text = vm.MachineName;
-        BetLabel.Text = $"Bet: {vm.Bet:N0}";
+        BetLabel.Text = vm.UsesItemCurrency ? $"Bet: {vm.Bet:N0} {vm.CurrencyName}" : $"Bet: {vm.Bet:N0}";
 
         //the log's rows resolve their icons through this, so it has to be current before any row is bound
         LogSpriteIds = spriteIds;
@@ -780,12 +782,46 @@ public sealed class SlotMachineControl : FramedDialogPanelBase
         if (AwaitingResult)
             return;
 
+        var vm = WorldState.SlotMachine;
+
+        //an item machine has no pot, so its count takes the jackpot readout's place and the gold purse is hidden
+        if (vm.UsesItemCurrency)
+        {
+            var count = WorldState.Inventory.CountOf(vm.CurrencyItemName);
+            JackpotLabel.Text = $"{vm.CurrencyItemName}: {count:N0}";
+            JackpotLabel.ForegroundColor = CanAffordSpin() ? LegendColors.Gold : LegendColors.Red;
+            RenderedJackpot = -1; //the label no longer shows a pot, so the next gold machine must rewrite it
+            GoldLabel.Visible = false;
+
+            return;
+        }
+
+        JackpotLabel.ForegroundColor = LegendColors.Gold;
+        GoldLabel.Visible = true;
+
         var gold = WorldState.Inventory.Gold;
         GoldLabel.Text = $"Gold: {gold:N0}";
 
         //red the moment another pull is unaffordable -- the same condition the server answers with an
         //InsufficientGold rejection, said before the player spends a spin finding out.
-        GoldLabel.ForegroundColor = gold < (uint)Math.Max(0, WorldState.SlotMachine.Bet) ? LegendColors.Red : LegendColors.White;
+        GoldLabel.ForegroundColor = CanAffordSpin() ? LegendColors.White : LegendColors.Red;
+    }
+
+    private void OnInventorySlotChanged(byte slot)
+    {
+        if (WorldState.SlotMachine.UsesItemCurrency)
+            RefreshGold();
+    }
+
+    private static string CurrencyWord
+        => WorldState.SlotMachine.UsesItemCurrency ? WorldState.SlotMachine.CurrencyName : "gold";
+
+    private static bool CanAffordSpin()
+    {
+        var vm = WorldState.SlotMachine;
+        var bet = (uint)Math.Max(0, vm.Bet);
+
+        return vm.UsesItemCurrency ? WorldState.Inventory.CountOf(vm.CurrencyItemName) >= bet : WorldState.Inventory.Gold >= bet;
     }
 
     /// <summary>
@@ -804,6 +840,10 @@ public sealed class SlotMachineControl : FramedDialogPanelBase
 
     private void WriteJackpotLabel()
     {
+        //the top bar shows the candy count instead (see RefreshGold)
+        if (!WorldState.SlotMachine.HasJackpot)
+            return;
+
         var value = (long)MathF.Round(DisplayedJackpot);
 
         if (value == RenderedJackpot)
@@ -934,7 +974,7 @@ public sealed class SlotMachineControl : FramedDialogPanelBase
         //don't stomp an in-progress spin, or a just-shown result/rejection message the player hasn't had time
         //to read yet, with someone else's jackpot announcement. Coloured apart from the player's own gold
         //jackpot line so a broadcast is never mistaken for their own win.
-        if (!AwaitingResult && (ResultMessageHoldRemaining <= 0f) && !string.IsNullOrEmpty(vm.LastJackpotWinner))
+        if (vm.HasJackpot && !AwaitingResult && (ResultMessageHoldRemaining <= 0f) && !string.IsNullOrEmpty(vm.LastJackpotWinner))
             SetMessage($"{vm.LastJackpotWinner} just won the jackpot!", LegendColors.DustyOrange, false);
     }
 
@@ -1020,6 +1060,7 @@ public sealed class SlotMachineControl : FramedDialogPanelBase
             SlotRejectReason.NotOccupant      => "Sit at the machine to play.",
             SlotRejectReason.Cooldown         => "Give the reels a moment.",
             SlotRejectReason.InsufficientGold => $"You need {WorldState.SlotMachine.Bet:N0} gold to play here.",
+            SlotRejectReason.InsufficientCurrency => $"You need {WorldState.SlotMachine.Bet:N0} {CurrencyWord} to play here.",
             SlotRejectReason.MachineBusy      => "Someone else is using that machine.",
             SlotRejectReason.Misconfigured    => "This machine is out of order.",
             _                                 => "That did not work."
@@ -1041,9 +1082,9 @@ public sealed class SlotMachineControl : FramedDialogPanelBase
         }
 
         //refused rather than started, so the first thing auto spin does is never a rejection
-        if (WorldState.Inventory.Gold < (uint)Math.Max(0, WorldState.SlotMachine.Bet))
+        if (!CanAffordSpin())
         {
-            SetMessage("Not enough gold to spin.", LegendColors.Red, true);
+            SetMessage($"Not enough {CurrencyWord} to spin.", LegendColors.Red, true);
 
             return;
         }
@@ -1085,10 +1126,10 @@ public sealed class SlotMachineControl : FramedDialogPanelBase
         if (AwaitingResult || (SpinCooldownRemaining > 0f))
             return;
 
-        if (WorldState.Inventory.Gold < (uint)Math.Max(0, WorldState.SlotMachine.Bet))
+        if (!CanAffordSpin())
         {
             StopAutoSpin();
-            SetMessage("Out of gold. Auto spin stopped.", LegendColors.Red, true);
+            SetMessage($"Out of {CurrencyWord}. Auto spin stopped.", LegendColors.Red, true);
 
             return;
         }
@@ -1192,11 +1233,11 @@ public sealed class SlotMachineControl : FramedDialogPanelBase
         //just happened. A dead spin stays silent: silence is what makes the other three mean anything.
         var (text, color, sound) = vm switch
         {
-            { LastWasJackpot: true } => ($"JACKPOT! {vm.LastPayout:N0} gold!", LegendColors.Gold, SOUND_JACKPOT),
+            { LastWasJackpot: true } => ($"JACKPOT! {vm.LastPayout:N0} {CurrencyWord}!", LegendColors.Gold, SOUND_JACKPOT),
             { LastMultiplier: >= RARE_PAYOUT_MULTIPLIER, LastPayout: > 0 } => (
-                $"{vm.LastLabel} — {vm.LastMultiplier}x — {vm.LastPayout:N0} gold", LegendColors.PastelYellow, SOUND_PAYOUT_RARE),
+                $"{vm.LastLabel} — {vm.LastMultiplier}x — {vm.LastPayout:N0} {CurrencyWord}", LegendColors.PastelYellow, SOUND_PAYOUT_RARE),
             { LastPayout: > 0 } => (
-                $"{vm.LastLabel} — {vm.LastMultiplier}x — {vm.LastPayout:N0} gold", LegendColors.PastelYellow, SOUND_PAYOUT_COMMON),
+                $"{vm.LastLabel} — {vm.LastMultiplier}x — {vm.LastPayout:N0} {CurrencyWord}", LegendColors.PastelYellow, SOUND_PAYOUT_COMMON),
             _ => ("No win. Spin again.", LegendColors.Gray, 0)
         };
 
@@ -1385,6 +1426,7 @@ public sealed class SlotMachineControl : FramedDialogPanelBase
     public override void Dispose()
     {
         WorldState.Inventory.GoldChanged -= RefreshGold;
+        WorldState.Inventory.SlotChanged -= OnInventorySlotChanged;
 
         base.Dispose();
     }

@@ -79,6 +79,16 @@ public sealed class SlotMachine
     /// </summary>
     public IReadOnlyList<SlotPayRowInfo> Paytable { get; private set; } = [];
 
+    /// <summary>The word for the bet item ("candy"), or empty when the machine plays for gold.</summary>
+    public string CurrencyName { get; private set; } = string.Empty;
+
+    /// <summary>The bet item's display name ("Halloween Candy"), used to count the player's stack.</summary>
+    public string CurrencyItemName { get; private set; } = string.Empty;
+
+    public bool HasJackpot { get; private set; } = true;
+
+    public bool UsesItemCurrency => CurrencyName.Length > 0;
+
     // last result
 
     /// <summary>
@@ -124,6 +134,9 @@ public sealed class SlotMachine
         MachineName = args.MachineName ?? string.Empty;
         Bet = args.Bet;
         JackpotAmount = args.JackpotAmount;
+        CurrencyName = args.CurrencyName ?? string.Empty;
+        CurrencyItemName = args.CurrencyItemName ?? string.Empty;
+        HasJackpot = args.HasJackpot;
 
         Symbols = (args.Symbols ?? [])
                   .Select(s => new SlotSymbolInfo { SpriteId = s.SpriteId })
@@ -193,6 +206,9 @@ public sealed class SlotMachine
         MachineName = string.Empty;
         Bet = 0;
         JackpotAmount = 0;
+        CurrencyName = string.Empty;
+        CurrencyItemName = string.Empty;
+        HasJackpot = true;
         Symbols = [];
         Reels = [];
         Paytable = [];

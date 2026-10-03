@@ -73,6 +73,28 @@ public sealed class Inventory
     }
 
     /// <summary>
+    ///     How many of <paramref name="itemName" /> the player carries, summed across slots. A stackable slot's name
+    ///     carries a "[ count ]" suffix (see <see cref="SetSlot" />), so a slot matches on the bare name or the name
+    ///     followed by that suffix.
+    /// </summary>
+    public uint CountOf(string itemName)
+    {
+        var stackedPrefix = itemName + "[ ";
+        uint total = 0;
+
+        foreach (var slot in Slots)
+        {
+            if (!slot.IsOccupied || slot.Name is null)
+                continue;
+
+            if ((slot.Name == itemName) || slot.Name.StartsWith(stackedPrefix, StringComparison.Ordinal))
+                total += slot.Stackable ? slot.Count : 1;
+        }
+
+        return total;
+    }
+
+    /// <summary>
     ///     Fired when the gold amount changes.
     /// </summary>
     public event GoldChangedHandler? GoldChanged;
