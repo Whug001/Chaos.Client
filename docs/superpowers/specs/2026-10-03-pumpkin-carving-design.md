@@ -346,3 +346,29 @@ Where this section and the sections above differ, this section wins.
    the same way: windows close at once, and the reveal follows 2 s later.
 10. **A director who carves** gets their own carving window back when they click their pumpkin during carving, instead
     of the director's menu (audit fix).
+
+## 12. Live carving (2026-10-03)
+
+Approved after the first local test. Where this section and the sections above differ, this section wins. Mockups:
+`.superpowers/brainstorm/25353-1791034564/content/watch-how.html` (option A chosen).
+
+1. **Everyone watches the carving on the stage pumpkins.** Players on the theatre map, carvers included, see each cut
+   appear on the pumpkin as it happens. This replaces "During carving: pumpkins stay blank" (section 2) and the rule
+   that no grid leaves the server before the reveal (sections 4.3, 4.4).
+2. **A third look state.** `PumpkinLookState.Carving = 2` carries the grid, like `Lit`. Blank (0) is still sent for an
+   unclaimed pumpkin. The reveal still switches every remaining pumpkin to Lit, and thin or unclaimed pumpkins are still
+   removed then. `CLIENT_VERSION` stays 767: 767 has not shipped.
+3. **The server sends a carving look on each accepted save that changes the grid**, to every player on the theatre
+   map. A rejected save, or one with the same grid, sends nothing. `LookFor` returns Carving (with the grid) for a
+   claimed pumpkin during carving, so players who come into view get the current carving.
+4. **How it looks.** A carving pumpkin draws each carved pixel as a dark hole (RGB 58, 24, 8), with no glow, no
+   flicker and no lantern. Lit pumpkins are unchanged.
+5. **Faster saves.** The carving window saves every 600 ms while the grid has changed (was 3 s, and 1.1 s in the last
+   10 seconds). The server's 500 ms periodic-save limit stays.
+6. **Painted-frame cache.** A carving pumpkin's grid changes about twice a second, so its painted frames are cached per
+   entity and frame, holding only the latest grid; the old texture is disposed when the grid changes. Lit frames keep
+   the content-keyed cache from 11.3.
+7. **Tests.** Server: an accepted, changing save sends the carving look to everyone on the map; a rejected or unchanged
+   save sends nothing; the look during carving carries the grid; the look message round-trips state 2. Client: the
+   painter draws holes for a carving look; the carving cache replaces instead of growing; the window's save interval
+   (in the model or a pure helper) is 600 ms.
