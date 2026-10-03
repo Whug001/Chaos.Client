@@ -102,11 +102,14 @@ public sealed partial class WorldScreen
         MapRenderer.Dispose();
         MapRenderer = new MapRenderer();
 
-        MapFile = LoadMapFile(
-            args.MapId,
-            args.Width,
-            args.Height,
-            args.CheckSum);
+        //tower floors share one map number with a new layout each time, so a file on disk is never the right floor
+        MapFile = MapStreaming.IsStreamed(args.MapId)
+            ? null
+            : LoadMapFile(
+                args.MapId,
+                args.Width,
+                args.Height,
+                args.CheckSum);
         MapPreloaded = false;
 
         //see HandleMapChangePending — MapPathfinder's grid no longer matches MapFile's dimensions, so any right-click
@@ -205,7 +208,8 @@ public sealed partial class WorldScreen
 
             //snapshot tab-map walls from pristine server-delivered state before any DoorArgs can mutate tiles
             TabMapRenderer.Generate(Device, MapFile);
-            SaveMapFile(CurrentMapId);
+            if (!MapStreaming.IsStreamed(CurrentMapId))
+                SaveMapFile(CurrentMapId);
             FinalizeMapLoad();
         }
     }
