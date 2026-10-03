@@ -219,6 +219,19 @@ public sealed partial class WorldScreen
     }
     #endregion
 
+    #region Fishing Wiring
+    private void WireFishing()
+    {
+        Game.Connection.OnFishingDisplay += HandleFishingDisplay;
+
+        FishingWindow.HoldRequested += () => Game.Connection.SendFishingHold();
+        FishingWindow.ReleaseRequested += () => Game.Connection.SendFishingRelease();
+
+        //the attempt is the server's, so it is told whenever the window goes away
+        FishingWindow.Closed += () => Game.Connection.SendFishingClose();
+    }
+    #endregion
+
     #region Quest Log Wiring
     private void WireQuestLog()
     {

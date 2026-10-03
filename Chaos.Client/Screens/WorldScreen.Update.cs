@@ -319,6 +319,9 @@ public sealed partial class WorldScreen
         //the lockpick window's animation is in seconds, like the Spindle's
         LockpickWindow.Update(elapsedMs / 1000f);
 
+        //the fishing window eases toward the server's picture and watches the hold, in seconds
+        FishingWindow.Update(elapsedMs / 1000f);
+
         //ends an armed GiveUp confirm after 5 s
         WorldState.QuestLog.Update(elapsedMs / 1000f);
 

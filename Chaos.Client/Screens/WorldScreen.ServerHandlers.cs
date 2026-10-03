@@ -1877,6 +1877,28 @@ public sealed partial class WorldScreen
         }
     }
 
+    /// <summary>Opens, moves, or closes the fishing window from the server's picture of the line.</summary>
+    private void HandleFishingDisplay(FishingDisplayArgs args)
+    {
+        switch (args.Type)
+        {
+            case FishingDisplayType.Open:
+                FishingWindow.Open(args);
+
+                break;
+
+            case FishingDisplayType.State:
+                FishingWindow.ApplyState(args);
+
+                break;
+
+            case FishingDisplayType.Close:
+                FishingWindow.OnServerClose(args.Reason);
+
+                break;
+        }
+    }
+
     /// <summary>
     ///     The server's quest list. Always applied; the window only appears if this answers the player's own Open, so a
     ///     late update after Close doesn't reopen it.

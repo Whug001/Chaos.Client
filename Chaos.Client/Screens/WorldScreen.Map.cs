@@ -84,6 +84,9 @@ public sealed partial class WorldScreen
         //a map change ends any lock session; Hide tells the server, which has already dropped it
         LockpickWindow.Hide();
 
+        //and any line that was still in the water
+        FishingWindow.Hide();
+
         //and for the poker table, with one difference that matters: PokerTableControl.Hide() fires Closed, which
         //sends the server a Close. That is right for a map change -- the seat tile has already lost this player
         //and will stand them up on its next poll, so the server either does that a tick early or answers

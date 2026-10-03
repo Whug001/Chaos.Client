@@ -557,6 +557,11 @@ public sealed class ConnectionManager : IDisposable
     public event LockpickDisplayHandler? OnLockpickDisplay;
 
     /// <summary>
+    ///     Fired when a fishing window display packet is received from the server.
+    /// </summary>
+    public event FishingDisplayHandler? OnFishingDisplay;
+
+    /// <summary>
     ///     Fired when the quest log list is received from the server.
     /// </summary>
     public event QuestLogDisplayHandler? OnQuestLogDisplay;
@@ -1273,6 +1278,15 @@ public sealed class ConnectionManager : IDisposable
     /// </summary>
     public void SendLockpickClose() => SendIfWorld(new LockpickInteractionArgs { Type = LockpickInteractionType.Close });
 
+    /// <summary>The player pressed and is holding the line.</summary>
+    public void SendFishingHold() => SendIfWorld(new FishingInteractionArgs { Type = FishingInteractionType.Hold });
+
+    /// <summary>The player let go of the line.</summary>
+    public void SendFishingRelease() => SendIfWorld(new FishingInteractionArgs { Type = FishingInteractionType.Release });
+
+    /// <summary>The player closed the fishing window.</summary>
+    public void SendFishingClose() => SendIfWorld(new FishingInteractionArgs { Type = FishingInteractionType.Close });
+
     /// <summary>
     ///     Opens the quest log. The server answers with the list and keeps it current until Close.
     /// </summary>
@@ -1787,6 +1801,7 @@ public sealed class ConnectionManager : IDisposable
         PacketHandlers[(byte)ServerOpCode.SlotMachineDisplay] = HandleSlotMachineDisplay;
         PacketHandlers[(byte)ServerOpCode.WheelDisplay] = HandleWheelDisplay;
         PacketHandlers[(byte)ServerOpCode.LockpickDisplay] = HandleLockpickDisplay;
+        PacketHandlers[(byte)ServerOpCode.FishingDisplay] = HandleFishingDisplay;
         PacketHandlers[(byte)ServerOpCode.QuestLogDisplay] = HandleQuestLogDisplay;
         PacketHandlers[(byte)ServerOpCode.HotkeyHelpOpen] = HandleHotkeyHelpOpen;
         PacketHandlers[(byte)ServerOpCode.PokerTableDisplay] = HandlePokerTableDisplay;
@@ -2223,6 +2238,12 @@ public sealed class ConnectionManager : IDisposable
     {
         var args = Client.Deserialize<LockpickDisplayArgs>(in pkt);
         OnLockpickDisplay?.Invoke(args);
+    }
+
+    private void HandleFishingDisplay(ServerPacket pkt)
+    {
+        var args = Client.Deserialize<FishingDisplayArgs>(in pkt);
+        OnFishingDisplay?.Invoke(args);
     }
 
     private void HandleQuestLogDisplay(ServerPacket pkt)

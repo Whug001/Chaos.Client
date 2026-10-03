@@ -405,6 +405,11 @@ public delegate void WheelDisplayHandler(WheelDisplayArgs args);
 public delegate void LockpickDisplayHandler(LockpickDisplayArgs args);
 
 /// <summary>
+///     Fired when a fishing window display packet is received.
+/// </summary>
+public delegate void FishingDisplayHandler(FishingDisplayArgs args);
+
+/// <summary>
 ///     Fired when the quest log list is received.
 /// </summary>
 public delegate void QuestLogDisplayHandler(QuestLogDisplayArgs args);

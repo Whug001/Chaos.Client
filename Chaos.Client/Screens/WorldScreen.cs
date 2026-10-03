@@ -19,6 +19,7 @@ using Chaos.Client.Controls.World.Popups.Poker;
 using Chaos.Client.Controls.World.Popups.Profile;
 using Chaos.Client.Controls.World.Popups.Slots;
 using Chaos.Client.Controls.World.Popups.Theatre;
+using Chaos.Client.Controls.World.Popups.Fishing;
 using Chaos.Client.Controls.World.Popups.Lockpicking;
 using Chaos.Client.Controls.World.Popups.QuestLog;
 using Chaos.Client.Controls.World.Popups.Wheel;
@@ -184,6 +185,9 @@ public sealed partial class WorldScreen : IScreen
 
     //lockpicking window — opened by the server's lockpick Open display when a rogue starts picking a chest
     private LockpickControl LockpickWindow = null!;
+
+    //fishing window — opened by the server's fishing Open display when a bite starts
+    private FishingControl FishingWindow = null!;
 
     //quest log window — opened by the Q HUD button; the server sends the list
     private QuestLogControl QuestLogWindow = null!;
@@ -846,6 +850,12 @@ public sealed partial class WorldScreen : IScreen
         };
         WireLockpick();
 
+        FishingWindow = new FishingControl
+        {
+            ZIndex = 2
+        };
+        WireFishing();
+
         //zindex=-1, same tier as the HUD: added after SmallHud/LargeHud/SystemMessagePane above, so it draws over
         //them, but every dialog and popup below (NpcSession, HotkeyHelp, GroupPanel, GroupVitals, etc.) defaults to
         //ZIndex 0 or higher and so still draws on top of it.
@@ -957,6 +967,7 @@ public sealed partial class WorldScreen : IScreen
         Root.AddChild(Slots);
         Root.AddChild(Spindle);
         Root.AddChild(LockpickWindow);
+        Root.AddChild(FishingWindow);
         Root.AddChild(QuestLogWindow);
         Root.AddChild(Poker);
         Root.AddChild(BeautyShop);
@@ -1097,6 +1108,7 @@ public sealed partial class WorldScreen : IScreen
         Game.Connection.OnSlotMachineDisplay -= HandleSlotMachineDisplay;
         Game.Connection.OnWheelDisplay -= HandleWheelDisplay;
         Game.Connection.OnLockpickDisplay -= HandleLockpickDisplay;
+        Game.Connection.OnFishingDisplay -= HandleFishingDisplay;
         Game.Connection.OnQuestLogDisplay -= HandleQuestLogDisplay;
         Game.Connection.OnHotkeyHelpOpen -= HandleHotkeyHelpOpen;
         Game.Connection.OnPokerTableDisplay -= HandlePokerTableDisplay;
