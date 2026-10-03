@@ -7,4 +7,12 @@
     <ItemGroup>
         <PackageReference Include="MonoGame.Framework.DesktopGL"/>
     </ItemGroup>
+
+    <ItemGroup>
+        <!-- Haunted-mirror scare creatures, drawn by Tools/MirrorScare/draw_creatures.py. Embedded so they ship with the
+             client and need no .dat patch; read back by MirrorScareRenderer as "mirrorscare.<file>". -->
+        <EmbeddedResource Include="Assets\MirrorScare\*.png">
+            <LogicalName>mirrorscare.%(Filename)%(Extension)</LogicalName>
+        </EmbeddedResource>
+    </ItemGroup>
 </Project>

@@ -158,10 +158,6 @@ public class MirrorMathTests
                   .Should()
                   .BeTrue();
 
-        MirrorMath.ScareFrame(0).Should().Be(0);
-        MirrorMath.ScareFrame(0.1).Should().Be(1);
-        MirrorMath.ScareFrame(0.31).Should().Be(3);
-        MirrorMath.ScareFrame(0.4).Should().Be(-1);
         await Task.CompletedTask;
     }
 

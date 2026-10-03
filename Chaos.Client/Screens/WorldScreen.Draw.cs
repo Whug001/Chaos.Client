@@ -307,6 +307,7 @@ public sealed partial class WorldScreen
         DrawDragIcon(spriteBatch);
         DrawMirrorScare(spriteBatch);
         spriteBatch.End();
+        CaptureMirrorScareFrame();
     }
 
     #region Swimming
