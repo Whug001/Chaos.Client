@@ -2,6 +2,7 @@
 using Chaos.Client.Data;
 using Chaos.Client.Rendering.Models;
 using Chaos.Client.Rendering.Utility;
+using Chaos.DarkAges.Definitions;
 using DALib.Definitions;
 using DALib.Drawing;
 using Microsoft.Xna.Framework;
@@ -17,8 +18,9 @@ namespace Chaos.Client.Rendering;
 public sealed class CreatureRenderer : IDisposable
 {
     private readonly Dictionary<(int SpriteId, int FrameIndex), SpriteFrame> FrameCache = [];
-    //painted Pumpkin Carving frames, per (look version, frame, flicker phase); never shares textures with FrameCache
+    //painted lit Pumpkin Carving frames, per (carving, frame, flicker phase); never shares textures with FrameCache
     private readonly Dictionary<(string GridKey, int FrameIndex, int Phase), SpriteFrame> PumpkinCache = [];
+    private readonly PumpkinCarvingCache<Texture2D> CarvingCache;
     private readonly Dictionary<Texture2D, Texture2D> GroupTintCache = [];
     private readonly Dictionary<Texture2D, Texture2D> HighlightTintCache = [];
     private readonly Dictionary<Texture2D, Texture2D> HitTintCache = [];
@@ -32,6 +34,8 @@ public sealed class CreatureRenderer : IDisposable
     //used by overlay positioning to derive a stable "sprite top" for each creature sprite.
     //uses the frame's visible top row, which differs from the bitmap top row when Top > 0 (transparent padding).
     private readonly Dictionary<int, int> AverageTopOffsetCache = [];
+
+    public CreatureRenderer() => CarvingCache = new PumpkinCarvingCache<Texture2D>(ReleaseCarvingTexture);
 
     /// <inheritdoc />
     public void Dispose() => Clear();
@@ -50,6 +54,7 @@ public sealed class CreatureRenderer : IDisposable
             painted.Texture.Dispose();
 
         PumpkinCache.Clear();
+        CarvingCache.Clear();
     }
 
     /// <summary>
@@ -84,8 +89,16 @@ public sealed class CreatureRenderer : IDisposable
         PumpkinLook? pumpkin = null,
         int pumpkinPhase = 0)
     {
-        var spriteFrame = pumpkin is { Lit: true } && (spriteId == PumpkinFaceMap.SPRITE_ID)
-            ? GetPumpkinFrame(spriteId, frameIndex, pumpkin, pumpkinPhase)
+        if (pumpkin is not null && (spriteId == PumpkinFaceMap.SPRITE_ID) && (pumpkin.State != PumpkinLookState.Carving))
+            CarvingCache.Forget(pumpkin.EntityId);
+
+        var spriteFrame = pumpkin is not null && (spriteId == PumpkinFaceMap.SPRITE_ID)
+            ? pumpkin.State switch
+            {
+                PumpkinLookState.Lit     => GetPumpkinFrame(spriteId, frameIndex, pumpkin, pumpkinPhase),
+                PumpkinLookState.Carving => GetCarvingFrame(spriteId, frameIndex, pumpkin),
+                _                        => GetFrame(spriteId, frameIndex)
+            }
             : GetFrame(spriteId, frameIndex);
 
         if (spriteFrame is null)
@@ -285,6 +298,71 @@ public sealed class CreatureRenderer : IDisposable
         PumpkinCache[key] = painted;
 
         return painted;
+    }
+
+    /// <summary>Disposes a replaced carving texture and every tinted copy derived from it, so no stale GPU texture lingers.</summary>
+    private void ReleaseCarvingTexture(Texture2D texture)
+    {
+        var sources = new List<Texture2D> { texture };
+
+        foreach (var key in GroundTintCache.Keys.Where(key => key.Source == texture).ToList())
+        {
+            sources.Add(GroundTintCache[key]);
+            GroundTintCache[key].Dispose();
+            GroundTintCache.Remove(key);
+        }
+
+        foreach (var source in sources)
+        {
+            EvictTint(HighlightTintCache, source);
+            EvictTint(GroupTintCache, source);
+            EvictTint(HitTintCache, source);
+
+            foreach (var key in StatusTintCache.Keys.Where(key => key.Source == source).ToList())
+            {
+                StatusTintCache[key].Dispose();
+                StatusTintCache.Remove(key);
+            }
+        }
+
+        texture.Dispose();
+    }
+
+    private static void EvictTint(Dictionary<Texture2D, Texture2D> cache, Texture2D source)
+    {
+        if (cache.Remove(source, out var tinted))
+            tinted.Dispose();
+    }
+
+    /// <summary>A pumpkin being carved: its cuts as dark holes. Falls back to the plain frame where the face map has nothing.</summary>
+    public SpriteFrame? GetCarvingFrame(int spriteId, int frameIndex, PumpkinLook look)
+    {
+        if (GetFrame(spriteId, frameIndex) is not { } plain)
+            return null;
+
+        var map = PumpkinFaceMap.Shared.For(frameIndex);
+
+        //the plain frame belongs to FrameCache, so it must never enter CarvingCache (which disposes what it replaces)
+        if ((map.Count == 0) || (PumpkinGrid.CountCut(look.Grid) == 0))
+            return plain;
+
+        if (!CarvingCache.TryGet(look.EntityId, frameIndex, look.Grid, out var cached))
+            cached = CarvingCache.GetOrPaint(
+                look.EntityId,
+                frameIndex,
+                look.Grid,
+                () =>
+                {
+                    using var scope = new PixelBufferScope(plain.Texture);
+                    PumpkinPainter.PaintHoles(scope.AsSpan(), scope.Width, scope.Height, plain.Left, plain.Top, map, look.Grid);
+
+                    var texture = new Texture2D(TextureConverter.Device, scope.Width, scope.Height);
+                    scope.CommitTo(texture);
+
+                    return texture;
+                });
+
+        return cached is null ? null : new SpriteFrame(cached, plain.CenterX, plain.CenterY, plain.Left, plain.Top);
     }
 
     

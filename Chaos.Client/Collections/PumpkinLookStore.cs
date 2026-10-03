@@ -12,11 +12,14 @@ namespace Chaos.Client.Collections;
 public sealed class PumpkinLookStore
 {
     private readonly Dictionary<uint, PumpkinLook> Looks = [];
-    private int Version;
 
-    public PumpkinLook Apply(uint entityId, bool lit, byte[]? grid)
+    public PumpkinLook Apply(uint entityId, PumpkinLookState state, byte[]? grid)
     {
-        var look = new PumpkinLook(lit, lit && grid is not null ? grid.ToArray() : PumpkinGrid.Empty(), ++Version);
+        var look = new PumpkinLook(
+            entityId,
+            state,
+            (state != PumpkinLookState.Blank) && grid is not null ? grid.ToArray() : PumpkinGrid.Empty());
+
         Looks[entityId] = look;
 
         return look;

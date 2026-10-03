@@ -107,21 +107,6 @@ public class PumpkinCarvingModelTests
     }
 
     [Test]
-    public void Unsent_work_is_handed_over_once_and_nothing_when_all_was_sent()
-    {
-        var model = new PumpkinCarvingModel();
-
-        model.TakeUnsent().Should().BeNull();
-
-        Stroke(model, (4, 4));
-        var unsent = model.TakeUnsent();
-
-        unsent.Should().NotBeNull();
-        PumpkinGrid.IsCut(unsent!, 4, 4).Should().BeTrue();
-        model.TakeUnsent().Should().BeNull();
-    }
-
-    [Test]
     public void Cells_outside_the_grid_are_ignored()
     {
         var model = new PumpkinCarvingModel();
@@ -130,5 +115,23 @@ public class PumpkinCarvingModelTests
 
         model.CutCount.Should().Be(0);
         model.CanUndo.Should().BeFalse();
+    }
+
+    [Test]
+    public void A_save_is_due_600_ms_after_the_last_one_while_the_grid_has_changed()
+    {
+        var model = new PumpkinCarvingModel();
+
+        model.SaveDue(10_000, 0).Should().BeFalse();
+
+        Stroke(model, (4, 4));
+
+        PumpkinCarvingModel.SAVE_INTERVAL_MS.Should().Be(600);
+        model.SaveDue(1_599, 1_000).Should().BeFalse();
+        model.SaveDue(1_600, 1_000).Should().BeTrue();
+
+        model.TakeForSend();
+
+        model.SaveDue(5_000, 1_600).Should().BeFalse();
     }
 }
