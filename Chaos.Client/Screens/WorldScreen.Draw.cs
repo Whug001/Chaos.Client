@@ -5,6 +5,7 @@ using Chaos.Client.Controls.World.Hud.Panel;
 using Chaos.Client.Controls.World.ViewPort;
 using Chaos.Client.Data;
 using Chaos.Client.Models;
+using Chaos.Client.Rendering.Fishing;
 using Chaos.Client.Rendering.Models;
 using Chaos.Client.Rendering.Utility;
 using Chaos.Client.Systems;
@@ -818,6 +819,19 @@ public sealed partial class WorldScreen
         var appearance = entity.Appearance ?? default;
         (var frameIndex, var flip, var animSuffix, var isFrontFacing) = AnimationSystem.GetAislingFrame(entity);
 
+        //a fishing pose swaps in its own body frame and draws its own pole, so the equipped pole's art is left out
+        var fishing = entity is { IsOnSwimmingTile: false, RestPosition: RestPosition.None }
+            ? AnimationSystem.GetFishingShot(entity)
+            : null;
+        var poleSprite = appearance.WeaponSprite;
+
+        if (fishing is { } pose)
+        {
+            frameIndex = pose.FrameIndex;
+            animSuffix = pose.AnimSuffix;
+            appearance = appearance with { WeaponSprite = 0 };
+        }
+
         //swimming override — single sprite replaces all aisling layers, driven by existing animation state
         if (entity.IsOnSwimmingTile)
         {
@@ -896,6 +910,23 @@ public sealed partial class WorldScreen
             alpha);
 
         var textureBottomY = Game.AislingRenderer.Draw(spriteBatch, Camera, in drawParams);
+
+        if (fishing is { } shot && (textureBottomY != 0))
+        {
+            Game.AislingRenderer.TryGetCompositeTopPadding(entity.RenderCacheId, out var polePadding);
+
+            FishingPoleRenderer.Draw(
+                spriteBatch,
+                Camera,
+                in shot,
+                FishingPoleRenderer.ColorsFor(poleSprite),
+                tileCenterX,
+                tileCenterY,
+                entity.VisualOffset,
+                polePadding,
+                flip,
+                alpha);
+        }
 
         //custom emotes ride on top of the finished composite rather than inside it — see CustomEmoteRenderer.
         //Only the front-facing poses show a face to hang them off; the swimming, resting and creature-form

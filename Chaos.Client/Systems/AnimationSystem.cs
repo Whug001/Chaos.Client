@@ -1,6 +1,7 @@
 #region
 using Chaos.Client.Data.Utilities;
 using Chaos.Client.Models;
+using Chaos.Client.Rendering.Fishing;
 using Chaos.DarkAges.Definitions;
 using Chaos.Geometry.Abstractions.Definitions;
 using DALib.Definitions;
@@ -470,6 +471,24 @@ public static class AnimationSystem
     ///     Returns the correct aisling frame index, flip flag, EPF animation suffix, and front-facing flag for the entity's
     ///     current state. IsFrontFacing determines layer draw order (front vs back).
     /// </summary>
+/// <summary>
+    ///     The fishing pose this aisling is showing right now, or null when it is not fishing. Walking and body animations
+    ///     (emotes, skills) win over the pose; it picks up again when they end.
+    /// </summary>
+    public static FishingPoseShot? GetFishingShot(WorldEntity entity)
+    {
+        if ((entity.FishingPose is FishingPose.None) || (entity.AnimState != EntityAnimState.Idle))
+            return null;
+
+        var isFront = entity.Direction is Direction.Right or Direction.Down;
+
+        return FishingPoseAnimator.Resolve(
+            entity.FishingPose,
+            entity.PreviousFishingPose,
+            Environment.TickCount64 - entity.FishingPoseStartedMs,
+            isFront);
+    }
+
     public static (int FrameIndex, bool Flip, string AnimSuffix, bool IsFrontFacing) GetAislingFrame(WorldEntity entity)
     {
         //a carpet rider glides: it keeps its standing pose (or its idle loop) while it walks.

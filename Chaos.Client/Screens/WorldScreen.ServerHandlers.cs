@@ -1877,7 +1877,7 @@ public sealed partial class WorldScreen
         }
     }
 
-    /// <summary>Opens, moves, or closes the fishing window from the server's picture of the line.</summary>
+    /// <summary>Opens, moves, or closes the fishing window from the server's picture of the line, or poses a fisher.</summary>
     private void HandleFishingDisplay(FishingDisplayArgs args)
     {
         switch (args.Type)
@@ -1894,6 +1894,20 @@ public sealed partial class WorldScreen
 
             case FishingDisplayType.Close:
                 FishingWindow.OnServerClose(args.Reason);
+
+                break;
+
+            case FishingDisplayType.Pose:
+                if (WorldState.GetEntity(args.EntityId) is not { } fisher)
+                    break;
+
+                //a cast always restarts; any other repeat keeps the running animation's clock
+                if ((args.Pose == fisher.FishingPose) && (args.Pose is not FishingPose.Cast))
+                    break;
+
+                fisher.PreviousFishingPose = fisher.FishingPose;
+                fisher.FishingPose = args.Pose;
+                fisher.FishingPoseStartedMs = Environment.TickCount64;
 
                 break;
         }
