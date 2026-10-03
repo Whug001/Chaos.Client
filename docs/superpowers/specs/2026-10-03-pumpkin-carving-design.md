@@ -289,3 +289,34 @@ Two server tests already fail on master (`GiveAbility`, `OnItemDroppedOn` stacka
 - The sprite number, its `.dat` file and how it is packed.
 - Whether a merchant can cast a light in the darkness (section 3.3).
 - How much of the emblem editor's canvas and model to share.
+
+## 10. Planning amendments (2026-10-03)
+
+Plan: `docs/superpowers/plans/2026-10-03-pumpkin-carving.md`. Where this section and the sections above differ, this
+section wins.
+
+1. **Tiles.** The stage is walled off from the house; players reach it with Thulin's "jump on stage". Pumpkins stand at
+   `(6, 13)` to `(6, 20)`, facing Right (toward the house). Each claim tile is behind its pumpkin, at `(5, y)`. The
+   display tile is `(11, 15)` in the house.
+2. **Numbers.** Client opcode `PumpkinCarvingSave = 142`; server opcodes `PumpkinCarvingDisplay = 149` (Open and Close
+   in one message, like fishing) and `PumpkinLook = 150`. `CLIENT_VERSION` 766 → 767. Creature sprite 1455 and
+   palette 355 in `hades.dat`.
+3. **A separate map script.** The game runs in its own map script, `pumpkincarvingmap`, added to the haunted theatre's
+   script keys. It reaches the lights through `SuomiTheatreMapScript`, which gains `ApplySavedScene`,
+   `StageGameRunning` and `LightsBusyText`. Spotlight Chairs gains a `StageBusy` refusal.
+4. **Looks follow the display.** `ChaosWorldClient.SendVisibleEntities` sends a pumpkin's look right after the
+   pumpkin, so spawns, approaches and refreshes all get it. The reveal also sends every look to everyone on the map.
+5. **Pumpkin names.** Claiming, or freeing a pumpkin when its carver leaves, replaces the merchant with a new one under
+   the new name, so every client sees the name.
+6. **A removed carver is barred** from claiming another pumpkin in the same round.
+7. **Saves.** The "done" flag means "the window is closing": Done and Close both send it. The server allows one
+   periodic save and one closing save per second per carver. The client saves every 3 seconds while changed, and about
+   every 1.1 seconds in the last 10 seconds.
+8. **Light.** The client gives a lit pumpkin a small lantern (`LanternSize.Small`), so it shows in the dark house.
+9. **Face map.** Each sprite pixel maps to every grid cell its 4 × 4 samples land in, and lights when any of them is
+   cut. At game size a cell is about one pixel, so one sample per pixel dropped cells; with this rule the front frame
+   shows all 308 cells. Each entry also carries a glow amount (0 in the middle of the face, 100 at its corners).
+10. **Sprite layout.** Frame 0 is the back (Up, and Left mirrored); frame 1 is the front (Right, and Down mirrored). No
+    idle animation; the client adds a 4-phase candle flicker.
+11. **Texts.** The start message is "Pumpkin Carving! Step up to a pumpkin." (the longer one did not fit the 45-character
+    orange bar). The reveal message is "The pumpkins are lit! Click your favorite."
