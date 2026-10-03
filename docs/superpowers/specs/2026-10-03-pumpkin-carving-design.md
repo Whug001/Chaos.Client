@@ -340,3 +340,9 @@ Where this section and the sections above differ, this section wins.
 7. **The client solution file** names the `Chaos-Server` submodule's project paths directly, so in a worktree build
    `Chaos.Client/Chaos.Client.csproj` and the test project with `-p:UnoraServerPath=…` instead.
 8. **`Client_version_is_766` became `Client_version_is_767`** (Tests/Chaos.Tests/Networking/GuildEmblemPacketConverterTests.cs).
+9. **Time up waits for the last saves (audit fix).** At the carving deadline the server closes every carving window
+   and refuses new claims and reopens. The reveal comes `FINAL_SAVE_MS` (2 s) later, and saves still count until then.
+   On the server's close, the client sends any strokes not yet saved as a closing save. "End the carving now" works
+   the same way: windows close at once, and the reveal follows 2 s later.
+10. **A director who carves** gets their own carving window back when they click their pumpkin during carving, instead
+    of the director's menu (audit fix).

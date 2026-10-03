@@ -103,6 +103,9 @@ public sealed class PumpkinCarvingModel
         return Grid.ToArray();
     }
 
+    /// <summary>The grid if it changed since the last send, or null when the server already has it.</summary>
+    public byte[]? TakeUnsent() => HasUnsent ? TakeForSend() : null;
+
     public void Undo()
     {
         if (!CanUndo)

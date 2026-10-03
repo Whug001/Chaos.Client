@@ -143,8 +143,20 @@ public sealed class PumpkinCarvingControl : GuildCloakDialogBase
                 Color.White);
     }
 
-    /// <summary>The server closed the window (time up, removed, a map change). Nothing more is sent.</summary>
-    public void OnServerClose() => Hide();
+    /// <summary>
+    ///     The server closed the window (time up, or the pumpkin was removed). Strokes not yet sent go out as a closing save:
+    ///     at time up the server waits for them before the reveal.
+    /// </summary>
+    public void OnServerClose()
+    {
+        if (Visible && Model.TakeUnsent() is { } grid)
+        {
+            LastSendMs = Environment.TickCount64;
+            SaveRequested?.Invoke(grid, true);
+        }
+
+        Hide();
+    }
 
     public override void OnKeyDown(KeyDownEvent e)
     {

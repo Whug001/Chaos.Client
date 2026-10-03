@@ -88,7 +88,7 @@ public sealed partial class WorldScreen
         FishingWindow.Hide();
 
         //the round on the old map already let this carver go; nothing to send
-        PumpkinWindow.OnServerClose();
+        PumpkinWindow.Hide();
 
         //and for the poker table, with one difference that matters: PokerTableControl.Hide() fires Closed, which
         //sends the server a Close. That is right for a map change -- the seat tile has already lost this player

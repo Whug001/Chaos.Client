@@ -107,6 +107,21 @@ public class PumpkinCarvingModelTests
     }
 
     [Test]
+    public void Unsent_work_is_handed_over_once_and_nothing_when_all_was_sent()
+    {
+        var model = new PumpkinCarvingModel();
+
+        model.TakeUnsent().Should().BeNull();
+
+        Stroke(model, (4, 4));
+        var unsent = model.TakeUnsent();
+
+        unsent.Should().NotBeNull();
+        PumpkinGrid.IsCut(unsent!, 4, 4).Should().BeTrue();
+        model.TakeUnsent().Should().BeNull();
+    }
+
+    [Test]
     public void Cells_outside_the_grid_are_ignored()
     {
         var model = new PumpkinCarvingModel();
