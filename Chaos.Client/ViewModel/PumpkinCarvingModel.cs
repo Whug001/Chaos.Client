@@ -108,9 +108,6 @@ public sealed class PumpkinCarvingModel
 
     public bool SaveDue(long nowMs, long lastSendMs) => HasUnsent && ((nowMs - lastSendMs) >= SAVE_INTERVAL_MS);
 
-    /// <summary>The grid if it changed since the last send, or null when the server already has it.</summary>
-    public byte[]? TakeUnsent() => HasUnsent ? TakeForSend() : null;
-
     public void Undo()
     {
         if (!CanUndo)

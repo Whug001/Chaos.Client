@@ -83,4 +83,48 @@ public class PumpkinCarvingCacheTests
 
         paints.Should().Be(1);
     }
+
+    [Test]
+    public void Forget_releases_every_frame_of_that_pumpkin_only()
+    {
+        var released = new List<Painted>();
+        var cache = new PumpkinCarvingCache<Painted>(released.Add);
+
+        cache.GetOrPaint(7, 0, Grid(3), () => new Painted(1));
+        cache.GetOrPaint(7, 1, Grid(3), () => new Painted(2));
+        cache.GetOrPaint(8, 1, Grid(3), () => new Painted(3));
+
+        cache.Forget(7);
+
+        cache.Count.Should().Be(1);
+        released.Select(p => p.Number).Should().BeEquivalentTo([1, 2]);
+        cache.TryGet(8, 1, Grid(3), out _).Should().BeTrue();
+    }
+
+    [Test]
+    public void Forget_of_an_unknown_pumpkin_does_nothing()
+    {
+        var released = new List<Painted>();
+        var cache = new PumpkinCarvingCache<Painted>(released.Add);
+
+        cache.GetOrPaint(7, 0, Grid(3), () => new Painted(1));
+
+        cache.Forget(99);
+
+        cache.Count.Should().Be(1);
+        released.Should().BeEmpty();
+    }
+
+    [Test]
+    public void TryGet_hits_only_for_the_same_grid()
+    {
+        var cache = new PumpkinCarvingCache<Painted>(_ => { });
+        var painted = cache.GetOrPaint(7, 1, Grid(3), () => new Painted(1));
+
+        cache.TryGet(7, 1, Grid(3), out var hit).Should().BeTrue();
+        hit.Should().BeSameAs(painted);
+        cache.TryGet(7, 1, Grid(4), out _).Should().BeFalse();
+        cache.TryGet(7, 2, Grid(3), out _).Should().BeFalse();
+        cache.TryGet(8, 1, Grid(3), out _).Should().BeFalse();
+    }
 }

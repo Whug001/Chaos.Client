@@ -43,7 +43,7 @@
     {
       "id": 5,
       "subject": "Task 6: Commit the full implementation",
-      "status": "pending",
+      "status": "completed",
       "description": "**Goal:** One commit on `feat/pumpkin-live` in the server worktree and one in the client worktree, with the client's `Chaos-Server` pointer on the new server commit.\n\n**Files:**\n- Commit: every file changed by Tasks 1-5 in both worktrees, plus the plan and its `.tasks.json` (client, force-added).\n\n**Acceptance Criteria:**\n- [ ] Full server suite: only the known `GiveAbility`/`OnItemDroppedOn` failures, if any.\n- [ ] Full client suite passes.\n- [ ] Server worktree has one new commit; client worktree has one new commit whose `Chaos-Server` gitlink equals that server commit.\n- [ ] `git status --short` in both worktrees shows nothing of ours left (untracked `__pycache__`/`obj` noise is fine).\n\n**Verify:** `git -C C:/Users/Michael/Documents/GitHub/worktrees/pumpkin-carving-client ls-tree HEAD Chaos-Server` \u2192 prints the server worktree's `git rev-parse HEAD`.\n\n```json:metadata\n{\"files\": [], \"verifyCommand\": \"git -C C:/Users/Michael/Documents/GitHub/worktrees/pumpkin-carving-client ls-tree HEAD Chaos-Server\", \"acceptanceCriteria\": [\"Full server suite: only known GiveAbility/OnItemDroppedOn failures\", \"Full client suite passes\", \"One new commit per worktree; client gitlink equals server commit\", \"No uncommitted files of ours remain\"], \"modelTier\": \"mechanical\"}\n```",
       "blockedBy": [
         0,
@@ -54,5 +54,5 @@
       ]
     }
   ],
-  "lastUpdated": "2026-10-03T10:31:27"
+  "lastUpdated": "2026-10-03T10:34:39"
 }

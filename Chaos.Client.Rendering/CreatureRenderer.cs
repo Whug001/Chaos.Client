@@ -89,6 +89,9 @@ public sealed class CreatureRenderer : IDisposable
         PumpkinLook? pumpkin = null,
         int pumpkinPhase = 0)
     {
+        if (pumpkin is not null && (spriteId == PumpkinFaceMap.SPRITE_ID) && (pumpkin.State != PumpkinLookState.Carving))
+            CarvingCache.Forget(pumpkin.EntityId);
+
         var spriteFrame = pumpkin is not null && (spriteId == PumpkinFaceMap.SPRITE_ID)
             ? pumpkin.State switch
             {
@@ -340,25 +343,26 @@ public sealed class CreatureRenderer : IDisposable
         var map = PumpkinFaceMap.Shared.For(frameIndex);
 
         //the plain frame belongs to FrameCache, so it must never enter CarvingCache (which disposes what it replaces)
-        if (map.Count == 0)
+        if ((map.Count == 0) || (PumpkinGrid.CountCut(look.Grid) == 0))
             return plain;
 
-        var painted = CarvingCache.GetOrPaint(
-            look.EntityId,
-            frameIndex,
-            look.Grid,
-            () =>
-            {
-                using var scope = new PixelBufferScope(plain.Texture);
-                PumpkinPainter.PaintHoles(scope.AsSpan(), scope.Width, scope.Height, plain.Left, plain.Top, map, look.Grid);
+        if (!CarvingCache.TryGet(look.EntityId, frameIndex, look.Grid, out var cached))
+            cached = CarvingCache.GetOrPaint(
+                look.EntityId,
+                frameIndex,
+                look.Grid,
+                () =>
+                {
+                    using var scope = new PixelBufferScope(plain.Texture);
+                    PumpkinPainter.PaintHoles(scope.AsSpan(), scope.Width, scope.Height, plain.Left, plain.Top, map, look.Grid);
 
-                var texture = new Texture2D(TextureConverter.Device, scope.Width, scope.Height);
-                scope.CommitTo(texture);
+                    var texture = new Texture2D(TextureConverter.Device, scope.Width, scope.Height);
+                    scope.CommitTo(texture);
 
-                return texture;
-            });
+                    return texture;
+                });
 
-        return painted is null ? null : new SpriteFrame(painted, plain.CenterX, plain.CenterY, plain.Left, plain.Top);
+        return cached is null ? null : new SpriteFrame(cached, plain.CenterX, plain.CenterY, plain.Left, plain.Top);
     }
 
     

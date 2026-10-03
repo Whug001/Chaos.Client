@@ -18,8 +18,8 @@ namespace Chaos.Client.Controls.World.Popups.PumpkinCarving;
 /// <summary>
 ///     The Pumpkin Carving window (spec: docs/superpowers/specs/2026-10-03-pumpkin-carving-design.md, 5.1): the 22 × 14
 ///     grid, knife, eraser, mirror, undo, redo and clear, a lit preview of the pumpkin and the time left. Saves to the
-///     server every 600 ms while changed, so everyone watches the carving live; Done and Close send a closing save. Opened by the server's
-///     PumpkinCarvingDisplay Open.
+///     server every 600 ms while changed, so everyone watches the carving live; Done and Close send a closing save.
+///     Opened by the server's PumpkinCarvingDisplay Open.
 /// </summary>
 /// <remarks>Layout: title; the canvas with the preview and timer on its right; two rows of three tools; a status line; Done.</remarks>
 public sealed class PumpkinCarvingControl : GuildCloakDialogBase
@@ -29,7 +29,6 @@ public sealed class PumpkinCarvingControl : GuildCloakDialogBase
     private const int CANVAS_WIDTH = PumpkinGrid.WIDTH * ZOOM;
     private const int CONTENT_TOP = 32;
     private const int DONE_WIDTH = 64;
-
     private const int GAP = 8;
     private const int LEFT = 20;
     //mirrors the server's PumpkinCarving.MIN_CUT_CELLS
@@ -37,7 +36,6 @@ public sealed class PumpkinCarvingControl : GuildCloakDialogBase
     private const int OK_BOTTOM_MARGIN = 3;
     private const int OK_RIGHT_MARGIN = 20;
     private const int PREVIEW_SIZE = 88;
-
     private const int TITLE_TOP = 10;
     private const int TOOL_SPACING = 3;
     private const int TOOL_WIDTH = (CANVAS_WIDTH - (2 * TOOL_SPACING)) / 3;
@@ -143,16 +141,14 @@ public sealed class PumpkinCarvingControl : GuildCloakDialogBase
     }
 
     /// <summary>
-    ///     The server closed the window (time up, or the pumpkin was removed). Strokes not yet sent go out as a closing save:
-    ///     at time up the server waits for them before the reveal.
+    ///     The server closed the window (time up, or the pumpkin was removed). Always sends a closing save of the whole
+    ///     grid: the server drops a periodic save that arrives too soon after the last one, so the last strokes may not have
+    ///     reached it yet, and at time up it waits for them before the reveal.
     /// </summary>
     public void OnServerClose()
     {
-        if (Visible && Model.TakeUnsent() is { } grid)
-        {
-            LastSendMs = Environment.TickCount64;
-            SaveRequested?.Invoke(grid, true);
-        }
+        if (Visible)
+            Send(true);
 
         Hide();
     }

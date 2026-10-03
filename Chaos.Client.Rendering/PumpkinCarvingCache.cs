@@ -1,3 +1,5 @@
+using System.Diagnostics.CodeAnalysis;
+
 namespace Chaos.Client.Rendering;
 
 /// <summary>
@@ -19,6 +21,30 @@ public sealed class PumpkinCarvingCache<T> where T: class
             Release(entry.Value);
 
         Entries.Clear();
+    }
+
+    public bool TryGet(uint entityId, int frameIndex, byte[] grid, [MaybeNullWhen(false)] out T value)
+    {
+        if (Entries.TryGetValue((entityId, frameIndex), out var entry) && entry.Grid.AsSpan().SequenceEqual(grid))
+        {
+            value = entry.Value;
+
+            return true;
+        }
+
+        value = null;
+
+        return false;
+    }
+
+    /// <summary>Releases and removes every frame cached for this pumpkin.</summary>
+    public void Forget(uint entityId)
+    {
+        foreach (var key in Entries.Keys.Where(key => key.EntityId == entityId).ToList())
+        {
+            Release(Entries[key].Value);
+            Entries.Remove(key);
+        }
     }
 
     /// <summary>The cached image when the grid is unchanged; otherwise paints a new one, replacing and releasing the old.</summary>
