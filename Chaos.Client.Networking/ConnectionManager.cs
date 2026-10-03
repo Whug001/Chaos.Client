@@ -562,6 +562,16 @@ public sealed class ConnectionManager : IDisposable
     public event FishingDisplayHandler? OnFishingDisplay;
 
     /// <summary>
+    ///     Fired when the server opens or closes the Pumpkin Carving window.
+    /// </summary>
+    public event PumpkinCarvingDisplayHandler? OnPumpkinCarvingDisplay;
+
+    /// <summary>
+    ///     Fired when the server says how a Pumpkin Carving pumpkin looks.
+    /// </summary>
+    public event PumpkinLookHandler? OnPumpkinLook;
+
+    /// <summary>
     ///     Fired when the quest log list is received from the server.
     /// </summary>
     public event QuestLogDisplayHandler? OnQuestLogDisplay;
@@ -1287,6 +1297,15 @@ public sealed class ConnectionManager : IDisposable
     /// <summary>The player closed the fishing window.</summary>
     public void SendFishingClose() => SendIfWorld(new FishingInteractionArgs { Type = FishingInteractionType.Close });
 
+    /// <summary>Sends the carving grid. <paramref name="done" /> is true when the window is closing.</summary>
+    public void SendPumpkinCarvingSave(byte[] grid, bool done)
+        => SendIfWorld(
+            new PumpkinCarvingSaveArgs
+            {
+                Grid = grid,
+                Done = done
+            });
+
     /// <summary>
     ///     Opens the quest log. The server answers with the list and keeps it current until Close.
     /// </summary>
@@ -1802,6 +1821,8 @@ public sealed class ConnectionManager : IDisposable
         PacketHandlers[(byte)ServerOpCode.WheelDisplay] = HandleWheelDisplay;
         PacketHandlers[(byte)ServerOpCode.LockpickDisplay] = HandleLockpickDisplay;
         PacketHandlers[(byte)ServerOpCode.FishingDisplay] = HandleFishingDisplay;
+        PacketHandlers[(byte)ServerOpCode.PumpkinCarvingDisplay] = HandlePumpkinCarvingDisplay;
+        PacketHandlers[(byte)ServerOpCode.PumpkinLook] = HandlePumpkinLook;
         PacketHandlers[(byte)ServerOpCode.QuestLogDisplay] = HandleQuestLogDisplay;
         PacketHandlers[(byte)ServerOpCode.HotkeyHelpOpen] = HandleHotkeyHelpOpen;
         PacketHandlers[(byte)ServerOpCode.PokerTableDisplay] = HandlePokerTableDisplay;
@@ -2244,6 +2265,18 @@ public sealed class ConnectionManager : IDisposable
     {
         var args = Client.Deserialize<FishingDisplayArgs>(in pkt);
         OnFishingDisplay?.Invoke(args);
+    }
+
+    private void HandlePumpkinCarvingDisplay(ServerPacket pkt)
+    {
+        var args = Client.Deserialize<PumpkinCarvingDisplayArgs>(in pkt);
+        OnPumpkinCarvingDisplay?.Invoke(args);
+    }
+
+    private void HandlePumpkinLook(ServerPacket pkt)
+    {
+        var args = Client.Deserialize<PumpkinLookArgs>(in pkt);
+        OnPumpkinLook?.Invoke(args);
     }
 
     private void HandleQuestLogDisplay(ServerPacket pkt)

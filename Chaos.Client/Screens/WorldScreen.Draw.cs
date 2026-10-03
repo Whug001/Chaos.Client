@@ -784,7 +784,9 @@ public sealed partial class WorldScreen
             statusTint,
             groundPaintHeight,
             entity.GroundTintColor,
-            alpha);
+            alpha,
+            WorldState.PumpkinLooks.Get(entity.Id),
+            PumpkinPainter.PhaseAt(Environment.TickCount64));
     }
 
     private int DrawAisling(

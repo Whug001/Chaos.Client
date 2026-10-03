@@ -17,6 +17,8 @@ namespace Chaos.Client.Rendering;
 public sealed class CreatureRenderer : IDisposable
 {
     private readonly Dictionary<(int SpriteId, int FrameIndex), SpriteFrame> FrameCache = [];
+    //painted Pumpkin Carving frames, per (look version, frame, flicker phase); never shares textures with FrameCache
+    private readonly Dictionary<(string GridKey, int FrameIndex, int Phase), SpriteFrame> PumpkinCache = [];
     private readonly Dictionary<Texture2D, Texture2D> GroupTintCache = [];
     private readonly Dictionary<Texture2D, Texture2D> HighlightTintCache = [];
     private readonly Dictionary<Texture2D, Texture2D> HitTintCache = [];
@@ -43,6 +45,11 @@ public sealed class CreatureRenderer : IDisposable
         AverageTopOffsetCache.Clear();
         GroundTintCache.DisposeAndClear();
         ClearTintCaches();
+
+        foreach (var painted in PumpkinCache.Values)
+            painted.Texture.Dispose();
+
+        PumpkinCache.Clear();
     }
 
     /// <summary>
@@ -73,9 +80,13 @@ public sealed class CreatureRenderer : IDisposable
         Color statusTint,
         int groundPaintHeight,
         Color groundTintColor,
-        float alpha = 1f)
+        float alpha = 1f,
+        PumpkinLook? pumpkin = null,
+        int pumpkinPhase = 0)
     {
-        var spriteFrame = GetFrame(spriteId, frameIndex);
+        var spriteFrame = pumpkin is { Lit: true } && (spriteId == PumpkinFaceMap.SPRITE_ID)
+            ? GetPumpkinFrame(spriteId, frameIndex, pumpkin, pumpkinPhase)
+            : GetFrame(spriteId, frameIndex);
 
         if (spriteFrame is null)
             return 0;
@@ -246,6 +257,34 @@ public sealed class CreatureRenderer : IDisposable
         FrameCache[key] = spriteFrame;
 
         return spriteFrame;
+    }
+
+    /// <summary>A lit carving pumpkin's frame with its carving painted in. Falls back to the plain frame where the face map has nothing.</summary>
+    public SpriteFrame? GetPumpkinFrame(int spriteId, int frameIndex, PumpkinLook look, int phase)
+    {
+        var key = (Convert.ToHexString(look.Grid), frameIndex, phase);
+
+        if (PumpkinCache.TryGetValue(key, out var cached))
+            return cached;
+
+        if (GetFrame(spriteId, frameIndex) is not { } plain)
+            return null;
+
+        var map = PumpkinFaceMap.Shared.For(frameIndex);
+
+        if (map.Count == 0)
+            return plain;
+
+        using var scope = new PixelBufferScope(plain.Texture);
+        PumpkinPainter.Paint(scope.AsSpan(), scope.Width, scope.Height, plain.Left, plain.Top, map, look.Grid, phase);
+
+        var texture = new Texture2D(TextureConverter.Device, scope.Width, scope.Height);
+        scope.CommitTo(texture);
+
+        var painted = new SpriteFrame(texture, plain.CenterX, plain.CenterY, plain.Left, plain.Top);
+        PumpkinCache[key] = painted;
+
+        return painted;
     }
 
     

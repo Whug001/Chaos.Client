@@ -14,5 +14,11 @@
         <EmbeddedResource Include="Assets\MirrorScare\*.png">
             <LogicalName>mirrorscare.%(Filename)%(Extension)</LogicalName>
         </EmbeddedResource>
+
+        <!-- Pumpkin Carving face map, written by Unora Tools/PumpkinCarving/make_pumpkin.py with the sprite it matches.
+             Read back by PumpkinFaceMap as "pumpkin.facemap.json". -->
+        <EmbeddedResource Include="Assets\Pumpkin\pumpkinfacemap.json">
+            <LogicalName>pumpkin.facemap.json</LogicalName>
+        </EmbeddedResource>
     </ItemGroup>
 </Project>
