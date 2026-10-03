@@ -6,8 +6,8 @@ using Microsoft.Xna.Framework;
 namespace Chaos.Client.Rendering;
 
 /// <summary>
-///     Lights a pumpkin's carving: each face-map pixel with any cut cell becomes candle glow, brightest in the middle of the
-///     face, with a slight flicker. Works on a plain pixel buffer, so it is tested without a graphics device.
+///     Paints a pumpkin's carving: lit (candle glow, brightest in the middle, with a slight flicker) or not yet lit (dark
+///     holes). Works on a plain pixel buffer, so it is tested without a graphics device.
 /// </summary>
 public static class PumpkinPainter
 {
@@ -28,6 +28,9 @@ public static class PumpkinPainter
             255);
     }
 
+    /// <summary>A carved pixel before the reveal: a dark hole, no candle yet.</summary>
+    public static readonly Color HoleColor = new(58, 24, 8, 255);
+
     /// <summary>
     ///     Paints <paramref name="map" /> into a frame's pixels. The buffer's (0,0) is the frame's (<paramref name="left" />,
     ///     <paramref name="top" />).
@@ -41,6 +44,28 @@ public static class PumpkinPainter
         IReadOnlyList<PumpkinFacePixel> map,
         ReadOnlySpan<byte> grid,
         int phase)
+        => PaintCut(pixels, width, height, left, top, map, grid, glow => GlowColor(glow, phase));
+
+    /// <summary>Paints a carving that is not lit yet: every pixel with a cut cell becomes <see cref="HoleColor" />.</summary>
+    public static void PaintHoles(
+        Span<Color> pixels,
+        int width,
+        int height,
+        int left,
+        int top,
+        IReadOnlyList<PumpkinFacePixel> map,
+        ReadOnlySpan<byte> grid)
+        => PaintCut(pixels, width, height, left, top, map, grid, _ => HoleColor);
+
+    private static void PaintCut(
+        Span<Color> pixels,
+        int width,
+        int height,
+        int left,
+        int top,
+        IReadOnlyList<PumpkinFacePixel> map,
+        ReadOnlySpan<byte> grid,
+        Func<int, Color> colorForGlow)
     {
         foreach (var pixel in map)
         {
@@ -50,7 +75,7 @@ public static class PumpkinPainter
             if (((uint)x >= (uint)width) || ((uint)y >= (uint)height) || !AnyCut(pixel.Cells, grid))
                 continue;
 
-            pixels[(y * width) + x] = GlowColor(pixel.Glow, phase);
+            pixels[(y * width) + x] = colorForGlow(pixel.Glow);
         }
     }
 

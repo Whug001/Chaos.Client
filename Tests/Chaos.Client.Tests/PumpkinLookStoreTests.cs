@@ -7,19 +7,21 @@ namespace Chaos.Client.Tests;
 public class PumpkinLookStoreTests
 {
     [Test]
-    public void Each_look_is_kept_by_id_with_a_new_version()
+    public void Each_look_is_kept_by_id_with_its_state()
     {
         var store = new PumpkinLookStore();
         var grid = PumpkinGrid.Empty();
         PumpkinGrid.SetCut(grid, 2, 3, true);
 
-        var blank = store.Apply(7, lit: false, grid: null);
-        var lit = store.Apply(7, lit: true, grid: grid);
+        var blank = store.Apply(7, PumpkinLookState.Blank, null);
+        var carving = store.Apply(7, PumpkinLookState.Carving, grid);
 
-        store.Get(7).Should().Be(lit);
-        lit.Version.Should().BeGreaterThan(blank.Version);
+        store.Get(7).Should().Be(carving);
+        carving.EntityId.Should().Be(7);
+        carving.State.Should().Be(PumpkinLookState.Carving);
+        carving.Lit.Should().BeFalse();
         PumpkinGrid.CountCut(blank.Grid).Should().Be(0);
-        PumpkinGrid.IsCut(lit.Grid, 2, 3).Should().BeTrue();
+        PumpkinGrid.IsCut(carving.Grid, 2, 3).Should().BeTrue();
         store.Get(8).Should().BeNull();
     }
 
@@ -30,7 +32,7 @@ public class PumpkinLookStoreTests
         var grid = PumpkinGrid.Empty();
         PumpkinGrid.SetCut(grid, 0, 0, true);
 
-        store.Apply(7, lit: true, grid: grid);
+        store.Apply(7, PumpkinLookState.Lit, grid);
         grid[0] = 0;
 
         PumpkinGrid.IsCut(store.Get(7)!.Grid, 0, 0).Should().BeTrue();
@@ -40,8 +42,8 @@ public class PumpkinLookStoreTests
     public void Removal_and_clear_drop_looks()
     {
         var store = new PumpkinLookStore();
-        store.Apply(7, lit: true, grid: PumpkinGrid.Empty());
-        store.Apply(8, lit: true, grid: PumpkinGrid.Empty());
+        store.Apply(7, PumpkinLookState.Lit, PumpkinGrid.Empty());
+        store.Apply(8, PumpkinLookState.Carving, PumpkinGrid.Empty());
 
         store.Remove(7);
 
@@ -57,8 +59,9 @@ public class PumpkinLookStoreTests
     {
         var store = new PumpkinLookStore();
 
-        PumpkinLookStore.LanternFor(store.Apply(7, lit: true, grid: PumpkinGrid.Empty())).Should().Be(LanternSize.Small);
-        PumpkinLookStore.LanternFor(store.Apply(8, lit: false, grid: null)).Should().Be(LanternSize.None);
+        PumpkinLookStore.LanternFor(store.Apply(7, PumpkinLookState.Lit, PumpkinGrid.Empty())).Should().Be(LanternSize.Small);
+        PumpkinLookStore.LanternFor(store.Apply(8, PumpkinLookState.Carving, PumpkinGrid.Empty())).Should().Be(LanternSize.None);
+        PumpkinLookStore.LanternFor(store.Apply(9, PumpkinLookState.Blank, null)).Should().Be(LanternSize.None);
         PumpkinLookStore.LanternFor(null).Should().Be(LanternSize.None);
     }
 }

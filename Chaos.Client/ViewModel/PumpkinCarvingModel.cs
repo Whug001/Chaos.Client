@@ -18,6 +18,9 @@ public sealed class PumpkinCarvingModel
 {
     private const int MAX_UNDO = 50;
 
+    /// <summary>How often the window saves while the grid has changed, so the audience sees the carving almost live.</summary>
+    public const long SAVE_INTERVAL_MS = 600;
+
     private readonly List<byte[]> RedoSteps = [];
     private readonly List<byte[]> UndoSteps = [];
     private byte[]? StrokeStart;
@@ -102,6 +105,8 @@ public sealed class PumpkinCarvingModel
 
         return Grid.ToArray();
     }
+
+    public bool SaveDue(long nowMs, long lastSendMs) => HasUnsent && ((nowMs - lastSendMs) >= SAVE_INTERVAL_MS);
 
     /// <summary>The grid if it changed since the last send, or null when the server already has it.</summary>
     public byte[]? TakeUnsent() => HasUnsent ? TakeForSend() : null;

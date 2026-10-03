@@ -57,4 +57,19 @@ public class PumpkinPainterTests
         PumpkinPainter.PhaseAt(PumpkinPainter.FLICKER_MS).Should().Be(1);
         PumpkinPainter.PhaseAt(PumpkinPainter.FLICKER_MS * PumpkinPainter.FLICKER_PHASES).Should().Be(0);
     }
+
+    [Test]
+    public void A_carving_shows_cut_pixels_as_dark_holes()
+    {
+        var map = new[] { new PumpkinFacePixel(1, 0, 0, [0, 1]), new PumpkinFacePixel(2, 0, 100, [5]) };
+        var grid = PumpkinGrid.Empty();
+        PumpkinGrid.SetCut(grid, 1, 0, true);
+        var pixels = Enumerable.Repeat(Skin, 4).ToArray();
+
+        PumpkinPainter.PaintHoles(pixels, 4, 1, 0, 0, map, grid);
+
+        pixels[1].Should().Be(new Color(58, 24, 8, 255));
+        pixels[1].Should().Be(PumpkinPainter.HoleColor);
+        pixels[2].Should().Be(Skin);
+    }
 }

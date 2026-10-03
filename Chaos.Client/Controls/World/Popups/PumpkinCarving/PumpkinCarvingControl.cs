@@ -18,7 +18,7 @@ namespace Chaos.Client.Controls.World.Popups.PumpkinCarving;
 /// <summary>
 ///     The Pumpkin Carving window (spec: docs/superpowers/specs/2026-10-03-pumpkin-carving-design.md, 5.1): the 22 × 14
 ///     grid, knife, eraser, mirror, undo, redo and clear, a lit preview of the pumpkin and the time left. Saves to the
-///     server every few seconds while changed; Done and Close send a closing save. Opened by the server's
+///     server every 600 ms while changed, so everyone watches the carving live; Done and Close send a closing save. Opened by the server's
 ///     PumpkinCarvingDisplay Open.
 /// </summary>
 /// <remarks>Layout: title; the canvas with the preview and timer on its right; two rows of three tools; a status line; Done.</remarks>
@@ -29,8 +29,7 @@ public sealed class PumpkinCarvingControl : GuildCloakDialogBase
     private const int CANVAS_WIDTH = PumpkinGrid.WIDTH * ZOOM;
     private const int CONTENT_TOP = 32;
     private const int DONE_WIDTH = 64;
-    private const long FAST_SAVE_MS = 1_100;
-    private const int FAST_SAVE_SECONDS = 10;
+
     private const int GAP = 8;
     private const int LEFT = 20;
     //mirrors the server's PumpkinCarving.MIN_CUT_CELLS
@@ -38,7 +37,7 @@ public sealed class PumpkinCarvingControl : GuildCloakDialogBase
     private const int OK_BOTTOM_MARGIN = 3;
     private const int OK_RIGHT_MARGIN = 20;
     private const int PREVIEW_SIZE = 88;
-    private const long SAVE_MS = 3_000;
+
     private const int TITLE_TOP = 10;
     private const int TOOL_SPACING = 3;
     private const int TOOL_WIDTH = (CANVAS_WIDTH - (2 * TOOL_SPACING)) / 3;
@@ -201,10 +200,7 @@ public sealed class PumpkinCarvingControl : GuildCloakDialogBase
             RefreshControls();
         }
 
-        //near the end, save faster so little is lost when time runs out
-        var interval = secondsLeft <= FAST_SAVE_SECONDS ? FAST_SAVE_MS : SAVE_MS;
-
-        if (Model.HasUnsent && ((now - LastSendMs) >= interval))
+        if (Model.SaveDue(now, LastSendMs))
             Send(closing: false);
     }
 

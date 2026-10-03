@@ -80,7 +80,7 @@ Centralized in `Directory.Build.props`: C# 14, net10.0, nullable enabled, implic
 - **`FontAtlas`** -- Font glyph atlas management.
 - **`CreatureRenderer`/`AislingRenderer`/`EffectRenderer`/`ItemRenderer`** -- Per-frame texture caches. `Clear()` on map change.
 - **`GuildCloakPainter`/`GuildCloakGrid`/`GuildCloakReferences`/`GuildCloakDesignStore`** -- Guild cloak painting: `GuildCloakPainter` paints a design onto one sprite frame from `GuildCloakReferences`' reference grids via `GuildCloakGrid`'s coordinate mapping; `GuildCloakDesignStore` (on `AislingRenderer.GuildCloaks`) caches designs by id for one session and is cleared on logout.
-- **`PumpkinFaceMap`/`PumpkinPainter`** -- Pumpkin Carving: the embedded face map (which carving cells each pixel of sprite 1455 shows) and the painter that lights carved pixels; `CreatureRenderer.GetPumpkinFrame` caches painted frames per look.
+- **`PumpkinFaceMap`/`PumpkinPainter`/`PumpkinCarvingCache`** -- Pumpkin Carving: the embedded face map (which carving cells each pixel of sprite 1455 shows) and the painter, which lights carved pixels (Lit look) or shows them as dark holes (Carving look, while players carve). `CreatureRenderer.GetPumpkinFrame` caches lit frames by carving; `GetCarvingFrame` keeps only each pumpkin's latest carving image in `PumpkinCarvingCache`.
 - **`Controls/World/Emblems/GuildEmblemTextures`** -- Guild emblems by id (server ids positive, local drafts negative) and their 11 × 11 textures; `EmblemIcon.GuildEmblemId` draws from it. Cleared on logout.
 - **`LegendColors`** -- Named color constants for UI text. Initialized at startup.
 - **`LightSource`** -- Light source model for darkness system.

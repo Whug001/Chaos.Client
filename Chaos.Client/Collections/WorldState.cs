@@ -808,9 +808,9 @@ public static class WorldState
     }
 
     /// <summary>Records a pumpkin's look and gives a lit pumpkin its light.</summary>
-    public static void ApplyPumpkinLook(uint entityId, bool lit, byte[]? grid)
+    public static void ApplyPumpkinLook(uint entityId, PumpkinLookState state, byte[]? grid)
     {
-        var look = PumpkinLooks.Apply(entityId, lit, grid);
+        var look = PumpkinLooks.Apply(entityId, state, grid);
 
         if (Entities.TryGetValue(entityId, out var entity))
             entity.LanternSize = PumpkinLookStore.LanternFor(look);

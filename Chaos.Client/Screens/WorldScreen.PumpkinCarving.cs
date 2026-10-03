@@ -33,8 +33,7 @@ public sealed partial class WorldScreen
             PumpkinWindow.OnServerClose();
     }
 
-    private static void HandlePumpkinLook(PumpkinLookArgs args)
-        => WorldState.ApplyPumpkinLook(args.EntityId, args.State == PumpkinLookState.Lit, args.Grid);
+    private static void HandlePumpkinLook(PumpkinLookArgs args) => WorldState.ApplyPumpkinLook(args.EntityId, args.State, args.Grid);
 
     private void UnwirePumpkinCarving()
     {
