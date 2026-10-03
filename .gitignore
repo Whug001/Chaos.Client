@@ -412,3 +412,6 @@ docs
 /.idea/.idea.Chaos.Client/.idea/workspace.xml
 *.stackdump
 docs/
+
+# Each developer points DA_PATH at their own game files
+Chaos.Client/Properties/launchSettings.json
