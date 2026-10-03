@@ -46,8 +46,6 @@ public static class MirrorMath
     public const int SCARE_ONE_IN = 6;
 
     public const double SCARE_COOLDOWN_SECONDS = 60;
-    public const int SCARE_FRAMES = 4;
-    public const double SCARE_FRAME_SECONDS = 0.1;
 
     public const int ENDLESS_COPIES = 4;
     public const float ENDLESS_STEP_TILES = 0.9f;
@@ -199,20 +197,10 @@ public static class MirrorMath
         return Mix(clock.Hash, clock.Slot) % SCARE_ONE_IN == 0;
     }
 
-    /// <summary>True during the 3 s slip of a scare slot: the moment the face may lunge.</summary>
+    /// <summary>True during the 3 s slip of a scare slot: the moment the glass may shatter.</summary>
     public static bool InScareWindow(string segmentId, double unixSeconds)
         => IsScareSlot(segmentId, unixSeconds) && (HauntedSlipAt(segmentId, unixSeconds).Kind != HauntedSlip.None);
 
-    /// <summary>Which of the four scare frames <paramref name="secondsInto" /> shows, or -1 when the scare is over.</summary>
-    public static int ScareFrame(double secondsInto)
-    {
-        if (secondsInto < 0)
-            return -1;
-
-        var frame = (int)(secondsInto / SCARE_FRAME_SECONDS);
-
-        return frame < SCARE_FRAMES ? frame : -1;
-    }
 
     private readonly record struct HauntedClock(uint Hash, long Slot, double Into);
 

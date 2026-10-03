@@ -37,12 +37,14 @@ public sealed partial class WorldScreen
     private readonly EntityTrail MirrorTrail = new();
     private readonly List<int> VisibleMirrorSegments = [];
     private MirrorRenderer MirrorRenderer = null!;
-    private MirrorScareFrames? ScareFrames;
+    private MirrorScareRenderer? ScareRenderer;
     private string? ScareSegmentId;
     private long ScareSlot = long.MinValue;
     private double ScareStartedAt = double.NaN;
     private double ScareCooldownUntil;
-    private int ScareFrameIndex = -1;
+    private double ScareSecondsInto;
+    private ScareCreature ScareCreature;
+    private bool ScareCapturePending;
     private int ScareSoundId;
 
     private void WireMirrors()
@@ -135,20 +137,16 @@ public sealed partial class WorldScreen
 
         if (!double.IsNaN(ScareStartedAt))
         {
-            var frame = MirrorMath.ScareFrame(seconds - ScareStartedAt);
+            ScareSecondsInto = seconds - ScareStartedAt;
             var left = (player is null) || (ScareSegmentId is null) || !PlayerInFrontOf(ScareSegmentId, player);
 
-            //the legend stinger outlasts the four frames, so it keeps playing when the face ends. leaving the
+            //the legend stinger outlasts the shatter, so it keeps playing when the picture ends. leaving the
             //mirror, or a map change, cuts it off.
-            if (left || (frame < 0))
+            if (left || (MirrorScareTimeline.PhaseAt(ScareSecondsInto) == ScarePhase.Done))
                 EndScare(stopSound: left);
-            else
-                ScareFrameIndex = frame;
 
             return;
         }
-
-        ScareFrameIndex = -1;
 
         if ((player is null) || (seconds < ScareCooldownUntil))
             return;
@@ -168,8 +166,10 @@ public sealed partial class WorldScreen
             ScareSegmentId = segment.Id;
             ScareSlot = slot;
             ScareStartedAt = seconds;
+            ScareSecondsInto = 0;
             ScareCooldownUntil = seconds + MirrorMath.SCARE_COOLDOWN_SECONDS;
-            ScareFrameIndex = 0;
+            ScareCreature = (ScareCreature)Random.Shared.Next(MirrorScareTimeline.CreatureCount);
+            ScareCapturePending = true;
             ScareSoundId = MirrorScareSound.Pick(Random.Shared);
             Game.SoundSystem.PlaySound(ScareSoundId);
 
@@ -193,16 +193,36 @@ public sealed partial class WorldScreen
 
         ScareSoundId = 0;
         ScareStartedAt = double.NaN;
-        ScareFrameIndex = -1;
+        ScareCapturePending = false;
+        ScareRenderer?.End();
     }
 
     /// <summary>The scare face, on top of the world and the HUD. Absent when no scare is playing.</summary>
     private void DrawMirrorScare(SpriteBatch spriteBatch)
     {
-        if ((ScareFrameIndex < 0) || ScareFrames is null)
+        if (ScareRenderer is { IsActive: true })
+            ScareRenderer.Draw(spriteBatch, Device.Viewport.Bounds, ScareSecondsInto, Random.Shared);
+    }
+
+    /// <summary>
+    ///     Right after the frame a scare starts on is drawn, copies it from the bound render target for the shatter to
+    ///     break apart. Called after the last sprite batch ends, so the copy holds the whole screen, HUD included.
+    /// </summary>
+    private void CaptureMirrorScareFrame()
+    {
+        if (!ScareCapturePending || ScareRenderer is null)
             return;
 
-        spriteBatch.Draw(ScareFrames[ScareFrameIndex], Device.Viewport.Bounds, Color.White);
+        ScareCapturePending = false;
+
+        var bindings = Device.GetRenderTargets();
+
+        if ((bindings.Length == 0) || bindings[0].RenderTarget is not RenderTarget2D target)
+            return;
+
+        var pixels = new Color[target.Width * target.Height];
+        target.GetData(pixels);
+        ScareRenderer.Begin(pixels, target.Width, target.Height, ScareCreature, Random.Shared.Next());
     }
 
     private void CollectVisibleMirrorSegments()

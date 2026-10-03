@@ -365,7 +365,7 @@ public sealed partial class WorldScreen : IScreen
         TabMapRenderer = new TabMapRenderer();
         SilhouetteRenderer = new SilhouetteRenderer(graphicsDevice);
         MirrorRenderer = new MirrorRenderer(graphicsDevice);
-        ScareFrames = new MirrorScareFrames(graphicsDevice);
+        ScareRenderer = new MirrorScareRenderer(graphicsDevice);
         DarknessRenderer = new DarknessRenderer(graphicsDevice);
         WeatherRenderer = new WeatherRenderer();
         AmbientEffects = new AmbientEffects();
@@ -1144,7 +1144,7 @@ public sealed partial class WorldScreen : IScreen
         SpotlightRenderer.Dispose();
         SilhouetteRenderer.Dispose();
         MirrorRenderer.Dispose();
-        ScareFrames?.Dispose();
+        ScareRenderer?.Dispose();
         Root?.Dispose();
         SongBar?.Dispose();
         ClassResourceBar?.Dispose();
