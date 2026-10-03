@@ -203,6 +203,9 @@ public static class WorldState
     /// </summary>
     public static Dictionary<uint, int> GuildCloakLooks { get; } = [];
 
+    /// <summary>Pumpkin Carving looks by entity id; see <see cref="PumpkinLookStore" />.</summary>
+    public static PumpkinLookStore PumpkinLooks { get; } = new();
+
     /// <summary>
     ///     Authoritative beauty shop state (catalog, prices, current look, and the look being tried on).
     /// </summary>
@@ -342,6 +345,7 @@ public static class WorldState
                     entity.CreatureType = creature.CreatureType;
                     entity.Direction = creature.Direction;
                     entity.Name = creature.Name ?? string.Empty;
+                    entity.LanternSize = PumpkinLookStore.LanternFor(PumpkinLooks.Get(obj.Id));
 
                     break;
 
@@ -400,6 +404,7 @@ public static class WorldState
     {
         Entities.Clear();
         GuildCloakLooks.Clear();
+        PumpkinLooks.Clear();
         ActiveEffects.Clear();
         ActiveProjectiles.Clear();
 
@@ -786,6 +791,7 @@ public static class WorldState
     {
         Entities.Remove(id);
         GuildCloakLooks.Remove(id);
+        PumpkinLooks.Remove(id);
         SortVersion++;
     }
 
@@ -799,6 +805,15 @@ public static class WorldState
             && entity.Appearance is { } appearance
             && (appearance.GuildCloakDesignId != designId))
             entity.Appearance = appearance with { GuildCloakDesignId = designId };
+    }
+
+    /// <summary>Records a pumpkin's look and gives a lit pumpkin its light.</summary>
+    public static void ApplyPumpkinLook(uint entityId, bool lit, byte[]? grid)
+    {
+        var look = PumpkinLooks.Apply(entityId, lit, grid);
+
+        if (Entities.TryGetValue(entityId, out var entity))
+            entity.LanternSize = PumpkinLookStore.LanternFor(look);
     }
 
     /// <summary>

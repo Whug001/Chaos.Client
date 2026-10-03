@@ -320,3 +320,29 @@ section wins.
     idle animation; the client adds a 4-phase candle flicker.
 11. **Texts.** The start message is "Pumpkin Carving! Step up to a pumpkin." (the longer one did not fit the 45-character
     orange bar). The reveal message is "The pumpkins are lit! Click your favorite."
+
+## 11. As built (2026-10-03)
+
+Where this section and the sections above differ, this section wins.
+
+1. **Face map includes the outline.** Pixels on the pumpkin's dark outline carry face cells too, so a cut at the rim
+   breaks through the outline. Without them the front frame showed only 303 of 308 cells.
+2. **Saves.** The server accepts one periodic save every 500 ms (not 1 s) and one closing save per second per carver.
+   The client's 1.1 s end-of-round saves no longer get dropped by network jitter. Close always sends a closing save,
+   like Done.
+3. **Painted frames are cached by carving content** (the grid bytes, the frame and the flicker phase), not by a look
+   counter. A same-map refresh (the theatre's darkness flips refresh everyone) resends looks without growing the cache.
+4. **A removed pumpkin's claim tile says nothing**, instead of "That pumpkin is taken."
+5. **The carving preview** reads the plain sprite's pixels once and repaints a copy.
+6. **pack_pumpkin.cs** patches a temporary copy and only moves it to `hades.dat` after re-reading it; any failure
+   cleans the release folder. The manifest says to confirm the base `hades.dat` matches the live client's.
+   Do not pass the live client folder as the output folder: the cleanup would delete its `hades.dat`.
+7. **The client solution file** names the `Chaos-Server` submodule's project paths directly, so in a worktree build
+   `Chaos.Client/Chaos.Client.csproj` and the test project with `-p:UnoraServerPath=…` instead.
+8. **`Client_version_is_766` became `Client_version_is_767`** (Tests/Chaos.Tests/Networking/GuildEmblemPacketConverterTests.cs).
+9. **Time up waits for the last saves (audit fix).** At the carving deadline the server closes every carving window
+   and refuses new claims and reopens. The reveal comes `FINAL_SAVE_MS` (2 s) later, and saves still count until then.
+   On the server's close, the client sends any strokes not yet saved as a closing save. "End the carving now" works
+   the same way: windows close at once, and the reveal follows 2 s later.
+10. **A director who carves** gets their own carving window back when they click their pumpkin during carving, instead
+    of the director's menu (audit fix).

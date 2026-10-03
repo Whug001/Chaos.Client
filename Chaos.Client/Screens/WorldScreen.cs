@@ -856,6 +856,8 @@ public sealed partial class WorldScreen : IScreen
         };
         WireFishing();
 
+        CreatePumpkinCarving();
+
         //zindex=-1, same tier as the HUD: added after SmallHud/LargeHud/SystemMessagePane above, so it draws over
         //them, but every dialog and popup below (NpcSession, HotkeyHelp, GroupPanel, GroupVitals, etc.) defaults to
         //ZIndex 0 or higher and so still draws on top of it.
@@ -968,6 +970,7 @@ public sealed partial class WorldScreen : IScreen
         Root.AddChild(Spindle);
         Root.AddChild(LockpickWindow);
         Root.AddChild(FishingWindow);
+        Root.AddChild(PumpkinWindow);
         Root.AddChild(QuestLogWindow);
         Root.AddChild(Poker);
         Root.AddChild(BeautyShop);
@@ -1109,6 +1112,7 @@ public sealed partial class WorldScreen : IScreen
         Game.Connection.OnWheelDisplay -= HandleWheelDisplay;
         Game.Connection.OnLockpickDisplay -= HandleLockpickDisplay;
         Game.Connection.OnFishingDisplay -= HandleFishingDisplay;
+        UnwirePumpkinCarving();
         Game.Connection.OnQuestLogDisplay -= HandleQuestLogDisplay;
         Game.Connection.OnHotkeyHelpOpen -= HandleHotkeyHelpOpen;
         Game.Connection.OnPokerTableDisplay -= HandlePokerTableDisplay;

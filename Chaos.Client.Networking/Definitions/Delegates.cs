@@ -410,6 +410,16 @@ public delegate void LockpickDisplayHandler(LockpickDisplayArgs args);
 public delegate void FishingDisplayHandler(FishingDisplayArgs args);
 
 /// <summary>
+///     Fired when a Pumpkin Carving window display packet is received.
+/// </summary>
+public delegate void PumpkinCarvingDisplayHandler(PumpkinCarvingDisplayArgs args);
+
+/// <summary>
+///     Fired when a Pumpkin Carving pumpkin look is received.
+/// </summary>
+public delegate void PumpkinLookHandler(PumpkinLookArgs args);
+
+/// <summary>
 ///     Fired when the quest log list is received.
 /// </summary>
 public delegate void QuestLogDisplayHandler(QuestLogDisplayArgs args);
