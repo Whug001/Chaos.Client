@@ -181,6 +181,15 @@ public sealed class WorldEntity
     public string Name { get; set; } = string.Empty;
     public NameTagStyle NameTagStyle { get; set; }
     public RestPosition RestPosition { get; set; }
+
+    /// <summary>What this aisling's body is doing with a fishing pole, from the server's FishingDisplay Pose.</summary>
+    public FishingPose FishingPose { get; set; }
+
+    /// <summary>The pose before <see cref="FishingPose" />, so a change of reel button can play its in-between frame.</summary>
+    public FishingPose PreviousFishingPose { get; set; }
+
+    /// <summary><see cref="Environment.TickCount64" /> when <see cref="FishingPose" /> began.</summary>
+    public long FishingPoseStartedMs { get; set; }
     public ushort SpriteId { get; set; }
 
     /// <summary>
