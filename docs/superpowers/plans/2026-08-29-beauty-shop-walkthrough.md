@@ -106,3 +106,17 @@ Spec: `docs/superpowers/specs/2026-10-04-beauty-shop-guide-design.md`. In-game c
 | G11 | Apply with a gender change | Reshape confirm appears; OK applies, window closes, orange bar message | PENDING (user) | |
 | G12 | Press Left/Right keys, then Escape, then reopen | Keys do not turn pages; Escape closes with no charge; reopening starts on GENDER | PENDING (user) | |
 | G13 | Change hair, go to Face, then double-click "Review >" | Lands on Review; nothing is bought; a later single APPLY click works | PENDING (user) | |
+
+## Map backdrops (2026-10-04)
+
+Spec: `docs/superpowers/specs/2026-10-04-mirror-backdrops-design.md`. In-game checks for the user; build the client from `feat/mirror-backdrops`.
+
+| # | Check | Expected | Result | Notes |
+|---|-------|----------|--------|-------|
+| B1 | Open the mirror | Under Show gear / Randomize: gray "Backdrop", gold "Plain", and a row of six cells; Plain (an empty dark cell) has the gold border | PENDING (user) | |
+| B2 | Click Mileth, then each other place | The place appears behind the figure with the feet on open ground; the pedestal's recessed rim still shows round the picture; the gold name follows the click | PENDING (user) | |
+| B3 | Point at each cell, then move off the row | The preview and the name try each place on; moving off returns to the chosen one; the total and "No changes yet" do not change | PENDING (user) | |
+| B4 | Press 2x/1x with a place chosen | The backdrop scales with the figure; the feet stay on the same spot | PENDING (user) | |
+| B5 | Show gear on at 2x with your tallest gear | If the figure drops to 1x to fit, the backdrop drops with it | PENDING (user) | |
+| B6 | Go to Review | NOW and NEW both stand on the chosen place; rotate and Show gear still work | PENDING (user) | |
+| B7 | Close the mirror and reopen it; then restart the client and open it again | Reopening keeps the place; after a restart it starts as Plain | PENDING (user) | |

@@ -54,7 +54,14 @@ public sealed class ReviewPage : MirrorPageView
     /// <summary>The server's refusal of the last Apply, in red under the receipt. Empty shows nothing.</summary>
     public string Status { get; set; } = string.Empty;
 
-    public ReviewPage(MirrorActions actions, AislingRenderer renderer, Action<int> rotate, Action toggleGear, int width, int height)
+    public ReviewPage(
+        MirrorActions actions,
+        AislingRenderer renderer,
+        MirrorBackdropCache backdrops,
+        Action<int> rotate,
+        Action toggleGear,
+        int width,
+        int height)
         : base(actions, width, height)
     {
         var title = MirrorPages.Title(MirrorPage.Review);
@@ -75,9 +82,9 @@ public sealed class ReviewPage : MirrorPageView
         AddLabel(FIGURE_WIDTH, FIGURE_TOP + ((FIGURE_HEIGHT - TextRenderer.CHAR_HEIGHT) / 2), newLeft - FIGURE_WIDTH, LegendColors.Gold, HorizontalAlignment.Center)
             .Text = ">";
 
-        NowFigure = new MirrorPreview(renderer, FIGURE_WIDTH, FIGURE_HEIGHT) { X = 0, Y = FIGURE_TOP, Zoomed = false };
+        NowFigure = new MirrorPreview(renderer, backdrops, FIGURE_WIDTH, FIGURE_HEIGHT) { X = 0, Y = FIGURE_TOP, Zoomed = false };
         AddChild(NowFigure);
-        NewFigure = new MirrorPreview(renderer, FIGURE_WIDTH, FIGURE_HEIGHT) { X = newLeft, Y = FIGURE_TOP, Zoomed = false };
+        NewFigure = new MirrorPreview(renderer, backdrops, FIGURE_WIDTH, FIGURE_HEIGHT) { X = newLeft, Y = FIGURE_TOP, Zoomed = false };
         AddChild(NewFigure);
 
         var rotateLeft = new CustomButton("<", ROTATE_BUTTON_WIDTH) { X = 0, Y = CONTROLS_TOP };
@@ -113,12 +120,14 @@ public sealed class ReviewPage : MirrorPageView
         StatusLabel = AddLabel(0, totalTop + (3 * ROW_HEIGHT), width, LegendColors.Red, HorizontalAlignment.Center);
     }
 
-    /// <summary>The shell's facing and Show gear state, which both figures follow. Call before <see cref="Refresh" />.</summary>
-    public void SetView(int facingIndex, bool showGear)
+    /// <summary>The shell's facing, Show gear and backdrop, which both figures follow. Call before <see cref="Refresh" />.</summary>
+    public void SetView(int facingIndex, bool showGear, MirrorBackdrop backdrop)
     {
         FacingIndex = facingIndex;
         ShowGear = showGear;
         GearToggle.Checked = showGear;
+        NowFigure.Backdrop = backdrop;
+        NewFigure.Backdrop = backdrop;
     }
 
     public override void Refresh()

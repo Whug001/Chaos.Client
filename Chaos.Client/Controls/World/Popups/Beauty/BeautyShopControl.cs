@@ -40,6 +40,13 @@ public sealed class BeautyShopControl : FramedDialogPanelBase
     private const int ZOOM_BUTTON_WIDTH = 60;
     private const int RANDOMIZE_BUTTON_WIDTH = 100;
 
+    //backdrop picker: a caption and one row of pictures between the Show gear row and the footer total
+    private const int BACKDROP_CAPTION_TOP = PREVIEW_CONTROLS_TOP + (2 * (CustomButton.HEIGHT + 6));
+    private const int BACKDROP_CAPTION_WIDTH = 10 * TextRenderer.CHAR_WIDTH;
+    private const int BACKDROP_PICKER_TOP = BACKDROP_CAPTION_TOP + TextRenderer.CHAR_HEIGHT;
+    private const int BACKDROP_CELL = 28;
+    private const int BACKDROP_GAP = 4;
+
     //page column
     private const int PAGE_LEFT = PREVIEW_LEFT + PREVIEW_WIDTH + 12;
     private const int PAGE_WIDTH = PANEL_WIDTH - PAGE_LEFT - 20;
@@ -67,10 +74,13 @@ public sealed class BeautyShopControl : FramedDialogPanelBase
     private const int APPLY_ARM_MS = 600;
 
     private readonly HeadThumbnailRenderer Thumbnails;
+    private readonly MirrorBackdropCache Backdrops;
     private readonly UIPanel PreviewColumn;
     private readonly MirrorPreview Preview;
     private readonly CustomCheckBox GearToggle;
     private readonly CustomButton ZoomButton;
+    private readonly UILabel BackdropName;
+    private readonly ThumbnailGrid<MirrorBackdrop> BackdropPicker;
     private readonly UILabel TitleLabel;
     private readonly UILabel PageNumberLabel;
     private readonly UILabel InstructionLabel;
@@ -87,6 +97,10 @@ public sealed class BeautyShopControl : FramedDialogPanelBase
     private bool ShowGear;
     private bool Zoomed = true;
     private long ReviewShownAt;
+
+    //static so the choice outlives the window -- closing and reopening it, even logging out; it is not saved to settings
+    private static MirrorBackdrop ChosenBackdrop = MirrorBackdrop.Plain;
+    private MirrorBackdrop? HoveredBackdrop;
 
     /// <summary>The player closed the panel (button or Escape). Fires once per hide.</summary>
     public event Action? Closed;
@@ -108,6 +122,7 @@ public sealed class BeautyShopControl : FramedDialogPanelBase
         Y = TOP_MARGIN;
 
         Thumbnails = new HeadThumbnailRenderer(renderer);
+        Backdrops = new MirrorBackdropCache();
 
         OkButton = CreateCloseButton(RequestDismissal, OK_RIGHT_MARGIN, OK_BOTTOM_MARGIN);
 
@@ -126,7 +141,7 @@ public sealed class BeautyShopControl : FramedDialogPanelBase
         previewCaption.Text = "PREVIEW";
         PreviewColumn.AddChild(previewCaption);
 
-        Preview = new MirrorPreview(renderer, PREVIEW_WIDTH, PEDESTAL_HEIGHT) { X = PREVIEW_LEFT, Y = PEDESTAL_TOP };
+        Preview = new MirrorPreview(renderer, Backdrops, PREVIEW_WIDTH, PEDESTAL_HEIGHT) { X = PREVIEW_LEFT, Y = PEDESTAL_TOP };
         PreviewColumn.AddChild(Preview);
 
         var rotateLeft = new CustomButton("<", ROTATE_BUTTON_WIDTH) { X = PREVIEW_LEFT, Y = PREVIEW_CONTROLS_TOP };
@@ -166,6 +181,27 @@ public sealed class BeautyShopControl : FramedDialogPanelBase
         randomizeButton.Clicked += () => Select(v => v.Randomize());
         PreviewColumn.AddChild(randomizeButton);
 
+        var backdropCaption = NewLabel(PREVIEW_LEFT, BACKDROP_CAPTION_TOP, BACKDROP_CAPTION_WIDTH, LegendColors.Gray);
+        backdropCaption.Text = "Backdrop";
+        PreviewColumn.AddChild(backdropCaption);
+
+        BackdropName = NewLabel(
+            PREVIEW_LEFT + BACKDROP_CAPTION_WIDTH,
+            BACKDROP_CAPTION_TOP,
+            PREVIEW_WIDTH - BACKDROP_CAPTION_WIDTH,
+            LegendColors.Gold);
+        PreviewColumn.AddChild(BackdropName);
+
+        BackdropPicker = new ThumbnailGrid<MirrorBackdrop>(MirrorBackdrops.All.Count, 1, BACKDROP_GAP, BACKDROP_GAP, BACKDROP_CELL, arrows: false)
+        {
+            X = PREVIEW_LEFT,
+            Y = BACKDROP_PICKER_TOP
+        };
+        BackdropPicker.Hovered += place => HoverBackdrop(place);
+        BackdropPicker.HoverCleared += () => HoverBackdrop(null);
+        BackdropPicker.Selected += ChooseBackdrop;
+        PreviewColumn.AddChild(BackdropPicker);
+
         //── page heading (pages 1-4; Review draws its own) ──
         TitleLabel = NewLabel(PAGE_LEFT, HEADER_TOP, PAGE_WIDTH, LegendColors.Gold);
         AddChild(TitleLabel);
@@ -176,7 +212,7 @@ public sealed class BeautyShopControl : FramedDialogPanelBase
 
         //── pages, in MirrorPage order ──
         var actions = new MirrorActions(Select, Hover, Thumbnails);
-        Review = new ReviewPage(actions, renderer, Rotate, ToggleGear, REVIEW_WIDTH, REVIEW_HEIGHT) { X = REVIEW_LEFT, Y = REVIEW_TOP };
+        Review = new ReviewPage(actions, renderer, Backdrops, Rotate, ToggleGear, REVIEW_WIDTH, REVIEW_HEIGHT) { X = REVIEW_LEFT, Y = REVIEW_TOP };
 
         Pages =
         [
@@ -247,12 +283,13 @@ public sealed class BeautyShopControl : FramedDialogPanelBase
             IsHitTestVisible = false
         };
 
-    /// <summary>Repaints the preview, the heading, the visible page and the footer from the view model.</summary>
+    /// <summary>Repaints the preview, the backdrop picker, the heading, the visible page and the footer from the view model.</summary>
     public void Refresh()
     {
         RefreshPreview();
+        RefreshBackdrop();
         RefreshHeading();
-        Review.SetView(FacingIndex, ShowGear);
+        Review.SetView(FacingIndex, ShowGear, ChosenBackdrop);
         Pages[(int)CurrentPage].Refresh();
         RefreshFooter();
     }
@@ -283,6 +320,7 @@ public sealed class BeautyShopControl : FramedDialogPanelBase
         Preview.Release();
         Review.Release();
         Thumbnails.Clear();
+        Backdrops.Clear();
     }
 
     public override void OnKeyDown(KeyDownEvent e)
@@ -318,6 +356,7 @@ public sealed class BeautyShopControl : FramedDialogPanelBase
             ConfirmDialog.Hide();
 
         WorldState.BeautyShop.ClearHover();
+        HoveredBackdrop = null;
         CurrentPage = page;
 
         for (var i = 0; i < Pages.Length; i++)
@@ -355,6 +394,37 @@ public sealed class BeautyShopControl : FramedDialogPanelBase
         ShowGear = !ShowGear;
         GearToggle.Checked = ShowGear;
         Refresh();
+    }
+
+    /// <summary>
+    ///     Pointing at a backdrop tries it on. Backdrops are UI-only: they skip the view model, the confirm dialog, the
+    ///     money and the review status.
+    /// </summary>
+    private void HoverBackdrop(MirrorBackdrop? place)
+    {
+        //InputDispatcher doesn't forget a hovered element across Hide(); ignore any late callback from it
+        if (!Visible)
+            return;
+
+        HoveredBackdrop = place;
+        RefreshBackdrop();
+    }
+
+    private void ChooseBackdrop(MirrorBackdrop place)
+    {
+        if (!Visible)
+            return;
+
+        ChosenBackdrop = place;
+        RefreshBackdrop();
+    }
+
+    private void RefreshBackdrop()
+    {
+        var shown = HoveredBackdrop ?? ChosenBackdrop;
+        Preview.Backdrop = shown;
+        BackdropName.Text = MirrorBackdrops.Name(shown);
+        BackdropPicker.SetItems(MirrorBackdrops.All, ChosenBackdrop, 1, Backdrops.Thumbnail);
     }
 
     private void RefreshPreview()
@@ -468,6 +538,7 @@ public sealed class BeautyShopControl : FramedDialogPanelBase
     public override void Dispose()
     {
         Thumbnails.Dispose();
+        Backdrops.Dispose();
         base.Dispose();
     }
 }
