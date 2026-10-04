@@ -58,7 +58,8 @@ public sealed class TowerLeaderboardRow : UIPanel
             {
                 X = slotLeft + ((SLOT_WIDTH - FIGURE_WIDTH) / 2),
                 Y = FIGURE_TOP,
-                Visible = false
+                Visible = false,
+                Standing = true
             };
 
             AddChild(preview);

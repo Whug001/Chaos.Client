@@ -64,6 +64,9 @@ public sealed class GuildCloakPreview : UIElement
     public bool IsMale => BodyGender == Gender.Male;
     public bool Paused => Cycle.Paused;
 
+    /// <summary>Draws the standing pose and never walks; the tower season board shows many figures at once.</summary>
+    public bool Standing { get; init; }
+
     public override void Dispose()
     {
         ReleaseFrames();
@@ -160,7 +163,7 @@ public sealed class GuildCloakPreview : UIElement
     {
         base.Update(gameTime);
 
-        if (!Visible)
+        if (!Visible || Standing)
             return;
 
         Cycle.Advance(gameTime.ElapsedGameTime.TotalMilliseconds);
@@ -170,8 +173,11 @@ public sealed class GuildCloakPreview : UIElement
     {
         (var frame, var flip, var isFront) = Facings[Facing];
 
+        if (!Standing)
+            frame += FIRST_WALK_FRAME + step;
+
         if (Look is { } custom)
-            return Renderer.Render(in custom, frame + FIRST_WALK_FRAME + step, AislingRenderer.WALK_ANIM, flip, isFront);
+            return Renderer.Render(in custom, frame, AislingRenderer.WALK_ANIM, flip, isFront);
 
         var appearance = new AislingAppearance
         {
@@ -182,6 +188,6 @@ public sealed class GuildCloakPreview : UIElement
             GuildCloakDesignId = DesignId
         };
 
-        return Renderer.Render(in appearance, frame + FIRST_WALK_FRAME + step, AislingRenderer.WALK_ANIM, flip, isFront);
+        return Renderer.Render(in appearance, frame, AislingRenderer.WALK_ANIM, flip, isFront);
     }
 }
