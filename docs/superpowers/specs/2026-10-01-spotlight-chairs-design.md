@@ -6,7 +6,7 @@
 
 ## 1. Summary
 
-Spotlight Chairs is a musical-chairs game on the Suomi theatre stage. The director puts people on the stage, then starts it from Thulin. The stage lights are the chairs. Each round turns on one fewer sweeping spotlight than the number of people still in, lets them move, and freezes them. Anyone standing on the tile at the center of a beam stays on the stage. Everyone else is walked off. The last person left wins an announcement, 10 Halloween candy once a day, and a winner's legend mark. Everyone who was on the stage when the game started gets a participation legend mark, and that mark unlocks an emblem.
+Spotlight Chairs is a musical-chairs game on the Suomi theatre stage. The director puts people on the stage, then starts it from Thulin. The stage lights are the chairs. Each round turns on one fewer sweeping spotlight than the number of people still in, lets them move, freezes them, and gives everyone 2 seconds to step into a light. Anyone standing in a stopped beam's pool (the 3x3 tiles around its center) stays on the stage. A song plays while the lights move. Everyone else is walked off. The last person left wins an announcement, 10 Halloween candy once a day, and a winner's legend mark. Everyone who was on the stage when the game started gets a participation legend mark, and that mark unlocks an emblem.
 
 The game runs on the theatre map script both theatres already use. It can only be started on the haunted theatre while the Halloween window is open (Oct 4 06:00 UTC through Nov 4 06:00 UTC).
 
@@ -14,9 +14,11 @@ The game runs on the theatre map script both theatres already use. It can only b
 
 | Question | Decision |
 |---|---|
-| What a chair is | The single tile at the center of a spotlight beam when that light stops. The rest of the pool does not count. |
+| What a chair is | The 3x3 tiles around the center of a spotlight beam when that light stops. That is the whole medium pool as drawn. (Changed 2026-10-04: it was only the center tile, and players standing in the light lost.) |
 | How many chairs | One fewer than the people still in the round. The stage holds at most 8 lights, so the game starts with 2 to 9 people. |
-| Who stays | The first person onto a center tile stays on the stage. An empty center saves nobody. A second person on that tile is out. |
+| Who stays | Each light saves one person in its pool. Pools on neighbouring rows overlap, so the game seats as many people as it can. When two people want the last seat, the one nearer a center wins, then the one who got there first. An empty pool saves nobody. |
+| Time to react | Judging waits 2 seconds after the lights stop, so people can step into a light. (Added 2026-10-04.) |
+| Music | Track 69 plays while the lights move and fades to silence when they stop. The theatre's own music comes back when the game ends or is called off. (Added 2026-10-04.) |
 | Who leaves | Everyone else who was still in is walked off the stage. |
 | Who starts it | A director or an admin, from Thulin's Theatre Options, after the players are already on the stage. |
 | Who is in | Everyone standing on the stage when it starts, including the director if she is up there. |
@@ -80,11 +82,13 @@ The server clock from the moment the light was added is the authority. Clients a
 
 On the first tick at or after the rolled duration, each light becomes Still on the center of its chair tile (`X = tileX * 16`, `Y = tileY * 16`, the unit `StageLightInfo` already uses). The house hears "The lights have stopped." The chairs are the lights sent when the sweep began, even if someone left during it, so every beam a player could see is still a chair.
 
-A participant who is on the stage and standing on a chair tile can claim it. The claim goes to the one who stepped onto that tile earliest. A visit starts when they enter the tile, or at the beginning of the sweep if they were already standing there. An equal entry time goes to the lower aisling id. Everyone else on that tile is out. A chair with nobody on it saves nobody.
+The music fades to silence. Nobody is judged yet. People have 2 seconds (two ticks) to step into a light.
+
+Then each chair saves at most one person standing within one tile of its center, diagonals included. The game seats as many people as it can across overlapping pools. When two people want the last seat, the one nearer a center wins, then the one who entered their tile earliest, then the lower aisling id. A visit starts when they enter the tile, or at the beginning of the sweep if they were already standing there. A chair with nobody in its pool saves nobody.
 
 Anyone in the set who did not claim a chair is out. They are walked off with the same search as jumping off the stage: a spiral of 6, outside the stage rectangle, walkable for that person, with no reactor tile. They get an orange bar, "You missed the light." If that search finds no tile, they stay where they are, get the same orange bar, and are still removed from the set. The next round counts the set, so a person left standing on the stage who is out of the set is ignored.
 
-The lights stay on those tiles for 4 seconds. People still in may walk. The next round then begins at 3.2.
+After judging, the lights stay on those tiles for 4 more seconds. People still in may walk. The next round then begins at 3.2.
 
 ### 3.4 Leaving early
 
