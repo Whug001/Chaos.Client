@@ -59,9 +59,15 @@ public sealed class ReviewPage : MirrorPageView
     {
         var title = MirrorPages.Title(MirrorPage.Review);
         var pageText = $"page {MirrorPages.COUNT} of {MirrorPages.COUNT}";
-        var headingLeft = (width - ((title.Length + 3 + pageText.Length) * TextRenderer.CHAR_WIDTH)) / 2;
-        AddLabel(headingLeft, 0, title.Length * TextRenderer.CHAR_WIDTH, LegendColors.Gold).Text = title;
-        AddLabel(headingLeft + ((title.Length + 3) * TextRenderer.CHAR_WIDTH), 0, pageText.Length * TextRenderer.CHAR_WIDTH, LegendColors.Gray).Text = pageText;
+        var titleWidth = TextRenderer.MeasureWidth(title);
+        var gap = 3 * TextRenderer.CHAR_WIDTH;
+        var headingLeft = (width - (titleWidth + gap + TextRenderer.MeasureWidth(pageText))) / 2;
+        var pageLeft = headingLeft + titleWidth + gap;
+
+        //each label gets room to spare: UILabel pads both sides by a pixel, so a label exactly as wide as its
+        //text cuts it to "..."
+        AddLabel(headingLeft, 0, titleWidth + gap, LegendColors.Gold).Text = title;
+        AddLabel(pageLeft, 0, width - pageLeft, LegendColors.Gray).Text = pageText;
 
         var newLeft = width - FIGURE_WIDTH;
         AddLabel(0, CAPTION_TOP, FIGURE_WIDTH, LegendColors.Gray, HorizontalAlignment.Center).Text = "NOW";
