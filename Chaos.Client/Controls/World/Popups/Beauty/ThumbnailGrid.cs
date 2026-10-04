@@ -11,42 +11,56 @@ using Microsoft.Xna.Framework.Graphics;
 namespace Chaos.Client.Controls.World.Popups.Beauty;
 
 /// <summary>
-///     A single page of picker cells with page arrows. Holds no state of its own beyond the items it was last
-///     given: the panel calls <see cref="SetItems" /> on every refresh and reacts to the events. The page indicator
-///     (e.g. "PAGE 2/17") is a separate label on the strip row, right-aligned with the appearance column.
+///     One page of picker cells laid out row by row, with page arrows on both sides that hide when everything fits on
+///     one page. Holds no state of its own beyond the items it was last given: the page calls <see cref="SetItems" />
+///     on every refresh and reacts to the events.
 /// </summary>
-public sealed class ThumbnailStrip<T> : UIPanel where T : notnull
+public sealed class ThumbnailGrid<T> : UIPanel where T : notnull
 {
     public const int CELL = 32;
     public const int GAP = 3;
-    private const int ARROW_WIDTH = 20;
+    public const int ARROW_WIDTH = 16;
 
     private readonly Cell[] Cells;
     private readonly CustomButton Left;
     private readonly CustomButton Right;
+    private readonly int Columns;
+    private readonly int ColumnPitch;
+    private readonly int RowPitch;
 
     public event Action<T>? Hovered;
     public event Action? HoverCleared;
     public event Action<T>? Selected;
     public event Action<int>? PageStepped;
 
-    public static int WidthFor(int cellCount) => ARROW_WIDTH + GAP + (cellCount * (CELL + GAP)) + ARROW_WIDTH;
+    /// <summary>X of the first cell column inside the grid, after the left arrow.</summary>
+    public int CellLeft => ARROW_WIDTH + GAP;
 
-    public ThumbnailStrip(int cellCount)
+    public static int WidthFor(int columns, int columnGap = GAP) => ARROW_WIDTH + GAP + ((columns * (CELL + columnGap)) - columnGap) + GAP + ARROW_WIDTH;
+
+    public static int HeightFor(int rows, int rowGap = GAP) => (rows * (CELL + rowGap)) - rowGap;
+
+    public ThumbnailGrid(int columns, int rows, int columnGap = GAP, int rowGap = GAP)
     {
         Background = null;
-        Width = WidthFor(cellCount);
-        Height = CELL;
+        Columns = columns;
+        ColumnPitch = CELL + columnGap;
+        RowPitch = CELL + rowGap;
+        Width = WidthFor(columns, columnGap);
+        Height = HeightFor(rows, rowGap);
 
-        Left = new CustomButton("<", ARROW_WIDTH) { X = 0, Y = (CELL - CustomButton.HEIGHT) / 2 };
+        var arrowY = (Height - CustomButton.HEIGHT) / 2;
+
+        Left = new CustomButton("<", ARROW_WIDTH) { X = 0, Y = arrowY };
         Left.Clicked += () => PageStepped?.Invoke(-1);
         AddChild(Left);
 
-        Cells = new Cell[cellCount];
+        Cells = new Cell[columns * rows];
 
-        for (var i = 0; i < cellCount; i++)
+        for (var i = 0; i < Cells.Length; i++)
         {
-            var cell = new Cell { X = ARROW_WIDTH + GAP + (i * (CELL + GAP)), Y = 0, Width = CELL, Height = CELL, Visible = false };
+            var origin = CellOrigin(i);
+            var cell = new Cell { X = origin.X, Y = origin.Y, Width = CELL, Height = CELL, Visible = false };
             cell.Hovered += item => Hovered?.Invoke((T)item);
             cell.HoverCleared += () => HoverCleared?.Invoke();
             cell.Clicked += item => Selected?.Invoke((T)item);
@@ -54,25 +68,28 @@ public sealed class ThumbnailStrip<T> : UIPanel where T : notnull
             AddChild(cell);
         }
 
-        Right = new CustomButton(">", ARROW_WIDTH) { X = ARROW_WIDTH + GAP + (cellCount * (CELL + GAP)), Y = Left.Y };
+        Right = new CustomButton(">", ARROW_WIDTH) { X = Width - ARROW_WIDTH, Y = arrowY };
         Right.Clicked += () => PageStepped?.Invoke(+1);
         AddChild(Right);
     }
 
+    /// <summary>Top-left of cell <paramref name="index" />, relative to the grid.</summary>
+    public Point CellOrigin(int index) => new(CellLeft + ((index % Columns) * ColumnPitch), (index / Columns) * RowPitch);
+
     /// <summary>
     ///     Shows one page. <paramref name="selected" /> is compared with <see cref="object.Equals(object)" />;
-    ///     <paramref name="thumbFor" /> may return null (cell draws its border only).
+    ///     <paramref name="thumbFor" /> may return null (cell draws its border only). The arrows show only when
+    ///     <paramref name="pageCount" /> is more than one.
     /// </summary>
     /// <remarks>
-    ///     There is no "no selection" sentinel for value-type <typeparamref name="T" />: <c>selected is not
-    ///     null</c> is always true when <typeparamref name="T" /> is a non-nullable value type (it can never
-    ///     actually be passed as C# <see langword="null" /> in that case), so a caller cannot signal "nothing is
-    ///     selected" by passing <c>default</c> -- that would just compare equal to whatever item happens to equal
-    ///     <c>default(T)</c>. Callers must always pass a real, currently-selected value (Task 4's
-    ///     <c>BeautyShopControl</c> does; it always has a current selection once the shop is open).
+    ///     There is no "no selection" sentinel for value-type <typeparamref name="T" />: pass a real, currently-selected
+    ///     value -- <c>default</c> would just compare equal to whatever item equals <c>default(T)</c>.
     /// </remarks>
-    public void SetItems(IReadOnlyList<T> items, T? selected, Func<T, Texture2D?> thumbFor)
+    public void SetItems(IReadOnlyList<T> items, T? selected, int pageCount, Func<T, Texture2D?> thumbFor)
     {
+        Left.Visible = pageCount > 1;
+        Right.Visible = pageCount > 1;
+
         for (var i = 0; i < Cells.Length; i++)
         {
             var cell = Cells[i];
@@ -152,7 +169,7 @@ public sealed class ThumbnailStrip<T> : UIPanel where T : notnull
             e.Handled = true;
         }
 
-        /// <summary>Clears transient hover state when the strip (or an ancestor) is hidden.</summary>
+        /// <summary>Clears transient hover state when the grid (or an ancestor) is hidden.</summary>
         public override void ResetInteractionState() => IsHovered = false;
 
         public override void Draw(SpriteBatch spriteBatch)

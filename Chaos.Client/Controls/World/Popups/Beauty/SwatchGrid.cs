@@ -10,12 +10,12 @@ namespace Chaos.Client.Controls.World.Popups.Beauty;
 
 /// <summary>
 ///     A fixed 10-column grid of colour swatches with the same hover/select behaviour as
-///     <see cref="ThumbnailStrip{T}" />'s cells. The colour list never changes after the panel opens, so
+///     <see cref="ThumbnailGrid{T}" />'s cells. The colour list never changes after the panel opens, so
 ///     <see cref="SetColors" /> only builds the swatch children once and restyles them on every later call.
 /// </summary>
 public sealed class SwatchGrid : UIPanel
 {
-    public const int SWATCH = 12;
+    public const int SWATCH = 15;
     public const int GAP = 2;
     public const int COLUMNS = 10;
 

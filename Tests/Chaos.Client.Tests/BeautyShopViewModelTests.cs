@@ -222,27 +222,6 @@ public class BeautyShopViewModelTests
     }
 
     [Test]
-    public async Task HoverTotal_prices_the_hovered_item_as_if_chosen()
-    {
-        var vm = Opened();
-        vm.StepHairColor(+1);                          // Apple: 1,000 selected
-
-        vm.HoverTotal.Should().Be(1_000);              // nothing hovered → Total
-
-        vm.SetHoverHairStyle(97);                      // +2,500 if chosen
-        vm.HoverTotal.Should().Be(3_500);
-        vm.Total.Should().Be(1_000);
-
-        vm.SetHoverHairColor(DisplayColor.Default);    // hovering "back to current" would drop the dye charge
-        vm.HoverTotal.Should().Be(0);
-
-        vm.SetHoverFace(10);                           // Beauty: +50,000
-        vm.HoverTotal.Should().Be(51_000);
-
-        await Task.CompletedTask;
-    }
-
-    [Test]
     public async Task Selection_changes_clear_hover()
     {
         var vm = Opened();
@@ -284,7 +263,8 @@ public class BeautyShopViewModelTests
 
         vm.SetHoverFace(10);
 
-        vm.HoverTotal.Should().Be(50_000);
+        vm.Total.Should().Be(50_000);
+        vm.CostOfFace(10).Should().Be(50_000);
         vm.EffectiveFaceSprite.Should().Be(10);
 
         await Task.CompletedTask;
@@ -293,7 +273,7 @@ public class BeautyShopViewModelTests
     private static BeautyShop OpenedWithManyHairstyles()
     {
         var args = Open();
-        args.MaleHairstyles = Enumerable.Range(0, 14).Select(i => new BeautyShopHairstyleEntry { Sprite = (ushort)i, Price = 1_000 }).ToList();
+        args.MaleHairstyles = Enumerable.Range(0, 40).Select(i => new BeautyShopHairstyleEntry { Sprite = (ushort)i, Price = 1_000 }).ToList();
         var vm = new BeautyShop();
         vm.ApplyOpen(args);
 
@@ -303,16 +283,16 @@ public class BeautyShopViewModelTests
     [Test]
     public async Task Pages_slice_the_list_and_wrap()
     {
-        var vm = OpenedWithManyHairstyles();            // 14 styles → 3 pages of 6
+        var vm = OpenedWithManyHairstyles();
 
         vm.HairstylePageCount.Should().Be(3);
-        vm.HairstylePage.Should().Be(0);                // selection (1) is on page 0
-        vm.VisibleHairstyles.Select(h => (int)h.Sprite).Should().Equal(0, 1, 2, 3, 4, 5);
+        vm.HairstylePage.Should().Be(0);
+        vm.VisibleHairstyles.Select(h => (int)h.Sprite).Should().Equal(Enumerable.Range(0, 16));
 
         vm.StepHairstylePage(+1);
-        vm.VisibleHairstyles.Select(h => (int)h.Sprite).Should().Equal(6, 7, 8, 9, 10, 11);
+        vm.VisibleHairstyles.Select(h => (int)h.Sprite).Should().Equal(Enumerable.Range(16, 16));
         vm.StepHairstylePage(+1);
-        vm.VisibleHairstyles.Select(h => (int)h.Sprite).Should().Equal(12, 13);
+        vm.VisibleHairstyles.Select(h => (int)h.Sprite).Should().Equal(Enumerable.Range(32, 8));
         vm.StepHairstylePage(+1);
         vm.HairstylePage.Should().Be(0);
 
@@ -324,14 +304,14 @@ public class BeautyShopViewModelTests
     {
         var vm = OpenedWithManyHairstyles();
 
-        vm.SelectHairStyle(13);
-        vm.HairStyle.Should().Be(13);
+        vm.SelectHairStyle(39);
+        vm.HairStyle.Should().Be(39);
         vm.HairstylePage.Should().Be(2);
 
-        vm.StepHairstyle(+1);                           // wraps to 0
+        vm.StepHairstyle(+1);
         vm.HairstylePage.Should().Be(0);
 
-        vm.SelectHairStyle(999);                        // not in the list: ignored
+        vm.SelectHairStyle(999);
         vm.HairStyle.Should().Be(0);
 
         await Task.CompletedTask;
@@ -373,59 +353,73 @@ public class BeautyShopViewModelTests
         await Task.CompletedTask;
     }
 
-    /// <summary>
-    ///     <see cref="BeautyShop.HoverTotal" /> and <see cref="BeautyShop.Total" /> price a look with the same rule
-    ///     (<see cref="BeautyShop" />'s private PriceOf) -- hovering a value and selecting the same value must
-    ///     always land on the same number, including the free forced-face-reset waiver.
-    /// </summary>
     [Test]
-    public async Task HoverTotal_matches_Total_of_the_same_selection()
+    public async Task CostOf_prices_each_choice_against_the_current_look()
     {
-        var hairstyleHover = Opened();
-        hairstyleHover.SetHoverHairStyle(97);
-        var hairstyleSelect = Opened();
-        hairstyleSelect.SelectHairStyle(97);
-        hairstyleHover.HoverTotal.Should().Be(hairstyleSelect.Total);
+        var vm = Opened();
 
-        var hairColorHover = Opened();
-        hairColorHover.SetHoverHairColor(DisplayColor.Scarlet);
-        var hairColorSelect = Opened();
-        hairColorSelect.SelectHairColor(DisplayColor.Scarlet);
-        hairColorHover.HoverTotal.Should().Be(hairColorSelect.Total);
+        vm.CostOfHairStyle(1).Should().Be(0);
+        vm.CostOfHairStyle(97).Should().Be(2_500);
+        vm.CostOfHairColor(DisplayColor.Default).Should().Be(0);
+        vm.CostOfHairColor(DisplayColor.Apple).Should().Be(1_000);
+        vm.CostOfBodyColor(BodyColor.White).Should().Be(0);
+        vm.CostOfBodyColor(BodyColor.Tan).Should().Be(1_000);
+        vm.CostOfFace(1).Should().Be(0);
+        vm.CostOfFace(10).Should().Be(50_000);
 
-        var bodyColorHover = Opened();
-        bodyColorHover.SetHoverBodyColor(BodyColor.Tan);
-        var bodyColorSelect = Opened();
-        bodyColorSelect.SelectBodyColor(BodyColor.Tan);
-        bodyColorHover.HoverTotal.Should().Be(bodyColorSelect.Total);
+        vm.SelectHairStyle(97);
+        vm.CostOfHairStyle(0).Should().Be(1_000);
+        vm.CostOfHairStyle(1).Should().Be(0);
 
-        var faceHover = Opened();
-        faceHover.SetHoverFace(10);
-        var faceSelect = Opened();
-        faceSelect.SelectFace(10);
-        faceHover.HoverTotal.Should().Be(faceSelect.Total);
+        vm.HairstylesFor(Gender.Female).Select(h => (int)h.Sprite).Should().Equal(0, 1, 96);
+        vm.HairstylesFor(Gender.Male).Select(h => (int)h.Sprite).Should().Equal(0, 1, 97);
 
-        //waiver case: female with the female-only "Resting" face, switching to male forces a free reset to
-        //face 1 (see Forced_face_reset_on_gender_switch_is_free) -- hovering/selecting away from that waived
-        //face must price identically, and hovering/selecting the still-waived face itself must stay free.
-        var waivedThenHoverAway = new BeautyShop();
-        waivedThenHoverAway.ApplyOpen(OpenAsFemaleWithRestingFace());
-        waivedThenHoverAway.SetGender(Gender.Male);        // face -> 1, waived
-        waivedThenHoverAway.SetHoverFace(10);
-        waivedThenHoverAway.HoverTotal.Should().Be(100_000);
+        await Task.CompletedTask;
+    }
 
-        var waivedThenSelectAway = new BeautyShop();
-        waivedThenSelectAway.ApplyOpen(OpenAsFemaleWithRestingFace());
-        waivedThenSelectAway.SetGender(Gender.Male);       // face -> 1, waived
-        waivedThenSelectAway.SelectFace(10);
-        waivedThenSelectAway.Total.Should().Be(100_000);
+    [Test]
+    public async Task Total_is_the_gender_price_plus_the_four_costs()
+    {
+        var vm = Opened();
+        vm.SelectHairStyle(97);
+        vm.SelectHairColor(DisplayColor.Scarlet);
+        vm.SelectBodyColor(BodyColor.Tan);
+        vm.SelectFace(10);
 
-        var waivedThenHoverSame = new BeautyShop();
-        waivedThenHoverSame.ApplyOpen(OpenAsFemaleWithRestingFace());
-        waivedThenHoverSame.SetGender(Gender.Male);        // face -> 1, waived
-        waivedThenHoverSame.SetHoverFace(1);
-        waivedThenHoverSame.HoverTotal.Should().Be(50_000);
-        waivedThenHoverSame.Total.Should().Be(50_000);
+        vm.Total.Should().Be(vm.CostOfHairStyle(97) + vm.CostOfHairColor(DisplayColor.Scarlet) + vm.CostOfBodyColor(BodyColor.Tan) + vm.CostOfFace(10));
+        vm.Total.Should().Be(54_500);
+
+        var waived = new BeautyShop();
+        waived.ApplyOpen(OpenAsFemaleWithRestingFace());
+        waived.SetGender(Gender.Male);
+
+        waived.FaceSprite.Should().Be(1);
+        waived.CostOfFace(1).Should().Be(0);
+        waived.CostOfFace(10).Should().Be(50_000);
+        waived.Total.Should().Be(50_000);
+
+        waived.SelectFace(10);
+        waived.Total.Should().Be(waived.GenderPrice + waived.CostOfFace(10));
+        waived.Total.Should().Be(100_000);
+
+        await Task.CompletedTask;
+    }
+
+    [Test]
+    public async Task Every_face_and_skin_fits_on_one_page()
+    {
+        var args = Open();
+        args.Faces = Enumerable.Range(1, 35)
+                               .Select(i => new BeautyShopFaceEntry { Sprite = (byte)i, Name = $"Face {i}", Price = 50_000, FemaleOnly = false })
+                               .ToList();
+        args.BodyColors = Enum.GetValues<BodyColor>().ToList();
+        var vm = new BeautyShop();
+        vm.ApplyOpen(args);
+
+        vm.FacePageCount.Should().Be(1);
+        vm.VisibleFaces.Should().HaveCount(35);
+        vm.BodyColorPageCount.Should().Be(1);
+        vm.VisibleBodyColors.Should().HaveCount(10);
 
         await Task.CompletedTask;
     }
