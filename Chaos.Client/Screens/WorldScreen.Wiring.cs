@@ -344,6 +344,7 @@ public sealed partial class WorldScreen
                 Type = BugReportInteractionType.Submit,
                 ReportId = submission.ReportId,
                 Category = submission.Category,
+                Title = submission.Title,
                 Description = submission.Description,
                 PictureLength = (uint)(picture?.Length ?? 0),
                 ClientBuild = BugReportUpload.Clip(ClientBuild),

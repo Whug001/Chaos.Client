@@ -33,20 +33,28 @@ public class BugReportUploadTests
     public void AnEmptyPictureHasNoParts() => BugReportUpload.SplitPicture([]).Should().BeEmpty();
 
     [Test]
-    public void SendNeedsACategory() => BugReportUpload.CanSend(null, "0123456789").Should().BeFalse();
+    public void SendNeedsACategory() => BugReportUpload.CanSend(null, "Stuck in the inn wall", "0123456789").Should().BeFalse();
 
     [Test]
     public void SendNeedsTenTrimmedCharacters()
     {
-        BugReportUpload.CanSend(BugReportCategory.Item, "0123456789").Should().BeTrue();
-        BugReportUpload.CanSend(BugReportCategory.Item, "   012345678   ").Should().BeFalse();
+        BugReportUpload.CanSend(BugReportCategory.Item, "Stuck in the inn wall", "0123456789").Should().BeTrue();
+        BugReportUpload.CanSend(BugReportCategory.Item, "Stuck in the inn wall", "   012345678   ").Should().BeFalse();
     }
 
     [Test]
     public void SendAllowsAtMostAThousandCharacters()
     {
-        BugReportUpload.CanSend(BugReportCategory.Item, new string('a', 1000)).Should().BeTrue();
-        BugReportUpload.CanSend(BugReportCategory.Item, new string('a', 1001)).Should().BeFalse();
+        BugReportUpload.CanSend(BugReportCategory.Item, "Stuck in the inn wall", new string('a', 1000)).Should().BeTrue();
+        BugReportUpload.CanSend(BugReportCategory.Item, "Stuck in the inn wall", new string('a', 1001)).Should().BeFalse();
+    }
+
+    [Test]
+    public void SendNeedsATitleOfFiveToEightyCharacters()
+    {
+        BugReportUpload.CanSend(BugReportCategory.Item, "abcd", "A long enough description").Should().BeFalse();
+        BugReportUpload.CanSend(BugReportCategory.Item, "  abcde  ", "A long enough description").Should().BeTrue();
+        BugReportUpload.CanSend(BugReportCategory.Item, new string('a', 81), "A long enough description").Should().BeFalse();
     }
 
     [Test]

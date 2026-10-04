@@ -15,18 +15,19 @@ using Microsoft.Xna.Framework;
 namespace Chaos.Client.Controls.World.Popups.BugReport;
 
 /// <summary>What the player chose to send. <see cref="Picture" /> is null when the box was unticked or no frame was captured.</summary>
-public sealed record BugReportSubmission(uint ReportId, BugReportCategory Category, string Description, byte[]? Picture);
+public sealed record BugReportSubmission(uint ReportId, BugReportCategory Category, string Title, string Description, byte[]? Picture);
 
 /// <summary>
-///     The in-game bug report window (layout A2): a 4x2 category grid, a multi-line description, a preview of the picture
+///     The in-game bug report window (layout A2): a 4x2 category grid, a one-line title, a multi-line description, a preview of the picture
 ///     taken when the window opened, and an "Include it" box. Opened by the server's BugReportOpen through Terminus's
-///     "Report a bug". Close and Escape cancel. Send Report stays dim until a category is picked and 10 or more
-///     characters are typed.
+///     "Report a bug". Close and Escape cancel. Send Report stays dim until a category is picked, a 5-character
+///     title and 10 or more characters of description are typed.
 /// </summary>
 public sealed class BugReportControl : FramedDialogPanelBase
 {
     private const int PANEL_WIDTH = 430;
-    private const int PANEL_HEIGHT = 310;
+    private const int NOTE_LINES = 4;
+    private const int PANEL_HEIGHT = 310 + TITLE_BOX_HEIGHT + 22 + ((NOTE_LINES - 2) * TextRenderer.CHAR_HEIGHT);
     private const int OK_RIGHT_MARGIN = 20;
     private const int OK_BOTTOM_MARGIN = 3;
     private const int LEFT = 22;
@@ -37,7 +38,10 @@ public sealed class BugReportControl : FramedDialogPanelBase
     private const int CATEGORY_CAPTION_TOP = 28;
     private const int CATEGORY_GRID_TOP = 42;
     private const int CATEGORY_BUTTON_WIDTH = (CONTENT_WIDTH - (3 * GAP)) / 4;
-    private const int DESCRIPTION_CAPTION_TOP = CATEGORY_GRID_TOP + (2 * CustomButton.HEIGHT) + GAP + 8;
+    private const int TITLE_CAPTION_TOP = CATEGORY_GRID_TOP + (2 * CustomButton.HEIGHT) + GAP + 8;
+    private const int TITLE_BOX_TOP = TITLE_CAPTION_TOP + 14;
+    private const int TITLE_BOX_HEIGHT = CustomButton.HEIGHT;
+    private const int DESCRIPTION_CAPTION_TOP = TITLE_BOX_TOP + TITLE_BOX_HEIGHT + 8;
     private const int DESCRIPTION_TOP = DESCRIPTION_CAPTION_TOP + 14;
     private const int DESCRIPTION_HEIGHT = 100;
     private const int PREVIEW_LEFT = LEFT + CONTENT_WIDTH - CapturedFrame.THUMBNAIL_WIDTH;
@@ -67,6 +71,7 @@ public sealed class BugReportControl : FramedDialogPanelBase
     private readonly UILabel NoPictureLabel;
     private readonly UIImage Preview;
     private readonly CustomButton SendButton;
+    private readonly CustomTextBox TitleBox;
 
     private BugReportCategory? Category;
     private CapturedFrame? Frame;
@@ -101,6 +106,20 @@ public sealed class BugReportControl : FramedDialogPanelBase
             CategoryButtons[category] = button;
             AddChild(button);
         }
+
+        Caption("TITLE", LEFT, TITLE_CAPTION_TOP, CONTENT_WIDTH, color: LegendColors.Gray);
+
+        TitleBox = new CustomTextBox
+        {
+            X = LEFT,
+            Y = TITLE_BOX_TOP,
+            Width = CONTENT_WIDTH,
+            Height = TITLE_BOX_HEIGHT,
+            MaxLength = BugReportProtocol.MAX_TITLE_CHARS,
+            HintText = "A short summary, like: Stuck in the Mileth inn wall"
+        };
+
+        AddChild(TitleBox);
 
         Caption("WHAT HAPPENED? WHAT DID YOU EXPECT?", LEFT, DESCRIPTION_CAPTION_TOP, DESCRIPTION_WIDTH, color: LegendColors.Gray);
 
@@ -160,14 +179,14 @@ public sealed class BugReportControl : FramedDialogPanelBase
         AddChild(IncludePicture);
 
         var note = Caption(
-            "Your character, position and recent server events are attached for staff.",
+            "Your character, position and recent server events go to staff. The title, description and picture are posted publicly in the Unora Discord.",
             LEFT,
             NOTE_TOP,
             DESCRIPTION_WIDTH,
             color: LegendColors.Gray);
 
         note.WordWrap = true;
-        note.Height = TextRenderer.CHAR_HEIGHT * 2;
+        note.Height = TextRenderer.CHAR_HEIGHT * NOTE_LINES;
         note.PaddingLeft = 0;
         note.PaddingRight = 0;
         note.PaddingTop = 0;
@@ -202,6 +221,7 @@ public sealed class BugReportControl : FramedDialogPanelBase
         foreach (var button in CategoryButtons.Values)
             button.Selected = false;
 
+        TitleBox.Text = string.Empty;
         DescriptionBox.Text = string.Empty;
         Preview.Texture = frame is null ? null : TextureConverter.ToTexture2D(frame.Thumbnail);
         NoPictureLabel.Visible = frame is null;
@@ -289,17 +309,18 @@ public sealed class BugReportControl : FramedDialogPanelBase
         if (CounterLabel.Text != counter)
             CounterLabel.Text = counter;
 
-        SendButton.Enabled = BugReportUpload.CanSend(Category, DescriptionBox.Text);
+        SendButton.Enabled = BugReportUpload.CanSend(Category, TitleBox.Text, DescriptionBox.Text);
     }
 
     private void Send()
     {
-        if (!BugReportUpload.CanSend(Category, DescriptionBox.Text))
+        if (!BugReportUpload.CanSend(Category, TitleBox.Text, DescriptionBox.Text))
             return;
 
         var submission = new BugReportSubmission(
             ReportId,
             Category!.Value,
+            TitleBox.Text.Trim(),
             DescriptionBox.Text.Trim(),
             IncludePicture.Checked ? Frame?.Png : null);
 
