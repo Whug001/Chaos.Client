@@ -296,7 +296,7 @@ Plan: `docs/superpowers/plans/2026-10-03-pumpkin-carving.md`. Where this section
 section wins.
 
 1. **Tiles.** The stage is walled off from the house; players reach it with Thulin's "jump on stage". Pumpkins stand at
-   `(6, 13)` to `(6, 20)`, facing Right (toward the house). Each claim tile is behind its pumpkin, at `(5, y)`. The
+   `(8, 13)` to `(8, 20)`, the front edge (moved from x 6 on 2026-10-03), facing Right (toward the house). Each claim tile is behind its pumpkin, at `(7, y)`. The
    display tile is `(11, 15)` in the house.
 2. **Numbers.** Client opcode `PumpkinCarvingSave = 142`; server opcodes `PumpkinCarvingDisplay = 149` (Open and Close
    in one message, like fishing) and `PumpkinLook = 150`. `CLIENT_VERSION` 766 → 767. Creature sprite 1455 and
