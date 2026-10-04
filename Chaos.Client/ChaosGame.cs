@@ -159,7 +159,10 @@ public sealed class ChaosGame : Game
         Connection.OnRemoveEntity += id =>
         {
             if (Screens.ActiveScreen is not WorldScreen)
+            {
+                CreatureRenderer.RemoveCachedEntity(id);
                 WorldState.RemoveEntity(id);
+            }
         };
 
         Connection.OnCreatureWalk += (

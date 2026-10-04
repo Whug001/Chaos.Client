@@ -40,11 +40,13 @@ public sealed class PumpkinCarvingCache<T> where T: class
     /// <summary>Releases and removes every frame cached for this pumpkin.</summary>
     public void Forget(uint entityId)
     {
-        foreach (var key in Entries.Keys.Where(key => key.EntityId == entityId).ToList())
-        {
-            Release(Entries[key].Value);
-            Entries.Remove(key);
-        }
+        //runs on every draw of a blank or lit pumpkin, so it must not allocate; Remove during enumeration is allowed
+        foreach ((var key, var entry) in Entries)
+            if (key.EntityId == entityId)
+            {
+                Entries.Remove(key);
+                Release(entry.Value);
+            }
     }
 
     /// <summary>The cached image when the grid is unchanged; otherwise paints a new one, replacing and releasing the old.</summary>

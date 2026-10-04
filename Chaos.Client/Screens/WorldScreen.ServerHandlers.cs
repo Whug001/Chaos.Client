@@ -120,6 +120,9 @@ public sealed partial class WorldScreen
         //clean up aisling composited texture cache
         Game.AislingRenderer.RemoveCachedEntity(id);
 
+        //clean up a carving pumpkin's painted frames
+        Game.CreatureRenderer.RemoveCachedEntity(id);
+
         //clean up all overlay caches (name tag, chat bubble, health bar, chant)
         Overlays.RemoveEntity(id);
 
