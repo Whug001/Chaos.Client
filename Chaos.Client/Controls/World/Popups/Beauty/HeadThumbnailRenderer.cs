@@ -7,10 +7,10 @@ using Microsoft.Xna.Framework.Graphics;
 namespace Chaos.Client.Controls.World.Popups.Beauty;
 
 /// <summary>
-///     Renders head-and-shoulders crops of an appearance for the picker strips and caches them by value. Each
+///     Renders head-and-shoulders crops of an appearance for the mirror's picker grids and caches them by value. Each
 ///     crop is a fresh composite from <see cref="AislingRenderer.Render(in AislingAppearance,int,string,bool,bool?,int)" />
 ///     (which allocates per call and caches only per world entity), so this class owns every texture it hands out;
-///     <see cref="Clear" /> is called whenever the base look changes and on hide.
+///     <see cref="Clear" /> is called on hide and when the mirror's cache passes its limit.
 /// </summary>
 public sealed class HeadThumbnailRenderer(AislingRenderer renderer) : IDisposable
 {
@@ -18,6 +18,9 @@ public sealed class HeadThumbnailRenderer(AislingRenderer renderer) : IDisposabl
     private const int FRONT_IDLE_FRAME = 5;
 
     private readonly Dictionary<AislingAppearance, Texture2D> Cache = [];
+
+    /// <summary>How many head crops are cached. The mirror drops them all when this grows large.</summary>
+    public int Count => Cache.Count;
 
     public Texture2D? Get(in AislingAppearance appearance)
     {

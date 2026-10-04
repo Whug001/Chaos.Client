@@ -3,26 +3,23 @@ using Chaos.Client.Collections;
 using Chaos.Client.Controls.Components;
 using Chaos.Client.Controls.Custom;
 using Chaos.Client.Controls.Generic;
+using Chaos.Client.Controls.World.Popups.Beauty.Pages;
 using Chaos.Client.Controls.World.Popups.Dialog;
-using Chaos.Client.Data;
 using Chaos.Client.Definitions;
 using Chaos.Client.Extensions;
 using Chaos.Client.Rendering;
 using Chaos.Client.Rendering.Definitions;
-using Chaos.Client.Utilities;
 using Chaos.DarkAges.Definitions;
-using Chaos.Networking.Entities.Server;
 using Microsoft.Xna.Framework;
-using Microsoft.Xna.Framework.Graphics;
-using SkiaSharp;
 #endregion
 
 namespace Chaos.Client.Controls.World.Popups.Beauty;
 
 /// <summary>
-///     Josephine's mirror: a full-sprite preview on a recessed pedestal on the left, gender/hairstyle/dye/skin/face
-///     pickers on the right, and a purchase summary underneath. Reads everything from
-///     <see cref="WorldState.BeautyShop" />; nothing here costs gold until the server answers an Apply.
+///     Josephine's mirror: a five-page guide (Gender, Hair, Skin, Face, Review). Pages 1-4 show the preview column on
+///     the left and the page on the right; Review spans both. A footer of arrows that name the next page, page dots
+///     and the running total sits at the bottom. Reads everything from <see cref="WorldState.BeautyShop" />; nothing
+///     here costs gold until the server answers an Apply.
 /// </summary>
 public sealed class BeautyShopControl : FramedDialogPanelBase
 {
@@ -33,78 +30,63 @@ public sealed class BeautyShopControl : FramedDialogPanelBase
     private const int OK_RIGHT_MARGIN = 20;
     private const int OK_BOTTOM_MARGIN = 3;
 
-    //preview column — pedestal must fit a 111px-wide composite at 2x (222px); the old 180px width forced 1x
+    //preview column -- the pedestal must fit a 111px-wide composite at 2x (222px)
     private const int PREVIEW_LEFT = 20;
-    private const int PREVIEW_TOP = HEADER_TOP;
     private const int PREVIEW_WIDTH = 230;
-    private const int PEDESTAL_WIDTH = 230;
     private const int PEDESTAL_HEIGHT = 250;
-    private const int PEDESTAL_LEFT = PREVIEW_LEFT + ((PREVIEW_WIDTH - PEDESTAL_WIDTH) / 2);
-    private const int PEDESTAL_TOP = PREVIEW_TOP + TextRenderer.CHAR_HEIGHT + 4;
+    private const int PEDESTAL_TOP = HEADER_TOP + TextRenderer.CHAR_HEIGHT + 4;
     private const int PREVIEW_CONTROLS_TOP = PEDESTAL_TOP + PEDESTAL_HEIGHT + 6;
     private const int ROTATE_BUTTON_WIDTH = 28;
     private const int ZOOM_BUTTON_WIDTH = 60;
     private const int RANDOMIZE_BUTTON_WIDTH = 100;
-    private const int GEAR_TOGGLE_WIDTH = CustomCheckBox.CHECKBOX_SIZE + CustomCheckBox.CAPTION_GAP + (9 * TextRenderer.CHAR_WIDTH);
 
-    //appearance column
-    private const int APPEARANCE_LEFT = PREVIEW_LEFT + PREVIEW_WIDTH + 12;
-    private const int APPEARANCE_TOP = HEADER_TOP;
-    private const int APPEARANCE_WIDTH = PANEL_WIDTH - APPEARANCE_LEFT - 20;
-    private const int SECTION_GAP = 6;
-    private const int CAPTION_ROW_HEIGHT = TextRenderer.CHAR_HEIGHT + 2;
+    //page column
+    private const int PAGE_LEFT = PREVIEW_LEFT + PREVIEW_WIDTH + 12;
+    private const int PAGE_WIDTH = PANEL_WIDTH - PAGE_LEFT - 20;
+    private const int INSTRUCTION_TOP = HEADER_TOP + TextRenderer.CHAR_HEIGHT + 4;
+    private const int PAGE_TOP = INSTRUCTION_TOP + TextRenderer.CHAR_HEIGHT + 8;
 
-    //the dye grid's vertical budget is fixed at construction time (a design assumption -- 8 rows), not the live
-    //color count, because every other row below it is placed once and never moves. The server sends every
-    //DisplayColor (71 today, at SwatchGrid's 10-per-row layout that's 8 rows); more than 80 values would push
-    //the grid down into the Skin row, so this constant must grow if the DisplayColor enum does.
-    private const int DYE_GRID_ROWS = 8;
-    private const int DYE_GRID_HEIGHT = (DYE_GRID_ROWS * SwatchGrid.SWATCH) + ((DYE_GRID_ROWS - 1) * SwatchGrid.GAP);
+    //footer -- kept clear of the frame's ornate bottom border
+    private const int FOOTER_TOP = PANEL_HEIGHT - BORDER_BOTTOM_HEIGHT - CustomButton.HEIGHT - 4;
+    private const int TOTAL_TOP = FOOTER_TOP - TextRenderer.CHAR_HEIGHT - 4;
+    private const int PAGE_HEIGHT = TOTAL_TOP - 4 - PAGE_TOP;
+    private const int NAV_BUTTON_WIDTH = 130;
 
-    //summary band
-    private const int SUMMARY_TOP = 358;
-    private const int SUMMARY_LINE2_TOP = 372;
-    private const int SUMMARY_LINE3_TOP = 400;
-    private const int SUMMARY_LEFT = PREVIEW_LEFT;
-    private const int SUMMARY_WIDTH = PANEL_WIDTH - (PREVIEW_LEFT * 2);
-    private const int SUMMARY_HALF_WIDTH = SUMMARY_WIDTH / 2;
-    private const int SUMMARY_HOVER_WIDTH = 320;
-    private const int DISCARD_BUTTON_WIDTH = 130;
-    private const int DISCARD_BUTTON_LEFT = 352;
-    private const int APPLY_BUTTON_WIDTH = 90;
-    private const int APPLY_BUTTON_LEFT = 490;
+    //the review page spans both columns
+    private const int REVIEW_LEFT = PREVIEW_LEFT;
+    private const int REVIEW_TOP = HEADER_TOP;
+    private const int REVIEW_WIDTH = PANEL_WIDTH - (PREVIEW_LEFT * 2);
+    private const int REVIEW_HEIGHT = TOTAL_TOP - REVIEW_TOP;
 
-    private readonly PreviewView Preview;
+    //head crops are cached by the full look, so a selection never makes one wrong; they are only dropped when the
+    //cache grows this large (each is a 30x30 texture)
+    private const int THUMBNAIL_CACHE_LIMIT = 512;
+
+    //the right button turns from "Review >" into APPLY in the same spot, so the second click of a
+    //double-click would otherwise buy without the player ever seeing the receipt
+    private const int APPLY_ARM_MS = 600;
+
+    private readonly HeadThumbnailRenderer Thumbnails;
+    private readonly UIPanel PreviewColumn;
+    private readonly MirrorPreview Preview;
     private readonly CustomCheckBox GearToggle;
     private readonly CustomButton ZoomButton;
-    private readonly CustomButton RandomizeButton;
-    private readonly GenderSelector GenderPicker;
-    private readonly ThumbnailStrip<BeautyShopHairstyleEntry> HairstyleStrip;
-    private readonly SwatchGrid DyeGrid;
-    private readonly ThumbnailStrip<BodyColor> SkinStrip;
-    private readonly ThumbnailStrip<BeautyShopFaceEntry> FaceStrip;
-    private readonly HeadThumbnailRenderer Thumbnails;
-
-    private readonly UILabel UnsavedLabel;
-    private readonly UILabel HairstyleCaption;
-    private readonly UILabel HairstylePageLabel;
-    private readonly UILabel DyeCaption;
-    private readonly UILabel SkinCaption;
-    private readonly UILabel SkinPageLabel;
-    private readonly UILabel FaceCaption;
-    private readonly UILabel FacePageLabel;
-    private readonly UILabel SummaryLabel;
+    private readonly UILabel TitleLabel;
+    private readonly UILabel PageNumberLabel;
+    private readonly UILabel InstructionLabel;
+    private readonly MirrorPageView[] Pages;
+    private readonly ReviewPage Review;
+    private readonly CustomButton BackButton;
+    private readonly CustomButton NextButton;
+    private readonly PageDots Dots;
     private readonly UILabel TotalLabel;
-    private readonly UILabel HoverTotalLabel;
-    private readonly UILabel GoldLabel;
-    private readonly UILabel StatusLabel;
-
-    private readonly CustomButton DiscardButton;
-    private readonly CustomButton ApplyButton;
     private readonly OkPopupMessageControl ConfirmDialog;
 
+    private MirrorPage CurrentPage = MirrorPages.First;
     private int FacingIndex;
+    private bool ShowGear;
     private bool Zoomed = true;
+    private long ReviewShownAt;
 
     /// <summary>The player closed the panel (button or Escape). Fires once per hide.</summary>
     public event Action? Closed;
@@ -129,36 +111,39 @@ public sealed class BeautyShopControl : FramedDialogPanelBase
 
         OkButton = CreateCloseButton(RequestDismissal, OK_RIGHT_MARGIN, OK_BOTTOM_MARGIN);
 
-        UnsavedLabel = Caption("* Unsaved changes", PANEL_WIDTH - 20 - 160, HEADER_TOP, 160, HorizontalAlignment.Right, LegendColors.Gold);
-        UnsavedLabel.Visible = false;
-
-        //── preview column ──
-        Caption("PREVIEW", PREVIEW_LEFT, PREVIEW_TOP, PREVIEW_WIDTH, HorizontalAlignment.Center, LegendColors.Gray);
-
-        Preview = new PreviewView(renderer)
+        //── preview column (hidden on Review, which draws its own two figures) ──
+        PreviewColumn = new UIPanel
         {
-            X = PEDESTAL_LEFT,
-            Y = PEDESTAL_TOP,
-            Width = PEDESTAL_WIDTH,
-            Height = PEDESTAL_HEIGHT
+            Background = null,
+            X = 0,
+            Y = 0,
+            Width = PREVIEW_LEFT + PREVIEW_WIDTH,
+            Height = TOTAL_TOP
         };
-        AddChild(Preview);
+        AddChild(PreviewColumn);
 
-        var rotateLeft = new CustomButton("<", ROTATE_BUTTON_WIDTH) { X = PEDESTAL_LEFT, Y = PREVIEW_CONTROLS_TOP };
+        var previewCaption = NewLabel(PREVIEW_LEFT, HEADER_TOP, PREVIEW_WIDTH, LegendColors.Gray, HorizontalAlignment.Center);
+        previewCaption.Text = "PREVIEW";
+        PreviewColumn.AddChild(previewCaption);
+
+        Preview = new MirrorPreview(renderer, PREVIEW_WIDTH, PEDESTAL_HEIGHT) { X = PREVIEW_LEFT, Y = PEDESTAL_TOP };
+        PreviewColumn.AddChild(Preview);
+
+        var rotateLeft = new CustomButton("<", ROTATE_BUTTON_WIDTH) { X = PREVIEW_LEFT, Y = PREVIEW_CONTROLS_TOP };
         rotateLeft.Clicked += () => Rotate(-1);
-        AddChild(rotateLeft);
+        PreviewColumn.AddChild(rotateLeft);
 
         var rotateRight = new CustomButton(">", ROTATE_BUTTON_WIDTH)
         {
-            X = PEDESTAL_LEFT + ROTATE_BUTTON_WIDTH + 4,
+            X = PREVIEW_LEFT + ROTATE_BUTTON_WIDTH + 4,
             Y = PREVIEW_CONTROLS_TOP
         };
         rotateRight.Clicked += () => Rotate(+1);
-        AddChild(rotateRight);
+        PreviewColumn.AddChild(rotateRight);
 
         ZoomButton = new CustomButton("2x", ZOOM_BUTTON_WIDTH)
         {
-            X = PEDESTAL_LEFT + PEDESTAL_WIDTH - ZOOM_BUTTON_WIDTH,
+            X = PREVIEW_LEFT + PREVIEW_WIDTH - ZOOM_BUTTON_WIDTH,
             Y = PREVIEW_CONTROLS_TOP
         };
         ZoomButton.Clicked += () =>
@@ -167,105 +152,70 @@ public sealed class BeautyShopControl : FramedDialogPanelBase
             Preview.Zoomed = Zoomed;
             ZoomButton.Caption = Zoomed ? "2x" : "1x";
         };
-        AddChild(ZoomButton);
+        PreviewColumn.AddChild(ZoomButton);
 
-        GearToggle = new CustomCheckBox
+        GearToggle = MirrorPreview.CreateGearToggle(PREVIEW_LEFT, PREVIEW_CONTROLS_TOP + CustomButton.HEIGHT + 6);
+        GearToggle.Clicked += ToggleGear;
+        PreviewColumn.AddChild(GearToggle);
+
+        var randomizeButton = new CustomButton("Randomize", RANDOMIZE_BUTTON_WIDTH)
         {
-            X = PEDESTAL_LEFT,
-            Y = PREVIEW_CONTROLS_TOP + CustomButton.HEIGHT + 6,
-            Width = GEAR_TOGGLE_WIDTH,
-            Height = CustomCheckBox.CHECKBOX_SIZE,
-            Text = "Show gear",
-            Checked = false
+            X = PREVIEW_LEFT + PREVIEW_WIDTH - RANDOMIZE_BUTTON_WIDTH,
+            Y = GearToggle.Y
         };
-        GearToggle.Clicked += () =>
+        randomizeButton.Clicked += () => Select(v => v.Randomize());
+        PreviewColumn.AddChild(randomizeButton);
+
+        //── page heading (pages 1-4; Review draws its own) ──
+        TitleLabel = NewLabel(PAGE_LEFT, HEADER_TOP, PAGE_WIDTH, LegendColors.Gold);
+        AddChild(TitleLabel);
+        PageNumberLabel = NewLabel(PAGE_LEFT, HEADER_TOP, PAGE_WIDTH, LegendColors.Gray);
+        AddChild(PageNumberLabel);
+        InstructionLabel = NewLabel(PAGE_LEFT, INSTRUCTION_TOP, PAGE_WIDTH, LegendColors.Gray);
+        AddChild(InstructionLabel);
+
+        //── pages, in MirrorPage order ──
+        var actions = new MirrorActions(Select, Hover, Thumbnails);
+        Review = new ReviewPage(actions, renderer, Rotate, ToggleGear, REVIEW_WIDTH, REVIEW_HEIGHT) { X = REVIEW_LEFT, Y = REVIEW_TOP };
+
+        Pages =
+        [
+            new GenderPage(actions, PAGE_WIDTH, PAGE_HEIGHT) { X = PAGE_LEFT, Y = PAGE_TOP },
+            new HairPage(actions, PAGE_WIDTH, PAGE_HEIGHT) { X = PAGE_LEFT, Y = PAGE_TOP },
+            new SkinPage(actions, PAGE_WIDTH, PAGE_HEIGHT) { X = PAGE_LEFT, Y = PAGE_TOP },
+            new FacePage(actions, PAGE_WIDTH, PAGE_HEIGHT) { X = PAGE_LEFT, Y = PAGE_TOP },
+            Review
+        ];
+
+        foreach (var page in Pages)
+            AddChild(page);
+
+        //── footer ──
+        BackButton = new CustomButton(string.Empty, NAV_BUTTON_WIDTH) { X = PREVIEW_LEFT, Y = FOOTER_TOP };
+        BackButton.Clicked += GoBack;
+        AddChild(BackButton);
+
+        Dots = new PageDots(MirrorPages.COUNT);
+        Dots.X = (PANEL_WIDTH - Dots.Width) / 2;
+        Dots.Y = FOOTER_TOP + ((CustomButton.HEIGHT - Dots.Height) / 2);
+        Dots.PageChosen += index => GoTo((MirrorPage)index);
+        AddChild(Dots);
+
+        TotalLabel = NewLabel(
+            PREVIEW_LEFT + NAV_BUTTON_WIDTH,
+            TOTAL_TOP,
+            PANEL_WIDTH - (2 * (PREVIEW_LEFT + NAV_BUTTON_WIDTH)),
+            LegendColors.Gray,
+            HorizontalAlignment.Center);
+        AddChild(TotalLabel);
+
+        NextButton = new CustomButton(string.Empty, NAV_BUTTON_WIDTH)
         {
-            GearToggle.Checked = !GearToggle.Checked;
-            RefreshPreview();
+            X = PANEL_WIDTH - PREVIEW_LEFT - NAV_BUTTON_WIDTH,
+            Y = FOOTER_TOP
         };
-        AddChild(GearToggle);
-
-        RandomizeButton = new CustomButton("Randomize", RANDOMIZE_BUTTON_WIDTH)
-        {
-            X = PEDESTAL_LEFT,
-            Y = GearToggle.Y + CustomCheckBox.CHECKBOX_SIZE + 6
-        };
-        RandomizeButton.Clicked += () => Select(v => v.Randomize());
-        AddChild(RandomizeButton);
-
-        //── appearance column ──
-        var y = APPEARANCE_TOP;
-
-        Caption("Gender", APPEARANCE_LEFT, y + ((GenderSelector.HEIGHT - TextRenderer.CHAR_HEIGHT) / 2), 80);
-        GenderPicker = new GenderSelector { X = APPEARANCE_LEFT + 80, Y = y };
-        GenderPicker.GenderChosen += g => Select(v => v.SetGender(g));
-        AddChild(GenderPicker);
-        y += GenderSelector.HEIGHT + SECTION_GAP;
-
-        HairstyleCaption = Caption("Hairstyle", APPEARANCE_LEFT, y, APPEARANCE_WIDTH);
-        y += CAPTION_ROW_HEIGHT;
-        HairstyleStrip = new ThumbnailStrip<BeautyShopHairstyleEntry>(ViewModel.BeautyShop.HAIRSTYLE_PAGE_SIZE) { X = APPEARANCE_LEFT, Y = y };
-        HairstyleStrip.Hovered += h => Hover(v => v.SetHoverHairStyle(h.Sprite));
-        HairstyleStrip.HoverCleared += () => Hover(v => v.ClearHover());
-        HairstyleStrip.Selected += h => Select(v => v.SelectHairStyle(h.Sprite));
-        HairstyleStrip.PageStepped += d => Select(v => v.StepHairstylePage(d), clearThumbnails: false);
-        AddChild(HairstyleStrip);
-        HairstylePageLabel = StripPageLabel(y);
-        y += ThumbnailStrip<BeautyShopHairstyleEntry>.CELL + SECTION_GAP;
-
-        DyeCaption = Caption("Hair dye", APPEARANCE_LEFT, y, APPEARANCE_WIDTH);
-        y += CAPTION_ROW_HEIGHT;
-        DyeGrid = new SwatchGrid { X = APPEARANCE_LEFT, Y = y };
-        DyeGrid.Hovered += c => Hover(v => v.SetHoverHairColor(c));
-        DyeGrid.HoverCleared += () => Hover(v => v.ClearHover());
-        DyeGrid.Selected += c => Select(v => v.SelectHairColor(c));
-        AddChild(DyeGrid);
-        y += DYE_GRID_HEIGHT + SECTION_GAP;
-
-        SkinCaption = Caption("Skin", APPEARANCE_LEFT, y, APPEARANCE_WIDTH);
-        y += CAPTION_ROW_HEIGHT;
-        SkinStrip = new ThumbnailStrip<BodyColor>(ViewModel.BeautyShop.BODY_COLOR_PAGE_SIZE) { X = APPEARANCE_LEFT, Y = y };
-        SkinStrip.Hovered += c => Hover(v => v.SetHoverBodyColor(c));
-        SkinStrip.HoverCleared += () => Hover(v => v.ClearHover());
-        SkinStrip.Selected += c => Select(v => v.SelectBodyColor(c));
-        SkinStrip.PageStepped += d => Select(v => v.StepBodyColorPage(d), clearThumbnails: false);
-        AddChild(SkinStrip);
-        SkinPageLabel = StripPageLabel(y);
-        y += ThumbnailStrip<BodyColor>.CELL + SECTION_GAP;
-
-        FaceCaption = Caption("Face", APPEARANCE_LEFT, y, APPEARANCE_WIDTH);
-        y += CAPTION_ROW_HEIGHT;
-        FaceStrip = new ThumbnailStrip<BeautyShopFaceEntry>(ViewModel.BeautyShop.FACE_PAGE_SIZE) { X = APPEARANCE_LEFT, Y = y };
-        FaceStrip.Hovered += f => Hover(v => v.SetHoverFace(f.Sprite));
-        FaceStrip.HoverCleared += () => Hover(v => v.ClearHover());
-        FaceStrip.Selected += f => Select(v => v.SelectFace(f.Sprite));
-        FaceStrip.PageStepped += d => Select(v => v.StepFacePage(d), clearThumbnails: false);
-        AddChild(FaceStrip);
-        FacePageLabel = StripPageLabel(y);
-
-        //── purchase summary band ──
-        SummaryLabel = Caption("No changes", SUMMARY_LEFT, SUMMARY_TOP, SUMMARY_WIDTH);
-        TotalLabel = Caption(string.Empty, SUMMARY_LEFT, SUMMARY_LINE2_TOP, SUMMARY_HALF_WIDTH);
-        GoldLabel = Caption(
-            string.Empty,
-            SUMMARY_LEFT + SUMMARY_HALF_WIDTH,
-            SUMMARY_LINE2_TOP,
-            SUMMARY_WIDTH - SUMMARY_HALF_WIDTH,
-            HorizontalAlignment.Right);
-        HoverTotalLabel = Caption(string.Empty, SUMMARY_LEFT, SUMMARY_LINE3_TOP, SUMMARY_HOVER_WIDTH, HorizontalAlignment.Left, LegendColors.Gray);
-        StatusLabel = Caption(string.Empty, SUMMARY_LEFT, SUMMARY_LINE3_TOP, SUMMARY_HOVER_WIDTH, HorizontalAlignment.Left, LegendColors.Red);
-
-        //kept clear of the frame's ornate bottom border rather than OK_BOTTOM_MARGIN (which is sized for the
-        //small round close button, not this row of full-width buttons)
-        var buttonsTop = PANEL_HEIGHT - BORDER_BOTTOM_HEIGHT - CustomButton.HEIGHT - 4;
-
-        DiscardButton = new CustomButton("Discard Changes", DISCARD_BUTTON_WIDTH) { X = DISCARD_BUTTON_LEFT, Y = buttonsTop };
-        DiscardButton.Clicked += () => Select(v => v.Reset());
-        AddChild(DiscardButton);
-
-        ApplyButton = new CustomButton("APPLY", APPLY_BUTTON_WIDTH) { X = APPLY_BUTTON_LEFT, Y = buttonsTop, Enabled = false };
-        ApplyButton.Clicked += OnApplyClicked;
-        AddChild(ApplyButton);
+        NextButton.Clicked += GoForward;
+        AddChild(NextButton);
 
         //parented to the panel like poker's leave confirm, drawn above everything else in it
         ConfirmDialog = new OkPopupMessageControl(true) { Name = "BeautyShopGenderConfirm", ZIndex = 100 };
@@ -276,7 +226,7 @@ public sealed class BeautyShopControl : FramedDialogPanelBase
         {
             ConfirmDialog.Hide();
 
-            //re-validate: a picker change or Discard while the prompt was up must not sneak an apply through
+            //re-validate: a picker change or Start over while the prompt was up must not sneak an apply through
             if (WorldState.BeautyShop.CanApply && WorldState.BeautyShop.GenderChanged)
                 ApplyRequested?.Invoke();
         };
@@ -285,59 +235,39 @@ public sealed class BeautyShopControl : FramedDialogPanelBase
         AddChild(ConfirmDialog);
     }
 
-    private UILabel Caption(
-        string text,
-        int x,
-        int y,
-        int width,
-        HorizontalAlignment alignment = HorizontalAlignment.Left,
-        Color? color = null)
-    {
-        var label = new UILabel
+    private static UILabel NewLabel(int x, int y, int width, Color color, HorizontalAlignment alignment = HorizontalAlignment.Left)
+        => new()
         {
             X = x,
             Y = y,
             Width = width,
             Height = TextRenderer.CHAR_HEIGHT,
             HorizontalAlignment = alignment,
-            ForegroundColor = color ?? LegendColors.White,
-            IsHitTestVisible = false,
-            Text = text
+            ForegroundColor = color,
+            IsHitTestVisible = false
         };
-        AddChild(label);
 
-        return label;
-    }
-
-    /// <summary>Right-aligned page indicator on the thumbnail strip row, vertically centred with the arrow buttons.</summary>
-    private UILabel StripPageLabel(int stripY)
-    {
-        var y = stripY + ((ThumbnailStrip<BeautyShopHairstyleEntry>.CELL - TextRenderer.CHAR_HEIGHT) / 2);
-
-        return Caption(string.Empty, APPEARANCE_LEFT, y, APPEARANCE_WIDTH, HorizontalAlignment.Right);
-    }
-
-    private static string PageLabelText(int page, int pageCount) => $"PAGE {page}/{pageCount}";
-
-    /// <summary>Repaints the preview, every picker and the summary band from the view model.</summary>
+    /// <summary>Repaints the preview, the heading, the visible page and the footer from the view model.</summary>
     public void Refresh()
     {
         RefreshPreview();
-        RefreshPickers();
-        RefreshSummary();
-        UnsavedLabel.Visible = WorldState.BeautyShop.HasUnsavedChanges;
+        RefreshHeading();
+        Review.SetView(FacingIndex, ShowGear);
+        Pages[(int)CurrentPage].Refresh();
+        RefreshFooter();
     }
 
     public override void Show()
     {
         FacingIndex = 0;
+        ShowGear = false;
         GearToggle.Checked = false;
         Zoomed = true;
         Preview.Zoomed = true;
         ZoomButton.Caption = "2x";
-        StatusLabel.Text = string.Empty;
+        Review.Status = string.Empty;
         base.Show();
-        Refresh();
+        GoTo(MirrorPages.First);
     }
 
     public override void Hide()
@@ -351,6 +281,7 @@ public sealed class BeautyShopControl : FramedDialogPanelBase
         ConfirmDialog.Hide();
         base.Hide();
         Preview.Release();
+        Review.Release();
         Thumbnails.Clear();
     }
 
@@ -377,161 +308,96 @@ public sealed class BeautyShopControl : FramedDialogPanelBase
         Closed?.Invoke();
     }
 
+    /// <summary>Shows <paramref name="page" />. Turning a page clears hover and never changes a selection.</summary>
+    private void GoTo(MirrorPage page)
+    {
+        if (!Visible)
+            return;
+
+        if (ConfirmDialog.Visible)
+            ConfirmDialog.Hide();
+
+        WorldState.BeautyShop.ClearHover();
+        CurrentPage = page;
+
+        for (var i = 0; i < Pages.Length; i++)
+            Pages[i].Visible = i == (int)page;
+
+        PreviewColumn.Visible = page != MirrorPage.Review;
+        Refresh();
+
+        if (page == MirrorPage.Review)
+            ReviewShownAt = Environment.TickCount64;
+    }
+
+    private void GoBack()
+    {
+        if (MirrorPages.Previous(CurrentPage) is { } previous)
+            GoTo(previous);
+    }
+
+    private void GoForward()
+    {
+        if (MirrorPages.Next(CurrentPage) is { } next)
+            GoTo(next);
+        else if ((Environment.TickCount64 - ReviewShownAt) >= APPLY_ARM_MS)
+            OnApplyClicked();
+    }
+
     private void Rotate(int delta)
     {
-        FacingIndex = (FacingIndex + delta + PreviewView.FACING_COUNT) % PreviewView.FACING_COUNT;
-        RefreshPreview();
+        FacingIndex = (FacingIndex + delta + MirrorPreview.FACING_COUNT) % MirrorPreview.FACING_COUNT;
+        Refresh();
     }
 
-    private void RefreshPreview() => Preview.Refresh(BuildAppearance(), FacingIndex);
+    private void ToggleGear()
+    {
+        ShowGear = !ShowGear;
+        GearToggle.Checked = ShowGear;
+        Refresh();
+    }
 
-    /// <summary>
-    ///     Bare body + hair + face by default so every change is visible; with gear on, the player's live world
-    ///     appearance (armor, helmet, weapon...) with the five editable fields overridden. Uses the
-    ///     <b>effective</b> (hover-aware) values so the preview shows what the player is pointing at, not just
-    ///     what they have chosen.
-    /// </summary>
-    private AislingAppearance BuildAppearance()
+    private void RefreshPreview()
+    {
+        //Review draws its own two figures; don't render one nobody can see
+        if (CurrentPage != MirrorPage.Review)
+            Preview.Refresh(MirrorLooks.New(WorldState.BeautyShop, ShowGear), FacingIndex);
+    }
+
+    private void RefreshHeading()
+    {
+        var visible = CurrentPage != MirrorPage.Review;
+        TitleLabel.Visible = visible;
+        PageNumberLabel.Visible = visible;
+        InstructionLabel.Visible = visible;
+
+        var title = MirrorPages.Title(CurrentPage);
+        TitleLabel.Text = title;
+        PageNumberLabel.X = PAGE_LEFT + ((title.Length + 3) * TextRenderer.CHAR_WIDTH);
+        PageNumberLabel.Text = $"page {(int)CurrentPage + 1} of {MirrorPages.COUNT}";
+        InstructionLabel.Text = MirrorPages.Instruction(CurrentPage);
+    }
+
+    private void RefreshFooter()
     {
         var vm = WorldState.BeautyShop;
+        var onReview = CurrentPage == MirrorPage.Review;
 
-        var bare = BareAppearance(vm.Gender, vm.EffectiveHairStyle, vm.EffectiveHairColor, vm.EffectiveBodyColor, vm.EffectiveFaceSprite);
+        BackButton.Visible = MirrorPages.Previous(CurrentPage) is not null;
+        BackButton.Caption = MirrorPages.BackLabel(CurrentPage);
+        NextButton.Caption = MirrorPages.NextLabel(CurrentPage);
+        NextButton.Enabled = !onReview || vm.CanApply;
+        Dots.SetCurrent((int)CurrentPage);
 
-        if (!GearToggle.Checked)
-            return bare;
-
-        var live = WorldState.GetPlayerEntity()?.Appearance;
-
-        if (live is null)
-            return bare;
-
-        return live.Value with
-        {
-            Gender = vm.Gender,
-            BodyColor = (int)vm.EffectiveBodyColor,
-            HeadSprite = vm.EffectiveHairStyle,
-            HeadColor = vm.EffectiveHairColor,
-            FaceSprite = vm.EffectiveFaceSprite
-        };
+        TotalLabel.Visible = !onReview;
+        TotalLabel.Text = vm.HasUnsavedChanges ? $"TOTAL {vm.Total:N0}" : "No changes yet";
+        TotalLabel.ForegroundColor = !vm.HasUnsavedChanges ? LegendColors.Gray
+            : vm.CanAfford ? LegendColors.Gold
+            : LegendColors.Red;
     }
 
-    private static AislingAppearance BareAppearance(Gender gender, int hairStyle, DisplayColor hairColor, BodyColor bodyColor, int faceSprite)
-        => new()
-        {
-            Gender = gender,
-            BodySpriteId = AislingRenderer.BODY_ID,
-            BodyColor = (int)bodyColor,
-            HeadSprite = hairStyle,
-            HeadColor = hairColor,
-            FaceSprite = faceSprite
-        };
-
-    /// <summary>
-    ///     The sprite. Owns exactly one composited texture at a time -- <see cref="AislingRenderer.Render" />
-    ///     allocates a fresh texture per call and caches only per world entity, so this view caches by
-    ///     (appearance, facing) and disposes the previous texture on every re-render (see PokerTableControl's
-    ///     PortraitView for the same reasoning). Zoom is a pure draw-time scale -- it never invalidates the cache.
-    /// </summary>
-    private sealed class PreviewView : UIElement
-    {
-        public const int FACING_COUNT = 4;
-
-        //(frame, flip, isFront): Down, Right, Up, Left. Epfs hold up (0-4) and right (5-9); down = right flipped, left = up flipped.
-        private static readonly (int Frame, bool Flip, bool IsFront)[] FACINGS =
-        [
-            (5, true, true),
-            (5, false, true),
-            (0, false, false),
-            (0, true, false)
-        ];
-
-        private readonly AislingRenderer Renderer;
-        private readonly Texture2D Pedestal;
-
-        private Texture2D? Figure;
-        private AislingAppearance? RenderedAppearance;
-        private int RenderedFacing = -1;
-
-        public bool Zoomed { get; set; } = true;
-
-        public PreviewView(AislingRenderer renderer)
-        {
-            Renderer = renderer;
-            Pedestal = DialogFrame.BuildRecessedTexture(new SKColor(24, 22, 30), PEDESTAL_WIDTH, PEDESTAL_HEIGHT);
-        }
-
-        public void Refresh(AislingAppearance appearance, int facingIndex)
-        {
-            if (Nullable.Equals(appearance, RenderedAppearance) && (facingIndex == RenderedFacing))
-                return;
-
-            RenderedAppearance = appearance;
-            RenderedFacing = facingIndex;
-
-            Figure?.Dispose();
-            var (frame, flip, isFront) = FACINGS[facingIndex];
-            Figure = Renderer.Render(in appearance, frame, AislingRenderer.IDLE_ANIM, flip, isFront);
-
-            if (Figure is null)
-                RenderedFacing = -1;
-        }
-
-        /// <summary>Drops the texture on hide so a closed panel holds no GPU memory; the next Show re-renders.</summary>
-        public void Release()
-        {
-            Figure?.Dispose();
-            Figure = null;
-            RenderedAppearance = null;
-            RenderedFacing = -1;
-        }
-
-        public override void Draw(SpriteBatch spriteBatch)
-        {
-            base.Draw(spriteBatch);
-
-            if (!Visible)
-                return;
-
-            DrawTexture(spriteBatch, Pedestal, new Vector2(ScreenX, ScreenY), Color.White);
-
-            if (Figure is null)
-                return;
-
-            var scale = Zoomed ? 2 : 1;
-
-            //DrawTextureFitted culls when the destination rect doesn't intersect ClipRect at all -- it does not
-            //clip to it -- so an oversized composite (e.g. Show gear on with a tall equip layer) can paint outside
-            //the pedestal. Fall back to 1x for this draw alone (the toggle state itself is untouched) when 2x
-            //wouldn't fit.
-            if (((Figure.Height * scale) > (Height - 12)) || ((Figure.Width * scale) > Width))
-                scale = 1;
-
-            var w = Figure.Width * scale;
-            var h = Figure.Height * scale;
-
-            //anchor on the body centre so the figure stays centred in the pedestal at 1x and 2x and doesn't drift
-            //sideways between poses whose padded canvases differ in width
-            var x = ScreenX + (Width / 2) - (AislingRenderer.CANVAS_CENTER_X * scale);
-            var y = ScreenY + (Height / 2) - (AislingRenderer.BODY_CENTER_Y * scale);
-
-            DrawTextureFitted(spriteBatch, Figure, new Rectangle(x, y, w, h), Color.White);
-        }
-
-        public override void Dispose()
-        {
-            Release();
-            Pedestal.Dispose();
-            base.Dispose();
-        }
-    }
-
-    /// <summary>
-    ///     Every selection/page change goes through here: tear down a stale confirm, mutate, repaint.
-    ///     <paramref name="clearThumbnails" /> is false for the three page-step handlers -- paging never changes
-    ///     the base look, so there is nothing in <see cref="Thumbnails" /> to invalidate, and clearing it anyway
-    ///     would force six needless head re-renders (twelve GPU readbacks) on every arrow click.
-    /// </summary>
-    private void Select(Action<ViewModel.BeautyShop> mutate, bool clearThumbnails = true)
+    /// <summary>Every selection and page step goes through here: tear down a stale confirm, mutate, repaint.</summary>
+    private void Select(Action<ViewModel.BeautyShop> mutate)
     {
         //InputDispatcher doesn't forget a hovered element across Hide(); ignore any late callback from it
         if (!Visible)
@@ -542,15 +408,15 @@ public sealed class BeautyShopControl : FramedDialogPanelBase
             ConfirmDialog.Hide();
 
         mutate(WorldState.BeautyShop);
-        StatusLabel.Text = string.Empty;
+        Review.Status = string.Empty;
 
-        if (clearThumbnails)
-            Thumbnails.Clear(); //the base look may have changed; visible cells re-render on Refresh
+        if (Thumbnails.Count > THUMBNAIL_CACHE_LIMIT)
+            Thumbnails.Clear();
 
         Refresh();
     }
 
-    /// <summary>Hover never touches the confirm dialog, the status line or the thumbnail cache -- only the preview and the hover total.</summary>
+    /// <summary>Hover never touches the confirm dialog, the status line, the thumbnail cache or the money -- only the preview and the page's captions.</summary>
     private void Hover(Action<ViewModel.BeautyShop> mutate)
     {
         //InputDispatcher doesn't forget a hovered element across Hide(); ignore any late callback from it
@@ -559,89 +425,7 @@ public sealed class BeautyShopControl : FramedDialogPanelBase
 
         mutate(WorldState.BeautyShop);
         RefreshPreview();
-        RefreshSummary();
-    }
-
-    private void RefreshPickers()
-    {
-        var vm = WorldState.BeautyShop;
-        GenderPicker.SetSelected(vm.Gender);
-
-        //keyed on the selected (not hovered) look so thumbnails never flicker while the player hovers other cells
-        var baseLook = BareAppearance(vm.Gender, vm.HairStyle, vm.HairColor, vm.BodyColor, vm.FaceSprite);
-
-        HairstyleCaption.Text = $"Hairstyle   {IndexLabel(vm.Hairstyles, h => h.Sprite == vm.HairStyle)} / {vm.Hairstyles.Count}";
-        HairstylePageLabel.Text = PageLabelText(vm.HairstylePage + 1, vm.HairstylePageCount);
-        HairstyleStrip.SetItems(
-            vm.VisibleHairstyles,
-            vm.Hairstyles.FirstOrDefault(h => h.Sprite == vm.HairStyle),
-            h => Thumbnails.Get(baseLook with { HeadSprite = h.Sprite }));
-
-        DyeCaption.Text = $"Hair dye   {vm.HairColor}";
-        DyeGrid.SetColors(vm.HairColors, vm.HairColor, SwatchColorFor);
-
-        SkinCaption.Text = $"Skin   {vm.BodyColor}";
-        SkinPageLabel.Text = PageLabelText(vm.BodyColorPage + 1, vm.BodyColorPageCount);
-        SkinStrip.SetItems(
-            vm.VisibleBodyColors,
-            vm.BodyColor,
-            c => Thumbnails.Get(baseLook with { BodyColor = (int)c }));
-
-        var faceName = vm.Faces.FirstOrDefault(f => f.Sprite == vm.FaceSprite)?.Name ?? $"Face {vm.FaceSprite}";
-        FaceCaption.Text = $"Face   {faceName}";
-        FacePageLabel.Text = PageLabelText(vm.FacePage + 1, vm.FacePageCount);
-        FaceStrip.SetItems(
-            vm.VisibleFaces,
-            vm.Faces.FirstOrDefault(f => f.Sprite == vm.FaceSprite),
-            f => Thumbnails.Get(baseLook with { FaceSprite = f.Sprite }));
-    }
-
-    private void RefreshSummary()
-    {
-        var vm = WorldState.BeautyShop;
-
-        var parts = new List<string>();
-
-        if (vm.GenderChanged)
-            parts.Add($"Gender {vm.GenderPrice:N0}");
-
-        if (vm.HairstyleChanged)
-            parts.Add($"Hairstyle {vm.HairstylePrice:N0}");
-
-        if (vm.HairColorChanged)
-            parts.Add($"Hair dye {vm.HairDyePrice:N0}");
-
-        if (vm.BodyColorChanged)
-            parts.Add($"Skin {vm.BodyDyePrice:N0}");
-
-        if (vm.FaceCharged)
-            parts.Add($"Face {vm.FacePrice:N0}");
-
-        SummaryLabel.Text = parts.Count == 0 ? "No changes" : string.Join("  |  ", parts);
-
-        TotalLabel.Text = $"TOTAL {vm.Total:N0}";
-        TotalLabel.ForegroundColor = vm.CanAfford ? LegendColors.Gold : LegendColors.Red;
-        GoldLabel.Text = $"You have {vm.Gold:N0}";
-
-        //the third line shows at most one message -- a standing rejection/status always wins over the hover hint
-        var hasStatus = !string.IsNullOrEmpty(StatusLabel.Text);
-        StatusLabel.Visible = hasStatus;
-        HoverTotalLabel.Text = (vm.IsHovering && (vm.HoverTotal != vm.Total)) ? $"if chosen: TOTAL {vm.HoverTotal:N0}" : string.Empty;
-        HoverTotalLabel.Visible = !hasStatus;
-
-        DiscardButton.Enabled = vm.HasUnsavedChanges;
-        ApplyButton.Enabled = vm.CanApply;
-    }
-
-
-    /// <summary>1-based position of the matching entry in <paramref name="items" />, or "-" when none matches.</summary>
-    private static string IndexLabel<T>(IReadOnlyList<T> items, Func<T, bool> isCurrent)
-    {
-        for (var i = 0; i < items.Count; i++)
-            if (isCurrent(items[i]))
-                return (i + 1).ToString();
-
-        return "-";
+        Pages[(int)CurrentPage].Refresh();
     }
 
     private void OnApplyClicked()
@@ -662,39 +446,23 @@ public sealed class BeautyShopControl : FramedDialogPanelBase
         ApplyRequested?.Invoke();
     }
 
-    /// <summary>Server refused the Apply; keep the panel open and say why.</summary>
+    /// <summary>Server refused the Apply; keep the panel open and say why on the review page.</summary>
     public void OnRejected(BeautyShopRejectReason reason)
     {
         if (!Visible)
             return;
 
-        StatusLabel.Text = reason switch
+        Review.Status = reason switch
         {
-            BeautyShopRejectReason.NothingChanged => "Nothing has changed.",
-            BeautyShopRejectReason.InsufficientGold => "You can't afford that.",
-            BeautyShopRejectReason.InvalidSelection => "Josephine can't do that one.",
+            BeautyShopRejectReason.NothingChanged        => "Nothing has changed.",
+            BeautyShopRejectReason.InsufficientGold      => "You can't afford that.",
+            BeautyShopRejectReason.InvalidSelection      => "Josephine can't do that one.",
             BeautyShopRejectReason.GenderSwapUnavailable => "Josephine can't reshape your class's gear.",
-            BeautyShopRejectReason.NotNearShop => "Step closer to Josephine.",
-            _ => "Josephine shakes her head."
+            BeautyShopRejectReason.NotNearShop           => "Step closer to Josephine.",
+            _                                            => "Josephine shakes her head."
         };
 
-        RefreshSummary();
-    }
-
-    private static Color SwatchColorFor(DisplayColor color)
-    {
-        if (color == DisplayColor.Default)
-            return LegendColors.DeepLavender;
-
-        var table = DataContext.AislingDrawData.DyeColorTable;
-
-        if (!table.Contains((int)color))
-            return LegendColors.Gray;
-
-        var colors = table[(int)color].Colors;
-        var mid = colors[Math.Min(2, colors.Length - 1)];
-
-        return new Color(mid.Red, mid.Green, mid.Blue);
+        Refresh();
     }
 
     public override void Dispose()

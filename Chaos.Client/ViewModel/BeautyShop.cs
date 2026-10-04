@@ -39,7 +39,9 @@ public sealed class BeautyShop
     public BodyColor BodyColor { get; private set; }
     public int FaceSprite { get; private set; }
 
-    public IReadOnlyList<BeautyShopHairstyleEntry> Hairstyles => Gender == Gender.Male ? MaleHairstyles : FemaleHairstyles;
+    public IReadOnlyList<BeautyShopHairstyleEntry> Hairstyles => HairstylesFor(Gender);
+
+    public IReadOnlyList<BeautyShopHairstyleEntry> HairstylesFor(Gender gender) => gender == Gender.Male ? MaleHairstyles : FemaleHairstyles;
 
     public IReadOnlyList<BeautyShopFaceEntry> AvailableFaces
         => Gender == Gender.Male ? Faces.Where(f => !f.FemaleOnly).ToList() : Faces;
@@ -58,10 +60,14 @@ public sealed class BeautyShop
     ///     BeautyShopCheckout.TryApply: switching gender away from a face the new gender can't wear forces a reset
     ///     to the default face (the catalog's first entry) for free -- picking any other face is still a purchase.
     /// </summary>
-    public bool FaceCharged
-        => FaceChanged && !(GenderChanged && !IsFaceAvailable(Gender, CurrentFaceSprite) && (Faces.Count > 0) && (FaceSprite == Faces[0].Sprite));
+    public bool FaceCharged => FaceChanged && !IsFaceResetWaived(Gender, FaceSprite);
 
-    public int Total => PriceOf(Gender, HairStyle, HairColor, BodyColor, FaceSprite);
+    public int Total
+        => (GenderChanged ? GenderPrice : 0)
+           + CostOfHairStyle(HairStyle)
+           + CostOfHairColor(HairColor)
+           + CostOfBodyColor(BodyColor)
+           + CostOfFace(FaceSprite);
 
     public bool CanAfford => Total <= Gold;
     public bool CanApply => (Total > 0) && CanAfford;
@@ -81,10 +87,6 @@ public sealed class BeautyShop
 
     public bool HasUnsavedChanges => GenderChanged || HairstyleChanged || HairColorChanged || BodyColorChanged || FaceChanged;
 
-    /// <summary>The total if the hovered item were chosen; <see cref="Total" /> when nothing is hovered.</summary>
-    public int HoverTotal
-        => PriceOf(Gender, EffectiveHairStyle, EffectiveHairColor, EffectiveBodyColor, EffectiveFaceSprite);
-
     public void SetHoverHairStyle(int sprite) { ClearHover(); HoveredHairStyle = sprite; }
     public void SetHoverHairColor(DisplayColor color) { ClearHover(); HoveredHairColor = color; }
     public void SetHoverBodyColor(BodyColor color) { ClearHover(); HoveredBodyColor = color; }
@@ -98,24 +100,27 @@ public sealed class BeautyShop
         HoveredFaceSprite = null;
     }
 
-    /// <summary>Prices an arbitrary look against the current one with the same rules as <see cref="Total" />.</summary>
-    private int PriceOf(Gender gender, int hairStyle, DisplayColor hairColor, BodyColor bodyColor, int faceSprite)
-    {
-        var genderChanged = gender != CurrentGender;
-        var faceChanged = faceSprite != CurrentFaceSprite;
+    /// <summary>What choosing <paramref name="sprite" /> as the hairstyle adds to <see cref="Total" />, given the selected gender. 0 for the current hairstyle.</summary>
+    public int CostOfHairStyle(int sprite)
+        => sprite == CurrentHairStyle ? 0 : Hairstyles.FirstOrDefault(h => h.Sprite == sprite)?.Price ?? 0;
 
-        var faceCharged = faceChanged
-                          && !(genderChanged && !IsFaceAvailable(gender, CurrentFaceSprite) && (Faces.Count > 0) && (faceSprite == Faces[0].Sprite));
+    /// <summary>What choosing <paramref name="color" /> as the hair dye adds to <see cref="Total" />. 0 for the current dye.</summary>
+    public int CostOfHairColor(DisplayColor color) => color != CurrentHairColor ? HairDyePrice : 0;
 
-        var hairstylePrice = (gender == Gender.Male ? MaleHairstyles : FemaleHairstyles).FirstOrDefault(h => h.Sprite == hairStyle)?.Price ?? 0;
-        var facePrice = Faces.FirstOrDefault(f => f.Sprite == faceSprite)?.Price ?? 0;
+    /// <summary>What choosing <paramref name="color" /> as the skin adds to <see cref="Total" />. 0 for the current skin.</summary>
+    public int CostOfBodyColor(BodyColor color) => color != CurrentBodyColor ? BodyDyePrice : 0;
 
-        return (genderChanged ? GenderPrice : 0)
-               + (hairStyle != CurrentHairStyle ? hairstylePrice : 0)
-               + (hairColor != CurrentHairColor ? HairDyePrice : 0)
-               + (bodyColor != CurrentBodyColor ? BodyDyePrice : 0)
-               + (faceCharged ? facePrice : 0);
-    }
+    /// <summary>What choosing <paramref name="sprite" /> as the face adds to <see cref="Total" />, given the selected gender. 0 for the current face and for the waived forced reset.</summary>
+    public int CostOfFace(int sprite)
+        => (sprite == CurrentFaceSprite) || IsFaceResetWaived(Gender, sprite) ? 0 : Faces.FirstOrDefault(f => f.Sprite == sprite)?.Price ?? 0;
+
+    /// <summary>
+    ///     The server's free forced-face-reset rule (BeautyShopCheckout.TryApply): switching gender away from a face the
+    ///     new gender can't wear forces a reset to the default face (the catalog's first entry) for free -- picking any
+    ///     other face is still a purchase.
+    /// </summary>
+    private bool IsFaceResetWaived(Gender gender, int faceSprite)
+        => (gender != CurrentGender) && !IsFaceAvailable(gender, CurrentFaceSprite) && (Faces.Count > 0) && (faceSprite == Faces[0].Sprite);
 
     public void ApplyOpen(BeautyShopDisplayArgs args)
     {
@@ -227,9 +232,9 @@ public sealed class BeautyShop
         SyncPages();
     }
 
-    public const int HAIRSTYLE_PAGE_SIZE = 6;
-    public const int FACE_PAGE_SIZE = 6;
-    public const int BODY_COLOR_PAGE_SIZE = 5;
+    public const int HAIRSTYLE_PAGE_SIZE = 16;
+    public const int FACE_PAGE_SIZE = 40;
+    public const int BODY_COLOR_PAGE_SIZE = 10;
 
     public int HairstylePage { get; private set; }
     public int FacePage { get; private set; }

@@ -86,3 +86,23 @@ Task 5 of `.superpowers/sdd/2026-08-29-beauty-shop-panel-v2/task-5-brief.md`. Cl
 - Client: `dotnet run --project Tests/Chaos.Client.Tests/Chaos.Client.Tests.csproj -- --no-ansi` → **7 passed**, 0 failed.
 
 (Exact summary lines are in `task-13-report.md` alongside this walkthrough.)
+
+## v3 guide (2026-10-04)
+
+Spec: `docs/superpowers/specs/2026-10-04-beauty-shop-guide-design.md`. In-game checks for the user; build the client from `feat/mirror-guide`.
+
+| # | Check | Expected | Result | Notes |
+|---|-------|----------|--------|-------|
+| G1 | Talk to Josephine, open the mirror | Opens on GENDER, page 1 of 5; no left arrow; right arrow reads "Hair >"; first dot gold; "No changes yet" | PENDING (user) | |
+| G2 | Hover and click Female on page 1 | Hover shows the lit art at half strength; click selects it; preview reshapes; total shows TOTAL 50,000 (gender price) | PENDING (user) | |
+| G3 | Press "Hair >" | HAIR page: 16 heads, PAGE n/N, color swatches; left arrow "< Gender" | PENDING (user) | |
+| G4 | Hover a hairstyle, then a color | Preview changes; caption shows position and cost ("current", "free" or price); total unchanged until click | PENDING (user) | |
+| G5 | Page the hairstyle grid with its own < > | Heads change page without losing the selection; no hitch | PENDING (user) | |
+| G6 | Skin page | All 10 skins with names; no grid arrows | PENDING (user) | |
+| G7 | Face page | All faces on one page (34 for male, 35 for female); hovering shows name and price | PENDING (user) | |
+| G8 | Click dot 2 from page 4, then dot 5 | Jumps straight to Hair, then Review; selections kept | PENDING (user) | |
+| G9 | Review page | NOW and NEW side by side; rotate turns both; Show gear applies to both; receipt rows match the changes; TOTAL and You have | PENDING (user) | |
+| G10 | Start over on Review | Everything back to the current look; "no change" on every row; APPLY disabled | PENDING (user) | |
+| G11 | Apply with a gender change | Reshape confirm appears; OK applies, window closes, orange bar message | PENDING (user) | |
+| G12 | Press Left/Right keys, then Escape, then reopen | Keys do not turn pages; Escape closes with no charge; reopening starts on GENDER | PENDING (user) | |
+| G13 | Change hair, go to Face, then double-click "Review >" | Lands on Review; nothing is bought; a later single APPLY click works | PENDING (user) | |
