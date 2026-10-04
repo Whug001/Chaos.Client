@@ -77,7 +77,11 @@ public sealed class TowerLeaderboardRow : UIPanel
         Visible = entry is not null;
 
         if (entry is null)
+        {
+            ReleaseFrames();
+
             return;
+        }
 
         RankLabel.Text = $"{entry.Rank}";
         FloorLabel.Text = $"Floor {entry.Floor}";
