@@ -36,12 +36,12 @@ When a player sends a report from F1 → Terminus → Report a bug, the UnoraRea
 ### Validation and storage
 
 - `BugReportService` rejects a submit whose trimmed title is outside 5 to 80 characters, the same way it rejects a bad description.
-- The title is stored in `report.md` front matter as `title:`. It is also the report's first heading.
+- The title is stored in `report.md` front matter as `title:`, replacing the first 60 characters of the description used today. A report with no title (an old client mid-update) keeps the old behaviour.
 - The folder name and the existing files are unchanged.
 
 ### Posting (`Chaos/Services/BugReports/Discord/`)
 
-- **`BugReportDiscordOptions`** is bound from the `BugReportDiscord` config section:
+- **`BugReportDiscordOptions`** is bound from `Options:BugReportDiscordOptions` in a new untracked `appsettings.discord.json`, loaded the same way as `appsettings.translation.json`, with a tracked `appsettings.discord.example.json` template:
   - `BotToken`
   - `ForumChannelId`
   - `TagIds`: a map from in-game category to forum tag id
@@ -94,12 +94,11 @@ Orange-bar text is limited to 45 characters, so each outcome has a short orange-
 | Posted | `Your report is on Discord in #bug-reports.` | `Your bug report "<title>" was posted on Discord in #bug-reports. Add more screenshots or details there.` |
 | Failed | `Report saved. Discord post failed.` | `Your bug report was saved and staff will see it, but it could not be posted on Discord right now.` |
 
-### Existing hardcoded token
+### Admin activity messages
 
-- `AdminTrinketScript.cs` and `ArenaUndergroundScript.cs` hardcode a bot token and a channel id.
-- Both read the token from `BugReportDiscordOptions.BotToken` instead, and the channel id moves into config next to it as `AdminChannelId`.
-- With no token configured, those two messages are skipped.
-- After this ships, the user rotates the token in the Discord developer portal and puts the new one in the live server's config. The old token stays in git history, so rotating it is required.
+- `AdminTrinketScript.cs` and `ArenaUndergroundScript.cs` each have a `BOT_TOKEN` constant and a channel id. The token is an empty string, and git history shows no real token in those files, so those admin-activity messages never send today. Nothing needs rotating.
+- Both scripts switch to an `IDiscordAdminLog` that posts through the same REST client with `BugReportDiscordOptions.BotToken`. The channel id moves into config as `AdminChannelId`.
+- With no token or no `AdminChannelId`, those messages are skipped, as now.
 
 ## Admin page and FeedbackSync
 
