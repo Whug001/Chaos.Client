@@ -633,6 +633,9 @@ public sealed class ConnectionManager : IDisposable
     /// <summary>Fired when the server opens or refreshes the ballot window.</summary>
     public event TownBallotHandler? OnTownBallot;
 
+    /// <summary>Fired when the server sends one season of the Endless Tower leaderboard.</summary>
+    public event TowerLeaderboardHandler? OnTowerLeaderboard;
+
     /// <summary>Fired when the server opens the guild emblem editor or updates its status line.</summary>
     public event GuildEmblemEditorHandler? OnGuildEmblemEditor;
 
@@ -1424,6 +1427,9 @@ public sealed class ConnectionManager : IDisposable
 
     public void SendTownBallotInteraction(TownBallotInteractionArgs args) => SendIfWorld(args);
 
+    /// <summary>Asks for one season of the Endless Tower leaderboard; season 0 is the current one.</summary>
+    public void SendTowerLeaderboardRequest(TowerLeaderboardRequestArgs args) => SendIfWorld(args);
+
     /// <summary>Sends a save or submit from the guild emblem editor. The server checks the sender and the emblem.</summary>
     public void SendGuildEmblemEditorInteraction(GuildEmblemEditorInteractionArgs args) => SendIfWorld(args);
 
@@ -1840,6 +1846,7 @@ public sealed class ConnectionManager : IDisposable
         PacketHandlers[(byte)ServerOpCode.TownImportBoard] = HandleTownImportBoard;
         PacketHandlers[(byte)ServerOpCode.TownImportAdmin] = HandleTownImportAdmin;
         PacketHandlers[(byte)ServerOpCode.TownBallot] = HandleTownBallot;
+        PacketHandlers[(byte)ServerOpCode.TowerLeaderboard] = HandleTowerLeaderboard;
         PacketHandlers[(byte)ServerOpCode.GuildEmblemEditor] = HandleGuildEmblemEditor;
         PacketHandlers[(byte)ServerOpCode.GuildEmblemDesign] = HandleGuildEmblemDesign;
         PacketHandlers[(byte)ServerOpCode.DisplayAisling] = HandleDisplayAisling;
@@ -2381,6 +2388,12 @@ public sealed class ConnectionManager : IDisposable
     {
         var args = Client.Deserialize<TownBallotArgs>(in pkt);
         OnTownBallot?.Invoke(args);
+    }
+
+    private void HandleTowerLeaderboard(ServerPacket pkt)
+    {
+        var args = Client.Deserialize<TowerLeaderboardArgs>(in pkt);
+        OnTowerLeaderboard?.Invoke(args);
     }
 
     private void HandleGuildEmblemEditor(ServerPacket pkt)
