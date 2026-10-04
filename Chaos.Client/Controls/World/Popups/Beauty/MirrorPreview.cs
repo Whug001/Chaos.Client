@@ -15,11 +15,14 @@ namespace Chaos.Client.Controls.World.Popups.Beauty;
 ///     <see cref="AislingRenderer.Render" /> allocates a fresh texture per call and caches only per world entity, so this
 ///     view caches by (appearance, facing) and disposes the previous texture on every re-render (see
 ///     PokerTableControl's PortraitView for the same reasoning). Zoom is a pure draw-time scale -- it never invalidates
-///     the cache.
+///     the cache. The backdrop behind the figure comes from the window's <see cref="MirrorBackdropCache" />, which owns it.
 /// </summary>
 public sealed class MirrorPreview : UIElement
 {
     public const int FACING_COUNT = 4;
+
+    /// <summary>Gap between the pedestal's edge and the backdrop, so the recessed rim still shows.</summary>
+    public const int BACKDROP_INSET = 2;
 
     //(frame, flip, isFront): Down, Right, Up, Left. Epfs hold up (0-4) and right (5-9); down = right flipped, left = up flipped.
     private static readonly (int Frame, bool Flip, bool IsFront)[] FACINGS =
@@ -31,6 +34,7 @@ public sealed class MirrorPreview : UIElement
     ];
 
     private readonly AislingRenderer Renderer;
+    private readonly MirrorBackdropCache Backdrops;
     private readonly Texture2D Pedestal;
 
     private Texture2D? Figure;
@@ -39,9 +43,13 @@ public sealed class MirrorPreview : UIElement
 
     public bool Zoomed { get; set; } = true;
 
-    public MirrorPreview(AislingRenderer renderer, int width, int height)
+    /// <summary>The place drawn behind the figure. Plain draws none.</summary>
+    public MirrorBackdrop Backdrop { get; set; } = MirrorBackdrop.Plain;
+
+    public MirrorPreview(AislingRenderer renderer, MirrorBackdropCache backdrops, int width, int height)
     {
         Renderer = renderer;
+        Backdrops = backdrops;
         Width = width;
         Height = height;
         Pedestal = DialogFrame.BuildRecessedTexture(new SKColor(24, 22, 30), width, height);
@@ -93,17 +101,24 @@ public sealed class MirrorPreview : UIElement
 
         DrawTexture(spriteBatch, Pedestal, new Vector2(ScreenX, ScreenY), Color.White);
 
-        if (Figure is null)
-            return;
-
         var scale = Zoomed ? 2 : 1;
 
         //DrawTextureFitted culls when the destination rect doesn't intersect ClipRect at all -- it does not
         //clip to it -- so an oversized composite (e.g. Show gear on with a tall equip layer) can paint outside
         //the pedestal. Fall back to 1x for this draw alone (the toggle state itself is untouched) when 2x
         //wouldn't fit.
-        if (((Figure.Height * scale) > (Height - 12)) || ((Figure.Width * scale) > Width))
+        if ((Figure is not null) && (((Figure.Height * scale) > (Height - 12)) || ((Figure.Width * scale) > Width)))
             scale = 1;
+
+        //at the figure's own scale, so a 2x figure that falls back to 1x takes its backdrop with it
+        DrawTexture(
+            spriteBatch,
+            Backdrops.Get(Backdrop, Width - (2 * BACKDROP_INSET), Height - (2 * BACKDROP_INSET), scale),
+            new Vector2(ScreenX + BACKDROP_INSET, ScreenY + BACKDROP_INSET),
+            Color.White);
+
+        if (Figure is null)
+            return;
 
         var w = Figure.Width * scale;
         var h = Figure.Height * scale;

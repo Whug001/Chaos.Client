@@ -15,6 +15,12 @@
             <LogicalName>mirrorscare.%(Filename)%(Extension)</LogicalName>
         </EmbeddedResource>
 
+        <!-- Josephine's Mirror backdrops, cut from real maps by Tools/MirrorBackdrops. Embedded so every player has
+             them, whichever maps they have visited; read back by MirrorBackdropAssets as "mirrorbackdrop.<file>". -->
+        <EmbeddedResource Include="Assets\MirrorBackdrops\*.png">
+            <LogicalName>mirrorbackdrop.%(Filename)%(Extension)</LogicalName>
+        </EmbeddedResource>
+
         <!-- Pumpkin Carving face map, written by Unora Tools/PumpkinCarving/make_pumpkin.py with the sprite it matches.
              Read back by PumpkinFaceMap as "pumpkin.facemap.json". -->
         <EmbeddedResource Include="Assets\Pumpkin\pumpkinfacemap.json">

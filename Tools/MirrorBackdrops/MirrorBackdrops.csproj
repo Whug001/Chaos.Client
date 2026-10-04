@@ -1,0 +1,13 @@
+<Project Sdk="Microsoft.NET.Sdk">
+    <!-- Cuts the Josephine's Mirror backdrops out of real maps. Run by hand; not part of Chaos.Client.slnx. -->
+    <PropertyGroup>
+        <OutputType>Exe</OutputType>
+        <IsPackable>false</IsPackable>
+        <RootNamespace>MirrorBackdrops</RootNamespace>
+    </PropertyGroup>
+
+    <ItemGroup>
+        <PackageReference Include="DALib"/>
+        <PackageReference Include="SkiaSharp"/>
+    </ItemGroup>
+</Project>
