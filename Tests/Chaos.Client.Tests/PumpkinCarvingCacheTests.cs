@@ -116,6 +116,21 @@ public class PumpkinCarvingCacheTests
     }
 
     [Test]
+    public void Forget_allocates_nothing_when_there_is_nothing_to_free()
+    {
+        var cache = new PumpkinCarvingCache<Painted>(_ => { });
+        cache.GetOrPaint(7, 0, Grid(3), () => new Painted(1));
+        cache.Forget(99);
+
+        var before = GC.GetAllocatedBytesForCurrentThread();
+
+        for (var i = 0; i < 1000; i++)
+            cache.Forget(99);
+
+        (GC.GetAllocatedBytesForCurrentThread() - before).Should().Be(0);
+    }
+
+    [Test]
     public void TryGet_hits_only_for_the_same_grid()
     {
         var cache = new PumpkinCarvingCache<Painted>(_ => { });

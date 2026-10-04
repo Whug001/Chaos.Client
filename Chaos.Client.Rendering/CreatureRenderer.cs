@@ -19,7 +19,7 @@ public sealed class CreatureRenderer : IDisposable
 {
     private readonly Dictionary<(int SpriteId, int FrameIndex), SpriteFrame> FrameCache = [];
     //painted lit Pumpkin Carving frames, per (carving, frame, flicker phase); never shares textures with FrameCache
-    private readonly Dictionary<(string GridKey, int FrameIndex, int Phase), SpriteFrame> PumpkinCache = [];
+    private readonly PumpkinLitCache<(string GridKey, int FrameIndex, int Phase), SpriteFrame> PumpkinCache;
     private readonly PumpkinCarvingCache<Texture2D> CarvingCache;
     private readonly Dictionary<Texture2D, Texture2D> GroupTintCache = [];
     private readonly Dictionary<Texture2D, Texture2D> HighlightTintCache = [];
@@ -35,7 +35,18 @@ public sealed class CreatureRenderer : IDisposable
     //uses the frame's visible top row, which differs from the bitmap top row when Top > 0 (transparent padding).
     private readonly Dictionary<int, int> AverageTopOffsetCache = [];
 
-    public CreatureRenderer() => CarvingCache = new PumpkinCarvingCache<Texture2D>(ReleaseCarvingTexture);
+    //9 pumpkins in view (8 on stage and the display) x 2 frames x 4 flicker phases fit under the trim size
+    private const int PUMPKIN_CACHE_LIMIT = 128;
+    private const int PUMPKIN_CACHE_TRIM = 96;
+
+    public CreatureRenderer()
+    {
+        CarvingCache = new PumpkinCarvingCache<Texture2D>(ReleaseCarvingTexture);
+        PumpkinCache = new PumpkinLitCache<(string, int, int), SpriteFrame>(
+            PUMPKIN_CACHE_LIMIT,
+            PUMPKIN_CACHE_TRIM,
+            frame => ReleaseCarvingTexture(frame.Texture));
+    }
 
     /// <inheritdoc />
     public void Dispose() => Clear();
@@ -50,12 +61,12 @@ public sealed class CreatureRenderer : IDisposable
         GroundTintCache.DisposeAndClear();
         ClearTintCaches();
 
-        foreach (var painted in PumpkinCache.Values)
-            painted.Texture.Dispose();
-
         PumpkinCache.Clear();
         CarvingCache.Clear();
     }
+
+    /// <summary>Frees a removed entity's carving textures and their tinted copies.</summary>
+    public void RemoveCachedEntity(uint entityId) => CarvingCache.Forget(entityId);
 
     /// <summary>
     ///     Disposes all cached highlight and group tint textures. Call when tint state changes (e.g., hovered entity changes).
@@ -277,7 +288,7 @@ public sealed class CreatureRenderer : IDisposable
     {
         var key = (Convert.ToHexString(look.Grid), frameIndex, phase);
 
-        if (PumpkinCache.TryGetValue(key, out var cached))
+        if (PumpkinCache.TryGet(key, out var cached))
             return cached;
 
         if (GetFrame(spriteId, frameIndex) is not { } plain)
@@ -295,12 +306,12 @@ public sealed class CreatureRenderer : IDisposable
         scope.CommitTo(texture);
 
         var painted = new SpriteFrame(texture, plain.CenterX, plain.CenterY, plain.Left, plain.Top);
-        PumpkinCache[key] = painted;
+        PumpkinCache.Add(key, painted);
 
         return painted;
     }
 
-    /// <summary>Disposes a replaced carving texture and every tinted copy derived from it, so no stale GPU texture lingers.</summary>
+    /// <summary>Disposes a replaced painted pumpkin texture and every tinted copy derived from it, so no stale GPU texture lingers.</summary>
     private void ReleaseCarvingTexture(Texture2D texture)
     {
         var sources = new List<Texture2D> { texture };
