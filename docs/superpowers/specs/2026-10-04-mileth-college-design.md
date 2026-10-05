@@ -10,7 +10,7 @@ retail's Mileth College (https://vorlof.com/general/milethcollege.html). Unora c
 rewards and creation tools work.
 
 1. Students attend classes run by Teachers and earn Educated Marks.
-2. A student spends 10 marks to enter a piece of their own work in a subject.
+2. A student spends 3 marks to enter a piece of their own work in a subject.
 3. Judges vote over two weeks; the Director sets the final award tier.
 4. A Village award or higher makes the student a Teacher of that subject.
 
@@ -70,7 +70,8 @@ admins can post. A post's author, the Director and admins can delete it.
 
 ## Classes
 
-The College has one classroom. Only one class runs at a time.
+The College has five subject rooms. Art and Music share one room. Only one class runs at a time
+across the whole College, in its subject's room.
 
 Teachers choose a format for each class:
 
@@ -86,7 +87,7 @@ Teachers choose a format for each class:
 - Bookings may not overlap.
 - A Teacher can cancel their own booking. The Director and admins can cancel any booking.
 - Anyone can view the next 7 days of bookings at the Registrar.
-- **Walk-in class:** a Teacher may start a class at once if the classroom is empty. The class must
+- **Walk-in class:** a Teacher may start a class at once if no class is running. The class must
   end before the next booking starts. Walk-ins last at most 120 minutes.
 - **No-show:** the Teacher has 10 minutes from the booked start to begin the class. After that,
   the slot is freed.
@@ -95,7 +96,7 @@ Teachers choose a format for each class:
 ### Running a class
 
 - The Teacher starts the class at the lectern.
-- The server records each person's minutes on the classroom map.
+- The server records each person's minutes on the class's subject room map.
 - The Teacher can end the class only after it has run 20 minutes.
 - The Teacher can remove a disruptive student. That student is put outside and cannot come back
   into that class.
@@ -108,7 +109,7 @@ Teachers choose a format for each class:
 All three rules must pass:
 
 1. The class ran for at least 20 minutes.
-2. At least 3 students qualify. A student qualifies by being on the classroom map for 80% of the
+2. At least 3 students qualify. A student qualifies by being on the subject room map for 80% of the
    class. The 3 students must be on 3 different computers, judged by the two login machine IDs.
    No qualifying student may share the Teacher's computer.
 3. The Teacher was present for 80% of the class.
@@ -127,11 +128,23 @@ If all pass, each qualifying student gets one roll at an Educated Mark and the T
 - Marks cannot be traded.
 - A legend mark shows the current total, for example "Educated (14)". It updates in place whenever
   marks change.
-- **Entry cost:** 10 marks. A Clave free-entry token is used first if the player has one. Taking the
-  payment and creating the entry happen as one step. If either fails, neither happens.
-- **Shop:** a College vendor sells untradable items for marks. Stock and prices are chosen in the
-  part 1 spec. The existing "College" outfits are the starting candidates: artist, prep uniform,
-  scholar dress, lorekeeper and Mileth College skirt.
+- **Entry cost:** 3 marks, about 9 qualifying classes on average. (Changed from 10 on 2026-10-05:
+  10 marks would take about 30 classes.) A Clave free-entry token is used first if the player has
+  one. Taking the payment and creating the entry happen as one step. If either fails, neither
+  happens.
+- **Shop:** the Curator of Regalia in the Lyceum hall sells untradable items for marks:
+
+  | Item | Who can buy | Price |
+  |---|---|---|
+  | Artist overcoat (`male_artist`, `female_artist`) | Anyone | 2 |
+  | Lorekeeper overcoat (`male_lorekeeper`, `female_lorekeeper`) | Anyone | 2 |
+  | Prep Uniform (`male_PrepUniform`, `female_prepuniform`) | Anyone | 1 |
+  | Scholar Outfit / Dress (`male_scholaroutfit`, `female_scholardress`) | Anyone | 1 |
+  | Mileth College Skirt (`female_milethcollegeskirt`) | Anyone | 1 |
+  | Honorary Artist smock, beret, boots | Holders of an Art award | 3 each |
+  | Honorary Lorekeeper robes, cowl, boots | Holders of a Lore award | 3 each |
+
+  Anne in the exchange keeps selling her College outfits for gold.
 - **Admin command:** an admin can give, take or show a character's marks.
 
 ## Entries, judging and the verdict
@@ -156,19 +169,31 @@ If all pass, each qualifying student gets one roll at an Educated Mark and the T
 
 ## Gallery
 
-A gallery room in the College has display stands. Using a stand opens a gallery window. The window
+Display stands in the Lyceum hall's carpet squares form the gallery. Using a stand opens a gallery window. The window
 lists awarded pieces by subject and tier, with the author and award shown. Paintings show full
 size, tunes play, and writing can be read. An author can hide their own piece.
 
 ## Location
 
-The College is a door inside Mileth town. It leads to:
+- A new dirt path leaves **Mileth Village Way** at its south-east edge and leads to a new
+  **College Grounds** map.
+- The College building is the **colonnade temple from retail Tavaly** (map 11500, in
+  `Unora/UnusedMapData`): white marble, columns, ivy.
+- Its door leads into the **Lyceum hall** (map 762), the user's January "Lyceum of Tagor" draft,
+  moved out of Tagor. It holds the Registrar (Veyrin), the College board, the vendor (Curator of
+  Regalia) and, from part 2, the gallery stands.
+- Five subject doors on the hall's north wall lead to five rooms, each a copy of the Chamber of
+  Quills (map 763) with a lectern:
 
-- an **entrance hall** with the Registrar, the College board and the vendor;
-- a **classroom** with a lectern;
-- a **gallery**.
+  | Room | Subjects |
+  |---|---|
+  | Chamber of Creation | Art and Music |
+  | Chronicle Hall | History |
+  | Chamber of Quills | Literature |
+  | Codex Room | Lore |
+  | Philosophers' Thought | Philosophy |
 
-Map art and exact placement are chosen in the part 1 spec. The gallery room may be added in part 2.
+Exact tiles and map numbers are in the part 1 spec.
 
 ## Architecture
 
@@ -214,7 +239,7 @@ goes up with each part that adds client code.
 
 Each part gets its own spec, plan and in-game check.
 
-1. **Core:** College map in Mileth, roles, `/college` command, College board, timetable, walk-in
+1. **Core:** the path, College Grounds, Lyceum hall and five rooms, roles, `/college` command, College board, timetable, walk-in
    classes, attendance, the end-of-class check, Educated Marks, the shop. Lecture and discussion
    classes work in this part.
 2. **Entries and judging:** the writing window, drafts, submit, the judging window, verdicts, mail,
