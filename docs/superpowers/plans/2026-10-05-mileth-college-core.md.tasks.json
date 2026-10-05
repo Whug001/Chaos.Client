@@ -1,0 +1,124 @@
+{
+  "planPath": "docs/superpowers/plans/2026-10-05-mileth-college-core.md",
+  "tasks": [
+    {
+      "id": 0,
+      "subject": "Task 0: Create the worktrees",
+      "status": "pending",
+      "description": "**Goal:** Two isolated worktrees on `feat/college-core`, one for the server and one for Unora, with the server building and its College test filter runnable.\n\n**Files:**\n- Create: `C:\\Users\\Michael\\Documents\\GitHub\\worktrees\\college-server` (git worktree of Chaos-Server)\n- Create: `C:\\Users\\Michael\\Documents\\GitHub\\worktrees\\college-unora` (git worktree of Unora)\n\n**Acceptance Criteria:**\n- [ ] `git -C worktrees/college-server branch --show-current` prints `feat/college-core`\n- [ ] `git -C worktrees/college-unora branch --show-current` prints `feat/college-core`\n- [ ] `dotnet build Chaos/Chaos.csproj -c Debug` in the server worktree ends with `0 Error(s)`\n\n**Verify:** `dotnet build Chaos/Chaos.csproj -c Debug` (server worktree) \u2192 `0 Error(s)`\n\n```json:metadata\n{\"modelTier\": \"mechanical\", \"verifyCommand\": \"`dotnet build Chaos/Chaos.csproj -c Debug` (server worktree) \\u2192 `0 Error(s)`\"}\n```"
+    },
+    {
+      "id": 1,
+      "subject": "Task 1: Enums, options, state and MarkLedger",
+      "status": "pending",
+      "description": "**Goal:** The College's data types and the Educated Mark roll rules, covered by tests.\n\n**Files:**\n- Create: `Chaos/Services/College/CollegeEnums.cs`\n- Create: `Chaos/Services/College/CollegeOptions.cs`\n- Create: `Chaos/Services/College/CollegeState.cs`\n- Create: `Chaos/Services/College/MarkLedger.cs`\n- Test: `Tests/Chaos.Tests/College/MarkLedgerTests.cs`\n\n**Acceptance Criteria:**\n- [ ] With a random source that always returns 0.99, rolls miss with chances 0.2 through 0.9 and succeed on the 9th roll at 1.0\n- [ ] A success adds 1 to `Marks` and `LifetimeMarks` and resets the chance to 0.2\n- [ ] `TryTake` refuses to go below 0 and leaves the balance unchanged\n- [ ] `CollegeState` keys students and awards by lower-case name\n\n**Verify:** `dotnet run --project Tests/Chaos.Tests/Chaos.Tests.csproj -- --no-ansi --treenode-filter \"/*/Chaos.Tests.College/MarkLedgerTests/*\"` \u2192 all pass\n\n```json:metadata\n{\"modelTier\": \"mechanical\", \"verifyCommand\": \"`dotnet run --project Tests/Chaos.Tests/Chaos.Tests.csproj -- --no-ansi --treenode-filter \\\"/*/Chaos.Tests.College/MarkLedgerTests/*\\\"` \\u2192 all pass\"}\n```",
+      "blockedBy": [
+        0
+      ]
+    },
+    {
+      "id": 2,
+      "subject": "Task 2: CollegeRoles",
+      "status": "pending",
+      "description": "**Goal:** Who may teach, judge and moderate, as pure functions, with tests.\n\n**Files:**\n- Create: `Chaos/Services/College/CollegeRoles.cs`\n- Test: `Tests/Chaos.Tests/College/CollegeRolesTests.cs`\n\n**Acceptance Criteria:**\n- [ ] Village or higher in a subject can teach only that subject; Clave can't teach\n- [ ] A Knight can teach a subject until any character holds Village or higher in it\n- [ ] Art and Music are separate subjects for teaching\n- [ ] Admins and the Director can teach every subject\n- [ ] Knights can judge while fewer than 3 characters are Teachers, and not after\n- [ ] `CanPost` is true for anyone who can teach any subject\n\n**Verify:** `dotnet run --project Tests/Chaos.Tests/Chaos.Tests.csproj -- --no-ansi --treenode-filter \"/*/Chaos.Tests.College/CollegeRolesTests/*\"` \u2192 all pass\n\n```json:metadata\n{\"modelTier\": \"mechanical\", \"verifyCommand\": \"`dotnet run --project Tests/Chaos.Tests/Chaos.Tests.csproj -- --no-ansi --treenode-filter \\\"/*/Chaos.Tests.College/CollegeRolesTests/*\\\"` \\u2192 all pass\"}\n```",
+      "blockedBy": [
+        1
+      ]
+    },
+    {
+      "id": 3,
+      "subject": "Task 3: Timetable",
+      "status": "pending",
+      "description": "**Goal:** Booking, cancelling, the walk-in limit and the upcoming list, as pure rules with tests.\n\n**Files:**\n- Create: `Chaos/Services/College/Timetable.cs`\n- Test: `Tests/Chaos.Tests/College/TimetableTests.cs`\n\n**Acceptance Criteria:**\n- [ ] It refuses: a start in the past; more than 14 days ahead; lengths outside 20/30/45/60/90/120; starts not on :00 or :30; the Activity format\n- [ ] It refuses overlaps with a booking and with the running class; back-to-back bookings are allowed\n- [ ] Booking ids come from `NextBookingId` and increase\n- [ ] `WalkInLimit` is 0 while a class runs or while a booking's start has passed but it isn't over; otherwise it's the minutes until the next booking, capped at 120\n- [ ] Owners cancel their own bookings; moderators cancel any; others can't\n\n**Verify:** `dotnet run --project Tests/Chaos.Tests/Chaos.Tests.csproj -- --no-ansi --treenode-filter \"/*/Chaos.Tests.College/TimetableTests/*\"` \u2192 all pass\n\n```json:metadata\n{\"modelTier\": \"mechanical\", \"verifyCommand\": \"`dotnet run --project Tests/Chaos.Tests/Chaos.Tests.csproj -- --no-ansi --treenode-filter \\\"/*/Chaos.Tests.College/TimetableTests/*\\\"` \\u2192 all pass\"}\n```",
+      "blockedBy": [
+        1
+      ]
+    },
+    {
+      "id": 4,
+      "subject": "Task 4: MachineKeys and ClassSession",
+      "status": "pending",
+      "description": "**Goal:** The per-computer key, presence recording and the end-of-class check, with tests.\n\n**Files:**\n- Create: `Chaos/Services/College/MachineKeys.cs`\n- Create: `Chaos/Services/College/ClassSession.cs`\n- Test: `Tests/Chaos.Tests/College/ClassSessionTests.cs`\n\n**Acceptance Criteria:**\n- [ ] `MachineKeys.For(0xFF00FF00, \"1.2.3.4\")` and `MachineKeys.For(null, ...)` return `ip:1.2.3.4`; any other id returns the id as text\n- [ ] A class shorter than 20 minutes ends `CalledOff`\n- [ ] A Teacher under 80% presence ends `TeacherAbsent`\n- [ ] Students qualify at 80% presence or more, with one sampling interval of slack; only the character with the most seconds on each machine counts; the Teacher's machine and removed students never count\n- [ ] Fewer than 3 qualifying students ends `TooFewStudents`; otherwise `Completed` with the qualified names\n- [ ] `CanEndEarly` is false before 20 minutes and true at 20\n\n**Verify:** `dotnet run --project Tests/Chaos.Tests/Chaos.Tests.csproj -- --no-ansi --treenode-filter \"/*/Chaos.Tests.College/ClassSessionTests/*\"` \u2192 all pass\n\n```json:metadata\n{\"modelTier\": \"mechanical\", \"verifyCommand\": \"`dotnet run --project Tests/Chaos.Tests/Chaos.Tests.csproj -- --no-ansi --treenode-filter \\\"/*/Chaos.Tests.College/ClassSessionTests/*\\\"` \\u2192 all pass\"}\n```",
+      "blockedBy": [
+        1
+      ]
+    },
+    {
+      "id": 5,
+      "subject": "Task 5: CollegeService, notifier interface, tick service, DI",
+      "status": "pending",
+      "description": "**Goal:** The locked entry point, which turns the rule units into actions: booking, starting and ending classes, presence, the tick, the shop balance and admin edits. It's registered in DI with a tick service.\n\n**Files:**\n- Create: `Chaos/Services/College/ICollegeNotifier.cs`\n- Create: `Chaos/Services/College/CollegeText.cs`\n- Create: `Chaos/Services/College/CollegeService.cs`\n- Create: `Chaos/Services/College/CollegeTickService.cs`\n- Test: `Tests/Chaos.Tests/College/CollegeServiceTests.cs`\n\n(DI registration is in Task 6, because it needs `CollegeNotifier`.)\n\n**Acceptance Criteria:**\n- [ ] A booked class starts only for its Teacher, in its subject's room, from 10 minutes before the start to 10 minutes after; starting it removes the booking\n- [ ] A walk-in needs `CanTeach`, no running class and a `WalkInLimit` of at least 20\n- [ ] `EndClass` refuses before 20 minutes with `TooSoon`; at 20 or later it finishes and pays out\n- [ ] Payout on `Completed`: each qualified student gets one roll, the Teacher gets 1 mark, and `RefreshEducatedMark` is called for everyone whose balance changed; nothing is paid for other outcomes\n- [ ] `Tick` ends a class at its planned end, ends it after 10 minutes without the Teacher, and drops bookings 10 minutes past their start, telling the Teacher\n- [ ] `TryBuy` leaves the balance unchanged when it fails\n- [ ] Every state change calls `IStorage<CollegeState>.Save()`\n- [ ] The server project builds\n\n**Verify:** `dotnet run --project Tests/Chaos.Tests/Chaos.Tests.csproj -- --no-ansi --treenode-filter \"/*/Chaos.Tests.College/*/*\"` \u2192 all College tests pass\n\n```json:metadata\n{\"modelTier\": \"standard\", \"verifyCommand\": \"`dotnet run --project Tests/Chaos.Tests/Chaos.Tests.csproj -- --no-ansi --treenode-filter \\\"/*/Chaos.Tests.College/*/*\\\"` \\u2192 all College tests pass\"}\n```",
+      "blockedBy": [
+        2,
+        3,
+        4
+      ]
+    },
+    {
+      "id": 6,
+      "subject": "Task 6: Notifier, login refresh, room map script, DI wiring",
+      "status": "pending",
+      "description": "**Goal:** The world side. Orange bars and the \"Educated\" legend mark reach online players. Login refreshes the mark. Each subject room reports who is present every 30 seconds. `AddCollege()` is registered and called.\n\n**Files:**\n- Create: `Chaos/Services/College/CollegeNotifier.cs`\n- Create: `Chaos/Scripting/MapScripts/Temuair/College/CollegeRoomScript.cs`\n- Modify: `Chaos/Scripting/AislingScripts/DefaultAislingScript.cs` (constructor injection plus `OnLogin`)\n- Modify: `Chaos/Extensions/ServiceCollectionExtensions.cs` (add `AddCollege()`), `Chaos/Program.cs` (call it)\n- Test: `Tests/Chaos.Tests/College/CollegeNotifierTests.cs`\n\n**Acceptance Criteria:**\n- [ ] `CollegeNotifier.RefreshEducatedMark` on an online player sets a legend mark with key `collegeEducated`, text `Educated` and `Count` equal to the balance; it updates an existing mark in place; it removes the mark when the balance is 0\n- [ ] `Broadcast` sends OrangeBar2 to every online aisling; `Tell` sends an orange bar to the named player only\n- [ ] `DefaultAislingScript.OnLogin` calls a College refresh after `ApplyPendingPositionRemovals()`\n- [ ] `CollegeRoomScript` (script key `collegeRoom`) calls `CollegeService.RecordPresence(Subject.InstanceId, samples)` once per `TickSeconds` from its `Update`, with every aisling on the map and `MachineKeys.For(client.LoginId1, client.RemoteIp.ToString())`\n- [ ] The server builds and the full College filter passes\n\n**Verify:** `dotnet build Chaos/Chaos.csproj -c Debug 2>&1 | tail -3` \u2192 `0 Error(s)`; then the College test filter \u2192 all pass\n\n```json:metadata\n{\"modelTier\": \"standard\", \"verifyCommand\": \"`dotnet build Chaos/Chaos.csproj -c Debug 2>&1 | tail -3` \\u2192 `0 Error(s)`; then the College test filter \\u2192 all pass\"}\n```",
+      "blockedBy": [
+        5
+      ]
+    },
+    {
+      "id": 7,
+      "subject": "Task 7: Registrar and lectern dialogs (server scripts and their dialog JSON)",
+      "status": "pending",
+      "description": "**Goal:** Players use the College through Veyrin, the Registrar, and the lectern in each room. Each menu shows only what the speaker may do, and every action goes through `CollegeService`.\n\n**Files:**\n- Create: `Chaos/Scripting/DialogScripts/Temuair/College/CollegeRegistrarScript.cs` (server worktree)\n- Create: `Chaos/Scripting/DialogScripts/Temuair/College/CollegeLecternScript.cs` (server worktree)\n- Create: `Data/Configuration/Templates/Dialogs/Temauir/mileth/college/*.json` (Unora worktree)\n- Modify: `Data/Configuration/Templates/Merchants/Temauir/tagor/veyrin.json` (Unora worktree)\n- Create: `Data/Configuration/Templates/Merchants/Temauir/mileth/college_lectern.json` (Unora worktree)\n\n**Acceptance Criteria:**\n- [ ] Veyrin's merchant uses script key `collegeRegistrar` and opens `college_registrar_initial`; her name is \"Veyrin, College Registrar\"\n- [ ] The Registrar main menu offers: Timetable, My marks, About the College; plus \"Book a class\" and \"My bookings\" only for someone who can teach any subject, and \"All bookings\" for the Director and admins\n- [ ] Timetable pages show `CollegeText.TimetableLine` lines, each page 360 characters or fewer; \"Nothing is booked this week.\" when empty\n- [ ] Booking runs subject \u2192 format (Lecture/Discussion) \u2192 day (next 14) \u2192 half-hour time (free slots only) \u2192 length (20/30/45/60/90/120) \u2192 confirm, and calls `CollegeService.Book`; each `BookResult` has a plain reply\n- [ ] My bookings lists the speaker's bookings and cancels the chosen one via `CollegeService.Cancel`\n- [ ] The lectern opens `college_lectern_initial`. It offers \"Begin booked class\", \"Begin a class now\", \"End class\", \"Remove a student\" and \"Class status\" only when they apply (see the spec's lectern section). \"End class\" before 20 minutes replies with the minutes left\n- [ ] \"Remove a student\" calls `RemoveStudent`, then moves that player to the Lyceum hall tile in front of the room's door, using the same warp call reactor scripts use (`TraverseMap` with a map from `ISimpleCache<MapInstance>`)\n- [ ] Every option text is 35 characters or fewer and every dialog text 360 or fewer\n- [ ] The server builds; the College filter passes\n\n**Verify:** `dotnet build Chaos/Chaos.csproj -c Debug 2>&1 | tail -3` \u2192 `0 Error(s)`; `python Tools/College/check_dialogs.py` (written in Task 9; until then, check the limits by hand) \u2192 `ok`\n\n```json:metadata\n{\"modelTier\": \"standard\", \"verifyCommand\": \"`dotnet build Chaos/Chaos.csproj -c Debug 2>&1 | tail -3` \\u2192 `0 Error(s)`; `python Tools/College/check_dialogs.py` (written in Task 9; until then, check the limits by hand) \\u2192 `ok`\"}\n```",
+      "blockedBy": [
+        6
+      ]
+    },
+    {
+      "id": 8,
+      "subject": "Task 8: Shop, board and `/college` command",
+      "status": "pending",
+      "description": "**Goal:** The Curator sells for marks, the College board enforces Teacher posting, and admins can run the College from chat.\n\n**Files:**\n- Create: `Chaos/Scripting/DialogScripts/Temuair/College/CollegeShopScript.cs` (server)\n- Create: `Chaos/Scripting/BulletinBoardScripts/CollegeBoardScript.cs` (server)\n- Create: `Chaos/Messaging/Admin/CollegeCommand.cs` (server)\n- Modify: `Data/Configuration/Templates/Merchants/Temauir/tagor/regalia.json` (Unora)\n- Create: `Data/Configuration/Templates/Dialogs/Temauir/mileth/college/collegeshop_*.json` (Unora)\n- Create: `Data/Configuration/Templates/BulletinBoards/milethcollege.json` (Unora)\n- Test: `Tests/Chaos.Tests/College/CollegeShopRulesTests.cs`\n\n**Acceptance Criteria:**\n- [ ] `regalia.json` lists exactly the spec's stock in `scriptVars.collegeShop.items` with the spec's prices, the honorary keys in `collegeShop.artAward` and `collegeShop.loreAward`, and no `itemsForSale`\n- [ ] Buying calls `CollegeService.TryBuy`; when the item can't be given, `Refund` returns the marks; bought items have `NoNpcSale = true`\n- [ ] An honorary item is refused without an Art (or Lore) award of Clave or higher, with the reply \"You need an award in Art to wear this.\" (or Lore)\n- [ ] The board lets anyone view, `CollegeService.CanPost` post, and the author or `CanModerate` delete; template `milethcollege` uses script key `CollegeBoard`\n- [ ] `/college status|director|marks|award|endclass` work as the spec's table; bad input prints a one-line usage\n- [ ] The server builds; the College filter passes\n\n**Verify:** `dotnet build Chaos/Chaos.csproj -c Debug 2>&1 | tail -3` \u2192 `0 Error(s)`; the College filter \u2192 all pass\n\n```json:metadata\n{\"modelTier\": \"standard\", \"verifyCommand\": \"`dotnet build Chaos/Chaos.csproj -c Debug 2>&1 | tail -3` \\u2192 `0 Error(s)`; the College filter \\u2192 all pass\"}\n```",
+      "blockedBy": [
+        6
+      ]
+    },
+    {
+      "id": 9,
+      "subject": "Task 9: College maps tool and world content",
+      "status": "pending",
+      "description": "**Goal:** `Tools/College/college_maps.py` builds every College map and instance file from base copies. Running it puts the path, the grounds with the Tavaly temple, the moved Lyceum hall and the five rooms into the Unora worktree. Rendered previews confirm the result.\n\n**Files:**\n- Create: `Tools/College/college_maps.py`, `Tools/College/test_college_maps.py`, `Tools/College/README.md`, `Tools/College/__init__.py`, `Tools/College/check_dialogs.py`\n- Create: `Tools/College/village_way_402_base.map`, `lyceum_762_base.map`, `chamber_763_base.map` (copies of today's files)\n- Modify: `Data/Configuration/MapData/lod402.map`, `lod762.map`, `lod763.map`\n- Create: `Data/Configuration/MapData/lod774.map` \u2026 `lod778.map`, `Data/Configuration/Templates/Maps/774.json` \u2026 `778.json`\n- Move: `Data/Configuration/MapInstances/Temuair/Towns/Tagor/Lyceum_of_Tagor` \u2192 `.../Mileth/College/Mileth_College`; `.../Tagor/Chamber_of_Quills` \u2192 `.../Mileth/College/Chamber_of_Quills`\n- Create: `.../Mileth/College/{College_Grounds,Chamber_of_Creation,Chronicle_Hall,Codex_Room,Philosophers_Thought}/{instance,merchants,reactors,monsters}.json`\n- Modify: `Data/Configuration/MapInstances/Temuair/Towns/Mileth/Mileth_Village_Way/reactors.json` (append 3 warps)\n\n**Acceptance Criteria:**\n- [ ] `python Tools/College/college_maps.py --check` exits 0, and running the tool twice gives byte-identical files\n- [ ] Village Way: only the new dirt path tiles change, and warps at (15, 24..26) lead to `mileth_college_grounds:(1, 14..16)`; every existing reactor is kept\n- [ ] Grounds 774 (30 \u00d7 30): the temple contains only foreground ids 19701\u201319761 and 20075/20076 from Tavaly; the door warp leads to `mileth_college:(43, 10)`; the west edge (0, 14..16) leads back to Village Way; every warp source and arrival tile is walkable (not under a `0x0F` sotp foreground)\n- [ ] Lyceum `mileth_college`:\n  - its name is \"Mileth College\";\n  - the exit (44, 10) leads to the grounds tile in front of the temple door;\n  - five alcove door warps lead to the five rooms;\n  - the Art sign reads \"(Art and Music) Chamber of Creation\";\n  - Veyrin and the Curator are placed on walkable tiles, the guards are kept, and there's a `bulletinboard` reactor for `milethcollege`\n- [ ] Rooms 763/775\u2013778: each has a lectern piece at the front, a `showDialogOnClick` reactor on it (merchant `college_lectern`, dialog `college_lectern_initial`), an exit to the hall tile in front of its alcove, and `scriptKeys: [\"collegeRoom\"]`; music 16\n- [ ] The old Tagor instance folders are gone, and no file in `Data/Configuration` still mentions `lyceum_of_tagor` or `chamber_of_quills` (Grep)\n- [ ] `python -m unittest Tools.College.test_college_maps` passes\n- [ ] Preview PNGs of 402, 774, 762 and one room are written to the scratch folder given by `--preview`, and the task report attaches them for the coordinator to view\n- [ ] `check_dialogs.py` checks every `Templates/Dialogs/Temauir/mileth/college/*.json`: option text 35 characters or fewer, text 360 or fewer, no em dash, and every `dialogKey` it names exists. It prints `ok`\n- [ ] The lectern room exits chosen here are written into `CollegeOptions.RoomExits` defaults (server worktree), if Task 7 added that dictionary\n\n**Verify:** `python Tools/College/college_maps.py --check && python -m unittest Tools.College.test_college_maps && python Tools/College/check_dialogs.py` \u2192 exit 0 and `ok`\n\n```json:metadata\n{\"modelTier\": \"frontier\", \"verifyCommand\": \"`python Tools/College/college_maps.py --check && python -m unittest Tools.College.test_college_maps && python Tools/College/check_dialogs.py` \\u2192 exit 0 and `ok`\"}\n```",
+      "blockedBy": [
+        7
+      ]
+    },
+    {
+      "id": 10,
+      "subject": "Task 10: Full checks",
+      "status": "pending",
+      "description": "**Goal:** Everything builds and the whole server test suite is at its known baseline, so the College changed nothing else.\n\n**Files:**\n- none (fixes go back into the task that owns the failing file)\n\n**Acceptance Criteria:**\n- [ ] `dotnet build Chaos/Chaos.csproj -c Debug` \u2192 `0 Error(s)` with no new warnings in College files\n- [ ] The full `Chaos.Tests` run fails only the 2 known baseline tests (GiveAbility, OnItemDroppedOn stackable)\n- [ ] The Python tool and dialog checks pass\n- [ ] Grep finds no `TODO`, `TBD` or `NotImplementedException` in College files\n\n**Verify:** `dotnet run --project Tests/Chaos.Tests/Chaos.Tests.csproj -- --no-ansi 2>&1 | tail -15` \u2192 only the 2 known failures\n\n```json:metadata\n{\"modelTier\": \"standard\", \"verifyCommand\": \"`dotnet run --project Tests/Chaos.Tests/Chaos.Tests.csproj -- --no-ansi 2>&1 | tail -15` \\u2192 only the 2 known failures\"}\n```",
+      "blockedBy": [
+        8,
+        9
+      ]
+    },
+    {
+      "id": 11,
+      "subject": "Task 11: Commit the full implementation",
+      "status": "pending",
+      "description": "**Goal:** One commit per repo on `feat/college-core`, not pushed and not merged.\n\n**Files:**\n- every file changed in both worktrees\n\n**Acceptance Criteria:**\n- [ ] `git -C worktrees/college-server log -1 --oneline` shows the College commit on `feat/college-core`\n- [ ] `git -C worktrees/college-unora log -1 --oneline` shows the College commit on `feat/college-core`\n- [ ] `git status --short` is empty in both worktrees, except for files that were untracked before (none expected)\n- [ ] Nothing is pushed\n\n**Verify:** `git -C <worktree> status --short` \u2192 empty for both\n\n```json:metadata\n{\"modelTier\": \"mechanical\", \"verifyCommand\": \"`git -C <worktree> status --short` \\u2192 empty for both\"}\n```",
+      "blockedBy": [
+        0,
+        1,
+        2,
+        3,
+        4,
+        5,
+        6,
+        7,
+        8,
+        9,
+        10
+      ]
+    }
+  ],
+  "lastUpdated": "2026-10-05T11:08:15.902161Z"
+}
