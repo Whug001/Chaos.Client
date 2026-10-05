@@ -35,6 +35,7 @@ public abstract class CollegeListWindow<TItem> : GuildCloakDialogBase
     private const int ACTIONS_X = LEFT + 180;
     private const int BUTTON_GAP = 6;
 
+    private readonly List<UILabel> Headers = [];
     private readonly CustomButton NextButton;
     private readonly UILabel PageLabel;
     private readonly CustomButton PrevButton;
@@ -65,7 +66,7 @@ public abstract class CollegeListWindow<TItem> : GuildCloakDialogBase
         for (var i = 0; i < columns.Count; i++)
         {
             var right = i + 1 < columns.Count ? columnX[i + 1] : INNER_WIDTH;
-            Caption(columns[i].Header, LEFT + columnX[i] + 4, headerTop, right - columnX[i] - 8, color: LegendColors.Gold);
+            Headers.Add(Caption(columns[i].Header, LEFT + columnX[i] + 4, headerTop, right - columnX[i] - 8, color: LegendColors.Gold));
         }
 
         var rowsTop = headerTop + TextRenderer.CHAR_HEIGHT + 4;
@@ -114,6 +115,12 @@ public abstract class CollegeListWindow<TItem> : GuildCloakDialogBase
     /// <summary>The items the list shows now, in order (all pages).</summary>
     protected abstract IReadOnlyList<TItem> Items { get; }
 
+    /// <summary>Items per page; the rows hold at most their own count.</summary>
+    protected virtual int PageSize => Rows.Length;
+
+    /// <summary>False while a subclass shows the page another way (the gallery's picture grid): rows and headers hide.</summary>
+    protected virtual bool ShowsRows => true;
+
     public override void OnKeyDown(KeyDownEvent e)
     {
         if (e.Keycode == Keycode.Escape)
@@ -147,6 +154,16 @@ public abstract class CollegeListWindow<TItem> : GuildCloakDialogBase
         return button;
     }
 
+    /// <summary>Called with the page's items each time the rows are shown.</summary>
+    protected virtual void PageShown(IReadOnlyList<TItem> shown) { }
+
+    /// <summary>Called after the selection changes.</summary>
+    protected virtual void SelectionChanged(int id) { }
+
+    protected void SelectId(int id) => Select(id);
+
+    protected void OpenId(int id) => OpenItem(id);
+
     protected abstract (string Text, Color Color)[] ColumnsOf(TItem item);
 
     protected abstract int IdOf(TItem item);
@@ -159,7 +176,7 @@ public abstract class CollegeListWindow<TItem> : GuildCloakDialogBase
     protected void ShowRows()
     {
         var items = Items;
-        var pageSize = Rows.Length;
+        var pageSize = PageSize;
         var pages = Math.Max(1, (items.Count + pageSize - 1) / pageSize);
         Page = Math.Clamp(Page, 0, pages - 1);
 
@@ -167,19 +184,23 @@ public abstract class CollegeListWindow<TItem> : GuildCloakDialogBase
                          .Take(pageSize)
                          .ToList();
 
-        for (var i = 0; i < pageSize; i++)
+        for (var i = 0; i < Rows.Length; i++)
         {
-            Rows[i].Visible = i < shown.Count;
+            Rows[i].Visible = ShowsRows && (i < shown.Count);
 
-            if (i < shown.Count)
+            if (Rows[i].Visible)
                 Rows[i]
                     .Set(IdOf(shown[i]), ColumnsOf(shown[i]));
         }
+
+        foreach (var header in Headers)
+            header.Visible = ShowsRows;
 
         Empty.Visible = shown.Count == 0;
         PageLabel.Text = $"Page {Page + 1} of {pages}";
         PrevButton.Enabled = Page > 0;
         NextButton.Enabled = Page < (pages - 1);
+        PageShown(shown);
 
         var ids = shown.Select(IdOf)
                        .ToList();
@@ -202,6 +223,8 @@ public abstract class CollegeListWindow<TItem> : GuildCloakDialogBase
 
         foreach (var button in SelectionButtons)
             button.Enabled = id != 0;
+
+        SelectionChanged(id);
     }
 
     private void Turn(int by)

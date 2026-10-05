@@ -66,6 +66,9 @@ public sealed class CollegePictureTransfers(
         return false;
     }
 
+    /// <summary>A picture's file bytes, if this client has them (its own upload or the disk cache).</summary>
+    public byte[]? BytesOf(string hash) => Uploads.GetValueOrDefault(hash) ?? cache.TryRead(hash);
+
     public void Upload(PreparedPicture picture)
     {
         cache.Write(picture.Hash, picture.Bytes);

@@ -10,7 +10,7 @@ using Chaos.Networking.Entities.Server;
 
 namespace Chaos.Client.Screens;
 
-/// <summary>The Mileth College windows: writer, reader, judging list, gallery and hand-in list.</summary>
+/// <summary>The Mileth College windows: writer, Art canvas, reader, judging list, gallery and hand-in list.</summary>
 public sealed partial class WorldScreen
 {
     //built on first use
@@ -33,13 +33,18 @@ public sealed partial class WorldScreen
         MainOptions.OnExit -= SaveCollegeDraft;
     }
 
-    private void SaveCollegeDraft() => College?.Writer.SaveIfDirty();
+    private void SaveCollegeDraft()
+    {
+        College?.Writer.SaveIfDirty();
+        College?.Canvas.SaveIfDirty();
+    }
 
     private void SendCollegeAction(CollegeActionArgs args) => Game.Connection.SendCollegeAction(args);
 
     private CollegeWindows BuildCollege()
     {
         var transfers = new CollegePictureTransfers(SendCollegeAction, new CollegePictureCache());
+        var drawings = new CollegeDrawings();
 
         //above the reader, which shares the screen's ZIndex 2 with the other popups
         var votesPopup = new TextPopupControl
@@ -54,7 +59,16 @@ public sealed partial class WorldScreen
             {
                 ZIndex = 2
             },
-            Gallery = new CollegeGalleryControl
+            Drawings = drawings,
+            Canvas = new ArtCanvasControl
+            {
+                ZIndex = 2
+            },
+            PictureCanvas = new ArtCanvasControl
+            {
+                ZIndex = 2
+            },
+            Gallery = new CollegeGalleryControl(drawings)
             {
                 ZIndex = 2
             },
@@ -77,12 +91,22 @@ public sealed partial class WorldScreen
         windows.HandIns.ActionRequested += SendCollegeAction;
         windows.Writer.ActionRequested += SendCollegeAction;
         windows.Reader.ActionRequested += SendCollegeAction;
+        windows.Canvas.ActionRequested += SendCollegeAction;
+        windows.PictureCanvas.PictureMade += windows.Writer.InsertDrawnPicture;
+
+        windows.Writer.DrawRequested += (drawing, replacing) =>
+        {
+            BringToFront(windows.PictureCanvas);
+            windows.PictureCanvas.OpenPicture(drawing, replacing);
+        };
 
         Root!.AddChild(windows.Judging);
         Root.AddChild(windows.Gallery);
         Root.AddChild(windows.HandIns);
         Root.AddChild(windows.Writer);
         Root.AddChild(windows.Reader);
+        Root.AddChild(windows.Canvas);
+        Root.AddChild(windows.PictureCanvas);
         Root.AddChild(votesPopup);
 
         return windows;
@@ -98,15 +122,29 @@ public sealed partial class WorldScreen
 
         switch (args.Type)
         {
+            case CollegeDisplayType.OpenWriter when args.Subject == CollegeSubjectCode.Art:
+                BringToFront(College.Canvas);
+                College.Canvas.Open(args);
+
+                break;
             case CollegeDisplayType.OpenWriter:
                 BringToFront(College.Writer);
                 College.Writer.Open(args);
+
+                break;
+            case CollegeDisplayType.WriterResult when args.Subject == CollegeSubjectCode.Art:
+                if (College.Canvas.ShowResult(args))
+                    BringToFront(College.Canvas);
 
                 break;
             case CollegeDisplayType.WriterResult:
                 //a refused save shows a hidden writer again, over the other windows
                 if (College.Writer.ShowResult(args))
                     BringToFront(College.Writer);
+
+                break;
+            case CollegeDisplayType.Drawing:
+                College.Drawings.OnDrawing(args);
 
                 break;
             case CollegeDisplayType.PictureReply:
@@ -162,9 +200,12 @@ public sealed partial class WorldScreen
 
     private sealed class CollegeWindows
     {
+        public required ArtCanvasControl Canvas { get; init; }
+        public required CollegeDrawings Drawings { get; init; }
         public required CollegeGalleryControl Gallery { get; init; }
         public required CollegeHandInsControl HandIns { get; init; }
         public required CollegeJudgingControl Judging { get; init; }
+        public required ArtCanvasControl PictureCanvas { get; init; }
         public required CollegeReaderControl Reader { get; init; }
         public required CollegePictureTransfers Transfers { get; init; }
         public required CollegeWriterControl Writer { get; init; }

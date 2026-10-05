@@ -5,9 +5,11 @@ using Chaos.Client.Controls.Scrolling;
 using Chaos.Client.Rendering;
 using Chaos.Client.Rendering.Definitions;
 using Chaos.Client.Systems.College;
+using Chaos.Client.ViewModel.College;
 using Chaos.DarkAges.Definitions;
 using Chaos.Networking.Entities.Server;
 using Microsoft.Xna.Framework;
+using Microsoft.Xna.Framework.Graphics;
 #endregion
 
 namespace Chaos.Client.Controls.World.Popups.College;
@@ -25,6 +27,7 @@ public sealed class PieceView : UIPanel
     private const int SCROLL_STEP = 2 * TextRenderer.CHAR_HEIGHT;
 
     private readonly UIPanel Content;
+    private readonly List<Texture2D> OwnedTextures = [];
     private readonly CollegePictureTransfers Transfers;
     private readonly ScrollViewerControl Viewer;
     private readonly PieceViewport Viewport;
@@ -108,12 +111,35 @@ public sealed class PieceView : UIPanel
                     y += AddPicture(block.Hash, y);
 
                     break;
+                case CollegeBlockKind.Drawing:
+                    y += AddDrawing(block, y);
+
+                    break;
             }
 
             y += GAP;
         }
 
         Content.Height = Math.Max(0, y - GAP);
+    }
+
+    private int AddDrawing(CollegeBlockInfo block, int y)
+    {
+        var texture = DrawingTextures.Build(PixelDrawing.From(block.Palette, block.Pixels), CollegeProtocol.DRAWING_ZOOM);
+        OwnedTextures.Add(texture);
+
+        Content.AddChild(
+            new UIImage
+            {
+                Texture = texture,
+                X = Math.Max(0, (Content.Width - texture.Width) / 2),
+                Y = y,
+                Width = texture.Width,
+                Height = texture.Height,
+                IsHitTestVisible = false
+            });
+
+        return texture.Height;
     }
 
     private int AddPicture(string hash, int y)
@@ -176,6 +202,11 @@ public sealed class PieceView : UIPanel
 
         Content.Children.Clear();
         Waiting.Clear();
+
+        foreach (var texture in OwnedTextures)
+            texture.Dispose();
+
+        OwnedTextures.Clear();
     }
 
     //the clip host the viewer scrolls: it moves Content up by whole steps

@@ -54,9 +54,10 @@ public sealed class CollegeWriterControl : GuildCloakDialogBase
     private const int CONTENT_WIDTH = VIEWER_WIDTH - ScrollBarControl.DEFAULT_WIDTH - BAR_GAP;
     private const int SCROLL_STEP = 2 * TextRenderer.CHAR_HEIGHT;
     private const int HEADING_X = LEFT;
-    private const int PICTURE_X = HEADING_X + 70 + 6;
-    private const int SAVE_X = PICTURE_X + 100 + 6;
-    private const int SUBMIT_X = SAVE_X + 60 + 6;
+    private const int PICTURE_X = HEADING_X + 64 + 6;
+    private const int DRAW_X = PICTURE_X + 60 + 6;
+    private const int SAVE_X = DRAW_X + 46 + 6;
+    private const int SUBMIT_X = SAVE_X + 50 + 6;
     private const int SUBMIT_WIDTH = 130;
     private const int COUNTER_X = SUBMIT_X + SUBMIT_WIDTH + 6;
     private const string UPLOADING = "Uploading picture...";
@@ -80,10 +81,18 @@ public sealed class CollegeWriterControl : GuildCloakDialogBase
     private readonly nint GameWindow;
     private readonly CollegePictureTransfers Transfers;
     private readonly HashSet<string> Uploading = new(StringComparer.Ordinal);
+    private readonly Dictionary<string, string> ReplacedBy = new(StringComparer.Ordinal);
     private readonly ScrollViewerControl Viewer;
     private readonly BlockViewport Viewport;
 
     private bool CloseArmed;
+
+    //hashes known to be canvas drawings, and those checked and found not to be
+    private readonly HashSet<string> DrawingHashes = new(StringComparer.Ordinal);
+    private readonly HashSet<string> NotDrawings = new(StringComparer.Ordinal);
+
+    //the session a Draw or Edit was started for; its picture goes nowhere else
+    private CollegeDisplayArgs? DrawSession;
 
     //Close sent a save and waits for its Saved before hiding
     private bool ClosingOnSave;
@@ -163,9 +172,10 @@ public sealed class CollegeWriterControl : GuildCloakDialogBase
         SetBodyTop(TitleBox.Y + TitleBox.Height + GAP);
 
         Status = Caption(string.Empty, LEFT, STATUS_TOP, INNER_WIDTH);
-        AddButton("Heading", 70, HEADING_X, BUTTONS_TOP, OnHeadingClicked);
-        AddButton("Insert picture", 100, PICTURE_X, BUTTONS_TOP, OnPictureClicked);
-        SaveButton = AddButton("Save", 60, SAVE_X, BUTTONS_TOP, OnSaveClicked);
+        AddButton("Heading", 64, HEADING_X, BUTTONS_TOP, OnHeadingClicked);
+        AddButton("Picture", 60, PICTURE_X, BUTTONS_TOP, OnPictureClicked);
+        AddButton("Draw", 46, DRAW_X, BUTTONS_TOP, OnDrawClicked);
+        SaveButton = AddButton("Save", 50, SAVE_X, BUTTONS_TOP, OnSaveClicked);
         SubmitButton = AddButton("Submit", SUBMIT_WIDTH, SUBMIT_X, BUTTONS_TOP, OnSubmitClicked);
 
         Counter = Caption(
@@ -179,6 +189,9 @@ public sealed class CollegeWriterControl : GuildCloakDialogBase
 
     /// <summary>Raised with SaveDraft, Submit or HandIn, each carrying the subject and the whole piece.</summary>
     public event Action<CollegeActionArgs>? ActionRequested;
+
+    /// <summary>Draw (null, null) or Edit (the drawing, its hash): open the picture canvas.</summary>
+    public event Action<PixelDrawing?, string?>? DrawRequested;
 
     private bool HandInMode => Session?.Mode == CollegeWriterMode.HandIn;
 
@@ -234,6 +247,7 @@ public sealed class CollegeWriterControl : GuildCloakDialogBase
         Session = args;
         Document = WritingDocument.From(args.Piece);
         Uploading.Clear();
+        ReplacedBy.Clear();
         CloseArmed = false;
         ClosingOnSave = false;
         DisarmSubmit();
@@ -459,6 +473,9 @@ public sealed class CollegeWriterControl : GuildCloakDialogBase
             Uploading.Remove(hash);
             Edit(() => Document.RemovePicture(index));
         };
+
+        view.EditButton.Clicked += () => OnEditClicked(hash);
+        view.Loaded += () => view.EditButton.Visible = IsDrawing(hash);
 
         return view;
     }
@@ -724,10 +741,117 @@ public sealed class CollegeWriterControl : GuildCloakDialogBase
         Rebuild(at, true);
     }
 
+    /// <summary>The picture canvas's Insert: a new picture at the caret, or an edited one in place of <paramref name="replacing" />.</summary>
+    public void InsertDrawnPicture(PreparedPicture picture, string? replacing)
+    {
+        if (!Visible || !ReferenceEquals(DrawSession, Session))
+            return;
+
+        PullText();
+        (int Index, int Caret)? at = null;
+
+        if (replacing is not null)
+        {
+            var stillThere = Document.Blocks.Any(b => (b.Kind == WritingBlockKind.Picture) && (b.Hash == replacing));
+
+            if (stillThere && (picture.Hash == replacing))
+                return;
+
+            if (!Document.ReplacePicture(replacing, picture.Hash))
+            {
+                Status.Text = stillThere ? "That picture is already in this piece." : "The picture you were editing is gone.";
+
+                return;
+            }
+
+            Uploading.Remove(replacing);
+            ReplacedBy[picture.Hash] = replacing;
+        } else
+        {
+            if (Document.PictureCount >= CollegeProtocol.MAX_PICTURES)
+            {
+                Status.Text = $"A piece can hold {CollegeProtocol.MAX_PICTURES} pictures at most.";
+
+                return;
+            }
+
+            var index = Math.Clamp(FocusIndex, 0, Document.Blocks.Count - 1);
+
+            if (Document.InsertPicture(index, FocusCaret, picture.Hash) is not { } inserted)
+            {
+                Status.Text = "That picture is already in this piece.";
+
+                return;
+            }
+
+            at = inserted;
+        }
+
+        DrawingHashes.Add(picture.Hash);
+        Uploading.Add(picture.Hash);
+        Transfers.Upload(picture);
+        Status.Text = UPLOADING;
+        Rebuild(at, at is not null);
+    }
+
+    private void OnDrawClicked()
+    {
+        DisarmSubmit();
+        CloseArmed = false;
+
+        if (Document.PictureCount >= CollegeProtocol.MAX_PICTURES)
+        {
+            Status.Text = $"A piece can hold {CollegeProtocol.MAX_PICTURES} pictures at most.";
+
+            return;
+        }
+
+        DrawSession = Session;
+        DrawRequested?.Invoke(null, null);
+    }
+
+    private void OnEditClicked(string hash)
+    {
+        DisarmSubmit();
+        CloseArmed = false;
+
+        if (Transfers.BytesOf(hash) is not { } bytes || DrawingPictures.TryRead(bytes) is not { } drawing)
+        {
+            Status.Text = "That picture can't be edited.";
+
+            return;
+        }
+
+        DrawSession = Session;
+        DrawRequested?.Invoke(drawing, hash);
+    }
+
+    private bool IsDrawing(string hash)
+    {
+        if (DrawingHashes.Contains(hash))
+            return true;
+
+        if (NotDrawings.Contains(hash) || Transfers.BytesOf(hash) is not { } bytes)
+            return false;
+
+        if (DrawingPictures.TryRead(bytes) is null)
+        {
+            NotDrawings.Add(hash);
+
+            return false;
+        }
+
+        DrawingHashes.Add(hash);
+
+        return true;
+    }
+
     private void OnUploadFinished(string hash, bool ok, string message)
     {
         if (!Uploading.Remove(hash))
             return;
+
+        var hadOriginal = ReplacedBy.Remove(hash, out var original);
 
         if (ok)
         {
@@ -738,6 +862,14 @@ public sealed class CollegeWriterControl : GuildCloakDialogBase
 
         Status.Text = message.Length > 0 ? message : "That picture was refused.";
         PullText();
+
+        if (hadOriginal && Document.ReplacePicture(hash, original!))
+        {
+            Rebuild(null, false);
+
+            return;
+        }
+
         var index = Document.Blocks.FindIndex(b => (b.Kind == WritingBlockKind.Picture) && (b.Hash == hash));
 
         if (index >= 0)
@@ -882,12 +1014,16 @@ public sealed class CollegeWriterControl : GuildCloakDialogBase
     private sealed class PictureBlock : UIPanel
     {
         private const int REMOVE_WIDTH = 22;
+        private const int EDIT_WIDTH = 32;
 
         private readonly UIImage Image;
         private readonly UILabel Label;
 
         public string Hash { get; }
+        public CustomButton EditButton { get; }
         public CustomButton RemoveButton { get; }
+
+        public event Action? Loaded;
 
         public PictureBlock(string hash, int width)
         {
@@ -899,7 +1035,7 @@ public sealed class CollegeWriterControl : GuildCloakDialogBase
             {
                 X = 2,
                 Y = (CustomButton.HEIGHT - TextRenderer.CHAR_HEIGHT) / 2,
-                Width = width - REMOVE_WIDTH - 4,
+                Width = width - REMOVE_WIDTH - EDIT_WIDTH - 8,
                 Height = TextRenderer.CHAR_HEIGHT,
                 ForegroundColor = LegendColors.Gray,
                 IsHitTestVisible = false
@@ -913,9 +1049,16 @@ public sealed class CollegeWriterControl : GuildCloakDialogBase
 
             RemoveButton = new CustomButton("x", REMOVE_WIDTH) { X = width - REMOVE_WIDTH };
 
+            EditButton = new CustomButton("Edit", EDIT_WIDTH)
+            {
+                X = width - REMOVE_WIDTH - 2 - EDIT_WIDTH,
+                Visible = false
+            };
+
             AddChild(Label);
             AddChild(Image);
             AddChild(RemoveButton);
+            AddChild(EditButton);
         }
 
         public override void Dispose()
@@ -945,6 +1088,7 @@ public sealed class CollegeWriterControl : GuildCloakDialogBase
             Image.Visible = true;
             Label.Visible = false;
             Height = Math.Max(texture.Height, CustomButton.HEIGHT);
+            Loaded?.Invoke();
         }
     }
 

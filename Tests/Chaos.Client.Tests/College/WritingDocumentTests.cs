@@ -8,6 +8,7 @@ namespace Chaos.Client.Tests.College;
 public class WritingDocumentTests
 {
     private static readonly string HashA = new('a', 64);
+    private static readonly string HashB = new('b', 64);
 
     private static WritingDocument WithText(string text)
     {
@@ -248,5 +249,43 @@ public class WritingDocumentTests
         doc.BackspaceAtStart(1);
 
         doc.IsDirty.Should().BeFalse();
+    }
+
+    [Test]
+    public void A_picture_can_be_replaced_by_a_new_one()
+    {
+        var doc = WithText("before\nafter");
+        doc.InsertPicture(0, 7, HashA);
+        doc.MarkClean();
+
+        doc.ReplacePicture(HashA, HashB).Should().BeTrue();
+
+        Shape(doc).Should().Be("T:before | P | T:after");
+        doc.Blocks.Single(b => b.Kind == WritingBlockKind.Picture).Hash.Should().Be(HashB);
+        doc.IsDirty.Should().BeTrue();
+    }
+
+    [Test]
+    public void Replacing_refuses_a_missing_or_duplicate_picture()
+    {
+        var doc = WithText("before\nafter");
+        doc.InsertPicture(0, 7, HashA);
+        doc.InsertPicture(2, 0, HashB);
+
+        doc.ReplacePicture(HashA, HashB).Should().BeFalse();
+        doc.ReplacePicture(new string('c', 64), new string('d', 64)).Should().BeFalse();
+    }
+
+    [Test]
+    public void A_drawing_block_never_becomes_text()
+    {
+        var doc = WritingDocument.From(
+            new CollegePieceInfo
+            {
+                Title = "T",
+                Blocks = [new CollegeBlockInfo { Kind = CollegeBlockKind.Drawing }, new CollegeBlockInfo { Kind = CollegeBlockKind.Text, Text = "x" }]
+            });
+
+        Shape(doc).Should().Be("T:x");
     }
 }

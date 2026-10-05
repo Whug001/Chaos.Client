@@ -57,6 +57,10 @@ public sealed class WritingDocument
         doc.Blocks.Clear();
 
         foreach (var block in piece.Blocks)
+        {
+            if (block.Kind == CollegeBlockKind.Drawing)
+                continue;
+
             doc.Blocks.Add(
                 new WritingBlock
                 {
@@ -69,6 +73,7 @@ public sealed class WritingDocument
                     Text = block.Text,
                     Hash = block.Hash
                 });
+        }
 
         doc.EnsureTrailingText();
         doc.MarkClean();
@@ -283,6 +288,19 @@ public sealed class WritingDocument
     /// <summary>Removes a picture by its remove button, joining the text around it.</summary>
     public (int Index, int Caret) RemovePicture(int index)
         => (index + 1 < Blocks.Count) && (Blocks[index].Kind == WritingBlockKind.Picture) ? BackspaceAtStart(index + 1) : (index, 0);
+
+    /// <summary>Swaps a picture for an edited one in the same place. False when the old one is gone or the new one is already in the piece.</summary>
+    public bool ReplacePicture(string oldHash, string newHash)
+    {
+        if (Blocks.Any(b => (b.Kind == WritingBlockKind.Picture) && (b.Hash == newHash))
+            || Blocks.FirstOrDefault(b => (b.Kind == WritingBlockKind.Picture) && (b.Hash == oldHash)) is not { } block)
+            return false;
+
+        block.Hash = newHash;
+        IsDirty = true;
+
+        return true;
+    }
 
     private (int Index, int Caret) MergeTextAround(int index, int caret)
     {
