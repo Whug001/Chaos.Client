@@ -108,6 +108,59 @@ internal static partial class Sdl
     [UnmanagedCallConv(CallConvs = [typeof(CallConvCdecl)])]
     public static partial void SDL_RestoreWindow(nint window);
 
+    [LibraryImport("SDL2")]
+    [UnmanagedCallConv(CallConvs = [typeof(CallConvCdecl)])]
+    public static partial void SDL_GetVersion(out SdlVersion version);
+
+    [LibraryImport("SDL2")]
+    [UnmanagedCallConv(CallConvs = [typeof(CallConvCdecl)])]
+    public static partial int SDL_GetWindowWMInfo(nint window, nint info);
+
+    [StructLayout(LayoutKind.Sequential)]
+    public struct SdlVersion
+    {
+        public byte Major;
+        public byte Minor;
+        public byte Patch;
+    }
+
+    private const int SDL_SYSWM_WINDOWS = 1;
+
+    //SDL_SysWMinfo: SDL_version (3 bytes), the subsystem (an int at 4), then a union padded to 64 bytes whose Windows
+    //member starts with the HWND, at offset 8 on both x86 and x64
+    private const int SYSWMINFO_SUBSYSTEM_OFFSET = 4;
+    private const int SYSWMINFO_HWND_OFFSET = 8;
+    private const int SYSWMINFO_SIZE = 128;
+
+    /// <summary>The Win32 window (HWND) behind an SDL window, or 0 when it isn't a Windows window or SDL can't say.</summary>
+    public static nint GetWin32Window(nint sdlWindow)
+    {
+        if (!OperatingSystem.IsWindows() || (sdlWindow == 0))
+            return 0;
+
+        var info = Marshal.AllocHGlobal(SYSWMINFO_SIZE);
+
+        try
+        {
+            Marshal.Copy(new byte[SYSWMINFO_SIZE], 0, info, SYSWMINFO_SIZE);
+            SDL_GetVersion(out var version);
+            Marshal.WriteByte(info, 0, version.Major);
+            Marshal.WriteByte(info, 1, version.Minor);
+            Marshal.WriteByte(info, 2, version.Patch);
+
+            if ((SDL_GetWindowWMInfo(sdlWindow, info) == 0) || (Marshal.ReadInt32(info, SYSWMINFO_SUBSYSTEM_OFFSET) != SDL_SYSWM_WINDOWS))
+                return 0;
+
+            return Marshal.ReadIntPtr(info, SYSWMINFO_HWND_OFFSET);
+        } catch (Exception e) when (e is DllNotFoundException or EntryPointNotFoundException)
+        {
+            return 0;
+        } finally
+        {
+            Marshal.FreeHGlobal(info);
+        }
+    }
+
     //SDL_WindowFlags bits reported by SDL_GetWindowFlags (consumed by ChaosGame for maximize detection)
     public const uint SDL_WINDOW_MAXIMIZED = 0x00000080;
 

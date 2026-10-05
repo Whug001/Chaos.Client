@@ -479,6 +479,9 @@ public delegate void TownImportAdminHandler(TownImportAdminArgs args);
 /// <summary>Handles the ballot window opening or refreshing.</summary>
 public delegate void TownBallotHandler(TownBallotArgs args);
 
+/// <summary>Handles a Mileth College window opening, refreshing or getting an answer, or a picture part arriving.</summary>
+public delegate void CollegeDisplayHandler(CollegeDisplayArgs args);
+
 /// <summary>Handles one season of the Endless Tower leaderboard arriving.</summary>
 public delegate void TowerLeaderboardHandler(TowerLeaderboardArgs args);
 
