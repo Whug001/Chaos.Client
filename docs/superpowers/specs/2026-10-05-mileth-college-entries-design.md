@@ -218,8 +218,8 @@ Control characters other than `\n` are stripped on save.
   file header and refuses anything else.
 - **Upload caps per character:** 10 new pictures per hour and 5 MB per day. Pictures the server
   already has don't count.
-- An upload in progress is kept in memory per connection. It's dropped after 2 minutes without a part,
-  or on disconnect.
+- An upload in progress is kept in memory per character. It's dropped after 2 minutes without a part,
+  which also covers a player who disconnects mid-upload.
 
 ### Cleanup (tick, at most once an hour)
 
@@ -294,7 +294,7 @@ One message each way, each starting with a sub-type byte, following `TownBallot`
 | Sub-type | Fields |
 |---|---|
 | `SaveDraft` | subject, piece |
-| `Submit` | subject |
+| `Submit` | subject, piece (the server saves it as the draft, then submits it) |
 | `HandIn` | piece |
 | `PictureCheck` | hash, byte length |
 | `PicturePart` | hash, part index, part count, bytes (at most 32 KB) |
