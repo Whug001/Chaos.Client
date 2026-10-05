@@ -4,14 +4,14 @@
     {
       "id": 1,
       "subject": "Task 1: College message protocol",
-      "status": "pending",
+      "status": "completed",
       "blockedBy": [],
       "description": "**Goal:** Add the `CollegeAction` / `CollegeDisplay` message pair, its shared limits and enums, and round-trip tests, and raise `CLIENT_VERSION` to 772.\n\n**Files:**\n- Create: `Chaos.DarkAges/Definitions/CollegeProtocol.cs`\n- Modify: `Chaos.DarkAges/Definitions/Enums.cs` (append a `#region Mileth College`)\n- Modify: `Chaos.Networking.Abstractions/Definitions/Enums.cs` (after `TowerLeaderboardRequest = 143` and after `TowerLeaderboard = 151`)\n- Modify: `Chaos.DarkAges/Definitions/CONSTANTS.cs` (`CLIENT_VERSION = 772`)\n- Create: `Chaos.Networking/Entities/Server/CollegeInfos.cs`, `Chaos.Networking/Entities/Client/CollegeActionArgs.cs`, `Chaos.Networking/Entities/Server/CollegeDisplayArgs.cs`\n- Create: `Chaos.Networking/Converters/CollegeCodec.cs`, `Chaos.Networking/Converters/Client/CollegeActionConverter.cs`, `Chaos.Networking/Converters/Server/CollegeDisplayConverter.cs`\n- Modify: `Chaos/Networking/Abstractions/IChaosWorldClient.cs` and `Chaos/Networking/ChaosWorldClient.cs` (`SendCollegeDisplay`)\n- Test: `Tests/Chaos.Tests/Networking/CollegePacketConverterTests.cs` (new); `Tests/Chaos.Tests/Networking/GuildEmblemPacketConverterTests.cs` (version test)\n\n**Acceptance Criteria:**\n- [ ] Every `CollegeActionType` and `CollegeDisplayType` value round-trips through its converter with all of its fields.\n- [ ] An undefined sub-type byte throws `ArgumentOutOfRangeException` on read.\n- [ ] `CONSTANTS.CLIENT_VERSION` is 772 and the version test says so.\n- [ ] The existing opcode-uniqueness test still passes with 144 and 152 added.\n\n**Verify:** `dotnet run --project Tests/Chaos.Tests/Chaos.Tests.csproj -- --treenode-filter \"/*/*/CollegePacketConverterTests/*\"` -> all pass; then `--treenode-filter \"/*/*/GuildEmblemPacketConverterTests/*\"` -> all pass.\n\n```json:metadata\n{\"files\": [\"Chaos.DarkAges/Definitions/CollegeProtocol.cs\", \"Chaos.DarkAges/Definitions/Enums.cs\", \"Chaos.Networking.Abstractions/Definitions/Enums.cs\", \"Chaos.DarkAges/Definitions/CONSTANTS.cs\", \"Chaos.Networking/Entities/Server/CollegeInfos.cs\", \"Chaos.Networking/Entities/Client/CollegeActionArgs.cs\", \"Chaos.Networking/Entities/Server/CollegeDisplayArgs.cs\", \"Chaos.Networking/Converters/CollegeCodec.cs\", \"Chaos.Networking/Converters/Client/CollegeActionConverter.cs\", \"Chaos.Networking/Converters/Server/CollegeDisplayConverter.cs\", \"Chaos/Networking/Abstractions/IChaosWorldClient.cs\", \"Chaos/Networking/ChaosWorldClient.cs\", \"Tests/Chaos.Tests/Networking/CollegePacketConverterTests.cs\", \"Tests/Chaos.Tests/Networking/GuildEmblemPacketConverterTests.cs\"], \"verifyCommand\": \"dotnet run --project Tests/Chaos.Tests/Chaos.Tests.csproj -- --treenode-filter \\\"/*/*/CollegePacketConverterTests/*\\\"\", \"acceptanceCriteria\": [\"every action and display sub-type round-trips\", \"unknown sub-type throws ArgumentOutOfRangeException\", \"CLIENT_VERSION is 772\", \"opcode uniqueness test passes\"], \"modelTier\": \"mechanical\"}\n```"
     },
     {
       "id": 2,
       "subject": "Task 2: Piece model, piece rules and new options",
-      "status": "pending",
+      "status": "completed",
       "blockedBy": [
         1
       ],
@@ -20,7 +20,7 @@
     {
       "id": 3,
       "subject": "Task 3: Picture format, picture store and uploads",
-      "status": "pending",
+      "status": "completed",
       "blockedBy": [
         2
       ],
@@ -29,7 +29,7 @@
     {
       "id": 4,
       "subject": "Task 4: Piece store",
-      "status": "pending",
+      "status": "completed",
       "blockedBy": [
         2
       ],
@@ -38,7 +38,7 @@
     {
       "id": 5,
       "subject": "Task 5: Entry state and `EntryBook` rules",
-      "status": "pending",
+      "status": "completed",
       "blockedBy": [
         2
       ],
@@ -47,7 +47,7 @@
     {
       "id": 6,
       "subject": "Task 6: Entry flows in `CollegeService`, mail and the tick",
-      "status": "pending",
+      "status": "completed",
       "blockedBy": [
         3,
         4,
@@ -58,7 +58,7 @@
     {
       "id": 7,
       "subject": "Task 7: Award rewards: plan, apply, login sync",
-      "status": "pending",
+      "status": "completed",
       "blockedBy": [
         6
       ],
@@ -67,7 +67,7 @@
     {
       "id": 8,
       "subject": "Task 8: `CollegePanel`, the packet handler and DI",
-      "status": "pending",
+      "status": "completed",
       "blockedBy": [
         1,
         6,
@@ -78,7 +78,7 @@
     {
       "id": 9,
       "subject": "Task 9: Registrar, lectern, gallery stand and admin command",
-      "status": "pending",
+      "status": "completed",
       "blockedBy": [
         8
       ],
@@ -87,7 +87,7 @@
     {
       "id": 10,
       "subject": "Task 10: Dialogs and gallery stands",
-      "status": "pending",
+      "status": "completed",
       "blockedBy": [
         9
       ],
@@ -96,14 +96,14 @@
     {
       "id": 11,
       "subject": "Task 11: College emblems",
-      "status": "pending",
+      "status": "completed",
       "blockedBy": [],
       "description": "**Goal:** Draw six 11 x 11 emblem designs, recolour each into the four tier metals as art 259-282, write the 24 emblem templates, and build the setoa.dat batch.\n\n**Files:**\n- Create: `Tools/College/emblems/base_art.png` ... `base_philosophy.png` (six 11 x 11 RGBA PNGs)\n- Create: `Tools/College/emblem_tiers.py`, `Tools/College/test_emblem_tiers.py`\n- Create (generated): `Tools/Emblems/art/custom/embl259.png` ... `embl282.png`, `Data/Configuration/Templates/Emblems/college_<subject>_<tier>.json` (24 files)\n\n**Acceptance Criteria:**\n- [ ] The six base designs (brush, lute, quill, scroll, tome, eye) are 11 x 11 RGBA with a transparent background, drawn in greys, and the user approved them.\n- [ ] `emblem_tiers.py` writes 24 PNGs numbered 259-282 in the order Art, Music, Literature, History, Lore, Philosophy x Clave, Village, Kingdom, Aisling, recoloured bronze, silver, gold and pale blue.\n- [ ] It writes 24 emblem JSON files with key `college_<subject>_<tier>`, the art number, name `\"<Tier> <Noun>\"`, description `\"<Tier> Award in <Subject>, Mileth College.\"` and `\"source\": {\"staff\": true}`.\n- [ ] `python -m unittest Tools.College.test_emblem_tiers` passes; `python -m unittest Tools/Emblems/test_emblems.py` still passes.\n- [ ] `python Tools/Emblems/build.py --no-apply` produces a Desktop batch folder whose setoa.dat holds embl259-282, built on the live setoa.dat (see the \"Dats live 2026-10-04\" note: build on those dats).\n\n**Verify:** `python -m unittest Tools.College.test_emblem_tiers` -> OK; the build prints its batch folder and `review/emblems.png` shows 259-282.\n\n```json:metadata\n{\"files\": [\"Tools/College/emblems/\", \"Tools/College/emblem_tiers.py\", \"Tools/College/test_emblem_tiers.py\", \"Tools/Emblems/art/custom/\", \"Data/Configuration/Templates/Emblems/\"], \"verifyCommand\": \"python -m unittest Tools.College.test_emblem_tiers\", \"acceptanceCriteria\": [\"six 11x11 grey bases approved by the user\", \"24 PNGs 259-282 in subject/tier order and tier colours\", \"24 templates with key, art, name, description, staff source\", \"emblem tests pass\", \"setoa batch built on the live set\"], \"modelTier\": \"standard\"}\n```"
     },
     {
       "id": 12,
       "subject": "Task 12: Client worktree and College networking",
-      "status": "pending",
+      "status": "completed",
       "blockedBy": [
         1
       ],
@@ -112,7 +112,7 @@
     {
       "id": 13,
       "subject": "Task 13: `WritingDocument` editor model",
-      "status": "pending",
+      "status": "completed",
       "blockedBy": [
         12
       ],
@@ -121,7 +121,7 @@
     {
       "id": 14,
       "subject": "Task 14: Picture preparation, cache, transfers and file pick",
-      "status": "pending",
+      "status": "completed",
       "blockedBy": [
         12
       ],
@@ -130,7 +130,7 @@
     {
       "id": 15,
       "subject": "Task 15: Shared piece view and the reader window",
-      "status": "pending",
+      "status": "completed",
       "blockedBy": [
         14
       ],
@@ -139,7 +139,7 @@
     {
       "id": 16,
       "subject": "Task 16: The writing window",
-      "status": "pending",
+      "status": "completed",
       "blockedBy": [
         13,
         14
@@ -149,7 +149,7 @@
     {
       "id": 17,
       "subject": "Task 17: Judging, gallery and hand-in lists, and the world-s",
-      "status": "pending",
+      "status": "completed",
       "blockedBy": [
         15,
         16
@@ -159,7 +159,7 @@
     {
       "id": 18,
       "subject": "Task 18: Verify everything and commit",
-      "status": "pending",
+      "status": "completed",
       "blockedBy": [
         1,
         2,
@@ -182,5 +182,5 @@
       "description": "**Goal:** Run every test suite, do a local end-to-end check, and make one commit per repo.\n\n**Files:**\n- All files changed by Tasks 1-17 in `worktrees/college-server`, `worktrees/college-unora` and `worktrees/college-client`.\n\n**Acceptance Criteria:**\n- [ ] The full server suite passes except the known baseline failures.\n- [ ] The full client suite passes.\n- [ ] `python -m unittest Tools.College.test_college_maps`, `python -m unittest Tools.College.test_emblem_tiers`, `python Tools/College/check_dialogs.py` and `python -m unittest Tools/Emblems/test_emblems.py` pass in the Unora worktree.\n- [ ] A local server and client run through checklist steps 1-3 below without errors in the server log.\n- [ ] Each worktree has exactly one new commit on `feat/college-core`, staged by explicit paths, with the attribution lines. Nothing is pushed or merged.\n\n**Verify:** `git -C <each worktree> log --oneline -2` shows the new commit on top of 69f8fbe6b / a460b5a7d / client main; `git -C <each worktree> status --short` shows nothing left that belongs to this work.\n\n```json:metadata\n{\"files\": [], \"verifyCommand\": \"git -C C:/Users/Michael/Documents/GitHub/worktrees/college-server log --oneline -2\", \"acceptanceCriteria\": [\"server suite at known baseline\", \"client suite passes\", \"Unora checks pass\", \"local end-to-end steps 1-3 work\", \"one commit per worktree, explicit paths, not pushed\"], \"modelTier\": \"standard\"}\n```"
     }
   ],
-  "lastUpdated": "2026-10-05T18:00:00Z"
+  "lastUpdated": "2026-10-05T16:14:06.904119+00:00"
 }
