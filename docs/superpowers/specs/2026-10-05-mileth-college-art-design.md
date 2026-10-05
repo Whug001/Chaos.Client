@@ -172,7 +172,7 @@ Holds the palette (32 colours) and the pixels (6,912 swatch numbers), and perfor
 
 ### Canvas window (`Controls/World/Popups/College/ArtCanvasControl`)
 
-560 x 440, the same size as the writing window. It follows the `canvas-window.html` mockup, option A:
+560 x 464 (the frame's 47-px bottom border leaves no room for a 3-line note under the canvas at 440). It follows the `canvas-window.html` mockup, option A:
 
 - **Top:** caption `Art: "{title}"`, then a **Title** box.
 - **Left:** a tool column: Pen, Erase, Fill, Line, Pick; then **Size 1** (each click cycles 1, 2, 3); then
@@ -213,7 +213,7 @@ server still checks.
   This covers every reader context: Judge, Verdict, Gallery, HandIn and Shown.
 - **Gallery Art tab (`CollegeGalleryControl`):** a picture grid of 4 columns and 2 rows, 8 per page. Each cell shows
   the drawing at 96 x 72 inside a 2-pixel frame in its award colour (Clave bronze, Village silver, Kingdom gold,
-  Aisling pale blue, as in part 2), with the title and author below. Click selects a cell; double-click or **View**
+  Aisling pale blue, as in part 2), with the title and author below. Click selects a cell; double-click or **Read**
   opens the reader. The other five tabs keep their text rows.
 - **Thumbnails:** for each visible cell without a cached drawing, the client sends `DrawingFetch`. A cell shows
   "Loading..." until the `Drawing` reply arrives. Drawings are kept in memory by entry id until logout. Fetches for a
@@ -257,6 +257,8 @@ server still checks.
 
 The Art gallery stand, the Art emblems (259-262) and the Honorary Artist shop items already exist. No .dat files ship
 with this part.
+
+Unora changes four dialog texts so they no longer say 'write' (Registrar subject choice, booking format, About page 2, the lectern prompt question).
 
 ### Messages (orange bar, 45 characters at most)
 
@@ -320,7 +322,7 @@ on master).
 
 ## Shipping
 
-Server + client 773 (+ Unora only if the plan finds a change). The client goes out in a launcher patch before the
+Server + client 773 + Unora (dialog text). The client goes out in a launcher patch before the
 server restart. Like parts 1 and 2, nothing is pushed until the user says so.
 
 ## Open follow-ups carried from parts 1 and 2
