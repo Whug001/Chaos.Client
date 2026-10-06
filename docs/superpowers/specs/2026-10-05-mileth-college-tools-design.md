@@ -177,8 +177,8 @@ arrival or a reconnect sees the card or panel at once.
    - quiz: answered fewer than half the questions asked (5 of 10 passes; 4 of 9 fails);
    - debate: missed the opening vote or the final vote.
 4. **Bonus:** each qualifying student who still rolls gets at most one second roll per class:
-   - quiz: students with at least one right answer are ranked by score. Whole tie groups are taken from the top while
-     the total stays at 3 or fewer. Scores 5, 5, 4 give the bonus to both 5s. Scores 5, 5, 5, 5 give no bonus.
+   - quiz: the students with the best score, if that score is at least 1 and 3 or fewer students share it. Lower
+     scores never get the bonus. Scores 5, 5, 4 give the bonus to both 5s. Scores 5, 5, 5, 5 give no bonus.
    - debate: the Teacher's best speakers.
 5. The second roll uses `MarkLedger.Roll` like the first, so it moves the chance up or resets it.
 6. `History` entries gain `BonusRolls` and `ToolFailed` counts.
