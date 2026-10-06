@@ -35,7 +35,8 @@ public sealed class OkPopupMessageControl : UIPanel
     public UIButton? CancelButton { get; }
     public UIButton OkButton { get; }
 
-    public OkPopupMessageControl(bool showCancel = false)
+    /// <param name="extraLines">Text rows to add above the default height, for messages longer than three lines.</param>
+    public OkPopupMessageControl(bool showCancel = false, int extraLines = 0)
     {
         Visible = false;
         UsesControlStack = true;
@@ -49,7 +50,8 @@ public sealed class OkPopupMessageControl : UIPanel
         var borderSize = DialogFrame.BORDER_SIZE;
         var interiorWidth = bgTile.Width * TILES_WIDE - 23;
         var totalWidth = borderSize + interiorWidth + borderSize;
-        var totalHeight = borderSize + INTERIOR_HEIGHT + borderSize;
+        var interiorHeight = INTERIOR_HEIGHT + extraLines * TextRenderer.CHAR_HEIGHT;
+        var totalHeight = borderSize + interiorHeight + borderSize;
 
         //composite tiled background with border
         using var composite = DialogFrame.Composite(bgTile, totalWidth, totalHeight);
@@ -66,7 +68,7 @@ public sealed class OkPopupMessageControl : UIPanel
         ContentX = borderSize + CONTENT_PADDING;
         ContentY = borderSize + CONTENT_PADDING;
         ContentWidth = interiorWidth - CONTENT_PADDING * 2;
-        ContentHeight = INTERIOR_HEIGHT - CONTENT_PADDING * 2;
+        ContentHeight = interiorHeight - CONTENT_PADDING * 2;
 
         //button textures
         var cache = UiRenderer.Instance!;

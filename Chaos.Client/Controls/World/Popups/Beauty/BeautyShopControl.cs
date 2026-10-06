@@ -254,7 +254,7 @@ public sealed class BeautyShopControl : FramedDialogPanelBase
         AddChild(NextButton);
 
         //parented to the panel like poker's leave confirm, drawn above everything else in it
-        ConfirmDialog = new OkPopupMessageControl(true) { Name = "BeautyShopGenderConfirm", ZIndex = 100 };
+        ConfirmDialog = new OkPopupMessageControl(true, extraLines: 2) { Name = "BeautyShopGenderConfirm", ZIndex = 100 };
         ConfirmDialog.X = (PANEL_WIDTH - ConfirmDialog.Width) / 2;
         ConfirmDialog.Y = (PANEL_HEIGHT - ConfirmDialog.Height) / 2;
 
