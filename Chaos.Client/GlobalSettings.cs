@@ -21,11 +21,35 @@ public static class GlobalSettings
     public static readonly SamplerState Sampler = SamplerState.PointClamp; //SamplerState.LinearClamp;
     private static ushort ClientVersion => CONSTANTS.CLIENT_VERSION;
 
-    public static string DataPath
-        => Environment.GetEnvironmentVariable("DA_PATH") ??
-            @"C:\Users\Despe\Desktop\Unora\Game";
-            //Path.GetFullPath(Path.Combine(AppContext.BaseDirectory, ".."));
+    /// <summary>
+    ///     The game-data folder: the first candidate that holds the archives. A launcher can pass a folder that does not
+    ///     exist (DA_PATH), so the folder next to the executable and its parent are also tried before the dev default.
+    ///     When none holds the archives this is the first candidate, and <see cref="HasGameData" /> is false.
+    /// </summary>
+    public static string DataPath { get; } = ResolveDataPath();
+
+    /// <summary>Whether <see cref="DataPath" /> holds the game archives.</summary>
+    public static bool HasGameData => ContainsGameData(DataPath);
+
+    private static string ResolveDataPath()
+    {
+        string?[] candidates =
+        [
+            Environment.GetEnvironmentVariable("DA_PATH"),
+            AppContext.BaseDirectory,
+            Path.GetFullPath(Path.Combine(AppContext.BaseDirectory, "..")),
+            @"C:\Users\mewbb\Desktop\Chaos Launcher\Unora"
             //@"C:\Users\Despe\Desktop\Dark Ages";
+        ];
+
+        var valid = candidates.Where(path => !string.IsNullOrWhiteSpace(path))
+                              .Select(path => path!)
+                              .ToList();
+
+        return valid.FirstOrDefault(ContainsGameData) ?? valid[0];
+    }
+
+    private static bool ContainsGameData(string path) => File.Exists(Path.Combine(path, "cious.dat"));
 
     public static string LobbyHost
         => Environment.GetEnvironmentVariable("DA_LOBBY_HOST") ??
@@ -69,6 +93,19 @@ public static class GlobalSettings
 
     private static void InitializeOthers()
     {
+        //without the archives every later step throws; tell the player where we looked instead of crashing
+        if (!HasGameData)
+        {
+            Sdl.SDL_ShowSimpleMessageBox(
+                Sdl.MESSAGEBOX_ERROR,
+                "Unora",
+                $"Could not find the game files (cious.dat) in:{Environment.NewLine}{DataPath}{Environment.NewLine}{Environment.NewLine}"
+                + "Check the game folder in the launcher settings, or reinstall the game files.",
+                0);
+
+            Environment.Exit(1);
+        }
+
         Encoding.RegisterProvider(CodePagesEncodingProvider.Instance);
 
         DataContext.Initialize(
