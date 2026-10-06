@@ -10,7 +10,7 @@ public static class EmoteCatalog
 {
     public const int SLOT_COUNT = 6;
 
-    //matches WorldScreen.InputHandlers CtrlEmotes + CTRL_ALT_EMOTE_BASE(23) + ALT_EMOTE_BASE(34)
+    //matches GameActions.EmoteAnimation: the 11 Ctrl emotes, then 23-33 (Ctrl+Alt) and 34-44 (Alt)
     private static readonly BodyAnimation[] CtrlTier =
     [
         BodyAnimation.Smile,

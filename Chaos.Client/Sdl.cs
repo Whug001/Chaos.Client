@@ -74,6 +74,11 @@ internal static partial class Sdl
     [UnmanagedCallConv(CallConvs = [typeof(CallConvCdecl)])]
     public static partial uint SDL_GetModState();
 
+    /// <summary>The keycode the current keyboard layout gives the key at <paramref name="scancode" />.</summary>
+    [LibraryImport("SDL2")]
+    [UnmanagedCallConv(CallConvs = [typeof(CallConvCdecl)])]
+    public static partial int SDL_GetKeyFromScancode(int scancode);
+
     public const uint MESSAGEBOX_ERROR = 0x10;
 
     //safe to call before SDL_Init; used for fatal startup errors before the window exists

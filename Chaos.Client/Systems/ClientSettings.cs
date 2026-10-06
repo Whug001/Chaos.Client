@@ -1,5 +1,6 @@
 ﻿#region
 using Chaos.Client.Definitions;
+using Chaos.Client.Systems.KeyBinds;
 using Chaos.DarkAges.Definitions;
 #endregion
 
@@ -160,6 +161,9 @@ public static class ClientSettings
 
                 var value = line[(colonIndex + 1)..]
                     .Trim();
+
+                if (KeyBindings.Current.TryLoadSetting(key, value))
+                    continue;
 
                 switch (key)
                 {
@@ -379,6 +383,9 @@ public static class ClientSettings
 
             for (var i = 0; i < EmoteCatalog.SLOT_COUNT; i++)
                 writer.WriteLine($"EmoteWheel{i} : {(int)EmoteWheelSlots[i]}");
+
+            foreach (var line in KeyBindings.Current.ToSettingsLines())
+                writer.WriteLine(line);
         } catch
         {
             //best effort — don't crash on save failure

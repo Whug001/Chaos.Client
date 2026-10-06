@@ -165,6 +165,7 @@ public sealed partial class WorldScreen : IScreen
     private float GroupHighlightTimer;
     private GroupTabControl GroupPanel = null!;
     private HotkeyHelpControl HotkeyHelp = null!;
+    private KeyBindingsControl KeyBindingsWindow = null!;
     private PanelSlot? HoveredInventorySlot;
     private bool IsGameMaster;
     private ItemTooltipControl ItemTooltip = null!;
@@ -458,6 +459,7 @@ public sealed partial class WorldScreen : IScreen
         MacrosList.SetSlideAnchor(optionsAnchorX, optionsAnchorY);
 
         HotkeyHelp = new HotkeyHelpControl();
+        KeyBindingsWindow = new KeyBindingsControl();
 
         GroupPanel = new GroupTabControl();
 
@@ -982,6 +984,7 @@ public sealed partial class WorldScreen : IScreen
         Root.AddChild(SettingsDialog);
         Root.AddChild(MacrosList);
         Root.AddChild(HotkeyHelp);
+        Root.AddChild(KeyBindingsWindow);
         Root.AddChild(GroupPanel);
         Root.AddChild(GroupBoxViewer);
         Root.AddChild(WorldList);

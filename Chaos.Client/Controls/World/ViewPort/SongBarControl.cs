@@ -1,6 +1,7 @@
 #region
 using Chaos.Client.Collections;
 using Chaos.Client.Controls.Components;
+using Chaos.Client.Systems.KeyBinds;
 using Microsoft.Xna.Framework;
 #endregion
 
@@ -165,28 +166,20 @@ public sealed class SongBarControl : UIPanel
 
     private static string NameFor(byte songId) => (songId > 0) && (songId < SongNames.Length) ? SongNames[songId] : string.Empty;
 
+    /// <summary>
+    ///     The notes as the keys the player has them on (F12), e.g. "U | I | _ | _", with "_" for each note not yet
+    ///     entered. The modifier is said once in front when all four notes share it.
+    /// </summary>
     private static string NotesToText(ReadOnlySpan<byte> notes, int enteredCount)
     {
-        Span<char> chars = stackalloc char[7];
-        var index = 0;
+        var (prefix, keys) = KeyBindings.Current.SongNoteDisplay();
+        var parts = new string[4];
 
         for (var i = 0; i < 4; i++)
-        {
-            if (i > 0)
-                chars[index++] = ' ';
+            parts[i] = (i < enteredCount) && notes[i] is >= 1 and <= 4 ? keys[notes[i] - 1] : "_";
 
-            chars[index++] = i < enteredCount
-                ? notes[i] switch
-                {
-                    1 => 'U',
-                    2 => 'I',
-                    3 => 'O',
-                    4 => 'P',
-                    _ => '_'
-                }
-                : '_';
-        }
+        var text = string.Join(" | ", parts);
 
-        return new string(chars);
+        return prefix.Length > 0 ? $"{prefix.TrimEnd('+')}: {text}" : text;
     }
 }

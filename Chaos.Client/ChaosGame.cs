@@ -12,6 +12,7 @@ using Chaos.Client.Networking.Definitions;
 using Chaos.Client.Screens;
 using Chaos.Client.Systems;
 using Chaos.Client.Systems.College;
+using Chaos.Client.Systems.KeyBinds;
 using Chaos.Cryptography;
 using Chaos.DarkAges.Definitions;
 using Chaos.Networking.Entities.Server;
@@ -474,6 +475,10 @@ public sealed class ChaosGame : Game
             SurfaceFormat.Color,
             DepthFormat.Depth24Stencil8);
         InputBuffer.Initialize();
+
+        //key bindings show letters and punctuation as the player's layout types them
+        KeyNames.LayoutLookup = scancode => Sdl.SDL_GetKeyFromScancode((int)scancode) is var keycode and > 32 and < 127 ? (char)keycode : null;
+
         Dispatcher = new InputDispatcher();
         Screens = new ScreenManager(this);
 
@@ -906,8 +911,8 @@ public sealed class ChaosGame : Game
         if (InputBuffer.WasScancodePressed(Scancode.F11))
             DebugOverlay.Toggle();
 
-        //f12 — screenshot
-        if (InputBuffer.WasScancodePressed(Scancode.F12))
+        //screenshot (Print Screen unless rebound)
+        if (KeyBindings.WasPressed(GameAction.Screenshot))
             RequestScreenshot();
 
         DebugOverlay.Update(gameTime);

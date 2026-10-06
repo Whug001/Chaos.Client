@@ -10,6 +10,7 @@ using Chaos.Client.Controls.World.Popups.BugReport;
 using Chaos.Client.Controls.World.Popups.Options;
 using Chaos.Client.Extensions;
 using Chaos.Client.Systems;
+using Chaos.Client.Systems.KeyBinds;
 using Chaos.Client.ViewModel;
 using Chaos.DarkAges.Definitions;
 using Chaos.Networking.Entities.Client;
@@ -656,9 +657,9 @@ public sealed partial class WorldScreen
     ///     Slide panels animate out concurrently with the new panel sliding in. Button deselection
     ///     is handled by the OnClose/SessionClosed events that fire when slide-out completes.
     /// </summary>
-    private void ForceCloseOtherTogglePanels(Scancode except)
+    private void ForceCloseOtherTogglePanels(GameAction except)
     {
-        if ((except != Scancode.Q) && MainOptions.Visible)
+        if ((except != GameAction.Options) && MainOptions.Visible)
         {
             SettingsDialog.Hide();
             MacrosList.Hide();
@@ -666,7 +667,7 @@ public sealed partial class WorldScreen
             MainOptions.SlideClose();
         }
 
-        if ((except != Scancode.W) && IsAnyBoardPanelVisible())
+        if ((except != GameAction.Boards) && IsAnyBoardPanelVisible())
         {
             if (BoardList.Visible)
                 BoardList.SlideClose();
@@ -674,10 +675,10 @@ public sealed partial class WorldScreen
                 WorldState.Board.CloseSession();
         }
 
-        if ((except != Scancode.E) && WorldList.Visible)
+        if ((except != GameAction.WorldList) && WorldList.Visible)
             WorldList.SlideClose();
 
-        if ((except != Scancode.R) && SocialStatusPicker.Visible)
+        if ((except != GameAction.SocialStatus) && SocialStatusPicker.Visible)
         {
             SocialStatusPicker.Hide();
 

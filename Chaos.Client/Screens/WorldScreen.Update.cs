@@ -6,6 +6,7 @@ using Chaos.Client.Definitions;
 using Chaos.Client.Models;
 using Chaos.Client.Rendering;
 using Chaos.Client.Systems;
+using Chaos.Client.Systems.KeyBinds;
 using Chaos.DarkAges.Definitions;
 using Chaos.Geometry.Abstractions.Definitions;
 using Microsoft.Xna.Framework;
@@ -372,13 +373,13 @@ public sealed partial class WorldScreen
 
     private void UpdateEmoteWheel()
     {
-        if (_suppressWorldListUntilERelease && !InputBuffer.IsScancodeHeld(Scancode.E))
+        if (_suppressWorldListUntilERelease && !KeyBindings.IsHeld(GameAction.WorldList))
             _suppressWorldListUntilERelease = false;
 
         if (Game.Dispatcher.ControlStackCount > 0 && !EmoteWheel.IsOpen)
             return;
 
-        var held = InputBuffer.IsMiddleButtonHeld && InputBuffer.IsScancodeHeld(Scancode.E);
+        var held = InputBuffer.IsMiddleButtonHeld && KeyBindings.IsHeld(GameAction.WorldList);
 
         if (held)
         {

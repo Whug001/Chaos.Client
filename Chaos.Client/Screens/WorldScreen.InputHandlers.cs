@@ -10,6 +10,7 @@ using Chaos.Client.Data.Models;
 using Chaos.Client.Extensions;
 using Chaos.Client.Models;
 using Chaos.Client.Systems;
+using Chaos.Client.Systems.KeyBinds;
 using Chaos.Client.ViewModel;
 using Chaos.DarkAges.Definitions;
 using Chaos.Geometry.Abstractions.Definitions;
@@ -505,43 +506,6 @@ public sealed partial class WorldScreen
 
     //--- hotkeys ---
 
-    private static readonly Scancode[] EmoteKeys =
-    [
-        Scancode.D1,
-        Scancode.D2,
-        Scancode.D3,
-        Scancode.D4,
-        Scancode.D5,
-        Scancode.D6,
-        Scancode.D7,
-        Scancode.D8,
-        Scancode.D9,
-        Scancode.D0,
-        Scancode.OemMinus
-    ];
-
-    //ctrl+key emotes: 9-17 then 21-22 (skips 18-20 which don't exist in bodyanimation)
-    private static readonly BodyAnimation[] CtrlEmotes =
-    [
-        BodyAnimation.Smile,
-        BodyAnimation.Cry,
-        BodyAnimation.Frown,
-        BodyAnimation.Wink,
-        BodyAnimation.Surprise,
-        BodyAnimation.Tongue,
-        BodyAnimation.Pleasant,
-        BodyAnimation.Snore,
-        BodyAnimation.Mouth,
-        BodyAnimation.BlowKiss,
-        BodyAnimation.Wave
-    ];
-
-    //base BodyAnimation value for Ctrl+Alt+<key> emotes (e.g. key 0 -> bodyanim 23)
-    private const int CTRL_ALT_EMOTE_BASE = 23;
-
-    //base BodyAnimation value for Alt+<key> emotes (e.g. key 0 -> bodyanim 34)
-    private const int ALT_EMOTE_BASE = 34;
-
     /// <summary>
     ///     Returns true when no mutually-exclusive options panel is currently visible. Used by the F3/F4/F10 shortcuts so
     ///     pressing one hotkey cannot overlap another options popup.
@@ -555,111 +519,59 @@ public sealed partial class WorldScreen
         return true;
     }
 
-    private bool HandleEmoteHotkey(KeyDownEvent e)
+    /// <summary>
+    ///     The actions a key may run right now. Song notes only while a call is live, so their keys (U/I/O/P by
+    ///     default) stay with whatever else has them the rest of the time. While a popup holds the control stack only the
+    ///     actions that worked over popups before keep working: song notes, typing in chat and the Q/W/E/R toggles, which
+    ///     close their own panels.
+    /// </summary>
+    private bool IsActionUsable(GameAction action)
     {
-        if (e is { Ctrl: false, Alt: false })
+        if ((GameActions.SongNote(action) > 0) && !WorldState.Song.HasLiveCall)
             return false;
 
-        var keyIndex = Array.IndexOf(EmoteKeys, e.Scancode);
+        if (Game.Dispatcher.ControlStackCount == 0)
+            return true;
 
-        if (keyIndex < 0)
-            return false;
+        return (GameActions.SongNote(action) > 0)
+               || action is GameAction.FocusChat or GameAction.Options or GameAction.Boards or GameAction.WorldList or GameAction.SocialStatus;
+    }
 
-        //past this point the keystroke is unambiguously an emote attempt — consume it
-        //regardless of whether the emote actually fires, so it doesn't fall through to
-        //HandleSlotHotkey and trigger an item/skill slot use as an unintended fallback.
-        e.Handled = true;
-
+    private void SendEmote(GameAction action)
+    {
         var player = WorldState.GetPlayerEntity();
 
         //gate emote initiation on the same condition as movement: face emotes lock
         //the body while playing, so it shouldn't be possible to start one mid-walk
         //or while another emote/body anim is already running.
         if (player is null || !player.IsAtRest)
-            return true;
+            return;
 
-        BodyAnimation bodyAnimation;
-
-        if (e is { Ctrl: true, Alt: false })
-            bodyAnimation = CtrlEmotes[keyIndex];
-        else if (e is { Ctrl: true, Alt: true })
-            bodyAnimation = (BodyAnimation)(CTRL_ALT_EMOTE_BASE + keyIndex);
-        else
-            bodyAnimation = (BodyAnimation)(ALT_EMOTE_BASE + keyIndex);
-
-        Game.Connection.SendEmote(bodyAnimation);
-
-        return true;
+        Game.Connection.SendEmote(GameActions.EmoteAnimation(action));
     }
 
-    /// <summary>
-    ///     Records a song note if a call is outstanding. Returns false without consuming the key when no call is
-    ///     live, so U/I/O/P remain unbound during normal play.
-    /// </summary>
-    private bool HandleSongNote(KeyDownEvent e)
+    /// <summary>Records a song note into the live call, and sends the answer once all four are in.</summary>
+    private void EnterSongNote(byte note)
     {
         var song = WorldState.Song;
 
-        if (!song.HasLiveCall)
-            return false;
+        if (!song.EnterNote(note))
+            return;
 
-        if (e is { Ctrl: true } || e is { Alt: true })
-            return false;
+        var (n1, n2, n3, n4) = song.TakeAnswer();
+        Game.Connection.SendSongAnswer(
+            song.CallId,
+            n1,
+            n2,
+            n3,
+            n4);
 
-        byte note = e.Scancode switch
-        {
-            Scancode.U => 1,
-            Scancode.I => 2,
-            Scancode.O => 3,
-            Scancode.P => 4,
-            _          => 0
-        };
-
-        if (note == 0)
-            return false;
-
-        var complete = song.EnterNote(note);
-
-        if (complete)
-        {
-            var (n1, n2, n3, n4) = song.TakeAnswer();
-            Game.Connection.SendSongAnswer(
-                song.CallId,
-                n1,
-                n2,
-                n3,
-                n4);
-
-            song.ClearCall();
-        }
-
-        e.Handled = true;
-
-        return true;
+        song.ClearCall();
     }
 
-    private bool HandleSlotHotkey(KeyDownEvent e)
+    /// <summary>Uses slot <paramref name="slot" /> (1-12) on the open panel. False when the open panel has no slots.</summary>
+    private bool UseSlotHotkey(int slot)
     {
-        var slot = e.Scancode switch
-        {
-            Scancode.D1 => 1,
-            Scancode.D2 => 2,
-            Scancode.D3 => 3,
-            Scancode.D4 => 4,
-            Scancode.D5 => 5,
-            Scancode.D6 => 6,
-            Scancode.D7 => 7,
-            Scancode.D8 => 8,
-            Scancode.D9 => 9,
-            Scancode.D0 => 10,
-            Scancode.OemMinus => 11,
-            Scancode.OemPlus => 12,
-            _ => -1
-        };
-
-        if (slot < 0)
-            return false;
-
         var byteSlot = (byte)slot;
 
         switch (WorldHud.ActiveTab)
@@ -718,8 +630,6 @@ public sealed partial class WorldScreen
             default:
                 return false;
         }
-
-        e.Handled = true;
 
         return true;
     }
@@ -900,8 +810,8 @@ public sealed partial class WorldScreen
     #region Root Event Handlers
 
     /// <summary>
-    ///     Handles keyboard input that bubbles up to the root panel (no focused element consumed it).
-    ///     Contains all game hotkeys, chat focus, movement, emotes, and slot actions.
+    ///     Handles keyboard input that bubbles up to the root panel (no focused element consumed it). The key is looked up
+    ///     in the player's key bindings (F12) and runs the action bound to it; Alt+Enter, F12 and Escape are fixed.
     /// </summary>
     private void OnRootKeyDown(KeyDownEvent e)
     {
@@ -914,103 +824,28 @@ public sealed partial class WorldScreen
             return;
         }
 
-        //enter — toggle chat focus
-        if (e.Scancode == Scancode.Enter)
-        {
-            if (!WorldHud.ChatInput.IsFocused)
-                WorldHud.ChatInput.Focus();
-
-            e.Handled = true;
-
-            return;
-        }
-
-        //q/w/e/r toggle group — must be above the stack guard because these panels
-        //use the control stack themselves and need to toggle while open
-        if (e.Scancode == Scancode.Q)
-        {
-            ForceCloseOtherTogglePanels(Scancode.Q);
-
-            if (MainOptions.Visible)
-            {
-                SettingsDialog.Hide();
-                MacrosList.Hide();
-                FriendsList.Hide();
-                MainOptions.SlideClose();
-            } else
-            {
-                WorldHud.OptionButton?.IsSelected = true;
-
-                MainOptions.Show();
-            }
-
-            e.Handled = true;
-
-            return;
-        }
-
-        if (e.Scancode == Scancode.W)
-        {
-            ForceCloseOtherTogglePanels(Scancode.W);
-
-            if (IsAnyBoardPanelVisible())
-            {
-                if (BoardList.Visible)
-                    BoardList.SlideClose();
-                else
-                    WorldState.Board.CloseSession();
-            } else
-            {
-                WorldHud.BulletinButton?.IsSelected = true;
-
-                Game.Connection.SendBoardInteraction(BoardRequestType.BoardList);
-            }
-
-            e.Handled = true;
-
-            return;
-        }
-
-        if (e.Scancode == Scancode.E)
-        {
-            //middle mouse + E opens the emote wheel — don't toggle world list for that chord
-            //or for key-repeat / late keydown while E is still held after the chord ends
-            if (InputBuffer.IsMiddleButtonHeld || EmoteWheel.IsOpen || _suppressWorldListUntilERelease)
+        //every bound action the key could mean, exact chord first; an action that does not apply right now (no chat
+        //panel to scroll, say) lets the next one have the key
+        foreach (var action in KeyBindings.Current.Candidates(KeyChord.From(e), IsActionUsable))
+            if (RunAction(action))
             {
                 e.Handled = true;
 
                 return;
             }
 
-            ForceCloseOtherTogglePanels(Scancode.E);
-
-            if (WorldList.Visible)
-                WorldList.SlideClose();
-            else
-            {
-                WorldHud.UsersButton?.IsSelected = true;
-
-                Game.Connection.RequestWorldList();
-            }
-
-            e.Handled = true;
-
-            return;
-        }
-
-        if (e.Scancode == Scancode.R)
-        {
-            ForceCloseOtherTogglePanels(Scancode.R);
-            ToggleSocialStatusPicker();
-
-            e.Handled = true;
-
-            return;
-        }
-
-        //stack guard: suppress all game hotkeys when a popup is active
+        //stack guard: the fixed keys below stay quiet while a popup is active
         if (Game.Dispatcher.ControlStackCount > 0)
             return;
+
+        //f12 — key bindings
+        if (e.Scancode == Scancode.F12)
+        {
+            KeyBindingsWindow.Show();
+            e.Handled = true;
+
+            return;
+        }
 
         //escape — collapse any expanded HUD panel back to normal size. only consume
         //the key when something was actually collapsed so it stays a no-op otherwise.
@@ -1022,351 +857,377 @@ public sealed partial class WorldScreen
             return;
         }
 
-        //spacebar assail — fires on both initial press and os key-repeat keydowns
-        //while held. sits after the stack guard so dialogs/menus block it; sits inside
-        //the root handler so any ui element above can mark e.handled first and suppress it.
-        //rate-limited to SPACEBAR_INTERVAL_MS since os key-repeat rates vary wildly.
-        if (e.Scancode == Scancode.Space)
-        {
-            var now = Environment.TickCount64;
-
-            if ((now - LastSpacebarMs) >= SPACEBAR_INTERVAL_MS)
-            {
-                Game.Connection.Spacebar();
-                Pathfinding.Clear();
-                LastSpacebarMs = now;
-            }
-
-            e.Handled = true;
-
-            return;
-        }
-
-        if ((e.Scancode == Scancode.T) && TownMapControl.Visible)
-        {
-            TownMapControl.Hide();
-            e.Handled = true;
-
-            return;
-        }
-
-        //shout hotkey (shift+1)
-        if (e is { Scancode: Scancode.D1, Shift: true })
-        {
-            WorldHud.ChatInput.FocusShout();
-            e.Handled = true;
-
-            return;
-        }
-
-        //whisper hotkey — Shift + the key immediately left of Enter. that key differs by
-        //board, so it is identified here from the raw scancode/keycode the event carries
-        //rather than by a boundary translation:
-        //  ANSI (US)  : the apostrophe key — scancode OemQuotes.
-        //  ISO QWERTZ : the '#' key        — scancode OemPipe + keycode '#'.
-        //  ISO AZERTY : the '*'/'µ' key    — scancode OemPipe + keycode '*'.
-        //the keycode guard on OemPipe keeps the ANSI backslash key (same scancode, but it
-        //types '|' under Shift) from being mistaken for the ISO whisper key.
-        if (e is { Shift: true }
-            && ((e.Scancode == Scancode.OemQuotes)
-                || e is { Scancode: Scancode.OemPipe, Keycode: Keycode.Hash or Keycode.Asterisk }))
+        //whisper on ISO boards, while whisper is still on its default Shift+' — the key left of Enter differs by board:
+        //  ISO QWERTZ : the '#' key     — scancode OemPipe + keycode '#'.
+        //  ISO AZERTY : the '*'/'µ' key — scancode OemPipe + keycode '*'.
+        //the keycode guard keeps the ANSI backslash key (same scancode, but it types '|' under Shift) from being taken
+        //for it. A player who rebinds whisper gets exactly the key they chose instead
+        if (KeyBindings.Current.IsDefault(GameAction.Whisper, 0)
+            && e is { Shift: true, Scancode: Scancode.OemPipe, Keycode: Keycode.Hash or Keycode.Asterisk })
         {
             WorldHud.ChatInput.FocusWhisper();
             e.Handled = true;
+        }
+    }
 
-            return;
+    /// <summary>Runs one bound action. False when it does not apply right now, so the key may mean something else.</summary>
+    private bool RunAction(GameAction action)
+    {
+        if (GameActions.SongNote(action) is var note and > 0)
+        {
+            EnterSongNote(note);
+
+            return true;
         }
 
-        //tab panel switching — blocked while dragging the orange bar
-        if (!WorldHud.IsOrangeBarDragging)
+        if (GameActions.IsEmote(action))
         {
-            HudTab? tab = e.Scancode switch
-            {
-                Scancode.A => HudTab.Inventory,
-                Scancode.S => HudTab.Skills,
-                Scancode.D => HudTab.Spells,
-                Scancode.F => HudTab.Chat,
-                Scancode.G => HudTab.Stats,
-                Scancode.H => HudTab.Tools,
-                _ => null
-            };
+            //consumed even when the emote cannot start, so the key never falls through to a slot
+            SendEmote(action);
 
-            if (tab is not null)
-            {
-                WorldHud.HandleTabActivation(tab.Value, e.Shift);
-                e.Handled = true;
-
-                return;
-            }
+            return true;
         }
 
-        //tab — toggle tab map overlay (suppressed by NoTabMap map flag)
-        if (e.Scancode == Scancode.Tab)
+        if (GameActions.SlotNumber(action) is var slot and > 0)
+            return UseSlotHotkey(slot);
+
+        switch (action)
         {
-            if (!CurrentMapFlags.HasFlag(MapFlags.NoTabMap))
-                TabMapVisible = !TabMapVisible;
+            case GameAction.FocusChat:
+                if (!WorldHud.ChatInput.IsFocused)
+                    WorldHud.ChatInput.Focus();
 
-            e.Handled = true;
+                return true;
 
-            return;
-        }
+            //q/w/e/r toggle group — usable over popups because these panels use the control stack themselves and need
+            //to toggle while open
+            case GameAction.Options:
+                ForceCloseOtherTogglePanels(GameAction.Options);
 
-        //pageup/pagedown — tab map zoom
-        if (TabMapVisible)
-        {
-            if (e.Scancode == Scancode.PageUp)
-            {
-                TabMapRenderer.ZoomIn();
-                e.Handled = true;
-
-                return;
-            }
-
-            if (e.Scancode == Scancode.PageDown)
-            {
-                TabMapRenderer.ZoomOut();
-                e.Handled = true;
-
-                return;
-            }
-        }
-
-        //f1 — help merchant (server-side)
-        if (e.Scancode == Scancode.F1)
-        {
-            Game.Connection.ClickEntity(uint.MaxValue);
-            e.Handled = true;
-
-            return;
-        }
-
-        //f3 — macro menu
-        if (e.Scancode == Scancode.F3)
-        {
-            if (CanShowOptionsPanel(SettingsDialog, FriendsList))
-                MacrosList.Show();
-
-            e.Handled = true;
-
-            return;
-        }
-
-        //f4 — settings
-        if (e.Scancode == Scancode.F4)
-        {
-            if (CanShowOptionsPanel(MacrosList, FriendsList))
-                SettingsDialog.Show();
-
-            e.Handled = true;
-
-            return;
-        }
-
-        //f5 — refresh
-        if (e.Scancode == Scancode.F5)
-        {
-            Game.Connection.RequestRefresh();
-            e.Handled = true;
-
-            return;
-        }
-
-        //f7 — board list
-        if (e.Scancode == Scancode.F7)
-        {
-            Game.Connection.SendBoardInteraction(BoardRequestType.BoardList);
-            e.Handled = true;
-
-            return;
-        }
-
-        //f8 — unused (group panel moved to y key)
-
-        //f9 — ignore list management (toggle)
-        if (e.Scancode == Scancode.F9)
-        {
-            if (WorldHud.ChatInput.Mode != ChatMode.None)
-                WorldHud.ChatInput.Unfocus();
-            else
-                WorldHud.ChatInput.FocusIgnore();
-
-            e.Handled = true;
-
-            return;
-        }
-
-        //f10 — friends list
-        if (e.Scancode == Scancode.F10)
-        {
-            if (CanShowOptionsPanel(MacrosList, SettingsDialog))
-                FriendsList.Show();
-
-            e.Handled = true;
-
-            return;
-        }
-
-        //f12 — DEV TEST: summon a fake 4-line NPC dialog for tuning the bottom-bar text layout.
-        //ponytail: throwaway harness — delete when the 4-line layout is dialed in. SourceId stays null so
-        //closing it never sends a dialog-response packet to the server.
-        if (e.Scancode == Scancode.F12)
-        {
-            NpcSession.ShowDialog(
-                new DisplayDialogArgs
+                if (MainOptions.Visible)
                 {
-                    DialogType = DialogType.Normal,
-                    Name = "Test NPC",
-                    Text = "Line 1: testing the dialog box.\nLine 2: four lines of NPC text.\nLine 3: tuning the layout now.\nLine 4: making room for me here.",
-                    SourceId = null,
-                    Sprite = 0,
-                    HasNextButton = false,
-                    HasPreviousButton = false
-                });
-
-            e.Handled = true;
-
-            return;
-        }
-
-        // — swap hud layout (small <-> large)
-        if (e is { Scancode: Scancode.OemQuestion, Shift: false })
-        {
-            SwapHudLayout();
-            e.Handled = true;
-
-            return;
-        }
-
-        //` — unequip weapon and shield
-        if (e.Scancode == Scancode.OemTilde)
-        {
-            if (WorldState.Equipment.GetSlot(EquipmentSlot.Weapon) is not null)
-                Game.Connection.Unequip(EquipmentSlot.Weapon);
-
-            if (WorldState.Equipment.GetSlot(EquipmentSlot.Shield) is not null)
-                Game.Connection.Unequip(EquipmentSlot.Shield);
-
-            e.Handled = true;
-
-            return;
-        }
-
-        //j — flash group member highlighting (1000ms, gated while pending or active)
-        if ((e.Scancode == Scancode.J) && !GroupHighlightRequested && (GroupHighlightedIds.Count == 0))
-        {
-            GroupHighlightRequested = true;
-            Game.Connection.RequestSelfProfile();
-            e.Handled = true;
-
-            return;
-        }
-
-        //b — pick up item from under player, or from the tile in front
-        if (e.Scancode == Scancode.B)
-        {
-            TryPickupItem();
-            e.Handled = true;
-
-            return;
-        }
-
-        //t — town map toggle (suppressed by the NoTownMap map flag)
-        if (e.Scancode == Scancode.T)
-        {
-            ToggleTownMap();
-            e.Handled = true;
-
-            return;
-        }
-
-        //y — group panel (members tab)
-        if (e.Scancode == Scancode.Y)
-        {
-            Game.Connection.RequestSelfProfile();
-            GroupPanel.ShowMembers();
-            e.Handled = true;
-
-            return;
-        }
-
-        //song notes -- u/i/o/p, claimed ONLY while a call is live so the keys stay free the rest of the time
-        if (HandleSongNote(e))
-            return;
-
-        //emote hotkeys: ctrl/alt/ctrl+alt + number row
-        if (HandleEmoteHotkey(e))
-            return;
-
-        //slot hotkeys: 1-9, 0, -, =
-        if (HandleSlotHotkey(e))
-            return;
-
-        //shift+up/down scrolls the active chat-style panel (F = chat, shift+F = message history)
-        if (e is { Shift: true, Scancode: Scancode.Up or Scancode.Down })
-        {
-            var scrollDelta = e.Scancode == Scancode.Up ? 1 : -1;
-
-            if (WorldHud.ChatDisplay.Visible)
-            {
-                WorldHud.ChatDisplay.Scroll(scrollDelta);
-                e.Handled = true;
-
-                return;
-            }
-
-            if (WorldHud.MessageHistory.Visible)
-            {
-                WorldHud.MessageHistory.Scroll(scrollDelta);
-                e.Handled = true;
-
-                return;
-            }
-        }
-
-        //player movement — arrow keys and zxcv
-        Direction? direction = e.Scancode switch
-        {
-            Scancode.Up => Direction.Up,
-            Scancode.Right => Direction.Right,
-            Scancode.Down => Direction.Down,
-            Scancode.Left => Direction.Left,
-            Scancode.C => Direction.Up,
-            Scancode.V => Direction.Right,
-            Scancode.X => Direction.Down,
-            Scancode.Z => Direction.Left,
-            _ => null
-        };
-
-        if (direction.HasValue)
-        {
-            Pathfinding.Clear();
-            var player = WorldState.GetPlayerEntity();
-
-            if (player is not null)
-            {
-                if (player.IsAtRest)
+                    SettingsDialog.Hide();
+                    MacrosList.Hide();
+                    FriendsList.Hide();
+                    MainOptions.SlideClose();
+                } else
                 {
-                    //fresh input at idle invalidates any direction queued from a prior walk —
-                    //the queue must not override what the user just pressed.
-                    QueuedWalkDirection = null;
+                    WorldHud.OptionButton?.IsSelected = true;
 
-                    if (player.Direction != direction.Value)
-                    {
-                        Game.Connection.Turn(direction.Value);
-                        player.Direction = direction.Value;
-                    } else
-                        PredictAndWalk(player, direction.Value);
-                } else if (player.AnimState == EntityAnimState.Walking)
-                {
-                    var totalDuration = Math.Max(1f, player.AnimFrameCount * player.AnimFrameIntervalMs);
-                    var progress = player.AnimElapsedMs / totalDuration;
-
-                    if (progress >= WALK_QUEUE_THRESHOLD)
-                        QueuedWalkDirection = direction.Value;
+                    MainOptions.Show();
                 }
+
+                return true;
+
+            case GameAction.Boards:
+                ForceCloseOtherTogglePanels(GameAction.Boards);
+
+                if (IsAnyBoardPanelVisible())
+                {
+                    if (BoardList.Visible)
+                        BoardList.SlideClose();
+                    else
+                        WorldState.Board.CloseSession();
+                } else
+                {
+                    WorldHud.BulletinButton?.IsSelected = true;
+
+                    Game.Connection.SendBoardInteraction(BoardRequestType.BoardList);
+                }
+
+                return true;
+
+            case GameAction.WorldList:
+                //middle mouse + the world list key opens the emote wheel — don't toggle world list for that chord
+                //or for key-repeat / late keydown while the key is still held after the chord ends
+                if (InputBuffer.IsMiddleButtonHeld || EmoteWheel.IsOpen || _suppressWorldListUntilERelease)
+                    return true;
+
+                ForceCloseOtherTogglePanels(GameAction.WorldList);
+
+                if (WorldList.Visible)
+                    WorldList.SlideClose();
+                else
+                {
+                    WorldHud.UsersButton?.IsSelected = true;
+
+                    Game.Connection.RequestWorldList();
+                }
+
+                return true;
+
+            case GameAction.SocialStatus:
+                ForceCloseOtherTogglePanels(GameAction.SocialStatus);
+                ToggleSocialStatusPicker();
+
+                return true;
+
+            //assail — fires on both initial press and os key-repeat keydowns while held. rate-limited to
+            //SPACEBAR_INTERVAL_MS since os key-repeat rates vary wildly.
+            case GameAction.Assail:
+            {
+                var now = Environment.TickCount64;
+
+                if ((now - LastSpacebarMs) >= SPACEBAR_INTERVAL_MS)
+                {
+                    Game.Connection.Spacebar();
+                    Pathfinding.Clear();
+                    LastSpacebarMs = now;
+                }
+
+                return true;
             }
 
-            e.Handled = true;
+            case GameAction.Shout:
+                WorldHud.ChatInput.FocusShout();
+
+                return true;
+
+            case GameAction.Whisper:
+                WorldHud.ChatInput.FocusWhisper();
+
+                return true;
+
+            case GameAction.Inventory:
+                return ActivateTab(HudTab.Inventory, false);
+
+            case GameAction.ExpandInventory:
+                return ActivateTab(HudTab.Inventory, true);
+
+            case GameAction.Skills:
+                return ActivateTab(HudTab.Skills, false);
+
+            case GameAction.SkillsAlt:
+                return ActivateTab(HudTab.Skills, true);
+
+            case GameAction.Spells:
+                return ActivateTab(HudTab.Spells, false);
+
+            case GameAction.SpellsAlt:
+                return ActivateTab(HudTab.Spells, true);
+
+            case GameAction.Chat:
+                return ActivateTab(HudTab.Chat, false);
+
+            case GameAction.MessageHistory:
+                return ActivateTab(HudTab.Chat, true);
+
+            case GameAction.Stats:
+                return ActivateTab(HudTab.Stats, false);
+
+            case GameAction.ExtendedStats:
+                return ActivateTab(HudTab.Stats, true);
+
+            case GameAction.Tools:
+                return ActivateTab(HudTab.Tools, false);
+
+            //tab map overlay (suppressed by NoTabMap map flag)
+            case GameAction.TabMap:
+                if (!CurrentMapFlags.HasFlag(MapFlags.NoTabMap))
+                    TabMapVisible = !TabMapVisible;
+
+                return true;
+
+            case GameAction.MapZoomIn:
+                if (!TabMapVisible)
+                    return false;
+
+                TabMapRenderer.ZoomIn();
+
+                return true;
+
+            case GameAction.MapZoomOut:
+                if (!TabMapVisible)
+                    return false;
+
+                TabMapRenderer.ZoomOut();
+
+                return true;
+
+            //help merchant (server-side)
+            case GameAction.Help:
+                Game.Connection.ClickEntity(uint.MaxValue);
+
+                return true;
+
+            case GameAction.Macros:
+                if (CanShowOptionsPanel(SettingsDialog, FriendsList))
+                    MacrosList.Show();
+
+                return true;
+
+            case GameAction.Settings:
+                if (CanShowOptionsPanel(MacrosList, FriendsList))
+                    SettingsDialog.Show();
+
+                return true;
+
+            case GameAction.Refresh:
+                Game.Connection.RequestRefresh();
+
+                return true;
+
+            case GameAction.BoardList:
+                Game.Connection.SendBoardInteraction(BoardRequestType.BoardList);
+
+                return true;
+
+            //ignore list management (toggle)
+            case GameAction.IgnoreList:
+                if (WorldHud.ChatInput.Mode != ChatMode.None)
+                    WorldHud.ChatInput.Unfocus();
+                else
+                    WorldHud.ChatInput.FocusIgnore();
+
+                return true;
+
+            case GameAction.Friends:
+                if (CanShowOptionsPanel(MacrosList, SettingsDialog))
+                    FriendsList.Show();
+
+                return true;
+
+            //taken by ChaosGame, which reads it every frame on every screen; claimed here so the key does nothing else
+            case GameAction.Screenshot:
+                return true;
+
+            //swap hud layout (small <-> large)
+            case GameAction.SwapHud:
+                SwapHudLayout();
+
+                return true;
+
+            //unequip weapon and shield
+            case GameAction.UnequipWeapons:
+                if (WorldState.Equipment.GetSlot(EquipmentSlot.Weapon) is not null)
+                    Game.Connection.Unequip(EquipmentSlot.Weapon);
+
+                if (WorldState.Equipment.GetSlot(EquipmentSlot.Shield) is not null)
+                    Game.Connection.Unequip(EquipmentSlot.Shield);
+
+                return true;
+
+            //flash group member highlighting (1000ms, gated while pending or active)
+            case GameAction.GroupHighlight:
+                if (GroupHighlightRequested || (GroupHighlightedIds.Count > 0))
+                    return false;
+
+                GroupHighlightRequested = true;
+                Game.Connection.RequestSelfProfile();
+
+                return true;
+
+            //pick up item from under player, or from the tile in front
+            case GameAction.PickUp:
+                TryPickupItem();
+
+                return true;
+
+            //town map toggle (suppressed by the NoTownMap map flag)
+            case GameAction.TownMap:
+                if (TownMapControl.Visible)
+                    TownMapControl.Hide();
+                else
+                    ToggleTownMap();
+
+                return true;
+
+            //group panel (members tab)
+            case GameAction.Group:
+                Game.Connection.RequestSelfProfile();
+                GroupPanel.ShowMembers();
+
+                return true;
+
+            //scrolls the active chat-style panel (F = chat, shift+F = message history)
+            case GameAction.ScrollChatUp:
+                return ScrollChatPanel(1);
+
+            case GameAction.ScrollChatDown:
+                return ScrollChatPanel(-1);
+
+            case GameAction.MoveUp:
+                Move(Direction.Up);
+
+                return true;
+
+            case GameAction.MoveRight:
+                Move(Direction.Right);
+
+                return true;
+
+            case GameAction.MoveDown:
+                Move(Direction.Down);
+
+                return true;
+
+            case GameAction.MoveLeft:
+                Move(Direction.Left);
+
+                return true;
+        }
+
+        return false;
+    }
+
+    //tab panel switching — blocked while dragging the orange bar
+    private bool ActivateTab(HudTab tab, bool alternate)
+    {
+        if (WorldHud.IsOrangeBarDragging)
+            return false;
+
+        WorldHud.HandleTabActivation(tab, alternate);
+
+        return true;
+    }
+
+    private bool ScrollChatPanel(int delta)
+    {
+        if (WorldHud.ChatDisplay.Visible)
+        {
+            WorldHud.ChatDisplay.Scroll(delta);
+
+            return true;
+        }
+
+        if (WorldHud.MessageHistory.Visible)
+        {
+            WorldHud.MessageHistory.Scroll(delta);
+
+            return true;
+        }
+
+        return false;
+    }
+
+    /// <summary>Turns to face <paramref name="direction" />, or walks that way when already facing it.</summary>
+    private void Move(Direction direction)
+    {
+        Pathfinding.Clear();
+        var player = WorldState.GetPlayerEntity();
+
+        if (player is null)
+            return;
+
+        if (player.IsAtRest)
+        {
+            //fresh input at idle invalidates any direction queued from a prior walk —
+            //the queue must not override what the user just pressed.
+            QueuedWalkDirection = null;
+
+            if (player.Direction != direction)
+            {
+                Game.Connection.Turn(direction);
+                player.Direction = direction;
+            } else
+                PredictAndWalk(player, direction);
+        } else if (player.AnimState == EntityAnimState.Walking)
+        {
+            var totalDuration = Math.Max(1f, player.AnimFrameCount * player.AnimFrameIntervalMs);
+            var progress = player.AnimElapsedMs / totalDuration;
+
+            if (progress >= WALK_QUEUE_THRESHOLD)
+                QueuedWalkDirection = direction;
         }
     }
 
