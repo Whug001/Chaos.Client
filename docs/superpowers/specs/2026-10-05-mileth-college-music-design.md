@@ -335,6 +335,26 @@ part.
 
 Dialog limits apply: option text 35 characters, dialog text 360, no em dashes.
 
+## Plan-time adjustments
+
+- Unora needs no changes; no dialog text says "write" or "draw" where Music now applies.
+- Extra player texts: "Give your tune a title.", "Music pieces hold one tune and a note.", and the wrong-block text
+  "That piece holds a part it can't."
+- An Art piece holding a tune block is refused (`WrongBlock`).
+- The server's save throttle lets each subject's draft through once per burst, so three College windows open at
+  logout all save.
+- The per-minute fetch limit moved into `CollegeFetchLimit`, shared by `DrawingFetch` and `TuneFetch`.
+- A new tune starts at Major, Steady, Lute.
+- The layer is picked with **Melody**, **Bass** and **Drums** buttons at the left of the toolbar (or by clicking a
+  cell), not by clicking a name beside the grid: a name row above each grid does not fit with the 3-line note.
+- Gallery columns on every tab move to 0 / 236 / 356 to make room for the Music rows' **Play** button.
+- Note previews use the tune channel without fading the map music, and are skipped while a tune plays or renders.
+- Loop asks the composer for the next pass; turning Loop off mid-pass ends playback after that pass.
+- With Loop on, the next pass is asked for and rendered about 0.5 s before the current pass ends, so edits are heard on
+  the next pass.
+- A plucked note held longer than its ring fades out over 20 ms at the end of its sound, so it doesn't click.
+- Changing the gallery's tab stops a gallery tune and forgets a Play still waiting for its tune.
+
 ## Testing
 
 **Server unit tests** in `Tests/Chaos.Tests/College/`:
