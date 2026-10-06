@@ -15,7 +15,7 @@ using Microsoft.Xna.Framework.Graphics;
 namespace Chaos.Client.Controls.World.Popups.College;
 
 /// <summary>
-///     A read-only piece: headings in gold, word-wrapped text and pictures at their real size, top to bottom, scrolled by
+///     A read-only piece: headings in gold, word-wrapped text, pictures at their real size, drawings and tunes, top to bottom, scrolled by
 ///     the bar or the mouse wheel. Pictures come from <see cref="CollegePictureTransfers" /> by hash; until one arrives
 ///     its place shows "Loading picture...", and the view lays itself out again when it does.
 /// </summary>
@@ -28,15 +28,18 @@ public sealed class PieceView : UIPanel
 
     private readonly UIPanel Content;
     private readonly List<Texture2D> OwnedTextures = [];
+    private readonly TunePlayer Player;
     private readonly CollegePictureTransfers Transfers;
     private readonly ScrollViewerControl Viewer;
     private readonly PieceViewport Viewport;
     private readonly HashSet<string> Waiting = new(StringComparer.Ordinal);
     private CollegePieceInfo? Piece;
+    private TuneBlockView? TuneView;
 
-    public PieceView(CollegePictureTransfers transfers, int width, int height)
+    public PieceView(CollegePictureTransfers transfers, TunePlayer player, int width, int height)
     {
         Transfers = transfers;
+        Player = player;
         Width = width;
         Height = height;
 
@@ -115,6 +118,10 @@ public sealed class PieceView : UIPanel
                     y += AddDrawing(block, y);
 
                     break;
+                case CollegeBlockKind.Tune:
+                    y += AddTune(block, y);
+
+                    break;
             }
 
             y += GAP;
@@ -141,6 +148,26 @@ public sealed class PieceView : UIPanel
 
         return texture.Height;
     }
+
+    private int AddTune(CollegeBlockInfo block, int y)
+    {
+        var view = new TuneBlockView(TuneData.From(block), Player, Content.Width)
+        {
+            X = 0,
+            Y = y
+        };
+
+        Content.AddChild(view);
+        TuneView = view;
+
+        return view.Height;
+    }
+
+    /// <summary>Plays the piece's tune, if it has one (Show to class).</summary>
+    public void PlayTune() => TuneView?.Play();
+
+    /// <summary>Stops the piece's tune if it is the one playing.</summary>
+    public void StopTune() => TuneView?.Stop();
 
     private int AddPicture(string hash, int y)
     {
@@ -191,6 +218,10 @@ public sealed class PieceView : UIPanel
 
     private void ClearContent()
     {
+        //a piece being replaced or closed takes its tune with it
+        TuneView?.Stop();
+        TuneView = null;
+
         foreach (var child in Content.Children)
         {
             //the textures belong to CollegePictureTransfers, and UIImage.Dispose would dispose them

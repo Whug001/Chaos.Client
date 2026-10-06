@@ -10,7 +10,7 @@ using Chaos.Networking.Entities.Server;
 
 namespace Chaos.Client.Screens;
 
-/// <summary>The Mileth College windows: writer, Art canvas, reader, judging list, gallery and hand-in list.</summary>
+/// <summary>The Mileth College windows: writer, Art canvas, Music composer, reader, judging list, gallery and hand-in list.</summary>
 public sealed partial class WorldScreen
 {
     //built on first use
@@ -37,6 +37,7 @@ public sealed partial class WorldScreen
     {
         College?.Writer.SaveIfDirty();
         College?.Canvas.SaveIfDirty();
+        College?.Composer.SaveIfDirty();
     }
 
     private void SendCollegeAction(CollegeActionArgs args) => Game.Connection.SendCollegeAction(args);
@@ -45,6 +46,7 @@ public sealed partial class WorldScreen
     {
         var transfers = new CollegePictureTransfers(SendCollegeAction, new CollegePictureCache());
         var drawings = new CollegeDrawings();
+        var tunes = new CollegeTunes();
 
         //above the reader, which shares the screen's ZIndex 2 with the other popups
         var votesPopup = new TextPopupControl
@@ -60,6 +62,11 @@ public sealed partial class WorldScreen
                 ZIndex = 2
             },
             Drawings = drawings,
+            Tunes = tunes,
+            Composer = new MusicComposerControl(Game.TunePlayer)
+            {
+                ZIndex = 2
+            },
             Canvas = new ArtCanvasControl
             {
                 ZIndex = 2
@@ -68,7 +75,7 @@ public sealed partial class WorldScreen
             {
                 ZIndex = 2
             },
-            Gallery = new CollegeGalleryControl(drawings)
+            Gallery = new CollegeGalleryControl(drawings, tunes, Game.TunePlayer)
             {
                 ZIndex = 2
             },
@@ -80,7 +87,7 @@ public sealed partial class WorldScreen
             {
                 ZIndex = 2
             },
-            Reader = new CollegeReaderControl(transfers, votesPopup)
+            Reader = new CollegeReaderControl(transfers, votesPopup, Game.TunePlayer)
             {
                 ZIndex = 2
             }
@@ -92,6 +99,7 @@ public sealed partial class WorldScreen
         windows.Writer.ActionRequested += SendCollegeAction;
         windows.Reader.ActionRequested += SendCollegeAction;
         windows.Canvas.ActionRequested += SendCollegeAction;
+        windows.Composer.ActionRequested += SendCollegeAction;
         windows.PictureCanvas.PictureMade += windows.Writer.InsertDrawnPicture;
 
         windows.Writer.DrawRequested += (drawing, replacing) =>
@@ -107,6 +115,7 @@ public sealed partial class WorldScreen
         Root.AddChild(windows.Reader);
         Root.AddChild(windows.Canvas);
         Root.AddChild(windows.PictureCanvas);
+        Root.AddChild(windows.Composer);
         Root.AddChild(votesPopup);
 
         return windows;
@@ -127,6 +136,11 @@ public sealed partial class WorldScreen
                 College.Canvas.Open(args);
 
                 break;
+            case CollegeDisplayType.OpenWriter when args.Subject == CollegeSubjectCode.Music:
+                BringToFront(College.Composer);
+                College.Composer.Open(args);
+
+                break;
             case CollegeDisplayType.OpenWriter:
                 BringToFront(College.Writer);
                 College.Writer.Open(args);
@@ -137,6 +151,11 @@ public sealed partial class WorldScreen
                     BringToFront(College.Canvas);
 
                 break;
+            case CollegeDisplayType.WriterResult when args.Subject == CollegeSubjectCode.Music:
+                if (College.Composer.ShowResult(args))
+                    BringToFront(College.Composer);
+
+                break;
             case CollegeDisplayType.WriterResult:
                 //a refused save shows a hidden writer again, over the other windows
                 if (College.Writer.ShowResult(args))
@@ -145,6 +164,10 @@ public sealed partial class WorldScreen
                 break;
             case CollegeDisplayType.Drawing:
                 College.Drawings.OnDrawing(args);
+
+                break;
+            case CollegeDisplayType.Tune:
+                College.Tunes.OnTune(args);
 
                 break;
             case CollegeDisplayType.PictureReply:
@@ -201,6 +224,7 @@ public sealed partial class WorldScreen
     private sealed class CollegeWindows
     {
         public required ArtCanvasControl Canvas { get; init; }
+        public required MusicComposerControl Composer { get; init; }
         public required CollegeDrawings Drawings { get; init; }
         public required CollegeGalleryControl Gallery { get; init; }
         public required CollegeHandInsControl HandIns { get; init; }
@@ -208,6 +232,7 @@ public sealed partial class WorldScreen
         public required ArtCanvasControl PictureCanvas { get; init; }
         public required CollegeReaderControl Reader { get; init; }
         public required CollegePictureTransfers Transfers { get; init; }
+        public required CollegeTunes Tunes { get; init; }
         public required CollegeWriterControl Writer { get; init; }
     }
 }

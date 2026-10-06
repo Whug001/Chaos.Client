@@ -1,7 +1,9 @@
 #region
 using System.Collections.Concurrent;
+using System.Diagnostics;
 using System.Runtime.InteropServices;
 using Chaos.Client.Data;
+using Chaos.Client.Systems.College;
 #endregion
 
 namespace Chaos.Client.Systems;
@@ -16,7 +18,7 @@ namespace Chaos.Client.Systems;
 ///     voice-stealing), matching the retail Dark Ages client's behavior of restarting the single cached Miles
 ///     sample handle on each trigger.
 /// </summary>
-public sealed class SoundSystem : IDisposable
+public sealed class SoundSystem : IDisposable, ITuneOutput
 {
     //open the mixer at 48 kHz, the native rate of essentially every modern output device, so the OS/device/Bluetooth
     //layer doesn't have to resample an unusual rate. (the original client opened its Miles driver at 22050 Hz and we
@@ -40,6 +42,9 @@ public sealed class SoundSystem : IDisposable
     //many milliseconds via Mix_FadeOutChannel. SDL_mixer interpolates the fade sample-accurately inside its mix
     //callback, so there's no step discontinuity in the output waveform
     private const int FADE_OUT_MS = 200;
+    //College tunes play on the last channel, which PlayChunk never hands to a sound effect, so a crowd of effects can't
+    //cut a tune off and a tune never steals an effect's voice
+    private const int TUNE_CHANNEL = CHANNEL_COUNT - 1;
 
     //delegate instance kept as a field so the GC doesn't collect the callback SDL holds a native pointer to
     private readonly SdlMixer.ChannelFinishedCallback ChannelFinishedDelegate;
@@ -64,6 +69,9 @@ public sealed class SoundSystem : IDisposable
     private int PendingMusicId;
     private int SfxVolume = SdlMixer.MIX_MAX_VOLUME;
     private long SoundCacheTimestamp;
+    private readonly MusicDuck Duck = new();
+    private long LastUpdateTimestamp;
+    private nint TuneChunk;
 
     public SoundSystem()
     {
@@ -86,6 +94,12 @@ public sealed class SoundSystem : IDisposable
         SdlMixer.Mix_ChannelFinished(nint.Zero);
         SdlMixer.Mix_HaltChannel(SdlMixer.MIX_DEFAULT_CHANNEL);
         SdlMixer.Mix_HaltMusic();
+
+        if (TuneChunk != nint.Zero)
+        {
+            SdlMixer.Mix_FreeChunk(TuneChunk);
+            TuneChunk = nint.Zero;
+        }
 
         if (CurrentMusicPtr != nint.Zero)
         {
@@ -214,7 +228,7 @@ public sealed class SoundSystem : IDisposable
         //callback could then read the first samples at the wrong level before a post-Mix_PlayChannel reset caught up
         var channel = -1;
 
-        for (var i = 0; i < CHANNEL_COUNT; i++)
+        for (var i = 0; i < TUNE_CHANNEL; i++)
             if (SdlMixer.Mix_Playing(i) == 0)
             {
                 channel = i;
@@ -260,21 +274,87 @@ public sealed class SoundSystem : IDisposable
     }
 
     /// <summary>
-    ///     Sets the music volume. Range: 0 (mute) to 10 (max). Applies immediately to the currently playing track.
+    ///     Sets the music volume. Range: 0 (mute) to 10 (max). Applies immediately to the currently playing track; while
+    ///     a College tune holds the music down, the new volume is reached when the music fades back in.
     /// </summary>
     public void SetMusicVolume(int volume)
     {
         MusicVolumeValue = Math.Clamp(volume, 0, VOLUME_STEPS) * VOLUME_SCALE;
 
         if (Initialized)
-            SdlMixer.Mix_VolumeMusic(MusicVolumeValue);
+            SdlMixer.Mix_VolumeMusic(Duck.Apply(MusicVolumeValue));
     }
 
     /// <summary>
-    ///     Sets the sound effect volume. Range: 0 (mute) to 10 (max). Future plays use the new volume; sounds
-    ///     already in flight keep their current channel volume (matching the prior NAudio-based behavior).
+    ///     Sets the sound effect volume. Range: 0 (mute) to 10 (max). Future plays use the new volume; sounds already in
+    ///     flight keep their current channel volume, except a College tune, which follows the slider at once.
     /// </summary>
-    public void SetSoundVolume(int volume) => SfxVolume = Math.Clamp(volume, 0, VOLUME_STEPS) * VOLUME_SCALE;
+    public void SetSoundVolume(int volume)
+    {
+        SfxVolume = Math.Clamp(volume, 0, VOLUME_STEPS) * VOLUME_SCALE;
+
+        if (Initialized && (TuneChunk != nint.Zero))
+            SdlMixer.Mix_Volume(TUNE_CHANNEL, SfxVolume);
+    }
+
+    /// <inheritdoc />
+    public bool IsTunePlaying => (TuneChunk != nint.Zero) && (SdlMixer.Mix_Playing(TUNE_CHANNEL) != 0);
+
+    /// <inheritdoc />
+    public bool PlayTune(byte[] wav) => StartTuneChunk(wav, true);
+
+    /// <inheritdoc />
+    public bool PlayPreview(byte[] wav) => StartTuneChunk(wav, false);
+
+    /// <inheritdoc />
+    public void StopTune()
+    {
+        ReleaseTuneChunk();
+        Duck.Ducked = false;
+    }
+
+    private bool StartTuneChunk(byte[] wav, bool holdMusicDown)
+    {
+        if (IsDisposed || !Initialized)
+            return false;
+
+        ReleaseTuneChunk();
+
+        var chunk = LoadChunkFromBytes(wav);
+
+        if (chunk == nint.Zero)
+        {
+            Duck.Ducked = false;
+
+            return false;
+        }
+
+        SdlMixer.Mix_Volume(TUNE_CHANNEL, SfxVolume);
+
+        if (SdlMixer.Mix_PlayChannel(TUNE_CHANNEL, chunk, 0) < 0)
+        {
+            SdlMixer.Mix_FreeChunk(chunk);
+            Duck.Ducked = false;
+
+            return false;
+        }
+
+        TuneChunk = chunk;
+        Duck.Ducked = holdMusicDown;
+
+        return true;
+    }
+
+    private void ReleaseTuneChunk()
+    {
+        if (TuneChunk == nint.Zero)
+            return;
+
+        //Mix_HaltChannel stops the channel under the audio lock, so the chunk is no longer read when it is freed
+        SdlMixer.Mix_HaltChannel(TUNE_CHANNEL);
+        SdlMixer.Mix_FreeChunk(TuneChunk);
+        TuneChunk = nint.Zero;
+    }
 
     /// <summary>
     ///     Pumps deferred audio-thread work back into the game state. Call once per frame from the game loop.
@@ -311,6 +391,21 @@ public sealed class SoundSystem : IDisposable
             if (list.Count == 0)
                 SoundIdToChannels.Remove(soundId);
         }
+
+        //a tune that played to its end: free its chunk and let the map music come back
+        if ((TuneChunk != nint.Zero) && (SdlMixer.Mix_Playing(TUNE_CHANNEL) == 0))
+        {
+            SdlMixer.Mix_FreeChunk(TuneChunk);
+            TuneChunk = nint.Zero;
+            Duck.Ducked = false;
+        }
+
+        var now = Stopwatch.GetTimestamp();
+        var elapsed = LastUpdateTimestamp == 0 ? 0 : (now - LastUpdateTimestamp) / (double)Stopwatch.Frequency;
+        LastUpdateTimestamp = now;
+
+        if (Duck.Step(elapsed))
+            SdlMixer.Mix_VolumeMusic(Duck.Apply(MusicVolumeValue));
 
         //detect fade-out completion and start the queued track (if any)
         if (MusicFadingOut && (SdlMixer.Mix_PlayingMusic() == 0))
