@@ -1931,8 +1931,11 @@ public sealed partial class WorldScreen
         QuestLogWindow.Show();
     }
 
-    /// <summary>Terminus's "Hotkeys" option. The server has already closed its dialog.</summary>
-    private void HandleHotkeyHelpOpen() => HotkeyHelp.Show();
+    /// <summary>
+    ///     Terminus's "Hotkeys" option: opens the key bindings window, the same one F12 opens. The server has already
+    ///     closed its dialog. (The packet keeps its old name from when this opened the fixed hotkey chart.)
+    /// </summary>
+    private void HandleHotkeyHelpOpen() => KeyBindingsWindow.Show();
 
     private static MarketListing MapResultEntry(MarketResultEntry e)
         => new(
