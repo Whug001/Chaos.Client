@@ -74,6 +74,13 @@ internal static partial class Sdl
     [UnmanagedCallConv(CallConvs = [typeof(CallConvCdecl)])]
     public static partial uint SDL_GetModState();
 
+    public const uint MESSAGEBOX_ERROR = 0x10;
+
+    //safe to call before SDL_Init; used for fatal startup errors before the window exists
+    [LibraryImport("SDL2", StringMarshalling = StringMarshalling.Utf8)]
+    [UnmanagedCallConv(CallConvs = [typeof(CallConvCdecl)])]
+    public static partial int SDL_ShowSimpleMessageBox(uint flags, string title, string message, nint window);
+
     //forces SDL to drain the OS event queue and update its internal input state.
     //safe to call multiple times per frame — each OS event is only processed once.
     //InputBuffer.Update() calls this so that any events which arrived after
