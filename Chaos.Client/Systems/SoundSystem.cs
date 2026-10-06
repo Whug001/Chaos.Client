@@ -42,9 +42,11 @@ public sealed class SoundSystem : IDisposable, ITuneOutput
     //many milliseconds via Mix_FadeOutChannel. SDL_mixer interpolates the fade sample-accurately inside its mix
     //callback, so there's no step discontinuity in the output waveform
     private const int FADE_OUT_MS = 200;
-    //College tunes play on the last channel, which PlayChunk never hands to a sound effect, so a crowd of effects can't
-    //cut a tune off and a tune never steals an effect's voice
-    private const int TUNE_CHANNEL = CHANNEL_COUNT - 1;
+    //College tunes play on the last two channels, which PlayChunk never hands to a sound effect, so a crowd of effects
+    //can't cut a tune off and a tune never steals an effect's voice. there are two so each loop pass starts on the other
+    //one and the previous pass's ring-out isn't cut off with a click
+    private const int TUNE_CHANNELS = 2;
+    private const int FIRST_TUNE_CHANNEL = CHANNEL_COUNT - TUNE_CHANNELS;
 
     //delegate instance kept as a field so the GC doesn't collect the callback SDL holds a native pointer to
     private readonly SdlMixer.ChannelFinishedCallback ChannelFinishedDelegate;
@@ -71,7 +73,10 @@ public sealed class SoundSystem : IDisposable, ITuneOutput
     private long SoundCacheTimestamp;
     private readonly MusicDuck Duck = new();
     private long LastUpdateTimestamp;
-    private nint TuneChunk;
+    //the chunk on each tune channel, indexed from FIRST_TUNE_CHANNEL; freed only once that channel has been halted or
+    //has finished, so the mixer never reads a freed chunk
+    private readonly nint[] TuneChunks = new nint[TUNE_CHANNELS];
+    private int LastTuneSlot = TUNE_CHANNELS - 1;
 
     public SoundSystem()
     {
@@ -95,11 +100,12 @@ public sealed class SoundSystem : IDisposable, ITuneOutput
         SdlMixer.Mix_HaltChannel(SdlMixer.MIX_DEFAULT_CHANNEL);
         SdlMixer.Mix_HaltMusic();
 
-        if (TuneChunk != nint.Zero)
-        {
-            SdlMixer.Mix_FreeChunk(TuneChunk);
-            TuneChunk = nint.Zero;
-        }
+        for (var slot = 0; slot < TUNE_CHANNELS; slot++)
+            if (TuneChunks[slot] != nint.Zero)
+            {
+                SdlMixer.Mix_FreeChunk(TuneChunks[slot]);
+                TuneChunks[slot] = nint.Zero;
+            }
 
         if (CurrentMusicPtr != nint.Zero)
         {
@@ -228,7 +234,7 @@ public sealed class SoundSystem : IDisposable, ITuneOutput
         //callback could then read the first samples at the wrong level before a post-Mix_PlayChannel reset caught up
         var channel = -1;
 
-        for (var i = 0; i < TUNE_CHANNEL; i++)
+        for (var i = 0; i < FIRST_TUNE_CHANNEL; i++)
             if (SdlMixer.Mix_Playing(i) == 0)
             {
                 channel = i;
@@ -293,12 +299,29 @@ public sealed class SoundSystem : IDisposable, ITuneOutput
     {
         SfxVolume = Math.Clamp(volume, 0, VOLUME_STEPS) * VOLUME_SCALE;
 
-        if (Initialized && (TuneChunk != nint.Zero))
-            SdlMixer.Mix_Volume(TUNE_CHANNEL, SfxVolume);
+        if (!Initialized)
+            return;
+
+        for (var slot = 0; slot < TUNE_CHANNELS; slot++)
+            if (TuneChunks[slot] != nint.Zero)
+                SdlMixer.Mix_Volume(FIRST_TUNE_CHANNEL + slot, SfxVolume);
     }
 
     /// <inheritdoc />
-    public bool IsTunePlaying => (TuneChunk != nint.Zero) && (SdlMixer.Mix_Playing(TUNE_CHANNEL) != 0);
+    public bool IsTunePlaying
+    {
+        get
+        {
+            for (var slot = 0; slot < TUNE_CHANNELS; slot++)
+                if ((TuneChunks[slot] != nint.Zero) && (SdlMixer.Mix_Playing(FIRST_TUNE_CHANNEL + slot) != 0))
+                    return true;
+
+            return false;
+        }
+    }
+
+    /// <inheritdoc />
+    public bool IsMuted => SfxVolume <= 0;
 
     /// <inheritdoc />
     public bool PlayTune(byte[] wav) => StartTuneChunk(wav, true);
@@ -307,53 +330,58 @@ public sealed class SoundSystem : IDisposable, ITuneOutput
     public bool PlayPreview(byte[] wav) => StartTuneChunk(wav, false);
 
     /// <inheritdoc />
-    public void StopTune()
+    public void StopTune(bool holdMusicDown)
     {
-        ReleaseTuneChunk();
-        Duck.Ducked = false;
+        for (var slot = 0; slot < TUNE_CHANNELS; slot++)
+            ReleaseTuneChunk(slot);
+
+        if (!holdMusicDown)
+            Duck.Ducked = false;
     }
 
+    //each start goes on the other tune channel, so whatever played last (a loop's previous pass) rings out underneath
     private bool StartTuneChunk(byte[] wav, bool holdMusicDown)
     {
-        if (IsDisposed || !Initialized)
+        //a tune at sound-effects volume 0 would only take the map music away; TunePlayer tells the player instead
+        if (IsDisposed || !Initialized || IsMuted)
             return false;
 
-        ReleaseTuneChunk();
+        var slot = (LastTuneSlot + 1) % TUNE_CHANNELS;
+        var channel = FIRST_TUNE_CHANNEL + slot;
+        ReleaseTuneChunk(slot);
 
         var chunk = LoadChunkFromBytes(wav);
 
         if (chunk == nint.Zero)
-        {
-            Duck.Ducked = false;
-
             return false;
-        }
 
-        SdlMixer.Mix_Volume(TUNE_CHANNEL, SfxVolume);
+        SdlMixer.Mix_Volume(channel, SfxVolume);
 
-        if (SdlMixer.Mix_PlayChannel(TUNE_CHANNEL, chunk, 0) < 0)
+        if (SdlMixer.Mix_PlayChannel(channel, chunk, 0) < 0)
         {
             SdlMixer.Mix_FreeChunk(chunk);
-            Duck.Ducked = false;
 
             return false;
         }
 
-        TuneChunk = chunk;
-        Duck.Ducked = holdMusicDown;
+        TuneChunks[slot] = chunk;
+        LastTuneSlot = slot;
+
+        if (holdMusicDown)
+            Duck.Ducked = true;
 
         return true;
     }
 
-    private void ReleaseTuneChunk()
+    private void ReleaseTuneChunk(int slot)
     {
-        if (TuneChunk == nint.Zero)
+        if (TuneChunks[slot] == nint.Zero)
             return;
 
         //Mix_HaltChannel stops the channel under the audio lock, so the chunk is no longer read when it is freed
-        SdlMixer.Mix_HaltChannel(TUNE_CHANNEL);
-        SdlMixer.Mix_FreeChunk(TuneChunk);
-        TuneChunk = nint.Zero;
+        SdlMixer.Mix_HaltChannel(FIRST_TUNE_CHANNEL + slot);
+        SdlMixer.Mix_FreeChunk(TuneChunks[slot]);
+        TuneChunks[slot] = nint.Zero;
     }
 
     /// <summary>
@@ -392,13 +420,29 @@ public sealed class SoundSystem : IDisposable, ITuneOutput
                 SoundIdToChannels.Remove(soundId);
         }
 
-        //a tune that played to its end: free its chunk and let the map music come back
-        if ((TuneChunk != nint.Zero) && (SdlMixer.Mix_Playing(TUNE_CHANNEL) == 0))
+        //free the chunks of tune channels that played to their end; once the last one has, let the map music come back
+        var reapedTune = false;
+        var tunesLeft = false;
+
+        for (var slot = 0; slot < TUNE_CHANNELS; slot++)
         {
-            SdlMixer.Mix_FreeChunk(TuneChunk);
-            TuneChunk = nint.Zero;
-            Duck.Ducked = false;
+            if (TuneChunks[slot] == nint.Zero)
+                continue;
+
+            if (SdlMixer.Mix_Playing(FIRST_TUNE_CHANNEL + slot) != 0)
+            {
+                tunesLeft = true;
+
+                continue;
+            }
+
+            SdlMixer.Mix_FreeChunk(TuneChunks[slot]);
+            TuneChunks[slot] = nint.Zero;
+            reapedTune = true;
         }
+
+        if (reapedTune && !tunesLeft)
+            Duck.Ducked = false;
 
         var now = Stopwatch.GetTimestamp();
         var elapsed = LastUpdateTimestamp == 0 ? 0 : (now - LastUpdateTimestamp) / (double)Stopwatch.Frequency;

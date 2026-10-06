@@ -26,6 +26,7 @@ public sealed class ArtCanvas : UIElement
     private bool Painting;
     private bool RightButton;
     private Texture2D? Texture;
+    private Color[]? TextureColours;
     private PixelDrawing? TextureDrawing;
     private int TextureVersion = -1;
 
@@ -147,7 +148,8 @@ public sealed class ArtCanvas : UIElement
             return;
 
         Texture ??= new Texture2D(TextureConverter.Device, Width, Height);
-        Texture.SetData(DrawingTextures.ToColors(drawing.Palette, drawing.Pixels, ZOOM));
+        TextureColours ??= new Color[Width * Height];
+        Texture.SetData(DrawingTextures.ToColors(drawing.Palette, drawing.Pixels, ZOOM, TextureColours));
         TextureDrawing = drawing;
         TextureVersion = drawing.Version;
     }

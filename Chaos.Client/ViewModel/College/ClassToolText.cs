@@ -58,6 +58,13 @@ public static class ClassToolText
     public static string VoteCaption(DebatePhase phase, int secondsLeft)
         => phase == DebatePhase.Opening ? $"Opening vote: {Clock(secondsLeft)}" : $"Final vote: {Clock(secondsLeft)}";
 
+    /// <summary>
+    ///     The side a vote card shows as chosen. A final vote counts only when it is sent during the final vote, so the side
+    ///     carried over from earlier shows only once one was sent.
+    /// </summary>
+    public static DebateSide ShownVote(DebatePhase phase, DebateSide mySide, bool sentInFinal)
+        => (phase == DebatePhase.Final) && !sentInFinal ? DebateSide.None : mySide;
+
     public static string HandsMore(int shown, int total) => total > shown ? $"+{total - shown} more" : string.Empty;
 
     /// <summary>The label over a player's head. The game font has no star, so the floor holder gets " *".</summary>

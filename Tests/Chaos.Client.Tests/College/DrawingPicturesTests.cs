@@ -65,19 +65,54 @@ public class DrawingPicturesTests
     }
 
     [Test]
-    public void The_rebuilt_palette_keeps_first_seen_colours_then_defaults()
+    public void The_rebuilt_palette_puts_the_parchment_first_then_first_seen_colours_then_defaults()
     {
         var drawing = PixelDrawing.Blank();
         drawing.Set(0, 0, 21);
+        drawing.Set(1, 0, 7);
 
         var back = DrawingPictures.TryRead(DrawingPictures.ToPicture(drawing).Bytes)!;
 
-        back.Palette[0].Should().Be(ArtPalette.Default[21]);
-        back.Palette[1].Should().Be(ArtPalette.Default[0]);
-        back.Palette[2].Should().Be(ArtPalette.Default[1]);
+        back.Palette[0].Should().Be(ArtPalette.Default[0]);
+        back.Palette[1].Should().Be(ArtPalette.Default[21]);
+        back.Palette[2].Should().Be(ArtPalette.Default[7]);
+        back.Palette[3].Should().Be(ArtPalette.Default[1]);
         back.Palette.Distinct().Should().HaveCount(32);
-        back.Pixels[0].Should().Be(0);
-        back.Pixels[1].Should().Be(1);
+        back.Pixels[0].Should().Be(1);
+        back.Pixels[1].Should().Be(2);
+        back.Pixels[2].Should().Be(0);
+    }
+
+    [Test]
+    public void Without_parchment_the_most_used_colour_is_the_background()
+    {
+        var drawing = PixelDrawing.Blank();
+
+        for (var i = 0; i < drawing.Pixels.Length; i++)
+            drawing.Pixels[i] = i < 10 ? (byte)5 : (byte)18;
+
+        var back = DrawingPictures.TryRead(DrawingPictures.ToPicture(drawing).Bytes)!;
+
+        back.Palette[0].Should().Be(ArtPalette.Default[18]);
+        back.Palette[1].Should().Be(ArtPalette.Default[5]);
+        back.Pixels[0].Should().Be(1);
+        back.Pixels[10].Should().Be(0);
+
+        for (var i = 0; i < drawing.Pixels.Length; i++)
+            back.Palette[back.Pixels[i]].Should().Be(drawing.Palette[drawing.Pixels[i]]);
+    }
+
+    [Test]
+    public void Colours_can_be_written_into_a_reused_buffer()
+    {
+        var drawing = Sample();
+        var buffer = new Color[384 * 288];
+        Array.Fill(buffer, Color.Magenta);
+
+        var colours = DrawingTextures.ToColors(drawing.Palette, drawing.Pixels, 4, buffer);
+
+        colours.Should().BeSameAs(buffer);
+        colours.Should().Equal(DrawingTextures.ToColors(drawing.Palette, drawing.Pixels, 4));
     }
 
     [Test]

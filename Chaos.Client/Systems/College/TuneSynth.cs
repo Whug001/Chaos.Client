@@ -26,6 +26,7 @@ public static class TuneSynth
     {
         var step = TuneScales.StepSeconds(tune.Speed);
         var mix = new float[LengthInFrames(tune.Speed)];
+        float[]? line = null;
 
         foreach (var note in tune.Notes)
         {
@@ -33,7 +34,7 @@ public static class TuneSynth
 
             var at = (int)Math.Round(note.Start * step * SAMPLE_RATE);
             var rng = new Noise(Seed(note));
-            AddNote(mix, at, tune.Scale, tune.Instrument, note.Layer, note.Row, note.Length * step, ref rng);
+            AddNote(mix, at, tune.Scale, tune.Instrument, note.Layer, note.Row, note.Length * step, ref rng, ref line);
         }
 
         return ToStereo(mix);
@@ -44,7 +45,8 @@ public static class TuneSynth
     {
         var mix = new float[(int)Math.Ceiling(VoiceSeconds(instrument, layer, row, PREVIEW_SECONDS) * SAMPLE_RATE)];
         var rng = new Noise(Seed(new TuneNote(layer, row, 0, 1)));
-        AddNote(mix, 0, scale, instrument, layer, row, PREVIEW_SECONDS, ref rng);
+        float[]? line = null;
+        AddNote(mix, 0, scale, instrument, layer, row, PREVIEW_SECONDS, ref rng, ref line);
 
         return ToStereo(mix);
     }
@@ -79,7 +81,8 @@ public static class TuneSynth
         TuneLayer layer,
         int row,
         double held,
-        ref Noise rng)
+        ref Noise rng,
+        ref float[]? line)
     {
         if (layer == TuneLayer.Drums)
         {
@@ -92,7 +95,7 @@ public static class TuneSynth
 
         if (layer == TuneLayer.Bass)
         {
-            AddPluck(mix, at, frequency, held, 0.7, 0.997, 0.25, 3, ref rng);
+            AddPluck(mix, at, frequency, held, 0.7, 0.997, 0.25, 3, ref rng, ref line);
 
             return;
         }
@@ -100,7 +103,7 @@ public static class TuneSynth
         switch (instrument)
         {
             case TuneInstrument.Harp:
-                AddPluck(mix, at, frequency, Math.Max(held, 0.9), 0.4, 0.9985, 0.35, 3, ref rng);
+                AddPluck(mix, at, frequency, Math.Max(held, 0.9), 0.4, 0.9985, 0.35, 3, ref rng, ref line);
 
                 break;
             case TuneInstrument.Flute:
@@ -112,7 +115,7 @@ public static class TuneSynth
 
                 break;
             default:
-                AddPluck(mix, at, frequency, held, 0.5, 0.996, 0.55, 2, ref rng);
+                AddPluck(mix, at, frequency, held, 0.5, 0.996, 0.55, 2, ref rng, ref line);
 
                 break;
         }
@@ -127,11 +130,16 @@ public static class TuneSynth
         double decay,
         double brightness,
         double ringSeconds,
-        ref Noise rng)
+        ref Noise rng,
+        ref float[]? line)
     {
         var length = (int)(Math.Min(ringSeconds, held + 0.4) * SAMPLE_RATE);
         var period = Math.Max(2, (int)Math.Round(SAMPLE_RATE / frequency));
-        var line = new float[length];
+
+        //one delay line serves every pluck of a render: each pluck writes all of its first length samples before reading
+        //any, so what an earlier pluck left behind is never heard
+        if ((line is null) || (line.Length < length))
+            line = new float[length];
         var previous = 0f;
 
         for (var i = 0; (i < period) && (i < length); i++)

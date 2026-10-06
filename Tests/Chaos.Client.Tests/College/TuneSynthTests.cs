@@ -117,4 +117,26 @@ public class TuneSynthTests
         for (var frame = 0; frame < samples.Length / 2; frame++)
             samples[frame * 2].Should().Be(samples[(frame * 2) + 1]);
     }
+
+    [Test]
+    public void Plucked_notes_share_one_delay_line_per_render()
+    {
+        var notes = new List<TuneNote>();
+
+        for (var start = 0; start < CollegeProtocol.TUNE_STEPS; start++)
+        {
+            notes.Add(new TuneNote(TuneLayer.Melody, start % CollegeProtocol.TUNE_PITCH_ROWS, start, 8));
+            notes.Add(new TuneNote(TuneLayer.Bass, start % CollegeProtocol.TUNE_PITCH_ROWS, start, 8));
+        }
+
+        var tune = Tune(TuneSpeed.Slow, TuneInstrument.Harp, notes.ToArray());
+        TuneSynth.Render(tune);
+        var frames = (long)TuneSynth.LengthInFrames(TuneSpeed.Slow);
+
+        var before = GC.GetAllocatedBytesForCurrentThread();
+        TuneSynth.Render(tune);
+        var allocated = GC.GetAllocatedBytesForCurrentThread() - before;
+
+        allocated.Should().BeLessThan((frames * sizeof(float)) + (frames * 2 * sizeof(short)) + (2 * 1024 * 1024));
+    }
 }

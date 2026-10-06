@@ -7,6 +7,7 @@ namespace Chaos.Client.Tests.College;
 
 public class TunePlayerTests
 {
+    private readonly List<string> Notices = [];
     private readonly FakeOutput Output = new();
     private readonly List<object> Stopped = [];
     private double Now;
@@ -34,7 +35,8 @@ public class TunePlayerTests
                 NoteRenders++;
 
                 return new short[4];
-            });
+            },
+            Notices.Add);
 
         player.Stopped += Stopped.Add;
 
@@ -104,8 +106,72 @@ public class TunePlayerTests
         player.Play(Steady, second);
 
         Stopped.Should().Equal(first);
-        Output.Calls.Should().Equal("tune", "stop");
+        Output.Calls.Should().Equal("tune", "hold");
         player.Owner.Should().BeSameAs(second);
+    }
+
+    [Test]
+    public void Stopping_lets_the_music_back()
+    {
+        var player = Player();
+        player.Play(Steady, new object());
+        player.Update();
+
+        player.Stop();
+
+        Output.Calls.Should().Equal("tune", "stop");
+    }
+
+    [Test]
+    public void With_sound_effects_muted_a_tune_does_not_start_and_the_player_is_told_once()
+    {
+        var player = Player();
+        Output.IsMuted = true;
+
+        player.Play(Steady, new object());
+        player.Update();
+        player.Play(Steady, new object());
+
+        player.Owner.Should().BeNull();
+        player.IsRendering.Should().BeFalse();
+        TuneRenders.Should().Be(0);
+        Output.Calls.Should().BeEmpty();
+        Notices.Should().Equal(TunePlayer.MUTED_NOTICE);
+    }
+
+    [Test]
+    public void The_muted_notice_comes_again_after_sound_was_turned_back_up()
+    {
+        var player = Player();
+        Output.IsMuted = true;
+        player.Play(Steady, new object());
+
+        Output.IsMuted = false;
+        player.Play(Steady, new object());
+        player.Update();
+        player.Stop();
+
+        Output.IsMuted = true;
+        player.Play(Steady, new object());
+
+        Notices.Should().Equal(TunePlayer.MUTED_NOTICE, TunePlayer.MUTED_NOTICE);
+    }
+
+    [Test]
+    public void Muting_sound_effects_while_a_tune_plays_stops_it()
+    {
+        var player = Player();
+        var owner = new object();
+        player.Play(Steady, owner);
+        player.Update();
+
+        Output.IsMuted = true;
+        player.Update();
+
+        player.Owner.Should().BeNull();
+        Stopped.Should().Equal(owner);
+        Output.Calls.Should().Equal("tune", "stop");
+        Notices.Should().Equal(TunePlayer.MUTED_NOTICE);
     }
 
     [Test]
@@ -298,6 +364,7 @@ public class TunePlayerTests
     {
         public List<string> Calls { get; } = [];
         public bool IsTunePlaying { get; set; }
+        public bool IsMuted { get; set; }
 
         public bool PlayTune(byte[] wav)
         {
@@ -314,9 +381,9 @@ public class TunePlayerTests
             return true;
         }
 
-        public void StopTune()
+        public void StopTune(bool holdMusicDown)
         {
-            Calls.Add("stop");
+            Calls.Add(holdMusicDown ? "hold" : "stop");
             IsTunePlaying = false;
         }
     }

@@ -99,4 +99,12 @@ public class ClassToolTextTests
         ClassToolText.HandsMore(3, 5).Should().Be("+2 more");
         ClassToolText.HandsMore(3, 3).Should().BeEmpty();
     }
+
+    [Test]
+    public void The_final_vote_shows_a_side_only_once_it_was_sent_in_the_final_vote()
+    {
+        ClassToolText.ShownVote(DebatePhase.Opening, DebateSide.For, false).Should().Be(DebateSide.For);
+        ClassToolText.ShownVote(DebatePhase.Final, DebateSide.Against, false).Should().Be(DebateSide.None);
+        ClassToolText.ShownVote(DebatePhase.Final, DebateSide.Against, true).Should().Be(DebateSide.Against);
+    }
 }
