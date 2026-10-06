@@ -90,6 +90,9 @@ public sealed partial class WorldScreen
         //the round on the old map already let this carver go; nothing to send
         PumpkinWindow.Hide();
 
+        //a tune from the old map (the composer, a reader, the gallery or a class showing) ends with it
+        Game.TunePlayer.Stop();
+
         //and for the poker table, with one difference that matters: PokerTableControl.Hide() fires Closed, which
         //sends the server a Close. That is right for a map change -- the seat tile has already lost this player
         //and will stand them up on its next poll, so the server either does that a tick early or answers

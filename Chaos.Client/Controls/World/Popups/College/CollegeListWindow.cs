@@ -70,6 +70,7 @@ public abstract class CollegeListWindow<TItem> : GuildCloakDialogBase
         }
 
         var rowsTop = headerTop + TextRenderer.CHAR_HEIGHT + 4;
+        RowsTop = rowsTop;
         Rows = new CollegeListRow[rowCount];
 
         for (var i = 0; i < rowCount; i++)
@@ -106,6 +107,9 @@ public abstract class CollegeListWindow<TItem> : GuildCloakDialogBase
     public event Action<CollegeActionArgs>? ActionRequested;
 
     protected UILabel Empty { get; }
+
+    /// <summary>The y of the first row, for controls laid over the rows.</summary>
+    protected int RowsTop { get; }
 
     /// <summary>The page shown, from 0. Clamped to the items each time the rows are shown.</summary>
     protected int Page { get; set; }

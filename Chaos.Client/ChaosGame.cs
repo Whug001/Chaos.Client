@@ -11,6 +11,7 @@ using Chaos.Client.Networking;
 using Chaos.Client.Networking.Definitions;
 using Chaos.Client.Screens;
 using Chaos.Client.Systems;
+using Chaos.Client.Systems.College;
 using Chaos.Cryptography;
 using Chaos.DarkAges.Definitions;
 using Chaos.Networking.Entities.Server;
@@ -111,10 +112,17 @@ public sealed class ChaosGame : Game
     /// </summary>
     public SoundSystem SoundSystem { get; } = new();
 
+    /// <summary>
+    ///     Plays College tunes, one at a time, on the sound system's reserved tune channel.
+    /// </summary>
+    public TunePlayer TunePlayer { get; }
+
     public static GraphicsDevice Device => TextureConverter.Device;
 
     public ChaosGame()
     {
+        TunePlayer = new TunePlayer(SoundSystem);
+
         //sdl by default is polling all possible input devices
         //some devices apparently don't like to always respond in a timely manner
         //when this occurs it causes the entire application to hang
@@ -858,6 +866,7 @@ public sealed class ChaosGame : Game
         EffectRenderer.Dispose();
         ItemRenderer.Dispose();
         CustomEmoteRenderer.Dispose();
+        TunePlayer.Stop();
         SoundSystem.Dispose();
         UiRenderer.Instance?.Dispose();
         UiRenderer.Instance = null;
@@ -893,6 +902,9 @@ public sealed class ChaosGame : Game
 
         //pump audio decodes and reset the same-frame dedup window before any handler can trigger sounds
         SoundSystem.Update();
+
+        //after the sound system has reaped a finished tune, so the player sees that it ended this frame
+        TunePlayer.Update();
 
         //drain and process network packets each frame
         PacketBuffer.Clear();

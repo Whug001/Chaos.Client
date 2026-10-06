@@ -1163,6 +1163,8 @@ public sealed partial class WorldScreen : IScreen
         GuildEmblemTextures.Clear();
         College?.Transfers.Clear();
         College?.Drawings.Clear();
+        College?.Tunes.Clear();
+        Game.TunePlayer.Stop();
         Game.CreatureRenderer.ClearTintCaches();
         Game.ItemRenderer.Clear();
         Overlays.Clear();

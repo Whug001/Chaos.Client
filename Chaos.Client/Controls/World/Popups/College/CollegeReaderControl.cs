@@ -61,7 +61,7 @@ public sealed class CollegeReaderControl : GuildCloakDialogBase
     private byte SelectedTier = CollegeProtocol.NO_TIER;
     private int[] Siblings = [];
 
-    public CollegeReaderControl(CollegePictureTransfers transfers, TextPopupControl votesPopup)
+    public CollegeReaderControl(CollegePictureTransfers transfers, TextPopupControl votesPopup, TunePlayer player)
         : base("_nsett", false)
     {
         Name = "CollegeReader";
@@ -76,7 +76,7 @@ public sealed class CollegeReaderControl : GuildCloakDialogBase
         TitleLabel = Caption(string.Empty, LEFT, TITLE_TOP, INNER_WIDTH, HorizontalAlignment.Center, LegendColors.Gold);
         HeaderLabel = Caption(string.Empty, LEFT, HEADER_TOP, INNER_WIDTH, HorizontalAlignment.Center, LegendColors.Gray);
 
-        View = new PieceView(transfers, INNER_WIDTH, ACTIONS_TOP - GAP - BODY_TOP)
+        View = new PieceView(transfers, player, INNER_WIDTH, ACTIONS_TOP - GAP - BODY_TOP)
         {
             X = LEFT,
             Y = BODY_TOP
@@ -119,6 +119,7 @@ public sealed class CollegeReaderControl : GuildCloakDialogBase
             return;
 
         CommentBox.IsFocused = false;
+        View.StopTune();
         base.Hide();
     }
 
@@ -144,6 +145,10 @@ public sealed class CollegeReaderControl : GuildCloakDialogBase
         BuildFooter(args);
         View.Show(args.Piece ?? new CollegePieceInfo());
         Show();
+
+        //a Teacher's "Show to class" plays the tune for the whole room as the piece arrives
+        if (args.Context == CollegePieceContext.Shown)
+            View.PlayTune();
     }
 
     /// <summary>The judging list's order, for Prev and Next.</summary>
