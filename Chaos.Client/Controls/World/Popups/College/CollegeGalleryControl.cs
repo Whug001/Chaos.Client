@@ -189,15 +189,9 @@ public sealed class CollegeGalleryControl : CollegeListWindow<CollegeGalleryRowI
                 var row = shown[i];
                 cell.Set(row.Id, row.Title, row.Author, CollegeTiers.Badge(row.Tier));
                 cell.Picture = Drawings.TryGetTexture(row.Id, out var texture) ? texture : null;
-
-                if ((cell.Picture is null) && Drawings.NeedsFetch(row.Id))
-                    Raise(
-                        new CollegeActionArgs
-                        {
-                            Type = CollegeActionType.DrawingFetch,
-                            Id = row.Id
-                        });
             }
+
+        FetchMissingThumbnails();
 
         if (PlayButtons is null)
             return;
@@ -241,7 +235,28 @@ public sealed class CollegeGalleryControl : CollegeListWindow<CollegeGalleryRowI
             RefreshPlayButtons();
         }
 
+        //a fetch the server's per-minute limit dropped gets no reply, so the shown page asks again until it is filled
+        if (Visible && IsArt)
+            FetchMissingThumbnails();
+
         base.Update(gameTime);
+    }
+
+    private void FetchMissingThumbnails()
+    {
+        if (Cells is null)
+            return;
+
+        var now = DateTime.UtcNow;
+
+        foreach (var cell in Cells)
+            if (cell.Visible && (cell.Picture is null) && Drawings.NeedsFetch(cell.Id, now))
+                Raise(
+                    new CollegeActionArgs
+                    {
+                        Type = CollegeActionType.DrawingFetch,
+                        Id = cell.Id
+                    });
     }
 
     private void StopGalleryTune()

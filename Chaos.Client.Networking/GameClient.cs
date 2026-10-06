@@ -31,6 +31,7 @@ public sealed class GameClient : IDisposable
     private readonly Lock SendLock = new();
     private readonly ServerPacketHandler?[] ServerHandlers = new ServerPacketHandler?[byte.MaxValue + 1];
     private int ConnectionGeneration;
+    private int PendingSends;
     private bool Disposed;
     private volatile bool IsAlive;
     private int ReceiveCount;
@@ -68,7 +69,7 @@ public sealed class GameClient : IDisposable
         for (var i = 0; i < INITIAL_SEND_ARGS_COUNT; i++)
         {
             var args = new SocketAsyncEventArgs();
-            args.Completed += ReuseSendArgs;
+            args.Completed += OnSendCompleted;
             SendArgsPool.Enqueue(args);
         }
     }
@@ -278,17 +279,26 @@ public sealed class GameClient : IDisposable
             args = DequeueSendArgs(owner, length);
         }
 
+        Interlocked.Increment(ref PendingSends);
+
         try
         {
             var completedSynchronously = !Socket!.SendAsync(args);
 
             if (completedSynchronously)
-                ReuseSendArgs(this, args);
+                OnSendCompleted(this, args);
         } catch
         {
-            ReuseSendArgs(this, args);
+            OnSendCompleted(this, args);
         }
     }
+
+    /// <summary>
+    ///     Waits, up to <paramref name="timeout" />, for the packets already sent to reach the socket. Closing the socket
+    ///     cancels a send still in progress, so a packet sent just before closing (a draft saved as the game window
+    ///     closes) is waited for first. False when the time ran out.
+    /// </summary>
+    public bool WaitForPendingSends(TimeSpan timeout) => SpinWait.SpinUntil(() => Volatile.Read(ref PendingSends) <= 0, timeout);
 
     /// <summary>
     ///     Resets the outbound packet sequence counter, typically after a redirect or new connection.
@@ -478,13 +488,19 @@ public sealed class GameClient : IDisposable
         if (!SendArgsPool.TryDequeue(out var args))
         {
             args = new SocketAsyncEventArgs();
-            args.Completed += ReuseSendArgs;
+            args.Completed += OnSendCompleted;
         }
 
         args.UserToken = owner;
         args.SetBuffer(owner.Memory[..length]);
 
         return args;
+    }
+
+    private void OnSendCompleted(object? sender, SocketAsyncEventArgs args)
+    {
+        Interlocked.Decrement(ref PendingSends);
+        ReuseSendArgs(this, args);
     }
 
     private static void ReuseSendArgs(object? sender, SocketAsyncEventArgs args)

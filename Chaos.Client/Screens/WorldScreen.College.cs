@@ -26,12 +26,16 @@ public sealed partial class WorldScreen
         //the real logout (RequestExit(false)) when the server's ExitResponse comes back, so the server takes this
         //SaveDraft first, while the player is still in the world
         MainOptions.OnExit += SaveCollegeDraft;
+
+        //closing the game window (X, Alt+F4) while in the world skips the logout, so the drafts are sent as it closes
+        Game.Closing += SaveCollegeDraft;
     }
 
     private void UnwireCollege()
     {
         Game.Connection.OnCollegeDisplay -= HandleCollegeDisplay;
         MainOptions.OnExit -= SaveCollegeDraft;
+        Game.Closing -= SaveCollegeDraft;
     }
 
     private void SaveCollegeDraft()

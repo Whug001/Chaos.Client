@@ -8,6 +8,7 @@ using Chaos.Client.Extensions;
 using Chaos.Client.Rendering;
 using Chaos.Client.Rendering.Definitions;
 using Chaos.Client.Systems.College;
+using Chaos.Client.ViewModel.College;
 using Chaos.DarkAges.Definitions;
 using Chaos.Networking.Entities.Client;
 using Chaos.Networking.Entities.Server;
@@ -53,6 +54,7 @@ public sealed class CollegeReaderControl : GuildCloakDialogBase
     private readonly UILabel TitleLabel;
     private readonly PieceView View;
     private readonly TextPopupControl VotesPopup;
+    private readonly VoteDrafts VoteDrafts = new();
 
     private CollegeDisplayArgs? Current;
     private CustomButton? RemoveButton;
@@ -60,6 +62,10 @@ public sealed class CollegeReaderControl : GuildCloakDialogBase
     private CustomButton? SubmitButton;
     private byte SelectedTier = CollegeProtocol.NO_TIER;
     private int[] Siblings = [];
+
+    //the vote the server has for the piece shown, so leaving it can tell whether the footer holds unsaved changes
+    private string SavedComment = string.Empty;
+    private byte SavedTier = CollegeProtocol.NO_TIER;
 
     public CollegeReaderControl(CollegePictureTransfers transfers, TextPopupControl votesPopup, TunePlayer player)
         : base("_nsett", false)
@@ -120,6 +126,7 @@ public sealed class CollegeReaderControl : GuildCloakDialogBase
 
         CommentBox.IsFocused = false;
         View.StopTune();
+        KeepUnsavedVote();
         base.Hide();
     }
 
@@ -139,6 +146,8 @@ public sealed class CollegeReaderControl : GuildCloakDialogBase
     /// <summary>Shows a piece with the footer for its context. Opening another piece replaces the one shown.</summary>
     public void Open(CollegeDisplayArgs args)
     {
+        //Prev, Next and a piece shown to the class replace the piece; a vote not yet saved waits for the judge to come back
+        KeepUnsavedVote();
         Current = args;
         TitleLabel.Text = args.Piece?.Title is { Length: > 0 } title ? title : "Untitled";
         HeaderLabel.Text = args.Header;
@@ -206,7 +215,6 @@ public sealed class CollegeReaderControl : GuildCloakDialogBase
             var verdict = args.Context == CollegePieceContext.Verdict;
             CommentBox.MaxLength = verdict ? CollegeProtocol.MAX_NOTE_CHARS : CollegeProtocol.MAX_COMMENT_CHARS;
             CommentBox.HintText = verdict ? "A note to the author (optional)" : "A comment for the Director (optional)";
-            CommentBox.Text = args.MyComment;
 
             y -= CommentBox.Height;
             CommentBox.Y = y;
@@ -218,7 +226,16 @@ public sealed class CollegeReaderControl : GuildCloakDialogBase
             y -= GAP;
         }
 
-        SelectTier(voting ? args.MyTier : CollegeProtocol.NO_TIER);
+        SavedTier = args.MyTier;
+        SavedComment = args.MyComment;
+
+        if (voting)
+        {
+            var (tier, comment) = VoteDrafts.Restore(args.Context, args.Id, args.MyTier, args.MyComment);
+            CommentBox.Text = comment;
+            SelectTier(tier);
+        } else
+            SelectTier(CollegeProtocol.NO_TIER);
 
         FooterLine.Text = args.Context switch
         {
@@ -238,6 +255,12 @@ public sealed class CollegeReaderControl : GuildCloakDialogBase
         }
 
         View.SetHeight(y - BODY_TOP);
+    }
+
+    private void KeepUnsavedVote()
+    {
+        if (Current is { Context: CollegePieceContext.Judge or CollegePieceContext.Verdict } current)
+            VoteDrafts.Leave(current.Context, current.Id, SelectedTier, CommentBox.Text, SavedTier, SavedComment);
     }
 
     private CustomButton FooterAction(string caption, int width, Action onClick)
@@ -291,6 +314,13 @@ public sealed class CollegeReaderControl : GuildCloakDialogBase
                 Tier = voting ? (CollegeTierCode)SelectedTier : CollegeTierCode.None,
                 Text = voting ? CommentBox.Text : string.Empty
             });
+
+        if (voting)
+        {
+            VoteDrafts.Saved(Current.Context, Current.Id);
+            SavedTier = SelectedTier;
+            SavedComment = CommentBox.Text;
+        }
 
         if (type is CollegeActionType.Verdict or CollegeActionType.RemoveEntry)
             Hide();

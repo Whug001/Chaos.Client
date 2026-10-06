@@ -288,4 +288,116 @@ public class WritingDocumentTests
 
         Shape(doc).Should().Be("T:x");
     }
+
+    private static WritingDocument Built(params WritingBlock[] blocks)
+    {
+        var doc = new WritingDocument();
+        doc.Blocks.Clear();
+        doc.Blocks.AddRange(blocks);
+
+        return doc;
+    }
+
+    private static WritingBlock Heading(string text) => new() { Kind = WritingBlockKind.Heading, Text = text };
+
+    [Test]
+    public void Pasted_line_endings_and_control_characters_are_cleaned()
+    {
+        var doc = WithText("a\r\nb\rc\td\u0001e");
+
+        doc.Blocks[0].Text.Should().Be("a\nb\ncde");
+        doc.TextLength.Should().Be(7);
+    }
+
+    [Test]
+    public void The_count_matches_the_server_join_of_text_around_an_empty_heading()
+    {
+        var doc = Built(WritingBlock.OfText("ab"), Heading(""), WritingBlock.OfText("cd"));
+
+        doc.TextLength.Should().Be(5);
+    }
+
+    [Test]
+    public void The_count_leaves_out_what_the_server_drops()
+    {
+        var doc = Built(WritingBlock.OfText("   "), Heading("  hi  "), WritingBlock.OfText("x"));
+
+        doc.TextLength.Should().Be(3);
+    }
+
+    [Test]
+    public void Typing_after_an_empty_heading_keeps_within_the_server_count()
+    {
+        var doc = Built(WritingBlock.OfText(new string('a', 9_997)), Heading(""), WritingBlock.OfText(string.Empty));
+
+        doc.SetText(2, "bbbb");
+
+        doc.Blocks[2].Text.Should().Be("bb");
+        doc.TextLength.Should().Be(10_000);
+    }
+
+    [Test]
+    public void Typing_into_a_full_piece_is_no_change()
+    {
+        var doc = WithText(new string('a', 10_000));
+        doc.MarkClean();
+
+        doc.SetText(0, new string('a', 10_000) + "b");
+
+        doc.Blocks[0].Text.Should().HaveLength(10_000);
+        doc.IsDirty.Should().BeFalse();
+    }
+
+    [Test]
+    public void A_piece_at_the_block_limit_takes_no_more_headings_or_pictures()
+    {
+        var blocks = new List<WritingBlock>();
+
+        for (var i = 0; i < 99; i++)
+        {
+            blocks.Add(Heading("h"));
+            blocks.Add(WritingBlock.OfText("one\ntwo\nthree"));
+        }
+
+        blocks.Add(Heading("h"));
+        blocks.Add(WritingBlock.OfText("one\ntwo\nthree"));
+        var doc = Built([.. blocks]);
+        var before = Shape(doc);
+
+        doc.IsAtBlockLimit.Should().BeTrue();
+        doc.ToggleHeading(1, 5).Should().Be((1, 5));
+        doc.InsertPicture(1, 5, HashA).Should().BeNull();
+        Shape(doc).Should().Be(before);
+        doc.IsDirty.Should().BeFalse();
+    }
+
+    [Test]
+    public void A_piece_below_the_block_limit_stays_within_it_after_a_heading()
+    {
+        var blocks = new List<WritingBlock>();
+
+        for (var i = 0; i < 99; i++)
+        {
+            blocks.Add(Heading("h"));
+            blocks.Add(WritingBlock.OfText("one\ntwo\nthree"));
+        }
+
+        var doc = Built([.. blocks]);
+
+        doc.IsAtBlockLimit.Should().BeFalse();
+        doc.ToggleHeading(1, 5);
+
+        doc.ToInfo(CollegeSubjectCode.Lore).Blocks.Should().HaveCount(CollegeProtocol.MAX_BLOCKS);
+        doc.IsAtBlockLimit.Should().BeTrue();
+    }
+
+    [Test]
+    public void Joining_around_whitespace_never_goes_over_the_server_count()
+    {
+        var doc = Built(WritingBlock.OfText("   "), Heading("x"), WritingBlock.OfText(new string('a', 9_999)));
+
+        doc.ToggleHeading(1, 0);
+
+        doc.TextLength.Should().BeLessThanOrEqualTo(10_000);
+    }
 }

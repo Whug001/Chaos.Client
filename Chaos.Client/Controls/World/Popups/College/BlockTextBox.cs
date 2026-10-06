@@ -98,6 +98,9 @@ public sealed class BlockTextBox : UITextBox
         FitHeight();
     }
 
+    //the server drops control characters other than line breaks, so they never reach the piece (or its count)
+    protected override bool AcceptsCharacter(char c) => (c == '\n') || !char.IsControl(c);
+
     public void PlaceCaret(int position)
     {
         CursorPosition = Math.Clamp(position, 0, Text.Length);

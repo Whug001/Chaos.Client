@@ -1,3 +1,4 @@
+using System.Text;
 using Chaos.DarkAges.Definitions;
 using Chaos.Networking.Entities.Server;
 
@@ -38,8 +39,82 @@ public sealed class WritingDocument
 
     public List<WritingBlock> Blocks { get; } = [WritingBlock.OfText(string.Empty)];
     public bool IsDirty { get; private set; }
-    public int TextLength => Blocks.Where(b => b.Kind != WritingBlockKind.Picture).Sum(b => b.Text.Length);
+
+    /// <summary>
+    ///     The characters the server counts against the 10,000: headings trimmed, blank blocks dropped, and text blocks
+    ///     that end up next to each other joined with a line break.
+    /// </summary>
+    public int TextLength => Measure().Characters;
+
+    /// <summary>The blocks the server keeps once it has dropped blank ones and joined neighbouring text.</summary>
+    public int BlockCount => Measure().Blocks;
+
+    /// <summary>
+    ///     True when one more heading or picture could take the piece past the server's block limit (either can add two
+    ///     blocks: itself and the text it splits off).
+    /// </summary>
+    public bool IsAtBlockLimit => BlockCount + 2 > CollegeProtocol.MAX_BLOCKS;
+
     public int PictureCount => Blocks.Count(b => b.Kind == WritingBlockKind.Picture);
+
+    /// <summary>The server's cleaning of piece text: every line break becomes \n and other control characters go.</summary>
+    public static string Clean(string text)
+    {
+        if (!text.Any(char.IsControl))
+            return text;
+
+        var builder = new StringBuilder(text.Length);
+
+        foreach (var c in text.Replace("\r\n", "\n").Replace('\r', '\n'))
+            if ((c == '\n') || !char.IsControl(c))
+                builder.Append(c);
+
+        return builder.ToString();
+    }
+
+    //the server's normalising, counted; block text is already clean, as SetText cleans it
+    private (int Characters, int Blocks) Measure()
+    {
+        var characters = 0;
+        var blocks = 0;
+        var afterText = false;
+
+        foreach (var block in Blocks)
+            switch (block.Kind)
+            {
+                case WritingBlockKind.Picture:
+                    blocks++;
+                    afterText = false;
+
+                    break;
+                case WritingBlockKind.Heading:
+                    var heading = block.Text.Trim().Length;
+
+                    if (heading == 0)
+                        break;
+
+                    characters += heading;
+                    blocks++;
+                    afterText = false;
+
+                    break;
+                default:
+                    if (string.IsNullOrWhiteSpace(block.Text))
+                        break;
+
+                    if (afterText)
+                        characters++;
+                    else
+                        blocks++;
+
+                    characters += block.Text.Length;
+                    afterText = true;
+
+                    break;
+            }
+
+        return (characters, blocks);
+    }
 
     public void MarkClean() => IsDirty = false;
 
@@ -102,27 +177,37 @@ public sealed class WritingDocument
                            .ToList()
         };
 
-    /// <summary>Sets a block's text, keeping headings to one line of 60 and the whole piece within 10,000 characters.</summary>
+    /// <summary>
+    ///     Sets a block's text, cleaned as the server cleans it, keeping headings to one line of 60 and the whole piece
+    ///     within the server's count of 10,000 characters.
+    /// </summary>
     public void SetText(int index, string text)
     {
         var block = Blocks[index];
 
-        if (block.Kind == WritingBlockKind.Picture)
+        if ((block.Kind == WritingBlockKind.Picture) || (text == block.Text))
             return;
+
+        text = Clean(text);
 
         if (block.Kind == WritingBlockKind.Heading)
-            text = text.Replace("\r", string.Empty).Replace('\n', ' ');
+        {
+            text = text.Replace('\n', ' ');
 
-        var limit = block.Kind == WritingBlockKind.Heading ? CollegeProtocol.MAX_HEADING_CHARS : int.MaxValue;
-        var budget = CollegeProtocol.MAX_TEXT_CHARS - (TextLength - block.Text.Length);
-        var max = Math.Max(0, Math.Min(limit, budget));
-        var next = text.Length <= max ? text : text[..max];
+            if (text.Length > CollegeProtocol.MAX_HEADING_CHARS)
+                text = text[..CollegeProtocol.MAX_HEADING_CHARS];
+        }
 
-        if (next == block.Text)
+        if (text == block.Text)
             return;
 
-        block.Text = next;
-        IsDirty = true;
+        var before = block.Text;
+        block.Text = text;
+        FitText(index);
+
+        //typing past the budget is cut back to what was there, which is no change
+        if (block.Text != before)
+            IsDirty = true;
     }
 
     public (int Index, int Caret) ToggleHeading(int index, int caret)
@@ -132,14 +217,18 @@ public sealed class WritingDocument
         if (block.Kind == WritingBlockKind.Picture)
             return (index, 0);
 
-        IsDirty = true;
-
         if (block.Kind == WritingBlockKind.Heading)
         {
+            IsDirty = true;
             block.Kind = WritingBlockKind.Text;
 
             return MergeTextAround(index, caret);
         }
+
+        if (IsAtBlockLimit)
+            return (index, caret);
+
+        IsDirty = true;
 
         var text = block.Text;
         caret = Math.Clamp(caret, 0, text.Length);
@@ -177,10 +266,12 @@ public sealed class WritingDocument
         return (headingIndex, Math.Min(caret - lineStart, line.Length));
     }
 
-    /// <summary>Puts a picture at the caret. Null when the piece already has 5 pictures or this one.</summary>
+    /// <summary>Puts a picture at the caret. Null when the piece already has 5 pictures or this one, or is at the block limit.</summary>
     public (int Index, int Caret)? InsertPicture(int index, int caret, string hash)
     {
-        if ((PictureCount >= CollegeProtocol.MAX_PICTURES) || Blocks.Any(b => (b.Kind == WritingBlockKind.Picture) && (b.Hash == hash)))
+        if ((PictureCount >= CollegeProtocol.MAX_PICTURES)
+            || IsAtBlockLimit
+            || Blocks.Any(b => (b.Kind == WritingBlockKind.Picture) && (b.Hash == hash)))
             return null;
 
         IsDirty = true;
@@ -239,8 +330,9 @@ public sealed class WritingDocument
                 above.Text = JoinParagraphs(above.Text, current.Text);
                 Blocks.RemoveAt(index - 1);
                 EnsureTrailingText();
+                FitText(index - 2);
 
-                return (index - 2, caret);
+                return (index - 2, Math.Min(caret, above.Text.Length));
             }
 
             EnsureTrailingText();
@@ -269,8 +361,9 @@ public sealed class WritingDocument
         }
 
         EnsureTrailingText();
+        FitText(index - 1);
 
-        return (index - 1, at);
+        return (index - 1, Math.Min(at, previous.Text.Length));
     }
 
     /// <summary>Enter at the end of a heading: the caret moves to the text below it, which is created if missing.</summary>
@@ -321,6 +414,7 @@ public sealed class WritingDocument
         }
 
         EnsureTrailingText();
+        FitText(index);
 
         return (index, Math.Clamp(caret, 0, Blocks[index].Text.Length));
     }
@@ -330,6 +424,20 @@ public sealed class WritingDocument
             : second.Length == 0 ? first
             : TextLength < CollegeProtocol.MAX_TEXT_CHARS ? first + "\n" + second
             : first + second;
+
+    /// <summary>
+    ///     Cuts the end of block <paramref name="index" /> until the piece is within the server's count. Each pass cuts the
+    ///     overrun, and a joining line break can go as the block empties, so the loop settles in a pass or two.
+    /// </summary>
+    private void FitText(int index)
+    {
+        var block = Blocks[index];
+
+        for (var over = TextLength - CollegeProtocol.MAX_TEXT_CHARS;
+             (over > 0) && (block.Text.Length > 0);
+             over = TextLength - CollegeProtocol.MAX_TEXT_CHARS)
+            block.Text = block.Text[..Math.Max(0, block.Text.Length - over)];
+    }
 
     private void EnsureTrailingText()
     {

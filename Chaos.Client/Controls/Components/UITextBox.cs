@@ -812,9 +812,10 @@ public class UITextBox : UIElement, IVerticalScrollable
         if (string.IsNullOrEmpty(clipText))
             return;
 
-        //strip newlines for single-line textboxes
-        if (!IsMultiLine)
-            clipText = clipText.Replace("\r", "").Replace("\n", "");
+        //strip newlines for single-line textboxes; a multi-line box keeps one \n per line break, as Enter types
+        clipText = IsMultiLine
+            ? clipText.Replace("\r\n", "\n").Replace('\r', '\n')
+            : clipText.Replace("\r", "").Replace("\n", "");
 
         //honour the subclass character filter (e.g. digit-only fields) for pasted content too
         clipText = new string(clipText.Where(AcceptsCharacter).ToArray());

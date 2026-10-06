@@ -17,7 +17,8 @@ namespace Chaos.Client.Controls.World.Popups.College;
 /// <summary>
 ///     A read-only piece: headings in gold, word-wrapped text, pictures at their real size, drawings and tunes, top to bottom, scrolled by
 ///     the bar or the mouse wheel. Pictures come from <see cref="CollegePictureTransfers" /> by hash; until one arrives
-///     its place shows "Loading picture...", and the view lays itself out again when it does.
+///     its place shows "Loading picture...", and the view lays itself out again when it does (or when it won't come). The
+///     pictures shown are held in <see cref="CollegePictureTransfers" />, so its texture cache never drops one on screen.
 /// </summary>
 public sealed class PieceView : UIPanel
 {
@@ -27,6 +28,7 @@ public sealed class PieceView : UIPanel
     private const int SCROLL_STEP = 2 * TextRenderer.CHAR_HEIGHT;
 
     private readonly UIPanel Content;
+    private readonly List<string> HeldPictures = [];
     private readonly List<Texture2D> OwnedTextures = [];
     private readonly TunePlayer Player;
     private readonly CollegePictureTransfers Transfers;
@@ -62,11 +64,13 @@ public sealed class PieceView : UIPanel
         AddChild(Viewer);
 
         Transfers.PictureReady += OnPictureReady;
+        Transfers.PictureFailed += OnPictureReady;
     }
 
     public override void Dispose()
     {
         Transfers.PictureReady -= OnPictureReady;
+        Transfers.PictureFailed -= OnPictureReady;
         ClearContent();
         base.Dispose();
     }
@@ -94,6 +98,9 @@ public sealed class PieceView : UIPanel
 
     private void Layout()
     {
+        //the pictures shown so far stay held until the new layout holds its own, so the cache can't drop one in between
+        var previouslyHeld = HeldPictures.ToList();
+        HeldPictures.Clear();
         ClearContent();
 
         var y = 0;
@@ -128,6 +135,9 @@ public sealed class PieceView : UIPanel
         }
 
         Content.Height = Math.Max(0, y - GAP);
+
+        foreach (var hash in previouslyHeld)
+            Transfers.Release(hash);
     }
 
     private int AddDrawing(CollegeBlockInfo block, int y)
@@ -173,10 +183,16 @@ public sealed class PieceView : UIPanel
     {
         if (!Transfers.TryGetTexture(hash, out var texture))
         {
+            if (Transfers.HasFailed(hash))
+                return AddText("This picture can't be shown.", y, LegendColors.Gray);
+
             Waiting.Add(hash);
 
             return AddText("Loading picture...", y, LegendColors.Gray);
         }
+
+        Transfers.Hold(hash);
+        HeldPictures.Add(hash);
 
         Content.AddChild(
             new UIImage
@@ -233,6 +249,11 @@ public sealed class PieceView : UIPanel
 
         Content.Children.Clear();
         Waiting.Clear();
+
+        foreach (var hash in HeldPictures)
+            Transfers.Release(hash);
+
+        HeldPictures.Clear();
 
         foreach (var texture in OwnedTextures)
             texture.Dispose();

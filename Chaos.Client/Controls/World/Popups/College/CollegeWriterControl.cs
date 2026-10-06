@@ -62,11 +62,15 @@ public sealed class CollegeWriterControl : GuildCloakDialogBase
     private const int COUNTER_X = SUBMIT_X + SUBMIT_WIDTH + 6;
     private const string UPLOADING = "Uploading picture...";
     private const string LOADING = "Loading picture...";
+    private const string UNAVAILABLE = "This picture can't be shown.";
     private const string WAIT_FOR_UPLOADS = "Wait for the pictures to finish.";
     private const string SAVING = "Saving...";
     private const string CONFIRM_SUBMIT_CAPTION = "Yes, submit";
 
     private static readonly SKColor PageFill = new(10, 8, 5, 255);
+
+    private static readonly string TooManyParts
+        = $"A piece can have {CollegeProtocol.MAX_BLOCKS} parts at most (headings, pictures and paragraphs).";
 
     private readonly List<UIElement> BlockViews = [];
     private readonly UIPanel Content;
@@ -86,6 +90,10 @@ public sealed class CollegeWriterControl : GuildCloakDialogBase
     private readonly BlockViewport Viewport;
 
     private bool CloseArmed;
+    private readonly DraftAutosave Autosave = new();
+
+    //the pictures the last save sent (or the piece opened with), so a picture whose upload finishes later is known to be unsent
+    private readonly HashSet<string> SentPictures = new(StringComparer.Ordinal);
 
     //hashes known to be canvas drawings, and those checked and found not to be
     private readonly HashSet<string> DrawingHashes = new(StringComparer.Ordinal);
@@ -241,13 +249,40 @@ public sealed class CollegeWriterControl : GuildCloakDialogBase
         base.OnKeyDown(e);
     }
 
-    /// <summary>Opens the writer on a draft or a hand-in (a null piece is a blank one).</summary>
+    /// <summary>
+    ///     Opens the writer on a draft or a hand-in (a null piece is a blank one). A draft with unsent changes is saved
+    ///     first. The same piece opened again while it has unsent changes keeps what is in the window, which is newer than
+    ///     the copy the server sent.
+    /// </summary>
     public void Open(CollegeDisplayArgs args)
     {
+        var keep = false;
+
+        //a hidden window has nothing unsent but a hand-in closed without handing in, which the player chose to drop
+        if (Visible && Session is not null)
+        {
+            PullText();
+
+            if (Document.IsDirty)
+            {
+                keep = (args.Mode == Session.Mode) && (args.Subject == Session.Subject);
+
+                if (!HandInMode)
+                    Send(CollegeActionType.SaveDraft);
+            }
+        }
+
         Session = args;
-        Document = WritingDocument.From(args.Piece);
-        Uploading.Clear();
-        ReplacedBy.Clear();
+
+        if (!keep)
+        {
+            Document = WritingDocument.From(args.Piece);
+            Uploading.Clear();
+            ReplacedBy.Clear();
+            SentPictures.Clear();
+            SentPictures.UnionWith(Document.Blocks.Where(b => b.Kind == WritingBlockKind.Picture).Select(b => b.Hash));
+        }
+
         CloseArmed = false;
         ClosingOnSave = false;
         DisarmSubmit();
@@ -368,9 +403,25 @@ public sealed class CollegeWriterControl : GuildCloakDialogBase
 
             if (Counter.Text != counter)
                 Counter.Text = counter;
+
+            AutosaveDraft();
         }
 
         base.Update(gameTime);
+    }
+
+    /// <summary>
+    ///     Saves a draft with unsent changes once they are a minute old, so a crash, a lost connection or a closed game
+    ///     loses little. Not while a picture uploads (Save waits for those too), a question is on the status line, or Close
+    ///     is already saving.
+    /// </summary>
+    private void AutosaveDraft()
+    {
+        if (Session is null || HandInMode || ClosingOnSave || SubmitArmed || CloseArmed || (Uploading.Count > 0))
+            return;
+
+        if (Autosave.IsDue(Document.IsDirty, DateTime.UtcNow))
+            Send(CollegeActionType.SaveDraft);
     }
 
     // ---- blocks ----
@@ -466,7 +517,7 @@ public sealed class CollegeWriterControl : GuildCloakDialogBase
 
     private PictureBlock PictureView(string hash, int index)
     {
-        var view = new PictureBlock(hash, Content.Width);
+        var view = new PictureBlock(hash, Content.Width, Transfers);
 
         view.RemoveButton.Clicked += () =>
         {
@@ -493,7 +544,7 @@ public sealed class CollegeWriterControl : GuildCloakDialogBase
 
                     break;
                 case PictureBlock picture:
-                    picture.Refresh(Uploading.Contains(picture.Hash), Transfers);
+                    picture.Refresh(Uploading.Contains(picture.Hash));
 
                     break;
             }
@@ -663,6 +714,13 @@ public sealed class CollegeWriterControl : GuildCloakDialogBase
             return;
         }
 
+        if (Document.IsAtBlockLimit)
+        {
+            Status.Text = TooManyParts;
+
+            return;
+        }
+
         Status.Text = "Choose a picture...";
 
         //SDL is asked on the game thread; the dialog itself runs on its own
@@ -725,6 +783,13 @@ public sealed class CollegeWriterControl : GuildCloakDialogBase
             return;
         }
 
+        if (Document.IsAtBlockLimit)
+        {
+            Status.Text = TooManyParts;
+
+            return;
+        }
+
         PullText();
         var index = Math.Clamp(FocusIndex, 0, Document.Blocks.Count - 1);
 
@@ -775,6 +840,13 @@ public sealed class CollegeWriterControl : GuildCloakDialogBase
                 return;
             }
 
+            if (Document.IsAtBlockLimit)
+            {
+                Status.Text = TooManyParts;
+
+                return;
+            }
+
             var index = Math.Clamp(FocusIndex, 0, Document.Blocks.Count - 1);
 
             if (Document.InsertPicture(index, FocusCaret, picture.Hash) is not { } inserted)
@@ -802,6 +874,13 @@ public sealed class CollegeWriterControl : GuildCloakDialogBase
         if (Document.PictureCount >= CollegeProtocol.MAX_PICTURES)
         {
             Status.Text = $"A piece can hold {CollegeProtocol.MAX_PICTURES} pictures at most.";
+
+            return;
+        }
+
+        if (Document.IsAtBlockLimit)
+        {
+            Status.Text = TooManyParts;
 
             return;
         }
@@ -857,6 +936,10 @@ public sealed class CollegeWriterControl : GuildCloakDialogBase
         {
             Status.Text = "Picture added.";
 
+            //a save sent while it uploaded (logging out, an autosave) left it out, so the piece still has it to send
+            if (!SentPictures.Contains(hash) && Document.Blocks.Any(b => (b.Kind == WritingBlockKind.Picture) && (b.Hash == hash)))
+                Document.MarkDirty();
+
             return;
         }
 
@@ -878,7 +961,22 @@ public sealed class CollegeWriterControl : GuildCloakDialogBase
 
     // ---- buttons ----
 
-    private void OnHeadingClicked() => Edit(() => Document.ToggleHeading(Math.Clamp(FocusIndex, 0, Document.Blocks.Count - 1), FocusCaret));
+    private void OnHeadingClicked()
+    {
+        var index = Math.Clamp(FocusIndex, 0, Document.Blocks.Count - 1);
+
+        //turning a heading back into text is always allowed; a new heading may split its text into three parts
+        if ((Document.Blocks[index].Kind == WritingBlockKind.Text) && Document.IsAtBlockLimit)
+        {
+            DisarmSubmit();
+            CloseArmed = false;
+            Status.Text = TooManyParts;
+
+            return;
+        }
+
+        Edit(() => Document.ToggleHeading(index, FocusCaret));
+    }
 
     private void OnSaveClicked()
     {
@@ -989,6 +1087,8 @@ public sealed class CollegeWriterControl : GuildCloakDialogBase
     {
         var piece = Document.ToInfo(Session!.Subject);
         piece.Blocks.RemoveAll(b => (b.Kind == CollegeBlockKind.Picture) && Uploading.Contains(b.Hash));
+        SentPictures.Clear();
+        SentPictures.UnionWith(piece.Blocks.Where(b => b.Kind == CollegeBlockKind.Picture).Select(b => b.Hash));
 
         ActionRequested?.Invoke(
             new CollegeActionArgs
@@ -1018,6 +1118,7 @@ public sealed class CollegeWriterControl : GuildCloakDialogBase
 
         private readonly UIImage Image;
         private readonly UILabel Label;
+        private readonly CollegePictureTransfers Transfers;
 
         public string Hash { get; }
         public CustomButton EditButton { get; }
@@ -1025,9 +1126,10 @@ public sealed class CollegeWriterControl : GuildCloakDialogBase
 
         public event Action? Loaded;
 
-        public PictureBlock(string hash, int width)
+        public PictureBlock(string hash, int width, CollegePictureTransfers transfers)
         {
             Hash = hash;
+            Transfers = transfers;
             Width = width;
             Height = CustomButton.HEIGHT;
 
@@ -1064,23 +1166,29 @@ public sealed class CollegeWriterControl : GuildCloakDialogBase
         public override void Dispose()
         {
             //the texture belongs to CollegePictureTransfers, and UIImage.Dispose would dispose it
+            if (Image.Texture is not null)
+                Transfers.Release(Hash);
+
             Image.Texture = null;
             base.Dispose();
         }
 
         /// <summary>Shows the picture once it is uploaded (or downloaded); until then, a line saying which.</summary>
-        public void Refresh(bool uploading, CollegePictureTransfers transfers)
+        public void Refresh(bool uploading)
         {
             if (Image.Texture is not null)
                 return;
 
-            if (uploading || !transfers.TryGetTexture(Hash, out var texture))
+            if (uploading || !Transfers.TryGetTexture(Hash, out var texture))
             {
-                Label.Text = uploading ? UPLOADING : LOADING;
+                Label.Text = uploading ? UPLOADING
+                    : Transfers.HasFailed(Hash) ? UNAVAILABLE
+                    : LOADING;
 
                 return;
             }
 
+            Transfers.Hold(Hash);
             Image.Texture = texture;
             Image.Width = texture.Width;
             Image.Height = texture.Height;

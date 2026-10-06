@@ -843,6 +843,18 @@ public sealed class ChaosGame : Game
             LatencyMonitor.Stop();
     }
 
+    /// <summary>Raised as the game window closes (its X, Alt+F4 or Exit), while the connection is still open.</summary>
+    public event Action? Closing;
+
+    protected override void OnExiting(object sender, ExitingEventArgs args)
+    {
+        //the College windows send their unsaved drafts here; the connection closes in UnloadContent, after the sends
+        //have reached the socket
+        Closing?.Invoke();
+        Connection.Client.WaitForPendingSends(TimeSpan.FromSeconds(2));
+        base.OnExiting(sender, args);
+    }
+
     protected override void UnloadContent()
     {
         //a resize in the last half second has not been written yet, and closing the window is exactly when a
