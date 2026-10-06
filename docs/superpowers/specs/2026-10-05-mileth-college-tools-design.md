@@ -43,13 +43,11 @@ Mockups from brainstorming: `.superpowers/brainstorm/1300326-1791250895/content/
 |---|---|---|---|
 | `Chaos-Server` | `worktrees/college-tools-server` | `feat/college-tools` | server master 3d12ce2db (parts 1-4, not pushed) |
 | `Chaos.Client` | `worktrees/college-tools-client` | `feat/college-tools` | client main 2d8db6aa |
-| `Unora` | `worktrees/college-tools-unora`, only if a dialog text file needs a change | `feat/college-tools` | Unora main |
+| `Unora` | `worktrees/college-tools-unora`, only if a dialog text file needs a change | `feat/college-tools` | Unora main (12 new dialog templates) |
 
 The client worktree builds `Chaos.Client/Chaos.Client.csproj` with `UnoraServerPath` pointing at the server worktree,
 as in parts 2-4. The `.slnx` fails in a worktree. Subagents working in a worktree use absolute paths and do not use
 Serena, which edits the main checkout.
-
-The Registrar and lectern dialogs are server scripts, so Unora is expected to need no change.
 
 ## Saved quizzes
 
@@ -354,6 +352,44 @@ Dialog limits apply: option text 35 characters, dialog text 360, no em dashes.
 | Debate started (room) | `A debate begins! Pick your side.` |
 | Quiz not ready | from `QuizRules`, e.g. `Question 3 needs a right answer.` |
 | Quiz limit | `You can keep 20 quizzes.` |
+
+## Plan-time adjustments
+
+- Unora gets 12 dialog templates: the lectern's quiz and debate setup chains, "My quizzes" at the lectern and the
+  Registrar, and the lectern's "Show panel". The lectern menus are built from Unora templates.
+- The quiz card lists the answers in one column of four, not a 2 x 2 grid: two columns can't fit 40-character answers.
+- The debate's switches also need the final vote to have been held. A debate ended before its final vote checks no one
+  and gives no bonus.
+- Only the class's Teacher gets the Teacher panel and the Teacher's debate view. The server still accepts control
+  actions from the Director and admins.
+- Class actions (answers, sides, hands, controls) skip the 250 ms save throttle and are limited to 120 a minute per
+  player instead.
+- Answers, sides and hands are not written to disk at once; the 30-second College tick saves them. Starting and ending
+  a tool saves at once.
+- The Teacher panel and the debate panel close with their own OK button and don't take keyboard focus. The lectern's
+  **Show quiz panel** or **Show debate panel** brings them back. `CollegeDisplayArgs.Reopen` (on QuizCard, QuizTeacher
+  and DebateState) shows a window the player closed; it is sent to arrivals and by "Show panel".
+  `CollegeDebateInfo.IsTeacher` tells the panel which view to show.
+- Side markers draw 86 px above the tile centre, over the name tag. The floor holder's marker ends in " *", since the
+  game font has no star.
+- **Delete** in the quiz editor asks with a second click and a status line, not a popup.
+- The rule state is in `LiveQuiz` / `LiveDebate` and the rules in `QuizSession` / `DebateSession`, like
+  `CollegeClass` / `ClassSession`. The tests are `QuizSessionTests` / `DebateSessionTests`.
+- The Teacher's debate view lists the first 3 raised hands, then "+N more".
+- The lectern offers **Start a quiz** and **Start a debate** only to the class's Teacher. It offers **My quizzes** to
+  anyone who may keep quizzes, whether or not a class is running.
+- At the lectern, students in the class's room also get **Show quiz panel** or **Show debate panel** while a tool runs,
+  so a student who closed the debate panel can bring it back. Someone else's class or another room still shows
+  **My quizzes** to anyone who may keep quizzes.
+- The quiz editor saves once at a time. If the server refuses a save, a second **OK** or Esc with no change since closes
+  the editor without saving, so a lasting refusal can't trap the window. **Back** stays on the quiz page if it was edited
+  while its save was in flight, and a save that lands after the editor closed sends any later edits.
+- The debate texts were shortened to fit two-digit counts: "Opening: For 1, Against 2, Undecided 2" and
+  "For 2 (+1)  Ag. 2 (0)  Und. 1". The student's floor line reads "{name} has the floor." The vote card shows three
+  lines of the motion and the debate panel four, so a 120-character motion fits.
+- The debate panel is 260 px wide, 242 px tall for students and 324 px for the Teacher; the vote card is 300 x 196.
+  The side panels sit under the poll box but never past the bottom of the game view, so a tall poll box can be overlapped.
+- The Teacher's best-speaker list shows at most 8 speakers (2 columns of 4); later speakers can't be picked.
 
 ## Testing
 
