@@ -43,6 +43,10 @@ public sealed class DebateVoteCard : GuildCloakDialogBase
     private CollegeDebateInfo? Debate;
     private DebatePhase? DismissedPhase;
 
+    //a final vote counts only when sent during the final vote, even for the side already held, so the card shows a side
+    //as chosen only once this card has sent one in this final vote
+    private bool SentInFinal;
+
     public event Action<CollegeActionArgs>? ActionRequested;
 
     public DebateVoteCard()
@@ -83,6 +87,9 @@ public sealed class DebateVoteCard : GuildCloakDialogBase
 
             return;
         }
+
+        if (Debate?.Phase != debate.Phase)
+            SentInFinal = false;
 
         Debate = debate;
         Countdown.Start(debate.SecondsLeft);
@@ -135,6 +142,10 @@ public sealed class DebateVoteCard : GuildCloakDialogBase
             return;
 
         debate.MySide = side;
+
+        if (debate.Phase == DebatePhase.Final)
+            SentInFinal = true;
+
         Refresh();
         ActionRequested?.Invoke(new CollegeActionArgs { Type = CollegeActionType.DebateSide, Side = side });
     }
@@ -156,8 +167,9 @@ public sealed class DebateVoteCard : GuildCloakDialogBase
         var final = debate.Phase == DebatePhase.Final;
         OpeningLabel.Text = final ? ClassToolText.Opening(debate) : string.Empty;
         LeadingLabel.Text = final ? "If it ended now: " + ClassToolText.ResultLine(ClassToolText.Leading(debate), debate) : string.Empty;
-        ForButton.Selected = debate.MySide == DebateSide.For;
-        AgainstButton.Selected = debate.MySide == DebateSide.Against;
-        UndecidedButton.Selected = debate.MySide == DebateSide.Undecided;
+        var shown = ClassToolText.ShownVote(debate.Phase, debate.MySide, SentInFinal);
+        ForButton.Selected = shown == DebateSide.For;
+        AgainstButton.Selected = shown == DebateSide.Against;
+        UndecidedButton.Selected = shown == DebateSide.Undecided;
     }
 }

@@ -30,6 +30,7 @@ public sealed class QuizTeacherPanel : GuildCloakDialogBase
     private const int BUTTONS_TOP = HEIGHT - BORDER_BOTTOM_HEIGHT - 4 - CustomButton.HEIGHT;
     private const int OK_RIGHT_MARGIN = 20;
     private const int OK_BOTTOM_MARGIN = 3;
+    private const string END_ARMED = "Click End quiz again to end it.";
 
     private readonly UILabel ArmedLabel;
     private readonly UILabel CaptionLabel;
@@ -89,9 +90,12 @@ public sealed class QuizTeacherPanel : GuildCloakDialogBase
             return;
         }
 
+        //a QuizTeacher comes with every answer, so only a new phase or question takes back a first End quiz click
+        if (Quiz is not { } shown || (shown.Phase != quiz.Phase) || (shown.Number != quiz.Number))
+            EndArmed = false;
+
         Quiz = quiz;
         Countdown.Start(quiz.SecondsLeft);
-        EndArmed = false;
         Refresh();
 
         if (!Visible && !Dismissed)
@@ -138,7 +142,7 @@ public sealed class QuizTeacherPanel : GuildCloakDialogBase
         if (!EndArmed)
         {
             EndArmed = true;
-            ArmedLabel.Text = "Click End quiz again to end it.";
+            ArmedLabel.Text = END_ARMED;
 
             return;
         }
@@ -175,7 +179,7 @@ public sealed class QuizTeacherPanel : GuildCloakDialogBase
         };
 
         TopLabel.Text = quiz.Phase == QuizPhase.Revealed ? ClassToolText.TopLine(quiz.Top, string.Empty) : string.Empty;
-        ArmedLabel.Text = string.Empty;
+        ArmedLabel.Text = EndArmed ? END_ARMED : string.Empty;
         NextButton.Caption = waiting ? "First question" : IsLastRevealed(quiz) ? "Finish quiz" : "Next question";
         NextButton.Enabled = quiz.Phase != QuizPhase.Open;
     }

@@ -29,7 +29,11 @@ public static class DrawingPictures
         return new PreparedPicture(bytes, PicturePrep.Hash(bytes), WIDTH, HEIGHT);
     }
 
-    /// <summary>The drawing a picture was made from, or null. The palette lists colours as first seen, then unused defaults.</summary>
+    /// <summary>
+    ///     The drawing a picture was made from, or null. The palette starts with the background, which the eraser paints:
+    ///     the parchment if the picture has it, otherwise its most-used colour. Then come the other colours as first seen,
+    ///     then unused defaults.
+    /// </summary>
     public static PixelDrawing? TryRead(byte[] bytes)
     {
         using var codec = SKCodec.Create(new SKMemoryStream(bytes));
@@ -73,6 +77,8 @@ public static class DrawingPictures
                 pixels[(y * PixelDrawing.WIDTH) + x] = swatch;
             }
 
+        MoveToFront(colours, pixels, Background(colours, pixels));
+
         foreach (var fallback in ArtPalette.Default)
             if ((colours.Count < PixelDrawing.COLOURS) && !colours.Contains(fallback))
                 colours.Add(fallback);
@@ -87,5 +93,39 @@ public static class DrawingPictures
         }
 
         return PixelDrawing.From(palette, pixels);
+    }
+
+    private static int Background(List<Color> colours, byte[] pixels)
+    {
+        var parchment = colours.IndexOf(ArtPalette.Default[0]);
+
+        if (parchment >= 0)
+            return parchment;
+
+        var counts = new int[colours.Count];
+
+        foreach (var pixel in pixels)
+            counts[pixel]++;
+
+        var most = 0;
+
+        for (var i = 1; i < counts.Length; i++)
+            if (counts[i] > counts[most])
+                most = i;
+
+        return most;
+    }
+
+    private static void MoveToFront(List<Color> colours, byte[] pixels, int swatch)
+    {
+        if (swatch == 0)
+            return;
+
+        var colour = colours[swatch];
+        colours.RemoveAt(swatch);
+        colours.Insert(0, colour);
+
+        for (var i = 0; i < pixels.Length; i++)
+            pixels[i] = pixels[i] == swatch ? (byte)0 : pixels[i] < swatch ? (byte)(pixels[i] + 1) : pixels[i];
     }
 }

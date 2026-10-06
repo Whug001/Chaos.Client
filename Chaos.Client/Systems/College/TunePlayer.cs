@@ -1,4 +1,5 @@
 using System.Diagnostics;
+using Chaos.Client.Collections;
 using Chaos.Client.ViewModel.College;
 using Chaos.DarkAges.Definitions;
 
@@ -11,10 +12,13 @@ namespace Chaos.Client.Systems.College;
 /// </summary>
 public sealed class TunePlayer
 {
+    public const string MUTED_NOTICE = "Turn up sound effects to hear tunes.";
+
     private const int MAX_PREVIEWS = 64;
     private const double LOOP_LEAD_SECONDS = 0.5;
 
     private readonly Func<double> Clock;
+    private readonly Action<string> Notify;
     private readonly ITuneOutput Output;
     private readonly Dictionary<(TuneScale, TuneInstrument, TuneLayer, int), byte[]> Previews = [];
     private readonly Func<TuneScale, TuneInstrument, TuneLayer, int, short[]> RenderNote;
@@ -29,6 +33,7 @@ public sealed class TunePlayer
     private Task<byte[]>? NextPass;
     private TuneData? NextTune;
     private bool Playing;
+    private bool ToldMuted;
     private CancellationTokenSource? RenderCancel;
     private Task<byte[]>? Rendering;
     private double StartedAt;
@@ -39,20 +44,23 @@ public sealed class TunePlayer
             static () => Stopwatch.GetTimestamp() / (double)Stopwatch.Frequency,
             static (work, cancel) => Task.Run(work, cancel),
             TuneSynth.Render,
-            TuneSynth.RenderNote) { }
+            TuneSynth.RenderNote,
+            static text => WorldState.Chat.AddOrangeBarMessage(text)) { }
 
     internal TunePlayer(
         ITuneOutput output,
         Func<double> clock,
         Func<Func<byte[]>, CancellationToken, Task<byte[]>> run,
         Func<TuneData, CancellationToken, short[]> renderTune,
-        Func<TuneScale, TuneInstrument, TuneLayer, int, short[]> renderNote)
+        Func<TuneScale, TuneInstrument, TuneLayer, int, short[]> renderNote,
+        Action<string>? notify = null)
     {
         Output = output;
         Clock = clock;
         Run = run;
         RenderTune = renderTune;
         RenderNote = renderNote;
+        Notify = notify ?? (static _ => { });
     }
 
     public object? Owner { get; private set; }
@@ -73,7 +81,18 @@ public sealed class TunePlayer
     /// </summary>
     public void Play(TuneData tune, object owner, int fromColumn = 0, Func<TuneData?>? loop = null)
     {
-        Stop();
+        if (Output.IsMuted)
+        {
+            Stop();
+            TellMuted();
+
+            return;
+        }
+
+        ToldMuted = false;
+
+        //the map music stays down from the tune being replaced to the new one, rather than coming back while it renders
+        Stop(true);
 
         Owner = owner;
         Current = tune;
@@ -86,7 +105,9 @@ public sealed class TunePlayer
         Rendering = Run(() => TuneWav.Wrap(Slice(RenderTune(tune, cancel), tune.Speed, from)), cancel);
     }
 
-    public void Stop()
+    public void Stop() => Stop(false);
+
+    private void Stop(bool holdMusicDown)
     {
         if (Owner is null)
             return;
@@ -104,8 +125,17 @@ public sealed class TunePlayer
         NextCancel = null;
         AskedForNext = false;
         Playing = false;
-        Output.StopTune();
+        Output.StopTune(holdMusicDown);
         Stopped?.Invoke(old);
+    }
+
+    private void TellMuted()
+    {
+        if (ToldMuted)
+            return;
+
+        ToldMuted = true;
+        Notify(MUTED_NOTICE);
     }
 
     public void StopIfOwner(object owner)
@@ -143,6 +173,14 @@ public sealed class TunePlayer
     {
         if (Owner is null)
             return;
+
+        if (Output.IsMuted)
+        {
+            Stop();
+            TellMuted();
+
+            return;
+        }
 
         if (Rendering is { IsCompleted: true } rendered)
         {

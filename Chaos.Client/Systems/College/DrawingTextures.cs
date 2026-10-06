@@ -9,9 +9,12 @@ namespace Chaos.Client.Systems.College;
 public static class DrawingTextures
 {
     public static Color[] ToColors(IReadOnlyList<Color> palette, byte[] pixels, int zoom)
+        => ToColors(palette, pixels, zoom, new Color[PixelDrawing.WIDTH * zoom * PixelDrawing.HEIGHT * zoom]);
+
+    /// <summary>Fills <paramref name="colours" />, which must hold the whole zoomed drawing, and returns it.</summary>
+    public static Color[] ToColors(IReadOnlyList<Color> palette, byte[] pixels, int zoom, Color[] colours)
     {
         var width = PixelDrawing.WIDTH * zoom;
-        var colours = new Color[width * PixelDrawing.HEIGHT * zoom];
 
         for (var y = 0; y < PixelDrawing.HEIGHT; y++)
             for (var x = 0; x < PixelDrawing.WIDTH; x++)
