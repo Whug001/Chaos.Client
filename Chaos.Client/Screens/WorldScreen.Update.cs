@@ -250,6 +250,8 @@ public sealed partial class WorldScreen
                 Game.CreatureRenderer,
                 gameTime);
 
+        PlaceClassToolPanels();
+
         //bard song call countdown — driven from the update tick (not draw) so a live call expires in real
         //time even when draws are skipped or catch-up ticks run update multiple times per draw.
         //if the window expired before all four notes were entered, SongState hands back the partial

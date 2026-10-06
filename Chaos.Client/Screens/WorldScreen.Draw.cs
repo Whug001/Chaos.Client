@@ -220,6 +220,9 @@ public sealed partial class WorldScreen
                 transform);
 
             Overlays.Draw(spriteBatch, Camera, MapFile.Height);
+
+            if (College is { Marks.Count: > 0 } college)
+                Overlays.DrawDebateMarks(spriteBatch, Camera, MapFile.Height, college.Marks.All);
             spriteBatch.End();
 
             //snapshot draw count before debug draws so the reported count excludes debug visualizations

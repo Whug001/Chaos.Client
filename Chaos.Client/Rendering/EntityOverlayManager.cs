@@ -4,7 +4,9 @@ using Chaos.Client.Controls.Components;
 using Chaos.Client.Controls.World.ViewPort;
 using Chaos.Client.Models;
 using Chaos.Client.Systems;
+using Chaos.Client.ViewModel.College;
 using Chaos.DarkAges.Definitions;
+using Chaos.Networking.Entities.Server;
 using Microsoft.Xna.Framework;
 using Microsoft.Xna.Framework.Graphics;
 #endregion
@@ -33,6 +35,9 @@ public sealed class EntityOverlayManager
     //group box y offset — sits 2px above name tags
     private const int GROUP_BOX_Y_OFFSET = 74;
 
+    //debate side markers sit above the name tag
+    private const int DEBATE_MARK_Y_OFFSET = 86;
+
     //the damage-number's bottom sits this many px above the health bar's top edge (0 = flush on the bar top).
     //applied after the sprite-height resolution that positions the bar, so the gap is uniform across sprite types.
     private const int DAMAGE_NUMBER_GAP_ABOVE_BAR = -3;
@@ -43,6 +48,7 @@ public sealed class EntityOverlayManager
     private readonly Dictionary<uint, GroupBox> GroupBoxes = [];
     private readonly Dictionary<uint, HealthBar> HealthBars = [];
     private readonly Dictionary<uint, TextElement> NameTagCache = [];
+    private readonly Dictionary<uint, TextElement> DebateMarkCache = [];
     private readonly List<DamageNumber> DamageNumbers = [];
 
     /// <summary>
@@ -207,6 +213,7 @@ public sealed class EntityOverlayManager
         ChantOverlays.Clear();
 
         NameTagCache.Clear();
+        DebateMarkCache.Clear();
         GroupBoxes.Clear();
         DamageNumbers.Clear();
     }
@@ -355,6 +362,48 @@ public sealed class EntityOverlayManager
             cachedText.Draw(spriteBatch, screenPos);
         }
     }
+
+    /// <summary>Draws the debate side markers. Call within the same camera-transformed batch as <see cref="Draw" />.</summary>
+    public void DrawDebateMarks(SpriteBatch spriteBatch, Camera camera, int mapHeight, IReadOnlyDictionary<uint, CollegeDebateMarkInfo> marks)
+    {
+        if (marks.Count == 0)
+            return;
+
+        foreach ((var id, var mark) in marks)
+        {
+            if (WorldState.GetEntity(id) is not { } entity)
+                continue;
+
+            if (!DebateMarkCache.TryGetValue(id, out var text))
+            {
+                text = new TextElement
+                {
+                    ShadowStyle = ShadowStyle.BothSides,
+                    ShadowColor = NAME_TAG_SHADOW_COLOR
+                };
+                DebateMarkCache[id] = text;
+            }
+
+            text.Update(ClassToolText.Marker(mark.Side, mark.Floor), MarkColor(mark.Side));
+
+            if (!text.HasContent)
+                continue;
+
+            var tileWorld = Camera.TileToWorld(entity.TileX, entity.TileY, mapHeight);
+            var worldX = tileWorld.X + DaLibConstants.HALF_TILE_WIDTH + entity.VisualOffset.X;
+            var worldY = tileWorld.Y + DaLibConstants.HALF_TILE_HEIGHT + entity.VisualOffset.Y - DEBATE_MARK_Y_OFFSET;
+
+            text.Draw(spriteBatch, camera.WorldToScreen(new Vector2(worldX - text.Width / 2, worldY)));
+        }
+    }
+
+    private static Color MarkColor(DebateSide side)
+        => side switch
+        {
+            DebateSide.For     => LegendColors.Lime,
+            DebateSide.Against => LegendColors.Red,
+            _                  => LegendColors.Gray
+        };
 
     /// <summary>
     ///     Returns the entity ID and name if the given screen point hits a group box overlay. Used for click-to-view.
