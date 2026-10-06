@@ -23,6 +23,14 @@ public sealed class PollPanel : UIPanel
     private const int DIVIDER_Y = 23;
     private const int ROWS_TOP = 30;
     private const int ROW_H = 22;
+    private const int BAR_Y = 13;
+    private const int BAR_H = 6;
+
+    //past this many options the rows shrink so the panel still fits in the classic HUD's viewport
+    private const int ROOMY_OPTION_LIMIT = 8;
+    private const int COMPACT_ROW_H = 17;
+    private const int COMPACT_BAR_Y = 12;
+    private const int COMPACT_BAR_H = 4;
     private const int ROWS_GAP = 5;
 
     private static readonly Color Gold = new(252, 215, 80);
@@ -50,6 +58,10 @@ public sealed class PollPanel : UIPanel
         IsHitTestVisible = false;
         Visible = true;
     }
+
+    private static bool IsCompact(int optionCount) => optionCount > ROOMY_OPTION_LIMIT;
+
+    private static int RowHeight(int optionCount) => IsCompact(optionCount) ? COMPACT_ROW_H : ROW_H;
 
     public void SetViewportBounds(Microsoft.Xna.Framework.Rectangle bounds) => ViewportBounds = bounds;
 
@@ -94,7 +106,7 @@ public sealed class PollPanel : UIPanel
         //size to the current option count and the longest line; anchor top-right
         var rows = poll.Options.Count;
         Width = FitWidth(poll);
-        Height = ROWS_TOP + (rows * ROW_H) + ROWS_GAP + OrnateFrame.BORDER_BOTTOM_HEIGHT;
+        Height = ROWS_TOP + (rows * RowHeight(rows)) + ROWS_GAP + OrnateFrame.BORDER_BOTTOM_HEIGHT;
         X = ViewportBounds.Right - Width - 2;
         Y = ViewportBounds.Top + 2;
         IsHitTestVisible = true;
@@ -117,7 +129,7 @@ public sealed class PollPanel : UIPanel
         if (localY < 0)
             return;
 
-        var row = localY / ROW_H;
+        var row = localY / RowHeight(poll.Options.Count);
 
         if ((row < 0) || (row >= poll.Options.Count))
             return;
@@ -205,10 +217,15 @@ public sealed class PollPanel : UIPanel
             if (o.Votes > maxVotes)
                 maxVotes = o.Votes;
 
+        var compact = IsCompact(poll.Options.Count);
+        var rowH = compact ? COMPACT_ROW_H : ROW_H;
+        var barY = compact ? COMPACT_BAR_Y : BAR_Y;
+        var barH = compact ? COMPACT_BAR_H : BAR_H;
+
         for (var i = 0; i < poll.Options.Count; i++)
         {
             var o = poll.Options[i];
-            var rowY = sy + ROWS_TOP + (i * ROW_H);
+            var rowY = sy + ROWS_TOP + (i * rowH);
             var mine = i == poll.MyVoteIndex;
             var won = poll.IsClosed && (i == poll.WinningIndex);
             var nameColor = mine || won ? White : Silver;
@@ -241,7 +258,7 @@ public sealed class PollPanel : UIPanel
 
             //flat tally bar (track + fill ∝ votes/maxVotes)
             var trackX = sx + PAD;
-            var trackY = rowY + 13;
+            var trackY = rowY + barY;
             var trackW = w - (PAD * 2);
 
             DrawRectClipped(
@@ -250,7 +267,7 @@ public sealed class PollPanel : UIPanel
                     trackX,
                     trackY,
                     trackW,
-                    6),
+                    barH),
                 TrackBorder);
 
             DrawRectClipped(
@@ -259,7 +276,7 @@ public sealed class PollPanel : UIPanel
                     trackX + 1,
                     trackY + 1,
                     trackW - 2,
-                    4),
+                    barH - 2),
                 TrackBg);
 
             var fillW = (int)Math.Round((trackW - 2) * (o.Votes / (double)maxVotes));
@@ -271,7 +288,7 @@ public sealed class PollPanel : UIPanel
                         trackX + 1,
                         trackY + 1,
                         fillW,
-                        4),
+                        barH - 2),
                     mine || won ? BarHot : Bar);
         }
 
