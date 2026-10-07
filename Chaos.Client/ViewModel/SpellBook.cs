@@ -1,4 +1,5 @@
 #region
+using Chaos.Client.Systems;
 using Chaos.DarkAges.Definitions;
 #endregion
 
@@ -15,6 +16,32 @@ public sealed class SpellBook
     private readonly float[] CooldownRemaining = new float[MAX_SLOTS];
 
     private readonly SpellSlotData[] Slots = new SpellSlotData[MAX_SLOTS];
+    private readonly SpellTargetFilter[] TargetFilters = new SpellTargetFilter[MAX_SLOTS];
+
+    /// <summary>
+    ///     The targets a 1-based slot's spell can be cast on, as the server sent it. None (any target) until the server's
+    ///     SetSpellTargetFilter arrives, and for slots out of range.
+    /// </summary>
+    public SpellTargetFilter GetTargetFilter(byte slot)
+    {
+        var index = slot - 1;
+
+        return index is < 0 or >= MAX_SLOTS ? SpellTargetFilter.None : TargetFilters[index];
+    }
+
+    /// <summary>
+    ///     Stores a 1-based slot's target filter. Sent by the server right after the spell itself. No event — the filter is
+    ///     only read when a spell is armed.
+    /// </summary>
+    public void SetTargetFilter(byte slot, SpellTargetFilter filter)
+    {
+        var index = slot - 1;
+
+        if (index is < 0 or >= MAX_SLOTS)
+            return;
+
+        TargetFilters[index] = filter;
+    }
 
     /// <summary>
     ///     Clears all slots and cooldowns. Fires <see cref="Cleared" />.
@@ -22,6 +49,7 @@ public sealed class SpellBook
     public void Clear()
     {
         Array.Clear(Slots);
+        Array.Clear(TargetFilters);
         Array.Clear(CooldownRemaining);
         Array.Clear(CooldownDuration);
         Cleared?.Invoke();
@@ -43,6 +71,7 @@ public sealed class SpellBook
             return;
 
         Slots[index] = default;
+        TargetFilters[index] = SpellTargetFilter.None;
         CooldownRemaining[index] = 0;
         CooldownDuration[index] = 0;
         SlotChanged?.Invoke(slot);
@@ -129,6 +158,9 @@ public sealed class SpellBook
             prompt,
             castLines,
             chants);
+
+        //a new spell in the slot must not keep the last one's filter; the server sends this one's right after
+        TargetFilters[index] = SpellTargetFilter.None;
         SlotChanged?.Invoke(slot);
     }
 

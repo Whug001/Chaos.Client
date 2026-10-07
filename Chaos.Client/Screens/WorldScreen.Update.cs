@@ -310,6 +310,7 @@ public sealed partial class WorldScreen
 
         //tick casting timer (chant lines are sent on a 1-second interval)
         CastingSystem.Update(elapsedMs, Game.Connection);
+        UpdateTabTargeting();
 
         //slot machine reels: Slots.Update(float) is a distinct method from the inherited GameTime-based Update, so
         //Root!.Update(gameTime) below would never reach it -- it must be ticked explicitly, in seconds (ReelControl's

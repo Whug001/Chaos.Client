@@ -63,10 +63,26 @@ public sealed class KeyBindingTable
            || chord.Key is Scancode.Escape or Scancode.F11 or Scancode.F12
            || ((chord.Key == Scancode.Enter) && chord.Alt);
 
-    /// <summary>Puts <paramref name="chord" /> in <paramref name="action" />'s slot, taking it from whatever held it.</summary>
+    /// <summary>
+    ///     <see cref="IsReserved" />, except that Cancel Targeting may have bare Escape. It only runs while a spell is armed,
+    ///     where Escape has no other job, and it is that action's default.
+    /// </summary>
+    public static bool IsReservedFor(GameAction action, KeyChord chord)
+        => IsReserved(chord) && !((action == GameAction.TargetCancel) && (chord == new KeyChord(Scancode.Escape)));
+
+    /// <summary>
+    ///     Whether two actions compete for a key. The targeting actions only run while a spell is armed, so they compete only
+    ///     with each other: Space can be both Assail and Cast on Target.
+    /// </summary>
+    public static bool SameScope(GameAction a, GameAction b) => GameActions.IsTargeting(a) == GameActions.IsTargeting(b);
+
+    /// <summary>
+    ///     Puts <paramref name="chord" /> in <paramref name="action" />'s slot, taking it from whatever held it in the same
+    ///     scope (see <see cref="SameScope" />).
+    /// </summary>
     public BindResult Bind(GameAction action, int slot, KeyChord chord)
     {
-        if (IsReserved(chord))
+        if (IsReservedFor(action, chord))
             return new BindResult(false, null);
 
         if (SongNoteSharingKey(action, chord.Key) is { } clash)
@@ -77,7 +93,7 @@ public sealed class KeyBindingTable
         foreach (var other in GameActions.All)
             for (var otherSlot = 0; otherSlot < SLOTS; otherSlot++)
             {
-                if (Chords[(int)other, otherSlot] != chord)
+                if ((Chords[(int)other, otherSlot] != chord) || !SameScope(action, other))
                     continue;
 
                 Chords[(int)other, otherSlot] = KeyChord.None;
@@ -141,16 +157,24 @@ public sealed class KeyBindingTable
         return (prefix, keys);
     }
 
-    /// <summary>The action bound to exactly this key and these modifiers, skipping any <paramref name="usable" /> turns down.</summary>
-    public GameAction? Find(KeyChord chord, Func<GameAction, bool>? usable = null)
+    /// <summary>
+    ///     The action bound to exactly this key and these modifiers, skipping any <paramref name="usable" /> turns down.
+    ///     Searches the targeting actions when <paramref name="targeting" /> is true, and everything else otherwise.
+    /// </summary>
+    public GameAction? Find(KeyChord chord, Func<GameAction, bool>? usable = null, bool targeting = false)
     {
         if (chord.IsNone)
             return null;
 
         foreach (var action in GameActions.All)
+        {
+            if (GameActions.IsTargeting(action) != targeting)
+                continue;
+
             for (var slot = 0; slot < SLOTS; slot++)
                 if ((Chords[(int)action, slot] == chord) && (usable is null || usable(action)))
                     return action;
+        }
 
         return null;
     }
@@ -160,9 +184,9 @@ public sealed class KeyBindingTable
     ///     key. The bare-key fallback keeps the old client's habit of ignoring a held modifier nothing claims, so Shift+2
     ///     still uses slot 2 and Ctrl+B still picks up.
     /// </summary>
-    public IEnumerable<GameAction> Candidates(KeyChord chord, Func<GameAction, bool>? usable = null)
+    public IEnumerable<GameAction> Candidates(KeyChord chord, Func<GameAction, bool>? usable = null, bool targeting = false)
     {
-        var exact = Find(chord, usable);
+        var exact = Find(chord, usable, targeting);
 
         if (exact is not null)
             yield return exact.Value;
@@ -170,7 +194,7 @@ public sealed class KeyBindingTable
         if (chord.Modifiers == KeyModifiers.None)
             yield break;
 
-        var bare = Find(chord.Bare, usable);
+        var bare = Find(chord.Bare, usable, targeting);
 
         if ((bare is not null) && (bare != exact))
             yield return bare.Value;
@@ -217,12 +241,12 @@ public sealed class KeyBindingTable
         //below instead, once, by clearing the earlier holder
         for (var slot = 0; slot < SLOTS; slot++)
         {
-            var chord = IsReserved(parsed[slot]) ? KeyChord.None : parsed[slot];
+            var chord = IsReservedFor(action, parsed[slot]) ? KeyChord.None : parsed[slot];
 
             if (!chord.IsNone)
                 foreach (var other in GameActions.All)
                     for (var otherSlot = 0; otherSlot < SLOTS; otherSlot++)
-                        if (Chords[(int)other, otherSlot] == chord)
+                        if ((Chords[(int)other, otherSlot] == chord) && SameScope(action, other))
                             Chords[(int)other, otherSlot] = KeyChord.None;
 
             Chords[(int)action, slot] = chord;
@@ -255,6 +279,9 @@ public sealed class KeyBindingTable
                     3 => Scancode.O,
                     _ => Scancode.P
                 });
+
+        if (GameActions.TargetGroupIndex(action) is var member and >= 0)
+            return new KeyChord(Scancode.F2 + member);
 
         if (GameActions.EmoteIndex(action) is var emote and >= 0)
         {
@@ -312,6 +339,13 @@ public sealed class KeyBindingTable
             GameAction.IgnoreList      => new KeyChord(Scancode.F9),
             GameAction.ScrollChatUp    => new KeyChord(Scancode.Up, KeyModifiers.Shift),
             GameAction.ScrollChatDown  => new KeyChord(Scancode.Down, KeyModifiers.Shift),
+            GameAction.TargetNext          => new KeyChord(Scancode.Tab),
+            GameAction.TargetPrevious      => new KeyChord(Scancode.Tab, KeyModifiers.Shift),
+            GameAction.TargetCast          => new KeyChord(Scancode.Space),
+            GameAction.TargetCancel        => new KeyChord(Scancode.Escape),
+            GameAction.TargetSelf          => new KeyChord(Scancode.F1),
+            GameAction.TargetNearestEnemy  => new KeyChord(Scancode.F7),
+            GameAction.TargetFurthestEnemy => new KeyChord(Scancode.F8),
             _                          => KeyChord.None
         };
     }

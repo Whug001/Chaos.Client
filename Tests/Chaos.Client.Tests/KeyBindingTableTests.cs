@@ -37,13 +37,116 @@ public class KeyBindingTableTests
     [Test]
     public async Task No_two_actions_share_a_default_key()
     {
-        var chords = GameActions.All
-                                .SelectMany(action => Enumerable.Range(0, KeyBindingTable.SLOTS).Select(slot => KeyBindingTable.DefaultChord(action, slot)))
-                                .Where(chord => !chord.IsNone)
-                                .ToList();
+        //the targeting keys only run while a spell is armed, so they share keys with the rest on purpose (Space is both
+        //Assail and Cast on Target); within each scope every default is unique
+        foreach (var targeting in new[] { false, true })
+        {
+            var defaults = GameActions.All
+                                      .Where(action => GameActions.IsTargeting(action) == targeting)
+                                      .SelectMany(action => Enumerable.Range(0, KeyBindingTable.SLOTS)
+                                                                      .Select(slot => (Action: action, Chord: KeyBindingTable.DefaultChord(action, slot))))
+                                      .Where(pair => !pair.Chord.IsNone)
+                                      .ToList();
 
-        chords.Should().OnlyHaveUniqueItems();
-        chords.Where(KeyBindingTable.IsReserved).Should().BeEmpty();
+            defaults.Select(pair => pair.Chord).Should().OnlyHaveUniqueItems();
+            defaults.Where(pair => KeyBindingTable.IsReservedFor(pair.Action, pair.Chord)).Should().BeEmpty();
+        }
+
+        await Task.CompletedTask;
+    }
+
+    [Test]
+    public async Task Targeting_defaults_are_the_tab_targeting_keys()
+    {
+        var table = new KeyBindingTable();
+
+        table.Find(Key(Scancode.Tab), targeting: true).Should().Be(GameAction.TargetNext);
+        table.Find(Key(Scancode.Tab, KeyModifiers.Shift), targeting: true).Should().Be(GameAction.TargetPrevious);
+        table.Find(Key(Scancode.Space), targeting: true).Should().Be(GameAction.TargetCast);
+        table.Find(Key(Scancode.Escape), targeting: true).Should().Be(GameAction.TargetCancel);
+        table.Find(Key(Scancode.F1), targeting: true).Should().Be(GameAction.TargetSelf);
+        table.Find(Key(Scancode.F2), targeting: true).Should().Be(GameAction.TargetGroup1);
+        table.Find(Key(Scancode.F6), targeting: true).Should().Be(GameAction.TargetGroup5);
+        table.Find(Key(Scancode.F7), targeting: true).Should().Be(GameAction.TargetNearestEnemy);
+        table.Find(Key(Scancode.F8), targeting: true).Should().Be(GameAction.TargetFurthestEnemy);
+
+        await Task.CompletedTask;
+    }
+
+    [Test]
+    public async Task Normal_lookups_never_see_the_targeting_keys()
+    {
+        var table = new KeyBindingTable();
+
+        table.Find(Key(Scancode.Space)).Should().Be(GameAction.Assail);
+        table.Find(Key(Scancode.F1)).Should().Be(GameAction.Help);
+        table.Find(Key(Scancode.F8)).Should().BeNull();
+        table.Find(Key(Scancode.Escape)).Should().BeNull();
+
+        await Task.CompletedTask;
+    }
+
+    [Test]
+    public async Task A_targeting_key_only_takes_from_another_targeting_action()
+    {
+        var table = new KeyBindingTable();
+
+        //F9 is Ignore List (and no targeting key); giving it to Target Self leaves Ignore List alone
+        var ignore = table.Bind(GameAction.TargetSelf, 0, Key(Scancode.F9));
+        ignore.Bound.Should().BeTrue();
+        ignore.TakenFrom.Should().BeNull();
+        table.Find(Key(Scancode.F9)).Should().Be(GameAction.IgnoreList);
+        table.Find(Key(Scancode.F9), targeting: true).Should().Be(GameAction.TargetSelf);
+
+        //F7 is Nearest Enemy; giving it to Target Self takes it from Nearest Enemy, but not from Board List
+        var nearest = table.Bind(GameAction.TargetSelf, 1, Key(Scancode.F7));
+        nearest.TakenFrom.Should().Be(GameAction.TargetNearestEnemy);
+        table.Find(Key(Scancode.F7)).Should().Be(GameAction.BoardList);
+
+        //and the other way: Space for Pick Up leaves Cast on Target its Space
+        table.Bind(GameAction.PickUp, 0, Key(Scancode.Space)).TakenFrom.Should().Be(GameAction.Assail);
+        table.Find(Key(Scancode.Space), targeting: true).Should().Be(GameAction.TargetCast);
+
+        await Task.CompletedTask;
+    }
+
+    [Test]
+    public async Task Only_cancel_targeting_may_have_escape()
+    {
+        var table = new KeyBindingTable();
+
+        table.Bind(GameAction.TargetCast, 0, Key(Scancode.Escape)).Bound.Should().BeFalse();
+        table.Bind(GameAction.Assail, 0, Key(Scancode.Escape)).Bound.Should().BeFalse();
+
+        table.Bind(GameAction.TargetCancel, 0, Key(Scancode.Q)).Bound.Should().BeTrue();
+        table.Bind(GameAction.TargetCancel, 1, Key(Scancode.Escape)).Bound.Should().BeTrue();
+        table.Find(Key(Scancode.Escape), targeting: true).Should().Be(GameAction.TargetCancel);
+
+        //and a settings file can't hand Escape to anything else
+        table.TryLoadSetting("Bind.TargetCast", "Escape, None").Should().BeTrue();
+        table.Get(GameAction.TargetCast, 0).IsNone.Should().BeTrue();
+
+        await Task.CompletedTask;
+    }
+
+    [Test]
+    public async Task Targeting_bindings_round_trip_through_settings()
+    {
+        var table = new KeyBindingTable();
+        table.Bind(GameAction.TargetCast, 0, Key(Scancode.E));
+        table.Bind(GameAction.TargetGroup3, 1, Key(Scancode.D3, KeyModifiers.Alt));
+
+        var loaded = new KeyBindingTable();
+
+        foreach (var line in table.ToSettingsLines())
+        {
+            var split = line.IndexOf(" : ", StringComparison.Ordinal);
+            loaded.TryLoadSetting(line[..split], line[(split + 3)..]);
+        }
+
+        loaded.Get(GameAction.TargetCast, 0).Should().Be(Key(Scancode.E));
+        loaded.Get(GameAction.TargetGroup3, 1).Should().Be(Key(Scancode.D3, KeyModifiers.Alt));
+        loaded.Find(Key(Scancode.E)).Should().Be(GameAction.WorldList, "a targeting key never takes a normal action's key");
 
         await Task.CompletedTask;
     }

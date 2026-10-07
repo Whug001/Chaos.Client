@@ -46,6 +46,9 @@ public sealed class KeyBindingsControl : GuildCloakDialogBase
 
     private const string HINT = "Click a key, then press the new one. Esc cancels, Backspace clears.";
 
+    //the targeting keys only work with F4's Tab targeting on, and only while a spell is armed
+    private const string TARGETING_HINT = "Used while a spell is armed, with Tab targeting on in F4. Arrows also move.";
+
     private readonly CustomButton[] CategoryButtons;
     private readonly CustomButton NextPageButton;
     private readonly UILabel PageLabel;
@@ -176,7 +179,8 @@ public sealed class KeyBindingsControl : GuildCloakDialogBase
         if (KeyChord.IsModifierKey(e.Scancode))
             return;
 
-        if (e.Scancode == Scancode.Escape)
+        //Esc cancels the capture, except for Cancel Targeting, whose own default is Esc: there it puts Esc back
+        if ((e.Scancode == Scancode.Escape) && (pending.Action != GameAction.TargetCancel))
         {
             CancelCapture();
             SetStatus(HINT, LegendColors.Gray);
@@ -229,7 +233,12 @@ public sealed class KeyBindingsControl : GuildCloakDialogBase
 
         Pending = (actions[index], slot);
         KeyBindings.IsCapturing = true;
-        SetStatus($"Press a key for {GameActions.NameOf(actions[index])}. Esc cancels, Backspace clears.", LegendColors.Gold);
+
+        SetStatus(
+            actions[index] == GameAction.TargetCancel
+                ? $"Press a key for {GameActions.NameOf(actions[index])}. Backspace clears."
+                : $"Press a key for {GameActions.NameOf(actions[index])}. Esc cancels, Backspace clears.",
+            LegendColors.Gold);
         Refresh();
     }
 
@@ -248,7 +257,7 @@ public sealed class KeyBindingsControl : GuildCloakDialogBase
         CancelCapture();
         Category = category;
         Page = 0;
-        SetStatus(HINT, LegendColors.Gray);
+        SetStatus(category == GameActionCategory.Targeting ? TARGETING_HINT : HINT, LegendColors.Gray);
         Refresh();
     }
 

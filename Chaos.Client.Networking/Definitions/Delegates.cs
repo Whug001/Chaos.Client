@@ -253,6 +253,12 @@ public delegate void SetOxygenStateHandler(SetOxygenStateArgs args);
 public delegate void SetMapEffectsHandler(SetMapEffectsArgs args);
 
 /// <summary>
+///     Raised right after every AddSpellToPane with the targets that spell can be cast on (the server's
+///     <c>TargetFilter</c> flags).
+/// </summary>
+public delegate void SetSpellTargetFilterHandler(SetSpellTargetFilterArgs args);
+
+/// <summary>
 ///     Raised when the server sends a fresh snapshot of the player's group -- every member's name, class, vitals,
 ///     look and the effects closest to expiring. A whole list every time, so a member who left is simply absent
 ///     from the next one; an empty list means the player is no longer grouped.

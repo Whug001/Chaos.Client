@@ -79,7 +79,8 @@ public enum SettingKey
     HideBloodMoon,
     HideSandstorm,
     HideFrost,
-    HideBlizzard
+    HideBlizzard,
+    TabTargeting
 }
 
 /// <summary>
@@ -330,6 +331,14 @@ public static class SettingDefinitions
             SettingCategory.ClientLocal,
             Get: () => ClientSettings.GroundTargetSnapToEntity,
             Set: v => ClientSettings.GroundTargetSnapToEntity = v,
+            Span: SettingSpan.Full),
+        new(
+            SettingKey.TabTargeting,
+            "Tab targeting",
+            SettingSection.Interaction,
+            SettingCategory.ClientLocal,
+            Get: () => ClientSettings.TabTargeting,
+            Set: v => ClientSettings.TabTargeting = v,
             Span: SettingSpan.Full),
 
         //── Chat filter ──

@@ -118,6 +118,9 @@ public sealed class GroupPanelStack : UIPanel
     /// <summary>The current group in the order it is drawn: <see cref="CustomOrder" /> applied to the snapshot.</summary>
     private List<GroupMemberSnapshot> Ordered = [];
 
+    /// <summary>The other members' names in the order their panels run, top first. Tab targeting's F2-F6 follow it.</summary>
+    public IEnumerable<string> OrderedNames => Ordered.Select(member => member.Name);
+
     /// <summary>Which slot is being dragged, or -1 when none is.</summary>
     private int MemberDragIndex = -1;
 

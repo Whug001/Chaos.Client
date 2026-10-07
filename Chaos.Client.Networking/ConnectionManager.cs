@@ -519,6 +519,8 @@ public sealed class ConnectionManager : IDisposable
 
     public event SetMapEffectsHandler? OnSetMapEffects;
 
+    public event SetSpellTargetFilterHandler? OnSetSpellTargetFilter;
+
     public event SetGroupStateHandler? OnSetGroupState;
 
     /// <summary>
@@ -1824,6 +1826,7 @@ public sealed class ConnectionManager : IDisposable
         PacketHandlers[(byte)ServerOpCode.SetMaliceState] = HandleSetMaliceState;
         PacketHandlers[(byte)ServerOpCode.SetOxygenState] = HandleSetOxygenState;
         PacketHandlers[(byte)ServerOpCode.SetMapEffects] = HandleSetMapEffects;
+        PacketHandlers[(byte)ServerOpCode.SetSpellTargetFilter] = HandleSetSpellTargetFilter;
         PacketHandlers[(byte)ServerOpCode.SetGroupState] = HandleSetGroupState;
         PacketHandlers[(byte)ServerOpCode.SongCall] = HandleSongCall;
         PacketHandlers[(byte)ServerOpCode.UserOptions] = HandleUserOptions;
@@ -2225,6 +2228,12 @@ public sealed class ConnectionManager : IDisposable
     {
         var args = Client.Deserialize<SetMapEffectsArgs>(in pkt);
         OnSetMapEffects?.Invoke(args);
+    }
+
+    private void HandleSetSpellTargetFilter(ServerPacket pkt)
+    {
+        var args = Client.Deserialize<SetSpellTargetFilterArgs>(in pkt);
+        OnSetSpellTargetFilter?.Invoke(args);
     }
 
     private void HandleSetGroupState(ServerPacket pkt)

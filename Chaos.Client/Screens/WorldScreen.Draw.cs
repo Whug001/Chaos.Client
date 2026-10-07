@@ -219,6 +219,8 @@ public sealed partial class WorldScreen
                 null,
                 transform);
 
+            //under the name tags and health bars, so the box never covers them
+            DrawTabTargetBox(spriteBatch);
             Overlays.Draw(spriteBatch, Camera, MapFile.Height);
 
             if (College is { Marks.Count: > 0 } college)
@@ -1181,13 +1183,22 @@ public sealed partial class WorldScreen
         if (!IsAimingAtTile)
             return;
 
-        //HoveredTile gates on the viewport and map bounds — an aim over the HUD draws nothing
-        if (WorldState.CurrentFrame.HoveredTile is not { } tile)
-            return;
+        Point tile;
 
-        //the reticle has to sit on the tile the cast will actually use, entity snap included
-        if (SnapTargetTileAt(InputBuffer.MouseX, InputBuffer.MouseY) is { } snapped)
-            tile = new Point(snapped.X, snapped.Y);
+        //tab targeting's keyboard aim (arrow keys) overrides the mouse until the mouse moves
+        if (KeyboardAimTile is { } keyboardTile)
+            tile = new Point(keyboardTile.X, keyboardTile.Y);
+
+        //HoveredTile gates on the viewport and map bounds — an aim over the HUD draws nothing
+        else if (WorldState.CurrentFrame.HoveredTile is { } hovered)
+        {
+            tile = hovered;
+
+            //the reticle has to sit on the tile the cast will actually use, entity snap included
+            if (SnapTargetTileAt(InputBuffer.MouseX, InputBuffer.MouseY) is { } snapped)
+                tile = new Point(snapped.X, snapped.Y);
+        } else
+            return;
 
         var tileWorld = Camera.TileToWorld(tile.X, tile.Y, MapFile.Height);
         var tileScreen = Camera.WorldToScreen(new Vector2(tileWorld.X, tileWorld.Y));

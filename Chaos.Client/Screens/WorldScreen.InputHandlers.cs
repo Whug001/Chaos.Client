@@ -393,6 +393,7 @@ public sealed partial class WorldScreen
 
         //enter cast mode — wait for target selection
         CastingSystem.BeginTargeting(spellSlot);
+        BeginTabTargeting();
 
         return true;
     }
@@ -819,6 +820,14 @@ public sealed partial class WorldScreen
         if ((e.Scancode == Scancode.Enter) && e.Modifiers.HasFlag(KeyModifiers.Alt))
         {
             Game.CycleWindowSize();
+            e.Handled = true;
+
+            return;
+        }
+
+        //tab targeting takes Tab, the arrows, Enter, Escape and F1-F8 while a spell waits for a target
+        if (HandleTabTargetKey(e))
+        {
             e.Handled = true;
 
             return;
@@ -1349,12 +1358,17 @@ public sealed partial class WorldScreen
                 var hoverEntity = GetEntityAtScreen(e.ScreenX, e.ScreenY);
 
                 if (hoverEntity?.Type is ClientEntityType.Aisling or ClientEntityType.Creature)
+                {
+                    //a clicked target is the last target too (for this spell's kind), so tab targeting goes back to it on
+                    //the next spell of that kind. Before SelectTarget, which disarms the spell
+                    RememberCastTarget(hoverEntity.Id);
+
                     CastingSystem.SelectTarget(
                         hoverEntity.Id,
                         hoverEntity.TileX,
                         hoverEntity.TileY,
                         Game.Connection);
-                else
+                } else
                     CastingSystem.CancelTargeting();
             }
 

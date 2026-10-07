@@ -88,6 +88,10 @@ public static class ClientSettings
     // --- Ground-target aim snapping (client-local; applied in WorldScreen.GroundTargetTileAt) ---
     public static bool GroundTargetSnapToEntity { get; set; } = true;
 
+    // --- Tab targeting (client-local; read by WorldScreen's cast-mode keys). Off by default: while it is on, Tab, the
+    // arrows, Enter and F1-F8 pick and cast spell targets instead of doing their usual jobs. ---
+    public static bool TabTargeting { get; set; }
+
     // --- Map effects a player can hide, for flicker and flashing that bothers them (client-local; read by
     // MapEffectFilter). Off by default: every effect shows until the player opts out. ---
     public static bool HideLightning { get; set; }
@@ -309,6 +313,11 @@ public static class ClientSettings
 
                         break;
 
+                    case "TabTargeting":
+                        TabTargeting = value == "1";
+
+                        break;
+
                     case "MaxEffectAnimations":
                         if (int.TryParse(value, out var mea))
                             MaxEffectAnimationsPerEntity = Math.Clamp(mea, 0, 10);
@@ -373,6 +382,7 @@ public static class ClientSettings
             writer.WriteLine($"GroupPanelEnabled : {(GroupPanelEnabled ? 1 : 0)}");
             writer.WriteLine($"TransparentGroupPanels : {(TransparentGroupPanels ? 1 : 0)}");
             writer.WriteLine($"GroundTargetSnapToEntity : {(GroundTargetSnapToEntity ? 1 : 0)}");
+            writer.WriteLine($"TabTargeting : {(TabTargeting ? 1 : 0)}");
             writer.WriteLine($"MaxEffectAnimations : {MaxEffectAnimationsPerEntity}");
             writer.WriteLine($"HideLightning : {(HideLightning ? 1 : 0)}");
             writer.WriteLine($"HideRain : {(HideRain ? 1 : 0)}");

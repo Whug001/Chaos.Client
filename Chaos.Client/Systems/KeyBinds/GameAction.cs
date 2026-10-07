@@ -80,6 +80,20 @@ public enum GameAction
     SongNote3,
     SongNote4,
 
+    //targeting (only while a spell is armed with F4's Tab targeting on; these share keys with the actions above)
+    TargetNext,
+    TargetPrevious,
+    TargetCast,
+    TargetCancel,
+    TargetSelf,
+    TargetGroup1,
+    TargetGroup2,
+    TargetGroup3,
+    TargetGroup4,
+    TargetGroup5,
+    TargetNearestEnemy,
+    TargetFurthestEnemy,
+
     //emotes: 11 Ctrl, then 11 Ctrl+Alt, then 11 Alt
     Emote01,
     Emote02,
@@ -125,6 +139,7 @@ public enum GameActionCategory
     Windows,
     Chat,
     Song,
+    Targeting,
     Emotes
 }
 
@@ -161,9 +176,20 @@ public static class GameActions
             <= GameAction.SwapHud        => GameActionCategory.Panels,
             <= GameAction.Screenshot     => GameActionCategory.Windows,
             <= GameAction.ScrollChatDown => GameActionCategory.Chat,
-            <= GameAction.SongNote4      => GameActionCategory.Song,
-            _                            => GameActionCategory.Emotes
+            <= GameAction.SongNote4           => GameActionCategory.Song,
+            <= GameAction.TargetFurthestEnemy => GameActionCategory.Targeting,
+            _                                 => GameActionCategory.Emotes
         };
+
+    /// <summary>
+    ///     True for the tab-targeting actions. They only run while a spell is armed, so they share keys with everything
+    ///     else: a targeting key only ever clashes with another targeting key.
+    /// </summary>
+    public static bool IsTargeting(GameAction action) => action is >= GameAction.TargetNext and <= GameAction.TargetFurthestEnemy;
+
+    /// <summary>0-4 for the group-member targeting actions (the group panel they pick), otherwise -1.</summary>
+    public static int TargetGroupIndex(GameAction action)
+        => action is >= GameAction.TargetGroup1 and <= GameAction.TargetGroup5 ? action - GameAction.TargetGroup1 : -1;
 
     public static IEnumerable<GameAction> InCategory(GameActionCategory category) => All.Where(action => CategoryOf(action) == category);
 
@@ -213,6 +239,9 @@ public static class GameActions
         if (SongNote(action) is var note and > 0)
             return $"Note {note}";
 
+        if (TargetGroupIndex(action) is var member and >= 0)
+            return $"Target Group Member {member + 1}";
+
         return action switch
         {
             GameAction.MoveUp          => "Move Up",
@@ -257,6 +286,13 @@ public static class GameActions
             GameAction.IgnoreList      => "Ignore List",
             GameAction.ScrollChatUp    => "Scroll Chat Up",
             GameAction.ScrollChatDown  => "Scroll Chat Down",
+            GameAction.TargetNext          => "Next Target",
+            GameAction.TargetPrevious      => "Previous Target",
+            GameAction.TargetCast          => "Cast on Target",
+            GameAction.TargetCancel        => "Cancel Targeting",
+            GameAction.TargetSelf          => "Target Self",
+            GameAction.TargetNearestEnemy  => "Nearest Enemy",
+            GameAction.TargetFurthestEnemy => "Furthest Enemy",
             _                          => action.ToString()
         };
     }

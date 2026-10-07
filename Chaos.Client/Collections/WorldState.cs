@@ -849,6 +849,8 @@ public static class WorldState
                 chants);
         };
 
+        connection.OnSetSpellTargetFilter += args => SpellBook.SetTargetFilter(args.Slot, (SpellTargetFilter)args.Filter);
+
         connection.OnRemoveSpellFromPane += args => SpellBook.ClearSlot(args.Slot);
 
         connection.OnCooldown += args =>
