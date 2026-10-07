@@ -253,6 +253,7 @@ public sealed class ArtCanvasControl : GuildCloakDialogBase
     /// <summary>Opens an Art draft or hand-in (a null piece is a blank canvas).</summary>
     public void Open(CollegeDisplayArgs args)
     {
+        var wasHandIn = Visible && (Mode == ArtCanvasMode.HandIn);
         Session = args;
         Mode = args.Mode == CollegeWriterMode.HandIn ? ArtCanvasMode.HandIn : ArtCanvasMode.Draft;
         ReplacingHash = null;
@@ -270,6 +271,18 @@ public sealed class ArtCanvasControl : GuildCloakDialogBase
             : "Art: draft";
 
         Begin();
+
+        if (Mode == ArtCanvasMode.HandIn)
+            SendHandInWindow(true);
+        else if (wasHandIn)
+            SendHandInWindow(false);
+    }
+
+    /// <summary>Tells the server the hand-in window is open, so the room shows "Drawing" over this player. Sent again on each map change.</summary>
+    public void ReportHandInWindow()
+    {
+        if (Visible && (Mode == ArtCanvasMode.HandIn) && Session is not null)
+            SendHandInWindow(true);
     }
 
     /// <summary>Opens Picture mode for the writing window: a blank canvas, or a drawing being edited.</summary>
@@ -316,6 +329,7 @@ public sealed class ArtCanvasControl : GuildCloakDialogBase
                 if (!Visible)
                 {
                     Show();
+                    ReportHandInWindow();
 
                     return true;
                 }
@@ -341,6 +355,9 @@ public sealed class ArtCanvasControl : GuildCloakDialogBase
         NoteBox.IsFocused = false;
         ClosePicker();
         base.Hide();
+
+        if ((Mode == ArtCanvasMode.HandIn) && Session is not null)
+            SendHandInWindow(false);
     }
 
     public override void OnKeyDown(KeyDownEvent e)
@@ -603,6 +620,9 @@ public sealed class ArtCanvasControl : GuildCloakDialogBase
         //marked saved as it is sent, so drawing done while the reply is on its way still counts as a change
         MarkSaved();
     }
+
+    private void SendHandInWindow(bool open)
+        => ActionRequested?.Invoke(new CollegeActionArgs { Type = CollegeActionType.HandInWindow, Raised = open });
 
     private void MarkSaved()
     {

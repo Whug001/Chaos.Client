@@ -223,6 +223,9 @@ public sealed partial class WorldScreen
 
             if (College is { Marks.Count: > 0 } college)
                 Overlays.DrawDebateMarks(spriteBatch, Camera, MapFile.Height, college.Marks.All);
+
+            if (College is { Work.Count: > 0 } busy)
+                Overlays.DrawWorkMarks(spriteBatch, Camera, MapFile.Height, busy.Work.All, busy.Marks.All);
             spriteBatch.End();
 
             //snapshot draw count before debug draws so the reported count excludes debug visualizations
