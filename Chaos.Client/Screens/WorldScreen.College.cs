@@ -117,7 +117,8 @@ public sealed partial class WorldScreen
             {
                 ZIndex = 2
             },
-            Marks = new DebateMarkTable()
+            Marks = new DebateMarkTable(),
+            Work = new WorkMarkTable()
         };
 
         windows.Judging.ActionRequested += SendCollegeAction;
@@ -271,6 +272,10 @@ public sealed partial class WorldScreen
                 CloseClassTools();
 
                 break;
+            case CollegeDisplayType.WorkMarks:
+                College.Work.Set(args.WorkMarks);
+
+                break;
         }
     }
 
@@ -306,6 +311,16 @@ public sealed partial class WorldScreen
         College.Marks.Clear();
     }
 
+    /// <summary>A new map: its room sends its own hand-in marks, and an open hand-in window tells the new room about itself.</summary>
+    private void ResetWorkMarks()
+    {
+        if (College is null)
+            return;
+
+        College.Work.Clear();
+        College.Canvas.ReportHandInWindow();
+    }
+
     /// <summary>Keeps the Teacher's quiz panel and the debate panel at the viewport's top right, under the poll box while it shows.</summary>
     private void PlaceClassToolPanels()
     {
@@ -331,6 +346,7 @@ public sealed partial class WorldScreen
         public required DebatePanel Debate { get; init; }
         public required DebateVoteCard DebateVote { get; init; }
         public required DebateMarkTable Marks { get; init; }
+        public required WorkMarkTable Work { get; init; }
         public required QuizCardControl QuizCard { get; init; }
         public required QuizEditorControl QuizEditor { get; init; }
         public required QuizTeacherPanel QuizTeacher { get; init; }

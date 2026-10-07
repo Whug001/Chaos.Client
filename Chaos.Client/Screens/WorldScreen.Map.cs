@@ -95,6 +95,7 @@ public sealed partial class WorldScreen
 
         //a class quiz or debate belongs to its room; the room sends it again on the way back in
         CloseClassTools();
+        ResetWorkMarks();
 
         //and for the poker table, with one difference that matters: PokerTableControl.Hide() fires Closed, which
         //sends the server a Close. That is right for a map change -- the seat tile has already lost this player

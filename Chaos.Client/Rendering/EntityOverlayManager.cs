@@ -49,6 +49,7 @@ public sealed class EntityOverlayManager
     private readonly Dictionary<uint, HealthBar> HealthBars = [];
     private readonly Dictionary<uint, TextElement> NameTagCache = [];
     private readonly Dictionary<uint, TextElement> DebateMarkCache = [];
+    private readonly Dictionary<uint, TextElement> WorkMarkCache = [];
     private readonly List<DamageNumber> DamageNumbers = [];
 
     /// <summary>
@@ -214,6 +215,7 @@ public sealed class EntityOverlayManager
 
         NameTagCache.Clear();
         DebateMarkCache.Clear();
+        WorkMarkCache.Clear();
         GroupBoxes.Clear();
         DamageNumbers.Clear();
     }
@@ -385,6 +387,42 @@ public sealed class EntityOverlayManager
             }
 
             text.Update(ClassToolText.Marker(mark.Side, mark.Floor), MarkColor(mark.Side));
+
+            if (!text.HasContent)
+                continue;
+
+            var tileWorld = Camera.TileToWorld(entity.TileX, entity.TileY, mapHeight);
+            var worldX = tileWorld.X + DaLibConstants.HALF_TILE_WIDTH + entity.VisualOffset.X;
+            var worldY = tileWorld.Y + DaLibConstants.HALF_TILE_HEIGHT + entity.VisualOffset.Y - DEBATE_MARK_Y_OFFSET;
+
+            text.Draw(spriteBatch, camera.WorldToScreen(new Vector2(worldX - text.Width / 2, worldY)));
+        }
+    }
+
+    /// <summary>Draws the hand-in marks, such as "Drawing", where a debate side marker would go; a player with a side marker keeps it. Call within the same camera-transformed batch as <see cref="Draw" />.</summary>
+    public void DrawWorkMarks(
+        SpriteBatch spriteBatch,
+        Camera camera,
+        int mapHeight,
+        IReadOnlyDictionary<uint, string> marks,
+        IReadOnlyDictionary<uint, CollegeDebateMarkInfo> debateMarks)
+    {
+        foreach ((var id, var line) in marks)
+        {
+            if (debateMarks.ContainsKey(id) || WorldState.GetEntity(id) is not { } entity)
+                continue;
+
+            if (!WorkMarkCache.TryGetValue(id, out var text))
+            {
+                text = new TextElement
+                {
+                    ShadowStyle = ShadowStyle.BothSides,
+                    ShadowColor = NAME_TAG_SHADOW_COLOR
+                };
+                WorkMarkCache[id] = text;
+            }
+
+            text.Update(line, LegendColors.Cyan);
 
             if (!text.HasContent)
                 continue;
