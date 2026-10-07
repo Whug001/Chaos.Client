@@ -1168,6 +1168,7 @@ public sealed partial class WorldScreen : IScreen
         College?.Drawings.Clear();
         College?.Tunes.Clear();
         College?.Marks.Clear();
+        College?.Work.Clear();
         Game.TunePlayer.Stop();
         Game.CreatureRenderer.ClearTintCaches();
         Game.ItemRenderer.Clear();
