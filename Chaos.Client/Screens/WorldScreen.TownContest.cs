@@ -70,6 +70,10 @@ public sealed partial class WorldScreen
                 PlayTownSong(args);
 
                 break;
+            case TownContestDisplayType.SongEntered:
+                College?.Composer.ContestEntered(args);
+
+                break;
         }
     }
 

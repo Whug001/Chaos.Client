@@ -619,6 +619,16 @@ public sealed class MusicComposerControl : GuildCloakDialogBase
                                .ToBlock()
             });
 
+        //saved only once the server says it took the entry (ContestEntered); a refusal comes as an orange bar
+        Status.Text = "Entering...";
+    }
+
+    /// <summary>The server took the song entry for this contest: the tune is saved.</summary>
+    public void ContestEntered(TownContestDisplayArgs args)
+    {
+        if ((Mode != MusicComposerMode.Contest) || (Contest is null) || (Contest.ContestId != args.ContestId))
+            return;
+
         MarkSaved();
         Status.Text = "Entered. You can change it until entries close.";
     }
