@@ -19,13 +19,17 @@ namespace Chaos.Client.Controls.World.Popups.College;
 public enum MusicComposerMode
 {
     Draft,
-    HandIn
+    HandIn,
+
+    /// <summary>An entry in a town's song contest: no title or note, and Enter sends it to the town.</summary>
+    Contest
 }
 
 /// <summary>
 ///     The Music composer (spec: docs/superpowers/specs/2026-10-05-mileth-college-music-design.md): title, scale, speed
 ///     and melody instrument, the stacked Melody, Bass and Drums grids, the toolbar, the composer's note and the footer.
-///     Draft and HandIn send the piece to the server; tunes play through the shared <see cref="TunePlayer" />.
+///     Draft and HandIn send the piece to the server; Contest enters the tune in a town's song contest. Tunes play through the
+///     shared <see cref="TunePlayer" />.
 /// </summary>
 public sealed class MusicComposerControl : GuildCloakDialogBase
 {
@@ -213,6 +217,12 @@ public sealed class MusicComposerControl : GuildCloakDialogBase
     /// <summary>Raised with SaveDraft, Submit and HandIn.</summary>
     public event Action<CollegeActionArgs>? ActionRequested;
 
+    /// <summary>Raised with the contest entry when Enter is pressed in Contest mode.</summary>
+    public event Action<TownContestActionArgs>? ContestEntryRequested;
+
+    //the town contest the window is open for, in Contest mode
+    private TownContestDisplayArgs? Contest;
+
     public MusicComposerMode Mode { get; private set; }
 
     private bool IsDirty => TuneDirty || (TitleBox.Text != SavedTitle) || (NoteBox.Text != SavedNote);
@@ -220,13 +230,27 @@ public sealed class MusicComposerControl : GuildCloakDialogBase
     private bool IsMine => ReferenceEquals(Player.Owner, this);
 
     private string SubmitCaption
-        => Mode == MusicComposerMode.HandIn ? "Hand in"
+        => Mode == MusicComposerMode.Contest ? "Enter contest"
+            : Mode == MusicComposerMode.HandIn ? "Hand in"
             : Session?.FreeEntries > 0 ? "Submit (free entry)"
             : $"Submit ({Session?.EntryCost} {Marks(Session?.EntryCost ?? 0)})";
+
+    /// <summary>Opens the composer for a town song contest entry, loaded with the player's entry so far.</summary>
+    public void OpenContest(TownContestDisplayArgs args)
+    {
+        Session = null;
+        Contest = args;
+        Mode = MusicComposerMode.Contest;
+        Document.Load(args.Tune.Notes.Length > 0 ? TuneData.From(args.Tune) : TuneData.Empty);
+        TitleBox.Text = string.Empty;
+        NoteBox.Text = string.Empty;
+        Begin();
+    }
 
     /// <summary>Opens a Music draft or hand-in (a null piece is a blank tune).</summary>
     public void Open(CollegeDisplayArgs args)
     {
+        Contest = null;
         Session = args;
         Mode = args.Mode == CollegeWriterMode.HandIn ? MusicComposerMode.HandIn : MusicComposerMode.Draft;
 
@@ -375,12 +399,19 @@ public sealed class MusicComposerControl : GuildCloakDialogBase
         TitleBox.IsFocused = false;
         NoteBox.IsFocused = false;
         SaveButton.Visible = Mode == MusicComposerMode.Draft;
-        SubmitButton.X = Mode == MusicComposerMode.HandIn ? LEFT : SUBMIT_X;
+        SubmitButton.X = Mode == MusicComposerMode.Draft ? SUBMIT_X : LEFT;
+
+        //a contest entry is only the tune
+        TitleBox.Visible = Mode != MusicComposerMode.Contest;
+        NoteBox.Visible = Mode != MusicComposerMode.Contest;
         CaptionTitle = TitleBox.Text;
 
-        CaptionLabel.Text = Mode == MusicComposerMode.HandIn
-            ? OneLine(Session is { Prompt.Length: > 0 } session ? $"Hand-in: {session.Prompt}" : "Music: class hand-in")
-            : DraftCaption(TitleBox.Text);
+        CaptionLabel.Text = Mode switch
+        {
+            MusicComposerMode.Contest => OneLine(Contest is { Theme.Length: > 0 } c ? $"{c.Title}: {c.Theme}" : Contest?.Title ?? "Song contest"),
+            MusicComposerMode.HandIn => OneLine(Session is { Prompt.Length: > 0 } session ? $"Hand-in: {session.Prompt}" : "Music: class hand-in"),
+            _ => DraftCaption(TitleBox.Text)
+        };
 
         Status.Text = string.Empty;
         DisarmSubmit();
@@ -449,6 +480,13 @@ public sealed class MusicComposerControl : GuildCloakDialogBase
     {
         CloseArmed = false;
 
+        if (Mode == MusicComposerMode.Contest)
+        {
+            EnterContest();
+
+            return;
+        }
+
         if (Session is null)
             return;
 
@@ -515,10 +553,13 @@ public sealed class MusicComposerControl : GuildCloakDialogBase
             return;
         }
 
-        if ((Mode == MusicComposerMode.HandIn) && IsDirty && !CloseArmed)
+        if ((Mode is MusicComposerMode.HandIn or MusicComposerMode.Contest) && IsDirty && !CloseArmed)
         {
             CloseArmed = true;
-            Status.Text = "Close without handing in? Click Close again.";
+
+            Status.Text = Mode == MusicComposerMode.Contest
+                ? "Close without entering your changes? Click Close again."
+                : "Close without handing in? Click Close again.";
 
             return;
         }
@@ -554,6 +595,42 @@ public sealed class MusicComposerControl : GuildCloakDialogBase
 
         //marked saved as it is sent, so composing done while the reply is on its way still counts as a change
         MarkSaved();
+    }
+
+    private void EnterContest()
+    {
+        if (Contest is null)
+            return;
+
+        if ((Document.MelodyNotes < TownContestProtocol.MIN_SONG_MELODY_NOTES)
+            || (Document.MelodyRows < TownContestProtocol.MIN_SONG_MELODY_ROWS))
+        {
+            Status.Text = MORE_MELODY;
+
+            return;
+        }
+
+        ContestEntryRequested?.Invoke(
+            new TownContestActionArgs
+            {
+                Type = TownContestActionType.EnterSong,
+                ContestId = Contest.ContestId,
+                Tune = Document.Snapshot()
+                               .ToBlock()
+            });
+
+        //saved only once the server says it took the entry (ContestEntered); a refusal comes as an orange bar
+        Status.Text = "Entering...";
+    }
+
+    /// <summary>The server took the song entry for this contest: the tune is saved.</summary>
+    public void ContestEntered(TownContestDisplayArgs args)
+    {
+        if ((Mode != MusicComposerMode.Contest) || (Contest is null) || (Contest.ContestId != args.ContestId))
+            return;
+
+        MarkSaved();
+        Status.Text = "Entered. You can change it until entries close.";
     }
 
     private void MarkSaved()

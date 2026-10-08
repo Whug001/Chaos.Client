@@ -488,6 +488,9 @@ public delegate void TownBallotHandler(TownBallotArgs args);
 /// <summary>Handles a Mileth College window opening, refreshing or getting an answer, or a picture part arriving.</summary>
 public delegate void CollegeDisplayHandler(CollegeDisplayArgs args);
 
+/// <summary>A town contest window or a town song to play.</summary>
+public delegate void TownContestDisplayHandler(TownContestDisplayArgs args);
+
 /// <summary>Handles one season of the Endless Tower leaderboard arriving.</summary>
 public delegate void TowerLeaderboardHandler(TowerLeaderboardArgs args);
 

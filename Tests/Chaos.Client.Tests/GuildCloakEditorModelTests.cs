@@ -298,4 +298,11 @@ public class GuildCloakEditorModelTests
     [Arguments(GuildCloakStatus.Rejected, "Too bright.", false, "Rejected: Too bright.")]
     public void StatusText_matches_the_spec(GuildCloakStatus status, string reason, bool dirty, string expected)
         => GuildCloakEditorModel.StatusText(status, reason, dirty).Should().Be(expected);
+
+    [Test]
+    [Arguments(GuildCloakStatus.Draft, false, "Not entered yet")]
+    [Arguments(GuildCloakStatus.Waiting, false, "Entered. You can change it until entries close")]
+    [Arguments(GuildCloakStatus.Waiting, true, "Entered. You can change it until entries close - unsaved changes")]
+    public void ContestStatusText_says_whether_the_entry_is_in(GuildCloakStatus status, bool dirty, string expected)
+        => GuildCloakEditorModel.ContestStatusText(status, dirty).Should().Be(expected);
 }

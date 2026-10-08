@@ -59,6 +59,12 @@ public sealed class GuildEmblemEditorControl : GuildCloakDialogBase
     private readonly UILabel StatusLabel;
     private readonly CustomButton SubmitButton;
     private readonly UILabel TitleLabel;
+
+    //opened for a town contest entry: Submit enters it, and there is no draft
+    private bool ContestMode;
+
+    //the contest the window was last opened for; empty for the guild's own design
+    private string ContestTitle = string.Empty;
     private readonly CustomButton UndoButton;
 
     private bool CloseArmed;
@@ -218,10 +224,16 @@ public sealed class GuildEmblemEditorControl : GuildCloakDialogBase
     /// <summary>Loads the server's emblem and status and shows the window. An open window with unsaved painting keeps it.</summary>
     public void Open(GuildEmblemEditorArgs args)
     {
-        TitleLabel.Text = $"Guild Emblem - {args.GuildName}";
+        //the window switching between the guild's design and a contest (or between contests) drops unsaved work, so
+        //one never goes in as the other
+        var sameDesign = ContestTitle == args.ContestTitle;
+        ContestTitle = args.ContestTitle;
+        ContestMode = args.ContestTitle.Length > 0;
+        TitleLabel.Text = ContestMode ? args.ContestTitle : $"Guild Emblem - {args.GuildName}";
+        SaveButton.Visible = !ContestMode;
 
         //asking Quill again while painting keeps the unsaved work; only the status line follows the server
-        if (!Model.LoadSaved(args.Design, Visible))
+        if (!Model.LoadSaved(args.Design, Visible && sameDesign))
         {
             SetStatus(args.Status, args.RejectionReason);
 
@@ -295,7 +307,9 @@ public sealed class GuildEmblemEditorControl : GuildCloakDialogBase
         MirrorButton.Selected = Model.Mirror;
         UndoButton.Enabled = Model.CanUndo;
         RedoButton.Enabled = Model.CanRedo;
-        StatusLabel.Text = CloseArmed ? CLOSE_WARNING : GuildCloakEditorModel.StatusText(Status, StatusReason, Model.IsDirty);
+        StatusLabel.Text = CloseArmed ? CLOSE_WARNING
+            : ContestMode ? GuildCloakEditorModel.ContestStatusText(Status, Model.IsDirty)
+            : GuildCloakEditorModel.StatusText(Status, StatusReason, Model.IsDirty);
     }
 
     private void RequestClose()

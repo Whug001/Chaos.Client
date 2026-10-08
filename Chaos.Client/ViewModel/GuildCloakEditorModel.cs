@@ -184,6 +184,17 @@ public sealed class GuildCloakEditorModel
     }
 
     /// <summary>The editor's status line. The reason shows only for a rejection.</summary>
+    /// <summary>
+    ///     The status line for a town contest entry: Waiting means entered; anything else means not entered yet. The design
+    ///     can be changed until entries close.
+    /// </summary>
+    public static string ContestStatusText(GuildCloakStatus status, bool dirty)
+    {
+        var text = status == GuildCloakStatus.Waiting ? "Entered. You can change it until entries close" : "Not entered yet";
+
+        return dirty ? $"{text} - unsaved changes" : text;
+    }
+
     public static string StatusText(GuildCloakStatus status, string reason, bool dirty)
     {
         var text = status switch
