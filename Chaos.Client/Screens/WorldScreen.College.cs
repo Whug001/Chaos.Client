@@ -128,6 +128,7 @@ public sealed partial class WorldScreen
         windows.Reader.ActionRequested += SendCollegeAction;
         windows.Canvas.ActionRequested += SendCollegeAction;
         windows.Composer.ActionRequested += SendCollegeAction;
+        windows.Composer.ContestEntryRequested += SendTownContestAction;
         windows.QuizEditor.ActionRequested += SendCollegeAction;
         windows.QuizCard.ActionRequested += SendCollegeAction;
         windows.QuizTeacher.ActionRequested += SendCollegeAction;

@@ -68,10 +68,14 @@ public sealed class GuildCloakEditorControl : GuildCloakDialogBase
     private readonly AislingRenderer Renderer;
     private readonly CustomButton SaveButton;
     private readonly UILabel StatusLabel;
+    private readonly UILabel TitleLabel;
     private readonly CustomButton SubmitButton;
     private readonly CustomButton UndoButton;
 
     private bool CloseArmed;
+
+    //opened for a town contest entry: Submit enters it, and there is no draft
+    private bool ContestMode;
 
     //true from the picker's first color change until its drag ends: the whole drag undoes as one step
     private bool ColorDragging;
@@ -128,7 +132,7 @@ public sealed class GuildCloakEditorControl : GuildCloakDialogBase
 
         OkButton = CreateCloseButton(RequestClose, OK_RIGHT_MARGIN, OK_BOTTOM_MARGIN);
 
-        Caption("Guild Cloak", 0, TITLE_TOP, Width, HorizontalAlignment.Center, LegendColors.Gold);
+        TitleLabel = Caption("Guild Cloak", 0, TITLE_TOP, Width, HorizontalAlignment.Center, LegendColors.Gold);
         Caption("COLORS", LEFT, CAPTION_TOP, TOOL_WIDTH, color: LegendColors.Gray);
         Caption("FRONT", FrontCanvas.X, CAPTION_TOP, FrontCanvas.Width, color: LegendColors.Gray);
         Caption("BACK", BackCanvas.X, CAPTION_TOP, BackCanvas.Width, color: LegendColors.Gray);
@@ -279,6 +283,10 @@ public sealed class GuildCloakEditorControl : GuildCloakDialogBase
     /// </summary>
     public void Open(GuildCloakEditorArgs args)
     {
+        ContestMode = args.ContestTitle.Length > 0;
+        TitleLabel.Text = ContestMode ? args.ContestTitle : "Guild Cloak";
+        SaveButton.Visible = !ContestMode;
+
         //asking Quill again while painting keeps the unsaved work; only the status line follows the server
         if (!Model.LoadSaved(args.Design, Visible))
         {
@@ -371,7 +379,9 @@ public sealed class GuildCloakEditorControl : GuildCloakDialogBase
         MirrorButton.Selected = Model.Mirror;
         UndoButton.Enabled = Model.CanUndo;
         RedoButton.Enabled = Model.CanRedo;
-        StatusLabel.Text = CloseArmed ? CLOSE_WARNING : GuildCloakEditorModel.StatusText(Status, StatusReason, Model.IsDirty);
+        StatusLabel.Text = CloseArmed ? CLOSE_WARNING
+            : ContestMode ? GuildCloakEditorModel.ContestStatusText(Status, Model.IsDirty)
+            : GuildCloakEditorModel.StatusText(Status, StatusReason, Model.IsDirty);
     }
 
     private void RequestClose()

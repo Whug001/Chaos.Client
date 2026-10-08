@@ -641,6 +641,9 @@ public sealed class ConnectionManager : IDisposable
     /// <summary>Fired when the server opens, refreshes or answers a Mileth College window, or sends a picture part.</summary>
     public event CollegeDisplayHandler? OnCollegeDisplay;
 
+    /// <summary>The song composer for a town contest, the contest review window, or a town song to play.</summary>
+    public event TownContestDisplayHandler? OnTownContestDisplay;
+
     /// <summary>Fired when the server opens the guild emblem editor or updates its status line.</summary>
     public event GuildEmblemEditorHandler? OnGuildEmblemEditor;
 
@@ -1435,6 +1438,9 @@ public sealed class ConnectionManager : IDisposable
     /// <summary>Sends a Mileth College window action. The server checks every rule again.</summary>
     public void SendCollegeAction(CollegeActionArgs args) => SendIfWorld(args);
 
+    /// <summary>A town contest song entry, the mayor's pick, or an admin's decision.</summary>
+    public void SendTownContestAction(TownContestActionArgs args) => SendIfWorld(args);
+
     /// <summary>Asks for one season of the Endless Tower leaderboard; season 0 is the current one.</summary>
     public void SendTowerLeaderboardRequest(TowerLeaderboardRequestArgs args) => SendIfWorld(args);
 
@@ -1857,6 +1863,7 @@ public sealed class ConnectionManager : IDisposable
         PacketHandlers[(byte)ServerOpCode.TownBallot] = HandleTownBallot;
         PacketHandlers[(byte)ServerOpCode.TowerLeaderboard] = HandleTowerLeaderboard;
         PacketHandlers[(byte)ServerOpCode.CollegeDisplay] = HandleCollegeDisplay;
+        PacketHandlers[(byte)ServerOpCode.TownContestDisplay] = HandleTownContestDisplay;
         PacketHandlers[(byte)ServerOpCode.GuildEmblemEditor] = HandleGuildEmblemEditor;
         PacketHandlers[(byte)ServerOpCode.GuildEmblemDesign] = HandleGuildEmblemDesign;
         PacketHandlers[(byte)ServerOpCode.DisplayAisling] = HandleDisplayAisling;
@@ -2404,6 +2411,12 @@ public sealed class ConnectionManager : IDisposable
     {
         var args = Client.Deserialize<TownBallotArgs>(in pkt);
         OnTownBallot?.Invoke(args);
+    }
+
+    private void HandleTownContestDisplay(ServerPacket pkt)
+    {
+        var args = Client.Deserialize<TownContestDisplayArgs>(in pkt);
+        OnTownContestDisplay?.Invoke(args);
     }
 
     private void HandleCollegeDisplay(ServerPacket pkt)

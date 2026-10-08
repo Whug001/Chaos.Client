@@ -59,6 +59,9 @@ public sealed class GuildEmblemEditorControl : GuildCloakDialogBase
     private readonly UILabel StatusLabel;
     private readonly CustomButton SubmitButton;
     private readonly UILabel TitleLabel;
+
+    //opened for a town contest entry: Submit enters it, and there is no draft
+    private bool ContestMode;
     private readonly CustomButton UndoButton;
 
     private bool CloseArmed;
@@ -218,7 +221,9 @@ public sealed class GuildEmblemEditorControl : GuildCloakDialogBase
     /// <summary>Loads the server's emblem and status and shows the window. An open window with unsaved painting keeps it.</summary>
     public void Open(GuildEmblemEditorArgs args)
     {
-        TitleLabel.Text = $"Guild Emblem - {args.GuildName}";
+        ContestMode = args.ContestTitle.Length > 0;
+        TitleLabel.Text = ContestMode ? args.ContestTitle : $"Guild Emblem - {args.GuildName}";
+        SaveButton.Visible = !ContestMode;
 
         //asking Quill again while painting keeps the unsaved work; only the status line follows the server
         if (!Model.LoadSaved(args.Design, Visible))
@@ -295,7 +300,9 @@ public sealed class GuildEmblemEditorControl : GuildCloakDialogBase
         MirrorButton.Selected = Model.Mirror;
         UndoButton.Enabled = Model.CanUndo;
         RedoButton.Enabled = Model.CanRedo;
-        StatusLabel.Text = CloseArmed ? CLOSE_WARNING : GuildCloakEditorModel.StatusText(Status, StatusReason, Model.IsDirty);
+        StatusLabel.Text = CloseArmed ? CLOSE_WARNING
+            : ContestMode ? GuildCloakEditorModel.ContestStatusText(Status, Model.IsDirty)
+            : GuildCloakEditorModel.StatusText(Status, StatusReason, Model.IsDirty);
     }
 
     private void RequestClose()
