@@ -77,6 +77,9 @@ public sealed class GuildCloakEditorControl : GuildCloakDialogBase
     //opened for a town contest entry: Submit enters it, and there is no draft
     private bool ContestMode;
 
+    //the contest the window was last opened for; empty for the guild's own design
+    private string ContestTitle = string.Empty;
+
     //true from the picker's first color change until its drag ends: the whole drag undoes as one step
     private bool ColorDragging;
     private int EditingColor;
@@ -283,12 +286,16 @@ public sealed class GuildCloakEditorControl : GuildCloakDialogBase
     /// </summary>
     public void Open(GuildCloakEditorArgs args)
     {
+        //the window switching between the guild's design and a contest (or between contests) drops unsaved work, so
+        //one never goes in as the other
+        var sameDesign = ContestTitle == args.ContestTitle;
+        ContestTitle = args.ContestTitle;
         ContestMode = args.ContestTitle.Length > 0;
         TitleLabel.Text = ContestMode ? args.ContestTitle : "Guild Cloak";
         SaveButton.Visible = !ContestMode;
 
         //asking Quill again while painting keeps the unsaved work; only the status line follows the server
-        if (!Model.LoadSaved(args.Design, Visible))
+        if (!Model.LoadSaved(args.Design, Visible && sameDesign))
         {
             SetStatus(args.Status, args.RejectionReason);
 

@@ -62,6 +62,9 @@ public sealed class GuildEmblemEditorControl : GuildCloakDialogBase
 
     //opened for a town contest entry: Submit enters it, and there is no draft
     private bool ContestMode;
+
+    //the contest the window was last opened for; empty for the guild's own design
+    private string ContestTitle = string.Empty;
     private readonly CustomButton UndoButton;
 
     private bool CloseArmed;
@@ -221,12 +224,16 @@ public sealed class GuildEmblemEditorControl : GuildCloakDialogBase
     /// <summary>Loads the server's emblem and status and shows the window. An open window with unsaved painting keeps it.</summary>
     public void Open(GuildEmblemEditorArgs args)
     {
+        //the window switching between the guild's design and a contest (or between contests) drops unsaved work, so
+        //one never goes in as the other
+        var sameDesign = ContestTitle == args.ContestTitle;
+        ContestTitle = args.ContestTitle;
         ContestMode = args.ContestTitle.Length > 0;
         TitleLabel.Text = ContestMode ? args.ContestTitle : $"Guild Emblem - {args.GuildName}";
         SaveButton.Visible = !ContestMode;
 
         //asking Quill again while painting keeps the unsaved work; only the status line follows the server
-        if (!Model.LoadSaved(args.Design, Visible))
+        if (!Model.LoadSaved(args.Design, Visible && sameDesign))
         {
             SetStatus(args.Status, args.RejectionReason);
 
