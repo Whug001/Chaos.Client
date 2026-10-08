@@ -1262,6 +1262,12 @@ public sealed partial class WorldScreen
     ///     fires on press (not release) for snappier response — a held right-click begins moving the
     ///     player immediately instead of waiting for the button to come back up.
     /// </summary>
+    /// <remarks>
+    ///     Only a press on empty ground moves. A press that lands on a creature or another aisling is the
+    ///     opening half of the double-right-click that follows and assails it, so it starts no ground path:
+    ///     doing so walked the player off on every attack attempt, which is the whole reason right-click felt
+    ///     oversensitive, and it shifted the camera out from under the second click of the pair.
+    /// </remarks>
     private void OnRootMouseDown(MouseDownEvent e)
     {
         if (e.Button != MouseButton.Right)
@@ -1286,9 +1292,9 @@ public sealed partial class WorldScreen
             return;
         }
 
-        //cache the hovered entity for the upcoming doubleclick — pathfinding triggered by this press will start
-        //moving the player on the next update, which shifts the camera and makes the second click's ScreenToTile
-        //resolve to a different world tile than the entity actually occupies
+        //cache the hovered entity for the upcoming doubleclick — the entity can walk between the two clicks, and
+        //a path still running from an earlier click can move the player, either of which makes the second click's
+        //ScreenToTile resolve to a different world tile than the entity actually occupies
         var currentTick = Environment.TickCount;
 
         if ((currentTick - PendingDoubleClickTick) > DOUBLE_CLICK_CACHE_WINDOW_MS)
@@ -1299,16 +1305,24 @@ public sealed partial class WorldScreen
         //exclude self — the player's own sprite has a hitbox, and a rapid right-click on the tile the
         //player is walking off of overlaps that hitbox, which would cache the player as a double-click
         //target and kick off a self-follow loop in OnRootDoubleClick
+        //exclude hidden aislings for the same reason OnRootDoubleClick refuses to follow them: they carry a hitbox
+        //only so spells can target them. Caching one would suppress the move below and leave the press doing
+        //nothing at all, since the doubleclick then declines it too
+        var isDoubleClickTarget = false;
+
         if (hoverEntity?.Type is ClientEntityType.Aisling or ClientEntityType.Creature
-            && (hoverEntity.Id != Game.Connection.AislingId))
+            && (hoverEntity.Id != Game.Connection.AislingId)
+            && !hoverEntity.IsHidden)
         {
             PendingDoubleClickEntityId = hoverEntity.Id;
             PendingDoubleClickTick = currentTick;
+            isDoubleClickTarget = true;
         }
 
-        //ctrl is a UI modifier (ctrl+left-click opens the aisling context menu) — suppress single-press
-        //pathfinding, but prime the same-tile tracker so a right-doubleclick still resolves to follow.
-        if (e.Ctrl)
+        //neither of these presses starts a ground move, and both prime the same-tile tracker so the doubleclick's
+        //fallback tile lookup still resolves when the entity cache misses. Ctrl is a UI modifier (ctrl+left-click
+        //opens the aisling context menu); a press on a follow/assail target belongs to the pair, not to movement.
+        if (e.Ctrl || isDoubleClickTarget)
         {
             if (MapFile is not null)
             {
