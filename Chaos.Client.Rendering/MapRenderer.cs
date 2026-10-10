@@ -125,8 +125,6 @@ public sealed class MapRenderer : IDisposable
                 if (bgIndex <= 0)
                     continue;
 
-                bgIndex = ResolveAnimatedTileId(bgIndex, DataContext.Tiles.GetBgAnimation(bgIndex), animationTick);
-
                 var worldPos = Camera.TileToWorld(x, y, mapFile.Height);
                 var screenPos = camera.WorldToScreen(worldPos);
 
@@ -136,36 +134,70 @@ public sealed class MapRenderer : IDisposable
                     || (screenPos.Y >= camera.ViewportHeight))
                     continue;
 
-                //prefer atlas path — all bg tiles in a single texture enables spritebatch batching
-                if (BgAtlas is not null)
-                {
-                    AtlasRegion? region;
-
-                    //cycling tiles have pre-baked variants in the atlas — use the current step's region
-                    if (CyclingManager is not null && CyclingManager.BgOverrides.TryGetValue(bgIndex, out var cyclingRegion))
-                        region = cyclingRegion;
-                    else
-                        region = BgAtlas.TryGetRegion(bgIndex);
-
-                    if (region.HasValue)
-                    {
-                        spriteBatch.Draw(
-                            region.Value.Atlas,
-                            screenPos,
-                            region.Value.SourceRect,
-                            Color.White);
-
-                        continue;
-                    }
-                }
-
-                //fallback to individual texture
-                var bgTexture = GetOrCreateBgTexture(bgIndex);
-
-                if (bgTexture is not null)
-                    spriteBatch.Draw(bgTexture, screenPos, Color.White);
+                DrawBackgroundTile(spriteBatch, bgIndex, screenPos, 1f, Color.White, animationTick);
             }
         }
+    }
+
+    /// <summary>
+    ///     Draws one background tile at a screen position with a scale and tint. Tumble Tower uses it to draw floors
+    ///     shifted, scaled and dimmed; the normal background pass calls it with scale 1 and white.
+    /// </summary>
+    public void DrawBackgroundTile(
+        SpriteBatch spriteBatch,
+        int bgIndex,
+        Vector2 screenPos,
+        float scale,
+        Color tint,
+        int animationTick)
+    {
+        if (bgIndex <= 0)
+            return;
+
+        bgIndex = ResolveAnimatedTileId(bgIndex, DataContext.Tiles.GetBgAnimation(bgIndex), animationTick);
+
+        //prefer atlas path — all bg tiles in a single texture enables spritebatch batching
+        if (BgAtlas is not null)
+        {
+            AtlasRegion? region;
+
+            //cycling tiles have pre-baked variants in the atlas — use the current step's region
+            if (CyclingManager is not null && CyclingManager.BgOverrides.TryGetValue(bgIndex, out var cyclingRegion))
+                region = cyclingRegion;
+            else
+                region = BgAtlas.TryGetRegion(bgIndex);
+
+            if (region.HasValue)
+            {
+                spriteBatch.Draw(
+                    region.Value.Atlas,
+                    screenPos,
+                    region.Value.SourceRect,
+                    tint,
+                    0f,
+                    Vector2.Zero,
+                    scale,
+                    SpriteEffects.None,
+                    0f);
+
+                return;
+            }
+        }
+
+        //fallback to individual texture
+        var bgTexture = GetOrCreateBgTexture(bgIndex);
+
+        if (bgTexture is not null)
+            spriteBatch.Draw(
+                bgTexture,
+                screenPos,
+                null,
+                tint,
+                0f,
+                Vector2.Zero,
+                scale,
+                SpriteEffects.None,
+                0f);
     }
 
     /// <summary>

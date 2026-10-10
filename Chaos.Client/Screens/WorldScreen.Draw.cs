@@ -37,6 +37,8 @@ public sealed partial class WorldScreen
         //sort once per frame — cached via dirty flag, reused by all draw sub-passes
         var sortedEntities = WorldState.CurrentFrame.SortedEntities;
 
+        RefreshTumbleView();
+
         //pre-render silhouettes of ALL visible entities (items, monsters, merchants, aislings) before world
         //drawing. each entity is redrawn at 50% over the finished world: invisible in the open (self-blend over
         //identical pixels) but shown through where a foreground tile occluded it. transparent entities compound
@@ -90,11 +92,15 @@ public sealed partial class WorldScreen
             //background tiles + tile cursor: batched (many draws, no blend changes)
             spriteBatch.Begin(samplerState: GlobalSettings.Sampler, rasterizerState: ScissorRasterizerState, transformMatrix: transform);
 
-            MapRenderer.DrawBackground(
-                spriteBatch,
-                MapFile,
-                Camera,
-                AnimationTick);
+            if (TumbleViewNow is not null)
+                DrawTumbleBackground(spriteBatch);
+            else
+                MapRenderer.DrawBackground(
+                    spriteBatch,
+                    MapFile,
+                    Camera,
+                    AnimationTick);
+
             DrawTileCursor(spriteBatch);
             spriteBatch.End();
 
@@ -127,6 +133,7 @@ public sealed partial class WorldScreen
                 //mirror doubles, then dark stretches: after the silhouettes, so the dark also hides silhouettes inside it
                 DrawMirrorDoubles(BlendScope);
                 DrawDarkStretches(BlendScope);
+                DrawTumbleOverlays(BlendScope);
             } finally
             {
                 BlendScope.End();
@@ -439,6 +446,9 @@ public sealed partial class WorldScreen
 
             for (var tileX = tileXStart; tileX <= tileXEnd; tileX++)
             {
+                if (TumbleHidesTile(tileX, depth - tileX))
+                    continue;
+
                 MapRenderer.DrawForegroundTile(
                     scope,
                     MapFile,
@@ -689,43 +699,69 @@ public sealed partial class WorldScreen
     #region Entity Rendering
     private void DrawEntity(SpriteBatch spriteBatch, WorldEntity entity)
     {
+        if (TumbleSkipsEntity(entity, out var tileX, out var tileY, out var yOffset, out var alphaScale))
+            return;
+
+        DrawEntityAt(spriteBatch, entity, tileX, tileY, yOffset, alphaScale);
+    }
+
+    /// <summary>
+    ///     Draws an entity as if it stood on (<paramref name="tileX" />, <paramref name="tileY" />), lowered by
+    ///     <paramref name="yOffset" /> pixels and faded by <paramref name="alphaScale" />. Tumble Tower uses these for
+    ///     falls; every other caller goes through <see cref="DrawEntity" /> with the entity's own tile, 0 and 1.
+    /// </summary>
+    private void DrawEntityAt(
+        SpriteBatch spriteBatch,
+        WorldEntity entity,
+        int tileX,
+        int tileY,
+        float yOffset,
+        float alphaScale)
+    {
         if (MapFile is null)
             return;
 
-        var tileWorldPos = Camera.TileToWorld(entity.TileX, entity.TileY, MapFile.Height);
+        var tileWorldPos = Camera.TileToWorld(tileX, tileY, MapFile.Height);
         var tileCenterX = tileWorldPos.X + DaLibConstants.HALF_TILE_WIDTH;
-        var tileCenterY = tileWorldPos.Y + DaLibConstants.HALF_TILE_HEIGHT;
+        var tileCenterY = tileWorldPos.Y + DaLibConstants.HALF_TILE_HEIGHT + yOffset;
 
         var entityTextureBottom = 0;
+        EntityAlphaScale = alphaScale;
 
-        switch (entity.Type)
+        try
         {
-            case ClientEntityType.Aisling:
-                entityTextureBottom = DrawAisling(
-                    spriteBatch,
-                    entity,
-                    tileCenterX,
-                    tileCenterY);
+            switch (entity.Type)
+            {
+                case ClientEntityType.Aisling:
+                    entityTextureBottom = DrawAisling(
+                        spriteBatch,
+                        entity,
+                        tileCenterX,
+                        tileCenterY);
 
-                break;
+                    break;
 
-            case ClientEntityType.Creature:
-                entityTextureBottom = DrawCreature(
-                    spriteBatch,
-                    entity,
-                    tileCenterX,
-                    tileCenterY);
+                case ClientEntityType.Creature:
+                    entityTextureBottom = DrawCreature(
+                        spriteBatch,
+                        entity,
+                        tileCenterX,
+                        tileCenterY);
 
-                break;
+                    break;
 
-            case ClientEntityType.GroundItem:
-                DrawGroundItem(
-                    spriteBatch,
-                    entity,
-                    tileCenterX,
-                    tileCenterY);
+                case ClientEntityType.GroundItem:
+                    DrawGroundItem(
+                        spriteBatch,
+                        entity,
+                        tileCenterX,
+                        tileCenterY);
 
-                return; //ground items don't get hitboxes
+                    return; //ground items don't get hitboxes
+            }
+        } finally
+        {
+            EntityAlphaScale = 1f;
         }
 
         if (entityTextureBottom <= 0)
@@ -772,6 +808,8 @@ public sealed partial class WorldScreen
             : entity.IsTransparent
                 ? DrawingForSilhouette ? TRANSPARENT_SILHOUETTE_ALPHA : TRANSPARENT_ALPHA
                 : 1f;
+
+        alpha *= EntityAlphaScale;
 
         var tint = ResolveEntityTint(entity);
 
@@ -899,6 +937,8 @@ public sealed partial class WorldScreen
             ? DrawingForSilhouette ? TRANSPARENT_SILHOUETTE_ALPHA : TRANSPARENT_ALPHA
             : 1f;
 
+        alpha *= EntityAlphaScale;
+
         var drawParams = new AislingDrawParams(
             entity.RenderCacheId,
             appearance,
@@ -965,6 +1005,9 @@ public sealed partial class WorldScreen
     private void DrawEntityEffects(BatchBlendScope scope, WorldEntity entity)
     {
         if (MapFile is null)
+            return;
+
+        if (TumbleHidesOverlays(entity))
             return;
 
         var tileWorldPos = Camera.TileToWorld(entity.TileX, entity.TileY, MapFile.Height);

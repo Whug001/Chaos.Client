@@ -241,6 +241,7 @@ public sealed partial class WorldScreen
 
         //camera follows player's visual position (tile + walk interpolation offset)
         FollowPlayerCamera();
+        UpdateTumbleLabel();
 
         //viewport-layer updates — must always run regardless of which ui panel has input focus
         //so that the world keeps animating visually behind open windows.

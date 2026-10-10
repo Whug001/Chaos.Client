@@ -26,5 +26,11 @@
         <EmbeddedResource Include="Assets\Pumpkin\pumpkinfacemap.json">
             <LogicalName>pumpkin.facemap.json</LogicalName>
         </EmbeddedResource>
+
+        <!-- Tumble Tower ooze frames, made by Unora Tools/TumbleTower/art. Missing files fall back to drawn placeholders
+             in TumbleOozeFrames; read back as "tumbleooze.<file>". -->
+        <EmbeddedResource Include="Assets\TumbleOoze\*.png">
+            <LogicalName>tumbleooze.%(Filename)%(Extension)</LogicalName>
+        </EmbeddedResource>
     </ItemGroup>
 </Project>

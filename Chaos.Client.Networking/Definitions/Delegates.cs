@@ -455,6 +455,8 @@ public delegate void StageLightingStateHandler(StageLightingStateArgs args);
 
 public delegate void MirrorLayoutHandler(MirrorLayoutArgs args);
 
+public delegate void TumbleTowerStateHandler(TumbleTowerStateArgs args);
+
 public delegate void MirrorDoubleHandler(MirrorDoubleArgs args);
 
 /// <summary>

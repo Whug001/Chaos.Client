@@ -52,6 +52,9 @@ public sealed class EntityOverlayManager
     private readonly Dictionary<uint, TextElement> WorkMarkCache = [];
     private readonly List<DamageNumber> DamageNumbers = [];
 
+    /// <summary>When set, overlays for entities it returns true for are not drawn (Tumble Tower hides other floors).</summary>
+    public Func<uint, bool>? IsHidden { get; set; }
+
     /// <summary>
     ///     Adds a chant overlay for the given entity, replacing any existing chant or chat bubble. A null/empty message clears
     ///     the existing chant without creating a new one.
@@ -229,11 +232,13 @@ public sealed class EntityOverlayManager
         //read the authoritative per-frame snapshot once; sub-methods reuse it
         var sortedEntities = WorldState.CurrentFrame.SortedEntities;
 
-        foreach (var overlay in ChantOverlays.Values)
-            overlay.Draw(spriteBatch);
+        foreach ((var id, var overlay) in ChantOverlays)
+            if (IsHidden?.Invoke(id) != true)
+                overlay.Draw(spriteBatch);
 
-        foreach (var bar in HealthBars.Values)
-            bar.Draw(spriteBatch);
+        foreach ((var id, var bar) in HealthBars)
+            if (IsHidden?.Invoke(id) != true)
+                bar.Draw(spriteBatch);
 
         DrawNameTags(
             spriteBatch,
@@ -250,8 +255,9 @@ public sealed class EntityOverlayManager
         foreach (var dn in DamageNumbers)
             dn.Draw(spriteBatch);
 
-        foreach (var bubble in ChatBubbles.Values)
-            bubble.Draw(spriteBatch);
+        foreach ((var id, var bubble) in ChatBubbles)
+            if (IsHidden?.Invoke(id) != true)
+                bubble.Draw(spriteBatch);
     }
 
     private void DrawGroupBoxTexts(
@@ -279,6 +285,9 @@ public sealed class EntityOverlayManager
 
                 continue;
             }
+
+            if (IsHidden?.Invoke(entity.Id) == true)
+                continue;
 
             if (!GroupBoxes.TryGetValue(entity.Id, out var groupBox))
             {
@@ -316,6 +325,9 @@ public sealed class EntityOverlayManager
         for (var i = 0; i < sortedEntities.Count; i++)
         {
             var entity = sortedEntities[i];
+
+            if (IsHidden?.Invoke(entity.Id) == true)
+                continue;
 
             var isMerchant = entity is { Type: ClientEntityType.Creature, NameTagStyle: NameTagStyle.NeutralHover };
 

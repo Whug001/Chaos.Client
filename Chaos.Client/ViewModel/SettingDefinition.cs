@@ -80,6 +80,7 @@ public enum SettingKey
     HideSandstorm,
     HideFrost,
     HideBlizzard,
+    ReduceTumbleMotion,
     TabTargeting
 }
 
@@ -217,6 +218,13 @@ public static class SettingDefinitions
             SettingCategory.ClientLocal,
             Get: () => ClientSettings.HideBlizzard,
             Set: v => ClientSettings.HideBlizzard = v),
+        new(
+            SettingKey.ReduceTumbleMotion,
+            "Reduce Tumble Tower Motion",
+            SettingSection.MapEffects,
+            SettingCategory.ClientLocal,
+            Get: () => ClientSettings.ReduceTumbleMotion,
+            Set: v => ClientSettings.ReduceTumbleMotion = v),
 
         //── Damage Numbers ──
         new(

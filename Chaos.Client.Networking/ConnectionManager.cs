@@ -603,6 +603,9 @@ public sealed class ConnectionManager : IDisposable
     /// <summary>Fired when the current map's mirrors arrive (on entering a map with the mirror script).</summary>
     public event MirrorLayoutHandler? OnMirrorLayout;
 
+    /// <summary>Fired for every Tumble Tower state packet (layout, tile changes, falls, label numbers, clear).</summary>
+    public event TumbleTowerStateHandler? OnTumbleTowerState;
+
     /// <summary>Fired when a player's reflection climbs out of a haunted mirror nearby.</summary>
     public event MirrorDoubleHandler? OnMirrorDouble;
 
@@ -1851,6 +1854,7 @@ public sealed class ConnectionManager : IDisposable
         PacketHandlers[(byte)ServerOpCode.BugReportOpen] = HandleBugReportOpen;
         PacketHandlers[(byte)ServerOpCode.StageLightingState] = HandleStageLightingState;
         PacketHandlers[(byte)ServerOpCode.MirrorLayout] = HandleMirrorLayout;
+        PacketHandlers[(byte)ServerOpCode.TumbleTowerState] = HandleTumbleTowerState;
         PacketHandlers[(byte)ServerOpCode.MirrorDouble] = HandleMirrorDouble;
         PacketHandlers[(byte)ServerOpCode.StageLightingBoard] = HandleStageLightingBoard;
         PacketHandlers[(byte)ServerOpCode.GuildCloakEditor] = HandleGuildCloakEditor;
@@ -2350,6 +2354,12 @@ public sealed class ConnectionManager : IDisposable
     {
         var args = Client.Deserialize<MirrorLayoutArgs>(in pkt);
         OnMirrorLayout?.Invoke(args);
+    }
+
+    private void HandleTumbleTowerState(ServerPacket pkt)
+    {
+        var args = Client.Deserialize<TumbleTowerStateArgs>(in pkt);
+        OnTumbleTowerState?.Invoke(args);
     }
 
     private void HandleMirrorDouble(ServerPacket pkt)

@@ -66,6 +66,9 @@ public sealed partial class WorldScreen : IScreen
     //used by DrawAisling to route transparent players through the silhouette pass instead of the stripe pass.
     private bool DrawingForSilhouette;
 
+    //Tumble Tower's fade for a sinking player; DrawEntityAt sets it around the creature/aisling draw
+    private float EntityAlphaScale = 1f;
+
     //set true after the first successful avatar capture on world-enter so we don't re-capture every frame
     private bool _avatarCaptured;
 
@@ -893,6 +896,7 @@ public sealed partial class WorldScreen : IScreen
         };
         WireStageLighting();
         WireMirrors();
+        WireTumbleTower();
         WireGuildCloak();
         WireGuildEmblem();
         WireTownContest();
@@ -1126,6 +1130,7 @@ public sealed partial class WorldScreen : IScreen
         Game.Connection.OnBugReportOpen -= HandleBugReportOpen;
         UnwireStageLighting();
         UnwireMirrors();
+        UnwireTumbleTower();
         UnwireGuildCloak();
         UnwireGuildEmblem();
         UnwireTownContest();

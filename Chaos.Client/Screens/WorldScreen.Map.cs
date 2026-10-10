@@ -109,6 +109,7 @@ public sealed partial class WorldScreen
         //a new map starts with no stage lighting; a same-map refresh (above) deliberately keeps it
         ResetStageLighting();
         ResetMirrors();
+        ResetTumbleTower();
         MapRenderer.Dispose();
         MapRenderer = new MapRenderer();
 

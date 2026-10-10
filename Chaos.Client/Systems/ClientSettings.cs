@@ -101,6 +101,9 @@ public static class ClientSettings
     public static bool HideFrost { get; set; }
     public static bool HideBlizzard { get; set; }
 
+    //swaps the Tumble Tower dive-through for a fade through black; not a map flag, so MapEffectFilter ignores it
+    public static bool ReduceTumbleMotion { get; set; }
+
     // --- Emote wheel slot assignments (client-local; middle-mouse radial wheel) ---
     public static BodyAnimation[] EmoteWheelSlots { get; set; } = (BodyAnimation[])EmoteCatalog.DefaultWheelSlots.Clone();
 
@@ -261,6 +264,11 @@ public static class ClientSettings
 
                         break;
 
+                    case "ReduceTumbleMotion":
+                        ReduceTumbleMotion = value == "1";
+
+                        break;
+
                     case "HideRain":
                         HideRain = value == "1";
 
@@ -390,6 +398,7 @@ public static class ClientSettings
             writer.WriteLine($"HideSandstorm : {(HideSandstorm ? 1 : 0)}");
             writer.WriteLine($"HideFrost : {(HideFrost ? 1 : 0)}");
             writer.WriteLine($"HideBlizzard : {(HideBlizzard ? 1 : 0)}");
+            writer.WriteLine($"ReduceTumbleMotion : {(ReduceTumbleMotion ? 1 : 0)}");
 
             for (var i = 0; i < EmoteCatalog.SLOT_COUNT; i++)
                 writer.WriteLine($"EmoteWheel{i} : {(int)EmoteWheelSlots[i]}");

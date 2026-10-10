@@ -197,6 +197,8 @@ public static class WorldState
     /// </summary>
     public static MirrorState Mirrors { get; } = new();
 
+    public static TumbleTowerState TumbleTower { get; } = new();
+
     /// <summary>
     ///     Which guild cloak design each player's cloak shows (0 = plain), from the server's GuildCloakLook. Kept across
     ///     DisplayAisling updates; cleared with the entities.
@@ -457,6 +459,7 @@ public static class WorldState
         StageLights.Clear();
         StageLightingPanel.Reset();
         Mirrors.Clear();
+        TumbleTower.Clear();
         ClassResource.Reset();
         Oxygen.Reset();
         Equipment.Clear();
