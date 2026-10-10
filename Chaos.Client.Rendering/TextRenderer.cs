@@ -655,7 +655,7 @@ public static class TextRenderer
         return lines;
     }
 
-    private static string? FindLastColorCode(string line)
+    public static string? FindLastColorCode(string line)
     {
         string? last = null;
 

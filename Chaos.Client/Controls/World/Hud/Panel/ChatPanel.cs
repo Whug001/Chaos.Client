@@ -99,13 +99,16 @@ public sealed class ChatPanel : ExpandablePanel
     //word-wraps one message into rows that all carry its line id and hover text
     private List<ChatLine> Wrap(string text, Color color, uint lineId, string? hoverText)
     {
-        var rows = new List<ChatLine>();
         var maxWidth = DisplayBounds.Width - ScrollBarControl.DEFAULT_WIDTH;
 
-        if (maxWidth <= 0)
-            return rows;
+        return maxWidth <= 0 ? [] : WrapRows(text, color, lineId, hoverText, maxWidth);
+    }
 
+    internal static List<ChatLine> WrapRows(string text, Color color, uint lineId, string? hoverText, int maxWidth)
+    {
+        var rows = new List<ChatLine>();
         var remaining = text;
+        string? activeColorCode = null;
 
         while (remaining.Length > 0)
         {
@@ -120,6 +123,11 @@ public sealed class ChatPanel : ExpandablePanel
                 .TrimStart();
 
             rows.Add(new ChatLine(line, color, lineId, hoverText));
+            activeColorCode = TextRenderer.FindLastColorCode(line) ?? activeColorCode;
+
+            //only re-prepend when the code is shorter than what this row consumed, else the next row would shrink nothing
+            if (activeColorCode is not null && (remaining.Length > 0) && (activeColorCode.Length < lineEnd))
+                remaining = activeColorCode + remaining;
         }
 
         return rows;

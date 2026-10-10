@@ -535,7 +535,8 @@ public sealed partial class WorldScreen
             return true;
 
         return (GameActions.SongNote(action) > 0)
-               || action is GameAction.FocusChat or GameAction.Options or GameAction.Boards or GameAction.WorldList or GameAction.SocialStatus;
+               || action is GameAction.FocusChat or GameAction.Options or GameAction.Boards or GameAction.WorldList or GameAction.SocialStatus
+                   or GameAction.Help;
     }
 
     private void SendEmote(GameAction action)
