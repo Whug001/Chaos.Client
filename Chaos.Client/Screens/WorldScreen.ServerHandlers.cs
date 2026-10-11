@@ -783,20 +783,14 @@ public sealed partial class WorldScreen
         switch (invite.ServerGroupSwitch)
         {
             case ServerGroupSwitch.Invite:
-            {
-                WorldState.Chat.AddOrangeBarMessage($"{sourceName} invites you to join a group.");
-
-                if (!ClientSettings.AutoAcceptGroupInvites)
-                {
-                    Game.Connection.SendGroupInvite(ClientGroupSwitch.AcceptInvite, sourceName);
-
-                    break;
-                }
-
-                ShowGroupInvitePopup($"{sourceName} invites you to join a group.", sourceName);
+                OfferGroupInvite($"{sourceName} invites you to join a group.", sourceName);
 
                 break;
-            }
+
+            case ServerGroupSwitch.RaidInvite:
+                OfferGroupInvite($"{sourceName} invites your group to a raid.", sourceName);
+
+                break;
 
             case ServerGroupSwitch.RequestToJoin:
             {
@@ -828,6 +822,24 @@ public sealed partial class WorldScreen
                 break;
             }
         }
+    }
+
+    /// <summary>
+    ///     Posts an invite to the orange bar, then accepts it straight away or asks with a popup, as
+    ///     <see cref="ClientSettings.AutoAcceptGroupInvites" /> says.
+    /// </summary>
+    private void OfferGroupInvite(string message, string sourceName)
+    {
+        WorldState.Chat.AddOrangeBarMessage(message);
+
+        if (!ClientSettings.AutoAcceptGroupInvites)
+        {
+            Game.Connection.SendGroupInvite(ClientGroupSwitch.AcceptInvite, sourceName);
+
+            return;
+        }
+
+        ShowGroupInvitePopup(message, sourceName);
     }
 
     private void ShowGroupInvitePopup(string message, string sourceName)
@@ -1025,12 +1037,15 @@ public sealed partial class WorldScreen
         Game.AislingRenderer.ClearGroupTintCache();
         Game.CreatureRenderer.ClearTintCaches();
 
-        var members = WorldState.Group.Members;
+        var memberSet = new HashSet<string>(WorldState.Group.Members, StringComparer.OrdinalIgnoreCase);
 
-        if (members.Count == 0)
+        //the self profile's group list is cut at 255 bytes, so a full raid's later names are only in the group state
+        if (WorldState.GroupMembers.IsRaid)
+            foreach (var member in WorldState.GroupMembers.Members)
+                memberSet.Add(member.Name);
+
+        if (memberSet.Count == 0)
             return;
-
-        var memberSet = new HashSet<string>(members, StringComparer.OrdinalIgnoreCase);
 
         foreach (var entity in WorldState.GetSortedEntities())
         {

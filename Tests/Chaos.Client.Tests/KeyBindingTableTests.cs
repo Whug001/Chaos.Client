@@ -349,4 +349,15 @@ public class KeyBindingTableTests
 
         await Task.CompletedTask;
     }
+
+    [Test]
+    public async Task Shift_Y_toggles_the_raid_view()
+    {
+        var table = new KeyBindingTable();
+
+        table.Find(Key(Scancode.Y, KeyModifiers.Shift)).Should().Be(GameAction.RaidView);
+        table.Find(Key(Scancode.Y)).Should().Be(GameAction.Group);
+
+        await Task.CompletedTask;
+    }
 }

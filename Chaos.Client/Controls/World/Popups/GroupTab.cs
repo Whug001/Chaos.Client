@@ -12,11 +12,21 @@ namespace Chaos.Client.Controls.World.Popups;
 /// <summary>
 ///     Group/party panel using _ngcdlg0 prefab. Displays group member slots with quit buttons.
 ///     When the player is the leader, quit buttons next to other members are enabled (kick).
+///     During a raid the rows are grouped under party headings and scroll with the mouse wheel, and the leader gets a
+///     Move button on each member row.
 ///     BTN_OK closes the panel.
 /// </summary>
 public sealed class GroupTab : PrefabPanel
 {
-    private const int MAX_MEMBERS = 13;
+    /// <summary>The most members the window lists: a full raid.</summary>
+    private const int MAX_MEMBERS = GroupMembersState.MAX_RAID_SIZE;
+
+    /// <summary>
+    ///     Rows the dialog has room for. A raid is up to <see cref="MAX_MEMBERS" /> members plus four headings, so it
+    ///     scrolls through these.
+    /// </summary>
+    private const int VISIBLE_ROWS = 13;
+
     private const int ROW_HEIGHT = 22;
     private const int NAME_X = 53;
     private const int NAME_START_Y = 47;
@@ -24,12 +34,22 @@ public sealed class GroupTab : PrefabPanel
     private const int QUIT_BTN_START_Y = 42;
     private const int QUIT_BTN_WIDTH = 30;
     private const int QUIT_BTN_HEIGHT = 20;
+    private const int MOVE_BTN_X = 126;
+    private const int MOVE_BTN_START_Y = 45;
+    private const int MOVE_BTN_WIDTH = 28;
+    private const int MOVE_BTN_HEIGHT = 14;
 
-    private readonly UILabel?[] MemberLabels = new UILabel?[MAX_MEMBERS];
-    private readonly UIButton[] QuitButtons = new UIButton[MAX_MEMBERS];
+    private readonly UILabel?[] MemberLabels = new UILabel?[VISIBLE_ROWS];
+    private readonly RaidMoveButton[] MoveButtons = new RaidMoveButton[VISIBLE_ROWS];
+    private readonly UIButton[] QuitButtons = new UIButton[VISIBLE_ROWS];
+    private readonly int[] RowMoveTargets = new int[VISIBLE_ROWS];
+    private readonly string?[] RowNames = new string?[VISIBLE_ROWS];
     private bool Dirty;
+    private int RowCount;
+    private int Scroll;
 
     private GroupChangedHandler GroupChangedHandler { get; }
+    private GroupMembersChangedHandler MembersChangedHandler { get; }
 
     public UIButton? OkButton { get; }
 
@@ -58,8 +78,7 @@ public sealed class GroupTab : PrefabPanel
         var pressedTexture = cache.GetPrefabTexture("_ngcdlg0", "B_BTN0", 1);
         var disabledTexture = cache.GetPrefabTexture("_ngcdlg0", "B_BTN0", 2);
 
-        //create member name labels and quit buttons for each row
-        for (var i = 0; i < MAX_MEMBERS; i++)
+        for (var i = 0; i < VISIBLE_ROWS; i++)
         {
             var controlName = $"USER{i}";
             var label = CreateLabel(controlName);
@@ -72,7 +91,7 @@ public sealed class GroupTab : PrefabPanel
                 {
                     Name = controlName,
                     X = NAME_X,
-                    Y = NAME_START_Y + i * ROW_HEIGHT,
+                    Y = NAME_START_Y + (i * ROW_HEIGHT),
                     Width = 72,
                     Height = 12
                 };
@@ -80,12 +99,11 @@ public sealed class GroupTab : PrefabPanel
                 AddChild(MemberLabels[i]!);
             }
 
-            //quit/kick button for each row — disabled by default
             var quitButton = new UIButton
             {
                 Name = $"QUIT{i}",
                 X = QUIT_BTN_X,
-                Y = QUIT_BTN_START_Y + i * ROW_HEIGHT,
+                Y = QUIT_BTN_START_Y + (i * ROW_HEIGHT),
                 Width = QUIT_BTN_WIDTH,
                 Height = QUIT_BTN_HEIGHT,
                 NormalTexture = disabledTexture,
@@ -93,29 +111,48 @@ public sealed class GroupTab : PrefabPanel
                 Enabled = false
             };
 
-            //capture index for the click handler
-            var memberIndex = i;
+            var moveButton = new RaidMoveButton
+            {
+                Name = $"MOVE{i}",
+                X = MOVE_BTN_X,
+                Y = MOVE_BTN_START_Y + (i * ROW_HEIGHT),
+                Width = MOVE_BTN_WIDTH,
+                Height = MOVE_BTN_HEIGHT,
+                Visible = false
+            };
+
+            //capture the row for the click handlers
+            var row = i;
 
             quitButton.Clicked += () =>
             {
-                var members = WorldState.Group.Members;
+                if (RowNames[row] is { } name)
+                    OnKick?.Invoke(name);
+            };
 
-                if (memberIndex < members.Count)
-                    OnKick?.Invoke(members[memberIndex]);
+            moveButton.Clicked += () =>
+            {
+                if (RowNames[row] is { } name && (RowMoveTargets[row] > 0))
+                    OnMove?.Invoke(name, RowMoveTargets[row]);
             };
 
             QuitButtons[i] = quitButton;
+            MoveButtons[i] = moveButton;
             AddChild(quitButton);
+            AddChild(moveButton);
         }
 
         GroupChangedHandler = () => Dirty = true;
+        MembersChangedHandler = () => Dirty = true;
         WorldState.Group.Changed += GroupChangedHandler;
+        WorldState.GroupMembers.Changed += MembersChangedHandler;
         Dirty = true;
     }
 
     public override void Dispose()
     {
         WorldState.Group.Changed -= GroupChangedHandler;
+        WorldState.GroupMembers.Changed -= MembersChangedHandler;
 
         base.Dispose();
     }
@@ -131,11 +168,45 @@ public sealed class GroupTab : PrefabPanel
     public event CloseHandler? OnClose;
     public event GroupKickHandler? OnKick;
 
+    /// <summary>Raised with a member's name and the party to move them to.</summary>
+    public event Action<string, int>? OnMove;
+
+    /// <summary>
+    ///     The window's rows: a raid's headings and members, or the plain group's names as the self-profile gave them.
+    /// </summary>
+    private static IReadOnlyList<RaidRosterLine> BuildRows()
+    {
+        if (WorldState.GroupMembers.IsRaid)
+        {
+            var self = WorldState.Attributes.Current;
+
+            return RaidRoster.Lines(
+                RaidRoster.Entries(
+                    WorldState.GroupMembers,
+                    WorldState.PlayerName,
+                    WorldState.Group.IsLeader,
+                    self?.CurrentHp ?? 0,
+                    self?.MaximumHp ?? 0));
+        }
+
+        var leaderName = WorldState.Group.LeaderName;
+
+        return WorldState.Group
+                         .Members
+                         .Take(MAX_MEMBERS)
+                         .Select(name => new RaidRosterLine(1, name, (leaderName is not null) && name.EqualsI(leaderName), false))
+                         .ToList();
+    }
+
     private void Refresh()
     {
         Dirty = false;
-        var members = WorldState.Group.Members;
-        var leaderName = WorldState.Group.LeaderName;
+
+        var rows = BuildRows();
+        RowCount = rows.Count;
+        Scroll = Math.Clamp(Scroll, 0, Math.Max(0, RowCount - VISIBLE_ROWS));
+
+        var isRaid = WorldState.GroupMembers.IsRaid;
         var isLeader = WorldState.Group.IsLeader;
         var playerName = WorldState.PlayerName;
 
@@ -143,27 +214,39 @@ public sealed class GroupTab : PrefabPanel
         var normalTexture = cache.GetPrefabTexture("_ngcdlg0", "B_BTN0", 0);
         var disabledTexture = cache.GetPrefabTexture("_ngcdlg0", "B_BTN0", 2);
 
-        for (var i = 0; i < MAX_MEMBERS; i++)
+        for (var i = 0; i < VISIBLE_ROWS; i++)
         {
-            if (MemberLabels[i] is not null)
+            var row = (Scroll + i) < rows.Count ? rows[Scroll + i] : null;
+            var isMember = row is { Name: not null };
+
+            RowNames[i] = row?.Name;
+
+            //an absent member may be offline, where the server cannot find them by name to move
+            RowMoveTargets[i] = isRaid && isLeader && isMember && !row!.Absent
+                ? WorldState.GroupMembers.NextPartyWithRoom(row.Party)
+                : 0;
+
+            if (MemberLabels[i] is { } label)
             {
-                if (i < members.Count)
+                label.Text = row switch
                 {
-                    var isMemberLeader = leaderName is not null && members[i].EqualsI(leaderName);
-                    MemberLabels[i]!.ForegroundColor = isMemberLeader ? LegendColors.White : TextColors.Default;
-                    MemberLabels[i]!.Text = members[i];
-                } else
-                    MemberLabels[i]!.Text = string.Empty;
+                    null             => string.Empty,
+                    { Name: null }   => $"Party {row.Party}",
+                    { Absent: true } => $"{row.Name} (away)",
+                    _                => row.Name!
+                };
+
+                label.ForegroundColor = row is { Name: null } or { IsLeader: true } ? LegendColors.White : TextColors.Default;
             }
 
-            //enable quit button only for other members when we are the leader
-            var isSelf = (i < members.Count)
-                         && members[i]
-                             .EqualsI(playerName);
-            var canKick = isLeader && (i < members.Count) && !isSelf;
+            //an absent member may be offline, where the server cannot find them by name to kick
+            var canKick = isLeader && isMember && !row!.Absent && !row.Name!.EqualsI(playerName);
 
+            QuitButtons[i].Visible = row is not ({ Name: null } or { Absent: true });
             QuitButtons[i].Enabled = canKick;
             QuitButtons[i].NormalTexture = canKick ? normalTexture : disabledTexture;
+
+            MoveButtons[i].Visible = RowMoveTargets[i] > 0;
         }
     }
 
@@ -176,6 +259,16 @@ public sealed class GroupTab : PrefabPanel
             Refresh();
 
         base.Update(gameTime);
+    }
+
+    public override void OnMouseScroll(MouseScrollEvent e)
+    {
+        if (RowCount <= VISIBLE_ROWS)
+            return;
+
+        Scroll = Math.Clamp(Scroll - e.Delta, 0, RowCount - VISIBLE_ROWS);
+        Dirty = true;
+        e.Handled = true;
     }
 
     public override void OnKeyDown(KeyDownEvent e)

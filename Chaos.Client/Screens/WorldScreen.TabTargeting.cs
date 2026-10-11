@@ -240,6 +240,33 @@ public sealed partial class WorldScreen
     }
 
     /// <summary>
+    ///     Casts the armed spell on a member picked from the raid grid, if they are in view -- the same as clicking them
+    ///     in the world. With no spell armed there is no standing target to set, so it does nothing.
+    /// </summary>
+    private void CastOnGroupMember(string name)
+    {
+        if (CastingSystem is not { IsTargeting: true, IsGroundTargeting: false })
+            return;
+
+        var member = WorldState.GetEntities()
+                               .FirstOrDefault(
+                                   entity => (entity.Type == ClientEntityType.Aisling)
+                                             && string.Equals(entity.Name, name, StringComparison.OrdinalIgnoreCase));
+
+        if (member is null)
+            return;
+
+        RememberCastTarget(member.Id);
+
+        CastingSystem.SelectTarget(
+            member.Id,
+            member.TileX,
+            member.TileY,
+            Game.Connection);
+        TabTarget.Clear();
+    }
+
+    /// <summary>
     ///     The entities on screen the armed spell can be cast on, nearest first. "On screen" is the entities drawn last
     ///     frame whose hit box overlaps the viewport.
     /// </summary>
@@ -288,6 +315,11 @@ public sealed partial class WorldScreen
         foreach (var name in WorldState.Group.Members)
             if (!string.Equals(name, WorldState.PlayerName, StringComparison.OrdinalIgnoreCase))
                 groupNames.Add(name);
+
+        //the self profile's group list is cut at 255 bytes, so a full raid's later names are only in the group state
+        if (WorldState.GroupMembers.IsRaid)
+            foreach (var member in WorldState.GroupMembers.Members)
+                groupNames.Add(member.Name);
 
         return TabTargeting.Candidates(
             filter,

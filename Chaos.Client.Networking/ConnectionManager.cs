@@ -1195,6 +1195,18 @@ public sealed class ConnectionManager : IDisposable
             });
 
     /// <summary>
+    ///     Asks the server to move a raid member to another party. Raid leader only; the server checks.
+    /// </summary>
+    public void SendRaidMove(string memberName, byte party)
+        => SendIfWorld(
+            new GroupInviteArgs
+            {
+                ClientGroupSwitch = ClientGroupSwitch.MoveToParty,
+                TargetName = memberName,
+                Party = party
+            });
+
+    /// <summary>
     ///     Requests the current ignore list from the server.
     /// </summary>
     public void SendIgnoreRequest()

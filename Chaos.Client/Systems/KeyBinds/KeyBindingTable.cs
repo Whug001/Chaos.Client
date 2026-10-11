@@ -323,6 +323,7 @@ public sealed class KeyBindingTable
             GameAction.WorldList       => new KeyChord(Scancode.E),
             GameAction.SocialStatus    => new KeyChord(Scancode.R),
             GameAction.Group           => new KeyChord(Scancode.Y),
+            GameAction.RaidView        => new KeyChord(Scancode.Y, KeyModifiers.Shift),
             GameAction.TownMap         => new KeyChord(Scancode.T),
             GameAction.TabMap          => new KeyChord(Scancode.Tab),
             GameAction.MapZoomIn       => new KeyChord(Scancode.PageUp),

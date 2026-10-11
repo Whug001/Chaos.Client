@@ -52,6 +52,7 @@ public sealed partial class WorldScreen
 
         //the world map is a full-screen overlay; a floating group panel over it would sit on the map art
         GroupVitals.Suppressed = WorldMap.Visible;
+        RaidVitals.Suppressed = WorldMap.Visible;
 
         var elapsedMs = (float)gameTime.ElapsedGameTime.TotalMilliseconds;
 

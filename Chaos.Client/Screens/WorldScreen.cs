@@ -123,6 +123,7 @@ public sealed partial class WorldScreen : IScreen
     private AislingContextMenu AislingContext = null!;
     private PollPanel VotePanel = null!;
     private GroupPanelStack GroupVitals = null!;
+    private RaidGrid RaidVitals = null!;
 
     private int AnimationTick;
     private ArticleListControl ArticleList = null!;
@@ -475,6 +476,8 @@ public sealed partial class WorldScreen : IScreen
             Game.Connection.RequestSelfProfile();
         };
 
+        GroupPanel.MembersPanel.OnMove += (name, party) => Game.Connection.SendRaidMove(name, (byte)party);
+
         GroupPanel.RecruitPanel.OnCreateGroupBox += (
             name,
             note,
@@ -810,6 +813,8 @@ public sealed partial class WorldScreen : IScreen
         //ZIndex 0 so the world map, at 2, draws over it; the column is also held down outright while the map is
         //up, from WorldScreen.Update
         GroupVitals = new GroupPanelStack(Game.AislingRenderer, viewport);
+        RaidVitals = new RaidGrid(viewport);
+        RaidVitals.MemberClicked += CastOnGroupMember;
 
         AislingContext = new AislingContextMenu
         {
@@ -1030,6 +1035,7 @@ public sealed partial class WorldScreen : IScreen
 
         Root.AddChild(VotePanel);
         Root.AddChild(GroupVitals);
+        Root.AddChild(RaidVitals);
         VotePanel.VoteCast += (pollId, index) => Game.Connection.SendVote(pollId, index);
 
         //inventory drop-target registry: each panel owns its eligibility/drop-zone; the paired action owns the networking

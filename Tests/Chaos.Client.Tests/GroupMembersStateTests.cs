@@ -263,6 +263,90 @@ public class GroupMembersStateTests
              .BeFalse();
     }
 
+    [Test]
+    public void ARaidSnapshotCarriesPartiesAndAbsences()
+    {
+        var group = new GroupMembersState();
+        var a = Member("Aurelia");
+        a.Party = 1;
+        var b = Member("Bram");
+        b.Party = 2;
+        b.Absent = true;
+
+        group.Set(
+            new SetGroupStateArgs
+            {
+                IsRaid = true,
+                OwnParty = 2,
+                GroupSize = 9,
+                Members = [a, b]
+            });
+
+        group.IsRaid.Should().BeTrue();
+        group.OwnParty.Should().Be(2);
+        group.Members[1].Party.Should().Be(2);
+        group.Members[1].Absent.Should().BeTrue();
+        group.PartyMembers.Select(member => member.Name).Should().Equal("Bram");
+    }
+
+    [Test]
+    public void OutsideARaidEveryoneIsInThePanels()
+    {
+        var group = new GroupMembersState();
+
+        group.Set(Snapshot(Member("Aurelia"), Member("Bram")));
+
+        group.IsRaid.Should().BeFalse();
+        group.OwnParty.Should().Be(1);
+        group.PartyMembers.Should().HaveCount(2);
+    }
+
+    [Test]
+    public void NextPartyWithRoomSkipsAFullParty()
+    {
+        var group = new GroupMembersState();
+        var members = new List<GroupMemberInfo>();
+
+        for (var i = 0; i < 6; i++)
+        {
+            var member = Member($"Two{i}");
+            member.Party = 2;
+            members.Add(member);
+        }
+
+        group.Set(
+            new SetGroupStateArgs
+            {
+                IsRaid = true,
+                OwnParty = 1,
+                GroupSize = 7,
+                Members = members
+            });
+
+        group.NextPartyWithRoom(1).Should().Be(3);
+        group.NextPartyWithRoom(4).Should().Be(1);
+    }
+
+    [Test]
+    public void ResetClearsTheRaid()
+    {
+        var group = new GroupMembersState();
+
+        group.Set(
+            new SetGroupStateArgs
+            {
+                IsRaid = true,
+                OwnParty = 3,
+                Members = [Member("Aurelia")]
+            });
+
+        group.Reset();
+
+        group.IsRaid.Should().BeFalse();
+        group.OwnParty.Should().Be(1);
+        group.PartyMembers.Should().BeEmpty();
+    }
+
     private static SetGroupStateArgs Snapshot(params GroupMemberInfo[] members)
         => new()
         {

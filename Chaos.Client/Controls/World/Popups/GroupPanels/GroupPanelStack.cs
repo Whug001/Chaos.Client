@@ -48,6 +48,12 @@ public sealed class GroupPanelStack : UIPanel
     /// </summary>
     private const int HEADER_TEXT_X = GroupMemberPanel.TEXT_X;
 
+    /// <summary>
+    ///     Where a raid's caption starts: right after the arrow rather than level with the names, because
+    ///     "Raid 24/24 - Party 4" is longer than the names it would line up with.
+    /// </summary>
+    private const int RAID_HEADER_TEXT_X = ARROW_SIZE + 2;
+
     //scroll.epf frame order: left(0,1), right(2,3), up(4,5), down(6,7), thumb(8), track(9); each pair is
     //[normal, active]. The collapse arrow borrows the scrollbar's own up/down buttons rather than introducing art
     //of its own, which is what every other arrow in this client does.
@@ -159,7 +165,18 @@ public sealed class GroupPanelStack : UIPanel
     ///     than collapsing it: <see cref="Update" /> clears <see cref="UIElement.IsHitTestVisible" /> and
     ///     <see cref="Draw" /> returns before the grab bar, so the header and its arrow go with the panels.
     /// </summary>
-    private bool ShouldShow => ClientSettings.GroupPanelEnabled && WorldState.GroupMembers.HasMembers && !Suppressed;
+    private bool ShouldShow
+        => ClientSettings.GroupPanelEnabled
+           && WorldState.GroupMembers.HasMembers
+           && !Suppressed
+           && !(WorldState.GroupMembers.IsRaid && ClientSettings.RaidGridView);
+
+    private static string Caption
+        => WorldState.GroupMembers.IsRaid
+            ? $"Raid {WorldState.GroupMembers.Size}/{GroupMembersState.MAX_RAID_SIZE} - Party {WorldState.GroupMembers.OwnParty}"
+            : $"Group ({WorldState.GroupMembers.Size})";
+
+    private static int CaptionX => WorldState.GroupMembers.IsRaid ? RAID_HEADER_TEXT_X : HEADER_TEXT_X;
 
     private bool Collapsed
     {
@@ -170,7 +187,12 @@ public sealed class GroupPanelStack : UIPanel
     /// <summary>Rebuilds the column when the server sends a new snapshot.</summary>
     private void OnGroupChanged()
     {
-        Ordered = ApplyCustomOrder(WorldState.GroupMembers.Members);
+        //an absent member is off the map or logged out, so there is nobody to heal and, logged out, no health to show;
+        //the raid grid still lists them, dimmed
+        Ordered = ApplyCustomOrder(
+            WorldState.GroupMembers.PartyMembers
+                      .Where(member => !member.Absent)
+                      .ToList());
         ApplyMembers();
     }
 
@@ -277,6 +299,9 @@ public sealed class GroupPanelStack : UIPanel
         //a group that grew while collapsed, or shrank, changes the column's height; recomputing is a handful of
         //assignments and saves having to notice every path that could have changed it
         Layout();
+
+        //a raid caption is wider than a member's row; the grab bar grows to hold it
+        Width = Math.Max(GroupMemberPanel.PANEL_WIDTH, CaptionX + TextRenderer.MeasureWidth(Caption) + 2);
         ClampIntoViewport();
         IsHitTestVisible = true;
     }
@@ -553,11 +578,11 @@ public sealed class GroupPanelStack : UIPanel
 
         //the group's size, not the number of panels: the player is in the group but has no panel of their own,
         //and a group of six reading "Group (5)" is just wrong
-        var caption = $"Group ({WorldState.GroupMembers.Size})";
+        var caption = Caption;
 
         TextRenderer.DrawShadowedText(
             spriteBatch,
-            new Vector2(ScreenX + HEADER_TEXT_X, ScreenY + ((HEADER_HEIGHT - TextRenderer.CHAR_HEIGHT) / 2)),
+            new Vector2(ScreenX + CaptionX, ScreenY + ((HEADER_HEIGHT - TextRenderer.CHAR_HEIGHT) / 2)),
             caption,
             HeaderText,
             Shadow);

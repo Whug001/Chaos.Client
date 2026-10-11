@@ -85,6 +85,9 @@ public static class ClientSettings
     // against the world turn this on.
     public static bool TransparentGroupPanels { get; set; }
 
+    // --- Raid view (client-local; Shift+Y). On: the raid grid. Off: your own party's panels. ---
+    public static bool RaidGridView { get; set; } = true;
+
     // --- Ground-target aim snapping (client-local; applied in WorldScreen.GroundTargetTileAt) ---
     public static bool GroundTargetSnapToEntity { get; set; } = true;
 
@@ -316,6 +319,11 @@ public static class ClientSettings
 
                         break;
 
+                    case "RaidGridView":
+                        RaidGridView = value == "1";
+
+                        break;
+
                     case "GroundTargetSnapToEntity":
                         GroundTargetSnapToEntity = value == "1";
 
@@ -389,6 +397,7 @@ public static class ClientSettings
             writer.WriteLine($"WindowHeight : {WindowHeight}");
             writer.WriteLine($"GroupPanelEnabled : {(GroupPanelEnabled ? 1 : 0)}");
             writer.WriteLine($"TransparentGroupPanels : {(TransparentGroupPanels ? 1 : 0)}");
+            writer.WriteLine($"RaidGridView : {(RaidGridView ? 1 : 0)}");
             writer.WriteLine($"GroundTargetSnapToEntity : {(GroundTargetSnapToEntity ? 1 : 0)}");
             writer.WriteLine($"TabTargeting : {(TabTargeting ? 1 : 0)}");
             writer.WriteLine($"MaxEffectAnimations : {MaxEffectAnimationsPerEntity}");

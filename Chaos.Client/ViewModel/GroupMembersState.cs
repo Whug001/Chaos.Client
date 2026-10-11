@@ -41,6 +41,12 @@ public sealed record GroupMemberSnapshot
     /// <summary>The member's effects, soonest to expire first. At most five -- what the panel has room for.</summary>
     public required IReadOnlyList<GroupMemberEffect> Effects { get; init; }
 
+    /// <summary>The member's party, 1-4. Always 1 outside a raid.</summary>
+    public int Party { get; init; } = 1;
+
+    /// <summary>Off the raid's map or logged out, with a minute to come back. Drawn dimmed.</summary>
+    public bool Absent { get; init; }
+
     public double HealthPercent => MaximumHp == 0 ? 0 : Math.Clamp(CurrentHp / (double)MaximumHp, 0, 1);
     public double ManaPercent => MaximumMp == 0 ? 0 : Math.Clamp(CurrentMp / (double)MaximumMp, 0, 1);
 }
@@ -71,6 +77,10 @@ public sealed class GroupMembersState
 {
     private static readonly IReadOnlyList<GroupMemberEffect> NoEffects = [];
 
+    public const int MAX_RAID_SIZE = 24;
+    public const int PARTY_SIZE = 6;
+    public const int PARTY_COUNT = MAX_RAID_SIZE / PARTY_SIZE;
+
     public IReadOnlyList<GroupMemberSnapshot> Members { get; private set; } = [];
 
     /// <summary>
@@ -81,6 +91,35 @@ public sealed class GroupMembersState
     ///     because their vitals are already on the hud -- so it is one short of the group.
     /// </remarks>
     public int Size { get; private set; }
+
+    /// <summary>Whether the group is a raid of up to four parties.</summary>
+    public bool IsRaid { get; private set; }
+
+    /// <summary>The player's own party, 1-4. Always 1 outside a raid.</summary>
+    public int OwnParty { get; private set; } = 1;
+
+    /// <summary>
+    ///     The other members of the player's own party, or the whole group outside a raid. What the panel column draws
+    ///     (less anyone absent), and so what F2-F6 pick from.
+    /// </summary>
+    public IReadOnlyList<GroupMemberSnapshot> PartyMembers { get; private set; } = [];
+
+    /// <summary>How many hold a spot in <paramref name="party" />, the player included.</summary>
+    public int CountInParty(int party) => Members.Count(member => member.Party == party) + (OwnParty == party ? 1 : 0);
+
+    /// <summary>The next party after <paramref name="fromParty" />, wrapping round, with room for one more; 0 if none has.</summary>
+    public int NextPartyWithRoom(int fromParty)
+    {
+        for (var step = 1; step < PARTY_COUNT; step++)
+        {
+            var party = ((fromParty - 1 + step) % PARTY_COUNT) + 1;
+
+            if (CountInParty(party) < PARTY_SIZE)
+                return party;
+        }
+
+        return 0;
+    }
 
     /// <summary>True while there is anyone to draw a panel for.</summary>
     public bool HasMembers => Members.Count > 0;
@@ -105,6 +144,13 @@ public sealed class GroupMembersState
             members.Add(ToSnapshot(member));
 
         Members = members;
+        IsRaid = args.IsRaid;
+        OwnParty = args.OwnParty is >= 1 and <= PARTY_COUNT ? args.OwnParty : 1;
+
+        PartyMembers = IsRaid
+            ? members.Where(member => member.Party == OwnParty)
+                     .ToList()
+            : members;
 
         //an older server that does not send the size leaves it 0; falling back keeps the count sane rather than
         //reporting an empty group to a player who can see five panels
@@ -116,6 +162,11 @@ public sealed class GroupMembersState
     /// <summary>Drops every member. Called on logout and on disconnect.</summary>
     public void Reset()
     {
+        //ahead of the early return, so a raid flag can never outlive the group it came with
+        IsRaid = false;
+        OwnParty = 1;
+        PartyMembers = [];
+
         if (Members.Count == 0)
             return;
 
@@ -149,7 +200,9 @@ public sealed class GroupMembersState
             CurrentMp = member.CurrentMp,
             MaximumMp = member.MaximumMp,
             Appearance = ToAppearance(member),
-            Effects = effects
+            Effects = effects,
+            Party = member.Party is >= 1 and <= PARTY_COUNT ? member.Party : 1,
+            Absent = member.Absent
         };
     }
 

@@ -1149,6 +1149,14 @@ public sealed partial class WorldScreen
 
                 return true;
 
+            //the raid grid, or your own party's panels. Remembered outside a raid too, for the next one
+            case GameAction.RaidView:
+                ClientSettings.RaidGridView = !ClientSettings.RaidGridView;
+                ClientSettings.Save();
+                WorldState.Chat.AddOrangeBarMessage(ClientSettings.RaidGridView ? "Raid view: grid" : "Raid view: party panels");
+
+                return true;
+
             //scrolls the active chat-style panel (F = chat, shift+F = message history)
             case GameAction.ScrollChatUp:
                 return ScrollChatPanel(1);

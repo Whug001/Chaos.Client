@@ -1237,6 +1237,7 @@ public sealed partial class WorldScreen
         MailSend.SetViewportBounds(viewport);
         VotePanel.SetViewportBounds(viewport);
         GroupVitals.SetViewportBounds(viewport);
+        RaidVitals.SetViewportBounds(viewport);
 
         FollowPlayerCamera();
 
