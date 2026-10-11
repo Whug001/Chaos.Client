@@ -55,7 +55,7 @@ public sealed class CausewayState
         }
     }
 
-    /// <summary>Whether the viewer may not walk onto (x, y): the other team's start, or their own coin bank tiles.</summary>
+    /// <summary>Whether the viewer may not walk onto (x, y): the other team's start, or their own flag bank tiles.</summary>
     public bool BlocksStep(int x, int y)
         => IsActive
            && ViewerSide is { } side
