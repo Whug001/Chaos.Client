@@ -117,6 +117,7 @@ public sealed partial class WorldScreen : IScreen
     //Location packets do not touch this counter — they snap position authoritatively and let the
     //pending acks drain naturally as no-ops on arrival.
     private int InFlightWalkAcks;
+    private long LastWalkSentMs;
 
     private AbilityMetadataDetailsControl AbilityMetadataDetails = null!;
     private AislingContextMenu AislingContext = null!;
@@ -897,6 +898,7 @@ public sealed partial class WorldScreen : IScreen
         WireStageLighting();
         WireMirrors();
         WireTumbleTower();
+        WireCauseway();
         WireGuildCloak();
         WireGuildEmblem();
         WireTownContest();
@@ -1131,6 +1133,7 @@ public sealed partial class WorldScreen : IScreen
         UnwireStageLighting();
         UnwireMirrors();
         UnwireTumbleTower();
+        UnwireCauseway();
         UnwireGuildCloak();
         UnwireGuildEmblem();
         UnwireTownContest();

@@ -110,6 +110,7 @@ public sealed partial class WorldScreen
         ResetStageLighting();
         ResetMirrors();
         ResetTumbleTower();
+        ResetCauseway();
         MapRenderer.Dispose();
         MapRenderer = new MapRenderer();
 

@@ -202,7 +202,21 @@ public sealed class WorldEntity
     public int TileX { get; set; }
     public int TileY { get; set; }
     public ClientEntityType Type { get; set; }
-    public Vector2 VisualOffset { get; set; }
+    /// <summary>The walk slide, written by AnimationSystem through <see cref="VisualOffset" />.</summary>
+    public Vector2 WalkOffset { get; set; }
+
+    /// <summary>Drowned Causeway raft drift, set every frame by WorldScreen while a match is on; zero elsewhere.</summary>
+    public Vector2 RideOffset { get; set; }
+
+    /// <summary>
+    ///     Where the sprite sits relative to its tile: the walk slide plus any raft drift. Every renderer, overlay and the
+    ///     camera read this, so a drift moves all of them together. Setting it sets the walk slide only.
+    /// </summary>
+    public Vector2 VisualOffset
+    {
+        get => WalkOffset + RideOffset;
+        set => WalkOffset = value;
+    }
     public Vector2 WalkStartOffset { get; set; }
 
     public int SortDepth => TileX + TileY;

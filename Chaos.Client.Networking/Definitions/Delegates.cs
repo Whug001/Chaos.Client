@@ -457,6 +457,8 @@ public delegate void MirrorLayoutHandler(MirrorLayoutArgs args);
 
 public delegate void TumbleTowerStateHandler(TumbleTowerStateArgs args);
 
+public delegate void DrownedCausewayStateHandler(DrownedCausewayStateArgs args);
+
 public delegate void MirrorDoubleHandler(MirrorDoubleArgs args);
 
 /// <summary>
