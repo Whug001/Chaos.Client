@@ -38,5 +38,10 @@
         <EmbeddedResource Include="Assets\Causeway\*.png">
             <LogicalName>causeway.%(Filename)%(Extension)</LogicalName>
         </EmbeddedResource>
+
+        <!-- The Glass Way overlay art (rune, mark, safe tint, hole, shards); read back by GlassWayFrames as "glassway.<file>". -->
+        <EmbeddedResource Include="Assets\GlassWay\*.png">
+            <LogicalName>glassway.%(Filename)%(Extension)</LogicalName>
+        </EmbeddedResource>
     </ItemGroup>
 </Project>

@@ -101,7 +101,7 @@ public static class ClientSettings
     public static bool HideFrost { get; set; }
     public static bool HideBlizzard { get; set; }
 
-    //swaps the Tumble Tower dive-through for a fade through black; not a map flag, so MapEffectFilter ignores it
+    //swaps the Tumble Tower and Glass Way dives for a fade through black; not a map flag, so MapEffectFilter ignores it
     public static bool ReduceTumbleMotion { get; set; }
 
     // --- Emote wheel slot assignments (client-local; middle-mouse radial wheel) ---

@@ -459,6 +459,8 @@ public delegate void TumbleTowerStateHandler(TumbleTowerStateArgs args);
 
 public delegate void DrownedCausewayStateHandler(DrownedCausewayStateArgs args);
 
+public delegate void GlassWayStateHandler(GlassWayStateArgs args);
+
 public delegate void MirrorDoubleHandler(MirrorDoubleArgs args);
 
 /// <summary>

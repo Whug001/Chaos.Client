@@ -609,6 +609,9 @@ public sealed class ConnectionManager : IDisposable
     /// <summary>Fired for every Drowned Causeway state packet (schedule, phase and clock, hold, clear).</summary>
     public event DrownedCausewayStateHandler? OnDrownedCausewayState;
 
+    /// <summary>Fired for every Glass Way state packet (round and clock, lit pane, go, step, crack, survivors, label, clear).</summary>
+    public event GlassWayStateHandler? OnGlassWayState;
+
     /// <summary>Fired when a player's reflection climbs out of a haunted mirror nearby.</summary>
     public event MirrorDoubleHandler? OnMirrorDouble;
 
@@ -1859,6 +1862,7 @@ public sealed class ConnectionManager : IDisposable
         PacketHandlers[(byte)ServerOpCode.MirrorLayout] = HandleMirrorLayout;
         PacketHandlers[(byte)ServerOpCode.TumbleTowerState] = HandleTumbleTowerState;
         PacketHandlers[(byte)ServerOpCode.DrownedCausewayState] = HandleDrownedCausewayState;
+        PacketHandlers[(byte)ServerOpCode.GlassWayState] = HandleGlassWayState;
         PacketHandlers[(byte)ServerOpCode.MirrorDouble] = HandleMirrorDouble;
         PacketHandlers[(byte)ServerOpCode.StageLightingBoard] = HandleStageLightingBoard;
         PacketHandlers[(byte)ServerOpCode.GuildCloakEditor] = HandleGuildCloakEditor;
@@ -2370,6 +2374,12 @@ public sealed class ConnectionManager : IDisposable
     {
         var args = Client.Deserialize<DrownedCausewayStateArgs>(in pkt);
         OnDrownedCausewayState?.Invoke(args);
+    }
+
+    private void HandleGlassWayState(ServerPacket pkt)
+    {
+        var args = Client.Deserialize<GlassWayStateArgs>(in pkt);
+        OnGlassWayState?.Invoke(args);
     }
 
     private void HandleMirrorDouble(ServerPacket pkt)

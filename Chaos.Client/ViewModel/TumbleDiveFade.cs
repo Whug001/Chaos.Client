@@ -9,7 +9,7 @@ public enum TumbleDiveStyle
     /// <summary>The floor being left scales up and fades while the floor below rises and brightens.</summary>
     DiveThrough,
 
-    /// <summary>"Reduce Tumble Tower Motion": the dive is a fade through black. The sink and landing do not change.</summary>
+    /// <summary>"Reduce Arena Fall Motion": the dive is a fade through black. The sink and landing do not change.</summary>
     Fade
 }
 

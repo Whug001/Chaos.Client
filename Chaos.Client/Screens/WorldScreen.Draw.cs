@@ -38,6 +38,7 @@ public sealed partial class WorldScreen
         var sortedEntities = WorldState.CurrentFrame.SortedEntities;
 
         RefreshTumbleView();
+        RefreshGlassView();
 
         //pre-render silhouettes of ALL visible entities (items, monsters, merchants, aislings) before world
         //drawing. each entity is redrawn at 50% over the finished world: invisible in the open (self-blend over
@@ -102,6 +103,7 @@ public sealed partial class WorldScreen
                     AnimationTick);
 
             DrawCausewayRafts(spriteBatch);
+            DrawGlassWay(spriteBatch);
             DrawTileCursor(spriteBatch);
             spriteBatch.End();
 
@@ -135,6 +137,7 @@ public sealed partial class WorldScreen
                 DrawMirrorDoubles(BlendScope);
                 DrawDarkStretches(BlendScope);
                 DrawTumbleOverlays(BlendScope);
+                DrawGlassHud(BlendScope);
             } finally
             {
                 BlendScope.End();
@@ -454,7 +457,7 @@ public sealed partial class WorldScreen
 
             for (var tileX = tileXStart; tileX <= tileXEnd; tileX++)
             {
-                if (TumbleHidesTile(tileX, depth - tileX))
+                if (TumbleHidesTile(tileX, depth - tileX) || GlassHidesWorld)
                     continue;
 
                 MapRenderer.DrawForegroundTile(
@@ -708,6 +711,9 @@ public sealed partial class WorldScreen
     private void DrawEntity(SpriteBatch spriteBatch, WorldEntity entity)
     {
         if (TumbleSkipsEntity(entity, out var tileX, out var tileY, out var yOffset, out var alphaScale))
+            return;
+
+        if (GlassSkipsEntity(entity, ref yOffset, ref alphaScale))
             return;
 
         DrawEntityAt(spriteBatch, entity, tileX, tileY, yOffset, alphaScale);
@@ -1015,7 +1021,7 @@ public sealed partial class WorldScreen
         if (MapFile is null)
             return;
 
-        if (TumbleHidesOverlays(entity))
+        if (TumbleHidesOverlays(entity) || GlassHidesOverlays(entity))
             return;
 
         var tileWorldPos = Camera.TileToWorld(entity.TileX, entity.TileY, MapFile.Height);

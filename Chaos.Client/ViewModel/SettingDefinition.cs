@@ -220,7 +220,7 @@ public static class SettingDefinitions
             Set: v => ClientSettings.HideBlizzard = v),
         new(
             SettingKey.ReduceTumbleMotion,
-            "Reduce Tumble Tower Motion",
+            "Reduce Arena Fall Motion",
             SettingSection.MapEffects,
             SettingCategory.ClientLocal,
             Get: () => ClientSettings.ReduceTumbleMotion,

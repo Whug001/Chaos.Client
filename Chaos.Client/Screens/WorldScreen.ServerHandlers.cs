@@ -200,6 +200,10 @@ public sealed partial class WorldScreen
         if (!IsGameMaster && CausewayRefusesStep(newX, newY))
             return;
 
+        //the server holds Glass Way players on their ledge until "Go!"; a step now would only be snapped back
+        if (!IsGameMaster && GlassRefusesStep())
+            return;
+
         Game.Connection.Walk(direction);
 
         //one more ack outstanding from the server

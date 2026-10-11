@@ -206,6 +206,12 @@ public static class WorldState
     public static CausewayState Causeway { get; } = new();
 
     /// <summary>
+    ///     The Glass Way round, panes and falls. Not cleared by <see cref="Clear" />: a same-map refresh keeps it.
+    ///     WorldScreen clears it on a real map change; <see cref="ResetAll" /> clears it on logout.
+    /// </summary>
+    public static GlassWayState GlassWay { get; } = new();
+
+    /// <summary>
     ///     Which guild cloak design each player's cloak shows (0 = plain), from the server's GuildCloakLook. Kept across
     ///     DisplayAisling updates; cleared with the entities.
     /// </summary>
@@ -467,6 +473,7 @@ public static class WorldState
         Mirrors.Clear();
         TumbleTower.Clear();
         Causeway.Clear();
+        GlassWay.Clear();
         ClassResource.Reset();
         Oxygen.Reset();
         Equipment.Clear();
