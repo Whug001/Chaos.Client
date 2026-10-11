@@ -101,6 +101,7 @@ public sealed partial class WorldScreen
                     Camera,
                     AnimationTick);
 
+            DrawCausewayRafts(spriteBatch);
             DrawTileCursor(spriteBatch);
             spriteBatch.End();
 
@@ -365,6 +366,13 @@ public sealed partial class WorldScreen
                 entity.SwimWalkFrames = Math.Max(framesPerDir - 1, 1);
             }
         } else
+        {
+            entity.IsOnSwimmingTile = false;
+            entity.GroundPaintHeight = 0;
+            entity.SwimWalkFrames = 0;
+        }
+
+        if (entity.IsOnSwimmingTile && CausewayFloats(entity))
         {
             entity.IsOnSwimmingTile = false;
             entity.GroundPaintHeight = 0;

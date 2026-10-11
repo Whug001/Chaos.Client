@@ -200,6 +200,12 @@ public static class WorldState
     public static TumbleTowerState TumbleTower { get; } = new();
 
     /// <summary>
+    ///     The Drowned Causeway schedule and drift. Not cleared by <see cref="Clear" />: a same-map refresh keeps it.
+    ///     WorldScreen clears it on a real map change; <see cref="ResetAll" /> clears it on logout.
+    /// </summary>
+    public static CausewayState Causeway { get; } = new();
+
+    /// <summary>
     ///     Which guild cloak design each player's cloak shows (0 = plain), from the server's GuildCloakLook. Kept across
     ///     DisplayAisling updates; cleared with the entities.
     /// </summary>
@@ -460,6 +466,7 @@ public static class WorldState
         StageLightingPanel.Reset();
         Mirrors.Clear();
         TumbleTower.Clear();
+        Causeway.Clear();
         ClassResource.Reset();
         Oxygen.Reset();
         Equipment.Clear();
@@ -652,6 +659,28 @@ public static class WorldState
     }
 
     /// <summary>
+    ///     A creature walk that is really a Drowned Causeway raft carrying a player: move them a tile without a walk
+    ///     animation or a turn, and re-anchor their drift so the glide carries on. False for an ordinary walk.
+    /// </summary>
+    public static bool TryHandleRideStep(uint id, int oldX, int oldY, Direction direction)
+    {
+        if (!Causeway.IsActive || !Entities.TryGetValue(id, out var entity))
+            return false;
+
+        var playMs = Causeway.PlayMs(TumbleClock.Now);
+
+        if (Causeway.RideLaneFor(oldX, oldY, direction, playMs) is not { } lane)
+            return false;
+
+        entity.TileX = oldX + lane.Direction;
+        entity.TileY = oldY;
+        SortVersion++;
+        Causeway.Rides.Shifted(id, entity.TileX, entity.TileY, lane, playMs);
+
+        return true;
+    }
+
+    /// <summary>
     ///     Updates the player entity's position and starts its walk animation after the server confirms the walk.
     /// </summary>
     public static void HandlePlayerWalk(Direction direction, int oldX, int oldY)
@@ -795,6 +824,7 @@ public static class WorldState
         Entities.Remove(id);
         GuildCloakLooks.Remove(id);
         PumpkinLooks.Remove(id);
+        Causeway.Rides.Forget(id);
         SortVersion++;
     }
 

@@ -180,6 +180,9 @@ public sealed class ChaosGame : Game
             oldY,
             dir) =>
         {
+            if (WorldState.TryHandleRideStep(id, oldX, oldY, dir))
+                return;
+
             var entity = WorldState.GetEntity(id);
             var walkFrames = entity is not null && (entity.SpriteId > 0) ? CreatureRenderer.GetWalkFrameCount(entity.SpriteId) : null;
 

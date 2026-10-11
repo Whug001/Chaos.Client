@@ -7,6 +7,7 @@ using Chaos.Client.Models;
 using Chaos.Client.Rendering;
 using Chaos.Client.Systems;
 using Chaos.Client.Systems.KeyBinds;
+using Chaos.Client.ViewModel;
 using Chaos.DarkAges.Definitions;
 using Chaos.Geometry.Abstractions.Definitions;
 using Microsoft.Xna.Framework;
@@ -64,6 +65,9 @@ public sealed partial class WorldScreen
 
         //animation advancement doesn't depend on sort order — iterate unordered to avoid a stale sort
         //(SortDepth is position-derived; movement later in Update would invalidate any sort taken here).
+        var causewayNow = TumbleClock.Now;
+        UpdateCausewayRides(causewayNow);
+
         foreach (var entity in WorldState.GetEntities())
         {
             //update water tile state before animation so swimming idle tick advances
@@ -72,6 +76,7 @@ public sealed partial class WorldScreen
             //all entities step discretely by default. player gets smooth lerp only if setting enabled.
             var isSmooth = (entity == player) && smoothScroll;
             AnimationSystem.Advance(entity, elapsedMs, isSmooth);
+            ApplyCausewayRide(entity, causewayNow);
 
             //update creature optional standing animation cycle — covers native creatures AND aislings
             //in monster form (both render as creature sprites), so gate on IsRenderedAsCreatureSprite

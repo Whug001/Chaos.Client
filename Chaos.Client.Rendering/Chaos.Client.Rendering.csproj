@@ -32,5 +32,11 @@
         <EmbeddedResource Include="Assets\TumbleOoze\*.png">
             <LogicalName>tumbleooze.%(Filename)%(Extension)</LogicalName>
         </EmbeddedResource>
+
+        <!-- Drowned Causeway river art, made by Unora Tools/DrownedCauseway/art. Missing files fall back to drawn
+             placeholders in CausewayFrames; read back as "causeway.<file>". -->
+        <EmbeddedResource Include="Assets\Causeway\*.png">
+            <LogicalName>causeway.%(Filename)%(Extension)</LogicalName>
+        </EmbeddedResource>
     </ItemGroup>
 </Project>

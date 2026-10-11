@@ -196,10 +196,15 @@ public sealed partial class WorldScreen
         if (!IsGameMaster && !IsTilePassable(newX, newY))
             return;
 
+        //the server would refuse this step with a full refresh: the enemy start, your own bank, or a hold
+        if (!IsGameMaster && CausewayRefusesStep(newX, newY))
+            return;
+
         Game.Connection.Walk(direction);
 
         //one more ack outstanding from the server
         InFlightWalkAcks++;
+        LastWalkSentMs = Environment.TickCount64;
 
         //predict position locally
         player.TileX = newX;

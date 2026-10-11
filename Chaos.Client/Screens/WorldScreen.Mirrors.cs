@@ -563,6 +563,7 @@ public sealed partial class WorldScreen
         var copy = entity.CopyForMirror(MirrorMath.MirrorCacheId(entityId, facing, idle));
         copy.Direction = facing;
         copy.VisualOffset = Vector2.Zero;
+        copy.RideOffset = Vector2.Zero;
 
         if (idle)
         {
