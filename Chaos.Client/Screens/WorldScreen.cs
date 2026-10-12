@@ -414,37 +414,10 @@ public sealed partial class WorldScreen : IScreen
         //outlives this screen, so this is unwired on unload
         userOptions.ValueChanged += HandleMapEffectSettingChanged;
 
-        //route user-initiated toggles for server-controlled settings to the network (sent as an explicit Set)
-        userOptions.UserToggled += (key, newValue) =>
-        {
-            var def = SettingDefinitions.ByKey(key);
-
-            switch (def.Category)
-            {
-                case SettingCategory.ServerOption:
-                    Game.Connection.SendSetUserOption(def.UserOption!.Value, newValue);
-
-                    break;
-                case SettingCategory.ServerAuthoritativeLocal:
-                    def.OnServerToggle?.Invoke(Game.Connection);
-
-                    break;
-            }
-        };
-
-        //route user-initiated dropdown selections for server-controlled settings to the network (same
-        //explicit Set, byte-valued). Task 6 sync keys for Task 7: SettingKey.ChatFilterMode on
-        //UserOption.ChatFilterMode (= 7, mode index 0-3) and SettingKey.HasConfiguredChatFilter on
-        //UserOption.HasConfiguredChatFilter (= 9, flag). Task 7's dialog sends both on Continue via
-        //ConnectionManager.SendSetUserOption; the server echoes the pair in UserOptionsArgs, which
-        //HandleUserOptions Applies into the cache the Task 5 call sites read.
-        userOptions.UserChoiceSelected += (key, index) =>
-        {
-            var def = SettingDefinitions.ByKey(key);
-
-            if ((def.Category == SettingCategory.ServerOption) && (def.UserOption is { } option))
-                Game.Connection.SendSetUserOption(option, (byte)index);
-        };
+        //route user-initiated toggles and dropdown selections for server-controlled settings to the network. UserOptions
+        //is static and outlives this screen, so these are unwired on unload too
+        userOptions.UserToggled += HandleUserOptionToggled;
+        userOptions.UserChoiceSelected += HandleUserOptionChoiceSelected;
 
         SettingsDialog = new SettingsControl(userOptions)
         {
@@ -1173,12 +1146,20 @@ public sealed partial class WorldScreen : IScreen
         WorldHud.Tools.WorldSpells.OnSlotClicked -= HandleSpellSlotClicked;
 
         WorldState.UserOptions.ValueChanged -= HandleMapEffectSettingChanged;
+        WorldState.UserOptions.UserToggled -= HandleUserOptionToggled;
+        WorldState.UserOptions.UserChoiceSelected -= HandleUserOptionChoiceSelected;
 
         WorldState.ResetAll();
 
         MapRenderer.Dispose();
         TabMapRenderer.Dispose();
         ScissorRasterizerState.Dispose();
+        TileCursorTexture?.Dispose();
+        TileCursorDragTexture?.Dispose();
+        TileHighlightTexture?.Dispose();
+        TileCursorTexture = null;
+        TileCursorDragTexture = null;
+        TileHighlightTexture = null;
         DarknessRenderer.Dispose();
         WeatherRenderer.Dispose();
         AmbientEffects.Dispose();
@@ -1202,6 +1183,7 @@ public sealed partial class WorldScreen : IScreen
         Game.TunePlayer.Stop();
         Game.CreatureRenderer.ClearTintCaches();
         Game.ItemRenderer.Clear();
+        Game.EffectRenderer.Clear();
         Overlays.Clear();
         DebugRenderer.Clear();
     }

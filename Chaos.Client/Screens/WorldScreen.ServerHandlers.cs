@@ -856,17 +856,26 @@ public sealed partial class WorldScreen
         popup.OnOk += () =>
         {
             Game.Connection.SendGroupInvite(ClientGroupSwitch.AcceptInvite, sourceName);
-            popup.Hide();
-            Root.RemoveChild(popup.Name);
+            CloseGroupInvitePopups();
         };
 
-        popup.OnCancel += () =>
-        {
-            popup.Hide();
-            Root.RemoveChild(popup.Name);
-        };
+        popup.OnCancel += CloseGroupInvitePopups;
 
         popup.Show(message);
+    }
+
+    //answering one invite closes every invite still open; each is hidden first so none stays on the input
+    //dispatcher's control stack after RemoveChild disposes it
+    private void CloseGroupInvitePopups()
+    {
+        if (Root is null)
+            return;
+
+        foreach (var child in Root.Children)
+            if (child is OkPopupMessageControl { Name: "GroupInvitePopup" } invite)
+                invite.Hide();
+
+        Root.RemoveChild("GroupInvitePopup");
     }
 
     //--- profiles ---
@@ -1747,12 +1756,6 @@ public sealed partial class WorldScreen
     /// </summary>
     private void HandlePokerTableDisplay(PokerTableDisplayArgs args)
     {
-        //TEMP DIAGNOSTIC -- remove once the empty-poker-roster report is resolved
-        Chaos.Client.Networking.ConnectionManager.PokerDiag(
-            $"display type={args.Type} seats={args.Seats?.Count ?? -1} roster=["
-            + string.Join(", ", (args.Seats ?? []).Select(seat => $"{seat.SeatIndex}:'{seat.Name}':{seat.EntityId}"))
-            + $"] event='{args.EventText}'");
-
         switch (args.Type)
         {
             case PokerDisplayType.Open:

@@ -864,12 +864,8 @@ public sealed class ConnectionManager : IDisposable
             try
             {
                 HandlePacket(pkt);
-            } catch (Exception ex)
+            } catch
             {
-                //TEMP DIAGNOSTIC -- remove once the empty-poker-roster report is resolved. This catch was
-                //silent, which is why a packet that fails to parse leaves no trace at all.
-                PokerDiag($"packet opcode {pkt.OpCode} threw while handling: {ex.GetType().Name}: {ex.Message}");
-
                 //malformed packet — skip
             } finally
             {
@@ -1960,24 +1956,6 @@ public sealed class ConnectionManager : IDisposable
 
         //poll
         PacketHandlers[(byte)ServerOpCode.Poll] = HandlePoll;
-    }
-
-    /// <summary>
-    ///     TEMP DIAGNOSTIC -- appends one line to pokerdiag.log beside the executable. Remove once the
-    ///     empty-poker-roster report is resolved. Swallows its own failures: a diagnostic must never be the
-    ///     thing that breaks a live client.
-    /// </summary>
-    public static void PokerDiag(string message)
-    {
-        try
-        {
-            File.AppendAllText(
-                Path.Combine(AppContext.BaseDirectory, "pokerdiag.log"),
-                $"{DateTime.Now:HH:mm:ss.fff} {message}{Environment.NewLine}");
-        } catch
-        {
-            //ignored
-        }
     }
 
     private void HandlePacket(ServerPacket pkt)

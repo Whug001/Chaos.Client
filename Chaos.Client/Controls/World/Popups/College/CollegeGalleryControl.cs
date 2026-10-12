@@ -8,6 +8,7 @@ using Chaos.DarkAges.Definitions;
 using Chaos.Networking.Entities.Client;
 using Chaos.Networking.Entities.Server;
 using Microsoft.Xna.Framework;
+using Microsoft.Xna.Framework.Graphics;
 #endregion
 
 namespace Chaos.Client.Controls.World.Popups.College;
@@ -37,6 +38,7 @@ public sealed class CollegeGalleryControl : CollegeListWindow<CollegeGalleryRowI
 
     private readonly GalleryArtCell[] Cells;
     private readonly CollegeDrawings Drawings;
+    private readonly int?[] HeldIds = new int?[ART_PAGE];
     private readonly TuneRowButton[] PlayButtons;
     private readonly TunePlayer Player;
     private readonly CustomButton[] SubjectTabs;
@@ -126,8 +128,8 @@ public sealed class CollegeGalleryControl : CollegeListWindow<CollegeGalleryRowI
         Tunes.TuneReady -= OnTuneReady;
 
         //the thumbnails belong to CollegeDrawings
-        foreach (var cell in Cells)
-            cell.Picture = null;
+        for (var i = 0; i < Cells.Length; i++)
+            ShowPicture(i, null);
 
         base.Dispose();
     }
@@ -184,11 +186,15 @@ public sealed class CollegeGalleryControl : CollegeListWindow<CollegeGalleryRowI
                 cell.Visible = IsArt && (i < shown.Count);
 
                 if (!cell.Visible)
+                {
+                    ShowPicture(i, null);
+
                     continue;
+                }
 
                 var row = shown[i];
                 cell.Set(row.Id, row.Title, row.Author, CollegeTiers.Badge(row.Tier));
-                cell.Picture = Drawings.TryGetTexture(row.Id, out var texture) ? texture : null;
+                ShowPicture(i, row.Id);
             }
 
         FetchMissingThumbnails();
@@ -333,8 +339,25 @@ public sealed class CollegeGalleryControl : CollegeListWindow<CollegeGalleryRowI
 
     private void OnDrawingReady(int id)
     {
-        foreach (var cell in Cells)
-            if (cell.Visible && (cell.Id == id) && Drawings.TryGetTexture(id, out var texture))
-                cell.Picture = texture;
+        for (var i = 0; i < Cells.Length; i++)
+            if (Cells[i].Visible && (Cells[i].Id == id))
+                ShowPicture(i, id);
+    }
+
+    //a shown thumbnail is held so CollegeDrawings never drops (and disposes) it while the cell draws it
+    private void ShowPicture(int index, int? id)
+    {
+        Texture2D? texture = null;
+
+        if (id is { } shownId && Drawings.TryGetTexture(shownId, out texture))
+            Drawings.Hold(shownId);
+        else
+            id = null;
+
+        if (HeldIds[index] is { } held)
+            Drawings.Release(held);
+
+        HeldIds[index] = id;
+        Cells[index].Picture = texture;
     }
 }

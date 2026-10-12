@@ -1356,6 +1356,33 @@ public sealed partial class WorldScreen
             friends.SlideIn();
     }
 
+    private void HandleUserOptionToggled(SettingKey key, bool newValue)
+    {
+        var def = SettingDefinitions.ByKey(key);
+
+        switch (def.Category)
+        {
+            case SettingCategory.ServerOption:
+                Game.Connection.SendSetUserOption(def.UserOption!.Value, newValue);
+
+                break;
+            case SettingCategory.ServerAuthoritativeLocal:
+                def.OnServerToggle?.Invoke(Game.Connection);
+
+                break;
+        }
+    }
+
+    //dropdowns go out as the same explicit Set, byte-valued; the server echoes the value in UserOptionsArgs and
+    //HandleUserOptions applies it.
+    private void HandleUserOptionChoiceSelected(SettingKey key, int index)
+    {
+        var def = SettingDefinitions.ByKey(key);
+
+        if ((def.Category == SettingCategory.ServerOption) && (def.UserOption is { } option))
+            Game.Connection.SendSetUserOption(option, (byte)index);
+    }
+
     //First-run dialog Continue: save the picked mode and flip the configured flag through the Task 6
     //explicit-Set path; the server echoes the pair in UserOptionsArgs and HandleUserOptions applies them.
     private void SendChatFilterChoice(int index)

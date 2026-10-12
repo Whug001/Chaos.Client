@@ -265,10 +265,13 @@ public sealed class AislingRenderer : IDisposable
 
         CompositeCache.Clear();
 
-        //status-tint textures are keyed on the composite source textures disposed above; the bulk
-        //clear bypasses DisposeCompositeTexture, so free the derived textures here to avoid leaking
-        //them each map change. They are independent Texture2D objects, so this won't double-dispose.
+        //every tint cache is keyed on the composite source textures disposed above; the bulk clear
+        //bypasses DisposeCompositeTexture, so free the derived textures here to avoid leaking them
+        //each map change. They are independent Texture2D objects, so this won't double-dispose.
         StatusTintCache.DisposeAndClear();
+        TintedTextureCache.DisposeAndClear();
+        GroupTintCache.DisposeAndClear();
+        HitTintCache.DisposeAndClear();
     }
 
     private void DisposeCompositeTexture(Texture2D texture)
@@ -328,6 +331,11 @@ public sealed class AislingRenderer : IDisposable
     {
         var old = LayerImageCache;
         LayerImageCache = new MemoryCache(new MemoryCacheOptions());
+
+        //Dispose alone drops the entries without running their eviction callbacks, so the SKImages would leak.
+        //Clear evicts them; the callbacks run on the thread pool, which is safe because the layer images are only
+        //referenced inside a synchronous Render call on the game thread and the new cache no longer hands them out.
+        old.Clear();
         old.Dispose();
     }
 
