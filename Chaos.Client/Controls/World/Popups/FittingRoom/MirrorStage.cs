@@ -45,7 +45,9 @@ public sealed class MirrorStage : UIElement
     private const int FLOOR_TOP = MIRROR_TOP + MIRROR_HEIGHT + 6;
 
     private const int UP = 0;
+    private const int RIGHT = 1;
     private const int DOWN = 2;
+    private const int LEFT = 3;
 
     //clockwise: Up, Right, Down, Left as (frame, flip, isFront). The sheets hold up (0-4) and right (5-9); down is right
     //flipped and left is up flipped, as in MirrorPreview.
@@ -191,13 +193,15 @@ public sealed class MirrorStage : UIElement
         DrawFigure(spriteBatch, GetFrame(Facing, step), centerX, ScreenY + FIGURE_CENTER_Y + offset, inside, Color.White);
     }
 
-    //the mirror swaps toward and away; a sideways turn stays sideways
+    //every facing is diagonal and the glass is straight ahead, so the mirror flips only the toward/away half:
+    //up-right becomes down-right and up-left becomes down-left
     private static int Reflect(int facing)
         => facing switch
         {
-            UP   => DOWN,
-            DOWN => UP,
-            _    => facing
+            UP    => RIGHT,
+            RIGHT => UP,
+            DOWN  => LEFT,
+            _     => DOWN
         };
 
     private static int[] BuildArchInsets()
