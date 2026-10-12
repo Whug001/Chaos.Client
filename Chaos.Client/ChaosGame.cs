@@ -489,6 +489,7 @@ public sealed class ChaosGame : Game
         FontAtlas.Initialize(GraphicsDevice);
         DamageNumberFont.Initialize(GraphicsDevice);
         CooldownNumberFont.Initialize(GraphicsDevice);
+        StackNumberFont.Initialize(GraphicsDevice);
         UiRenderer.Instance = new UiRenderer(GraphicsDevice);
 
         //opt our hardware cursor out of Win11's DPI + accessibility "pointer size" scaling before we build it,
