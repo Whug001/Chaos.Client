@@ -16,6 +16,9 @@ public sealed class WorldEntity
 {
     public BodyAnimation? ActiveBodyAnimation { get; set; }
 
+    //the body animation still runs (and holds the entity in place) but draws the idle pose instead
+    public bool BodyAnimHidden { get; set; }
+
     //emote overlay — animated frame range in emot01.epf, -1 = no active emote
     public int ActiveEmoteFrame { get; set; } = -1;
     public float AnimElapsedMs { get; set; }
