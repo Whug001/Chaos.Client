@@ -156,6 +156,7 @@ public sealed partial class WorldScreen
 
         //clear entity + renderer caches for the new map
         ClearTransientState();
+        Game.EffectRenderer.Clear();
         Game.CreatureRenderer.Clear();
         Game.AislingRenderer.ClearCache();
         Game.AislingRenderer.ClearTintedCache();

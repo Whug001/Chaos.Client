@@ -33,7 +33,7 @@ public sealed class GameClient : IDisposable
     private int ConnectionGeneration;
     private int PendingSends;
     private bool Disposed;
-    private volatile bool IsAlive;
+    private int Alive;
     private int ReceiveCount;
     private CancellationTokenSource? ReceiveCts;
     private IMemoryOwner<byte>? ReceiveMemoryOwner;
@@ -41,6 +41,12 @@ public sealed class GameClient : IDisposable
     private int Sequence;
 
     private Socket? Socket;
+
+    //set while the receive loop raises OnDisconnected, so a Disconnect called from that handler does not wait on the
+    //very task it is running inside
+    private int ReceiveExitThreadId;
+
+    private bool IsAlive => Volatile.Read(ref Alive) == 1;
 
     /// <summary>
     ///     The crypto instance used for encryption/decryption. Updated during connection handshake.
@@ -101,7 +107,15 @@ public sealed class GameClient : IDisposable
             NoDelay = true
         };
 
-        Socket.Connect(host, port);
+        try
+        {
+            Socket.Connect(host, port);
+        } catch
+        {
+            DisposeSocket();
+
+            throw;
+        }
 
         StartReceiveLoop();
     }
@@ -124,7 +138,15 @@ public sealed class GameClient : IDisposable
             NoDelay = true
         };
 
-        await Socket.ConnectAsync(host, port, ct);
+        try
+        {
+            await Socket.ConnectAsync(host, port, ct);
+        } catch
+        {
+            DisposeSocket();
+
+            throw;
+        }
 
         StartReceiveLoop();
     }
@@ -152,10 +174,9 @@ public sealed class GameClient : IDisposable
     /// </summary>
     public void Disconnect()
     {
-        if (!IsAlive)
-            return;
-
-        IsAlive = false;
+        //the receive loop may have already marked the connection dead after a server-side close; its socket, token
+        //source and receive buffer are still ours to release, so cleanup always runs and only the event is gated.
+        var wasAlive = Interlocked.Exchange(ref Alive, 0) == 1;
 
         try
         {
@@ -173,27 +194,21 @@ public sealed class GameClient : IDisposable
             /* ignored */
         }
 
-        try
-        {
-            Socket?.Dispose();
-        } catch
-        {
-            /* ignored */
-        }
-
-        Socket = null;
+        DisposeSocket();
 
         //wait for the receive task to fully exit before cleaning up.
         //this prevents a race where the old task's finally block runs after
-        //a new connection sets isalive=true, killing the new connection.
-        try
-        {
-            ReceiveTask?.GetAwaiter()
-                       .GetResult();
-        } catch
-        {
-            /* ignored */
-        }
+        //a new connection sets isalive=true, killing the new connection, and keeps the
+        //receive buffer from being returned to the pool while the loop still reads it.
+        if (ReceiveExitThreadId != Environment.CurrentManagedThreadId)
+            try
+            {
+                ReceiveTask?.GetAwaiter()
+                           .GetResult();
+            } catch
+            {
+                /* ignored */
+            }
 
         ReceiveTask = null;
 
@@ -210,7 +225,21 @@ public sealed class GameClient : IDisposable
         ReceiveCts?.Dispose();
         ReceiveCts = null;
 
-        OnDisconnected?.Invoke();
+        if (wasAlive)
+            OnDisconnected?.Invoke();
+    }
+
+    private void DisposeSocket()
+    {
+        try
+        {
+            Socket?.Dispose();
+        } catch
+        {
+            /* ignored */
+        }
+
+        Socket = null;
     }
 
     /// <summary>
@@ -310,7 +339,7 @@ public sealed class GameClient : IDisposable
     {
         ReceiveMemoryOwner = MemoryPool<byte>.Shared.Rent(RECEIVE_BUFFER_SIZE);
         ReceiveCount = 0;
-        IsAlive = true;
+        Volatile.Write(ref Alive, 1);
 
         var generation = Interlocked.Increment(ref ConnectionGeneration);
         ReceiveCts = new CancellationTokenSource();
@@ -365,10 +394,17 @@ public sealed class GameClient : IDisposable
         {
             //only fire ondisconnected if this is still the active connection.
             //during redirects, a new connection may already be established.
-            if (IsAlive && (generation == Volatile.Read(ref ConnectionGeneration)))
+            if ((generation == Volatile.Read(ref ConnectionGeneration)) && (Interlocked.Exchange(ref Alive, 0) == 1))
             {
-                IsAlive = false;
-                OnDisconnected?.Invoke();
+                ReceiveExitThreadId = Environment.CurrentManagedThreadId;
+
+                try
+                {
+                    OnDisconnected?.Invoke();
+                } finally
+                {
+                    ReceiveExitThreadId = 0;
+                }
             }
         }
     }

@@ -61,4 +61,36 @@ public class CollegeDrawingsTests
         drawings.Has(5).Should().BeFalse();
         drawings.NeedsFetch(4, Start).Should().BeTrue();
     }
+
+    [Test]
+    public void Only_the_most_recently_used_drawings_are_kept()
+    {
+        var drawings = new CollegeDrawings();
+
+        for (var id = 1; id <= CollegeDrawings.KEPT_DRAWINGS + 1; id++)
+            drawings.OnDrawing(Drawing(id));
+
+        drawings.Has(1).Should().BeFalse();
+        drawings.Has(2).Should().BeTrue();
+        drawings.Has(CollegeDrawings.KEPT_DRAWINGS + 1).Should().BeTrue();
+        drawings.NeedsFetch(1, Start).Should().BeTrue();
+    }
+
+    [Test]
+    public void A_held_drawing_is_kept_until_released()
+    {
+        var drawings = new CollegeDrawings();
+        drawings.OnDrawing(Drawing(1));
+        drawings.Hold(1);
+
+        for (var id = 2; id <= CollegeDrawings.KEPT_DRAWINGS + 2; id++)
+            drawings.OnDrawing(Drawing(id));
+
+        drawings.Has(1).Should().BeTrue();
+
+        drawings.Release(1);
+        drawings.OnDrawing(Drawing(CollegeDrawings.KEPT_DRAWINGS + 3));
+
+        drawings.Has(1).Should().BeFalse();
+    }
 }

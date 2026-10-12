@@ -22,6 +22,10 @@ public sealed class LightMaskRepository : RepositoryBase
 
     public LightMask? Get(string epfName)
     {
+        //called every frame per lantern, so the cached mask is returned before the epf is looked up and parsed
+        if (Cache.TryGetValue(epfName, out LightMask? cached))
+            return cached;
+
         if (!DatArchives.Legend.TryGetValue($"{epfName}.epf", out var entry))
             return null;
 

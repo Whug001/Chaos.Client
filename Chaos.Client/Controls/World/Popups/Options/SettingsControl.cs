@@ -496,6 +496,13 @@ public sealed class SettingsControl : FramedDialogPanelBase
             Visible = false;
     }
 
+    public override void Dispose()
+    {
+        Options.ValueChanged -= OnValueChanged;
+
+        base.Dispose();
+    }
+
     public event CloseHandler? OnClose;
 
     public void SetSlideAnchor(int anchorX, int anchorY)

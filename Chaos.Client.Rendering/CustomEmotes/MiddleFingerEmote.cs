@@ -252,7 +252,9 @@ public sealed class MiddleFingerEmote : ICustomEmote
         if (!TryFold(bitmap, AislingRenderer.LAYER_OFFSET_PADDING))
             return null;
 
-        return TextureConverter.ToTexture2D(SKImage.FromBitmap(bitmap));
+        using var folded = SKImage.FromBitmap(bitmap);
+
+        return TextureConverter.ToTexture2D(folded);
     }
     #endregion
 }
