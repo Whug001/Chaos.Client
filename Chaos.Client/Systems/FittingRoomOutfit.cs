@@ -22,23 +22,29 @@ public static class FittingRoomOutfit
         DisplayColor hairColor,
         FittingRoomPiece? overcoat,
         FittingRoomPiece? head,
-        IReadOnlyList<FittingRoomPiece> accessories)
+        IReadOnlyList<FittingRoomPiece> accessories,
+        ushort hairStyle = 0)
     {
         var result = baseLook;
 
+        //the player's own head-hiding costume arrives with no head drawn
+        var headHidden = baseLook.HeadSprite == 0;
+
         if (overcoat is { } coat)
-            result = coat.Look.Layer == TownImportLayer.OvercoatAsArmor
-                ? result with
-                {
-                    ArmorSprite = coat.Look.DisplaySprite,
-                    OvercoatSprite = 0,
-                    OvercoatColor = DisplayColor.Default
-                }
-                : result with
-                {
-                    OvercoatSprite = coat.Look.DisplaySprite,
-                    OvercoatColor = coat.Color
-                };
+        {
+            result = coat.Look.Layer == TownImportLayer.OvercoatAsArmor ? AsArmor(result, coat) : result with
+            {
+                OvercoatSprite = coat.Look.DisplaySprite,
+                OvercoatColor = coat.Color
+            };
+
+            //the tried-on overcoat replaces that costume, so the hair shows again
+            if (headHidden && (hairStyle != 0))
+            {
+                result = result with { HeadSprite = hairStyle, HeadColor = hairColor };
+                headHidden = false;
+            }
+        }
 
         var count = Math.Min(accessories.Count, MAX_ACCESSORIES);
 
@@ -49,7 +55,7 @@ public static class FittingRoomOutfit
         {
             if (hat.Look.Layer == TownImportLayer.OverHair)
                 result = PlaceAccessory(result, FirstEmptySlot(result), hat.Look.DisplaySprite, hat.Color);
-            else
+            else if (!headHidden)
                 result = result with { HeadSprite = hat.Look.DisplaySprite, HeadColor = HatColor(hat, hairColor) };
         }
 
@@ -61,6 +67,18 @@ public static class FittingRoomOutfit
 
         return result;
     }
+
+    /// <summary>
+    ///     An overcoat drawn as armor moves into the armor slot. A colored one also stays in the overcoat slot, because that
+    ///     is the only slot that carries a color (<c>AislingMapperProfile.ResolveBodyGarment</c>).
+    /// </summary>
+    public static AislingAppearance AsArmor(in AislingAppearance look, FittingRoomPiece coat)
+        => look with
+        {
+            ArmorSprite = coat.Look.DisplaySprite,
+            OvercoatSprite = coat.Color == DisplayColor.Default ? (ushort)0 : coat.Look.DisplaySprite,
+            OvercoatColor = coat.Color
+        };
 
     /// <summary>The accessory slot (1-3) an over-hair piece goes in: the first one with nothing shown, else the third.</summary>
     public static int FirstEmptySlot(in AislingAppearance look)

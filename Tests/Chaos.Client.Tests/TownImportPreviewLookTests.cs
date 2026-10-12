@@ -53,7 +53,8 @@ public sealed class TownImportPreviewLookTests
 
         var armor = TownImportPreviewLook.Apply(Base, Look(TownImportLayer.OvercoatAsArmor));
         armor.ArmorSprite.Should().Be(500);
-        armor.OvercoatSprite.Should().Be(0);
+        armor.OvercoatSprite.Should().Be(500);
+        armor.OvercoatColor.Should().Be(DisplayColor.Lime);
     }
 
     [Test]

@@ -51,11 +51,52 @@ public sealed class FittingRoomOutfitTests
     [Test]
     public void Overcoat_as_armor_replaces_armor_and_clears_overcoat()
     {
-        var look = FittingRoomOutfit.Compose(Base, DisplayColor.Fire, Piece(TownImportLayer.OvercoatAsArmor), null, []);
+        var look = FittingRoomOutfit.Compose(Base, DisplayColor.Fire, Piece(TownImportLayer.OvercoatAsArmor, color: DisplayColor.Default), null, []);
 
         look.ArmorSprite.Should().Be(500);
         look.OvercoatSprite.Should().Be(0);
         look.OvercoatColor.Should().Be(DisplayColor.Default);
+    }
+
+    [Test]
+    public void Colored_overcoat_as_armor_also_stays_in_the_overcoat_slot()
+    {
+        var look = FittingRoomOutfit.Compose(Base, DisplayColor.Fire, Piece(TownImportLayer.OvercoatAsArmor, color: DisplayColor.Lime), null, []);
+
+        look.ArmorSprite.Should().Be(500);
+        look.OvercoatSprite.Should().Be(500);
+        look.OvercoatColor.Should().Be(DisplayColor.Lime);
+    }
+
+    [Test]
+    public void Tried_on_overcoat_brings_back_hair_hidden_by_the_players_costume()
+    {
+        var costumed = Base with { HeadSprite = 0, HeadColor = DisplayColor.Default };
+
+        var look = FittingRoomOutfit.Compose(costumed, DisplayColor.Fire, Piece(TownImportLayer.Overcoat), null, [], 9);
+
+        look.HeadSprite.Should().Be(9);
+        look.HeadColor.Should().Be(DisplayColor.Fire);
+    }
+
+    [Test]
+    public void Tried_on_hat_stays_hidden_under_the_players_head_hiding_costume()
+    {
+        var costumed = Base with { HeadSprite = 0, HeadColor = DisplayColor.Default };
+
+        var look = FittingRoomOutfit.Compose(costumed, DisplayColor.Fire, null, Piece(TownImportLayer.Head), [], 9);
+
+        look.HeadSprite.Should().Be(0);
+    }
+
+    [Test]
+    public void Tried_on_hat_shows_once_a_tried_on_overcoat_replaces_the_costume()
+    {
+        var costumed = Base with { HeadSprite = 0, HeadColor = DisplayColor.Default };
+
+        var look = FittingRoomOutfit.Compose(costumed, DisplayColor.Fire, Piece(TownImportLayer.Overcoat), Piece(TownImportLayer.Head, 600), [], 9);
+
+        look.HeadSprite.Should().Be(600);
     }
 
     [Test]

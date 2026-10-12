@@ -30,12 +30,7 @@ public static class TownImportPreviewLook
                 OvercoatSprite = item.DisplaySprite,
                 OvercoatColor = item.Color
             },
-            TownImportLayer.OvercoatAsArmor => look with
-            {
-                ArmorSprite = item.DisplaySprite,
-                OvercoatSprite = 0,
-                OvercoatColor = DisplayColor.Default
-            },
+            TownImportLayer.OvercoatAsArmor => FittingRoomOutfit.AsArmor(look, new FittingRoomPiece(item, item.Color)),
             TownImportLayer.OverHair => FittingRoomOutfit.PlaceAccessory(
                 look,
                 FittingRoomOutfit.FirstEmptySlot(look),
