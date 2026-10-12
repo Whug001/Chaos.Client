@@ -445,6 +445,11 @@ public delegate void PokerTableDisplayHandler(PokerTableDisplayArgs args);
 /// </summary>
 public delegate void BeautyShopDisplayHandler(BeautyShopDisplayArgs args);
 
+/// <summary>
+///     Fired when a fitting room display packet is received.
+/// </summary>
+public delegate void FittingRoomDisplayHandler(FittingRoomDisplayArgs args);
+
 
 public delegate void BugReportOpenHandler(BugReportOpenArgs args);
 

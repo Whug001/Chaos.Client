@@ -1807,6 +1807,28 @@ public sealed partial class WorldScreen
         }
     }
 
+    /// <summary>
+    ///     Dispatches a fitting room display packet: Open loads the catalog into <see cref="WorldState.FittingRoom" />,
+    ///     starting from the player's live look, then shows the window; Close hides it and drops the catalog.
+    /// </summary>
+    private void HandleFittingRoomDisplay(FittingRoomDisplayArgs args)
+    {
+        switch (args.Type)
+        {
+            case FittingRoomDisplayType.Open:
+                WorldState.FittingRoom.ApplyOpen(args, WorldState.GetPlayerEntity()?.Appearance);
+                FittingRoom.Show();
+
+                break;
+
+            case FittingRoomDisplayType.Close:
+                FittingRoom.Hide();
+                WorldState.FittingRoom.Clear();
+
+                break;
+        }
+    }
+
 
     /// <summary>
     ///     Terminus's "Report a bug". The NPC dialog is closed now, during Update, so the frame drawn this tick has no

@@ -12,6 +12,7 @@ using Chaos.Client.Controls.World.Popups.Boards;
 using Chaos.Client.Controls.World.Popups.BugReport;
 using Chaos.Client.Controls.World.Popups.Dialog;
 using Chaos.Client.Controls.World.Popups.Exchange;
+using Chaos.Client.Controls.World.Popups.FittingRoom;
 using Chaos.Client.Controls.World.Popups.GroupPanels;
 using Chaos.Client.Controls.World.Popups.Market;
 using Chaos.Client.Controls.World.Popups.Options;
@@ -206,6 +207,9 @@ public sealed partial class WorldScreen : IScreen
 
     //beauty shop mirror — opened by the server's BeautyShop Open display from Josephine's dialog
     private BeautyShopControl BeautyShop = null!;
+
+    //Illustria's Closet — opened by the server's FittingRoomDisplay Open from the mirror tile or Illustria's dialog
+    private FittingRoomControl FittingRoom = null!;
 
 
     //in-game bug report window — opened by the server's BugReportOpen from Terminus's "Report a bug"
@@ -890,6 +894,12 @@ public sealed partial class WorldScreen : IScreen
         };
         WireBeautyShop();
 
+        FittingRoom = new FittingRoomControl(Game.AislingRenderer)
+        {
+            ZIndex = 2
+        };
+        WireFittingRoom();
+
         BugReport = new BugReportControl
         {
             ZIndex = 2
@@ -991,6 +1001,7 @@ public sealed partial class WorldScreen : IScreen
         Root.AddChild(QuestLogWindow);
         Root.AddChild(Poker);
         Root.AddChild(BeautyShop);
+        Root.AddChild(FittingRoom);
         Root.AddChild(BugReport);
         Root.AddChild(StageLightingWindow);
         Root.AddChild(MainOptions);
@@ -1136,6 +1147,7 @@ public sealed partial class WorldScreen : IScreen
         Game.Connection.OnHotkeyHelpOpen -= HandleHotkeyHelpOpen;
         Game.Connection.OnPokerTableDisplay -= HandlePokerTableDisplay;
         Game.Connection.OnBeautyShopDisplay -= HandleBeautyShopDisplay;
+        Game.Connection.OnFittingRoomDisplay -= HandleFittingRoomDisplay;
         Game.Connection.OnBugReportOpen -= HandleBugReportOpen;
         UnwireStageLighting();
         UnwireMirrors();
