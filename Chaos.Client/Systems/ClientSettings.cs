@@ -99,6 +99,9 @@ public static class ClientSettings
     // arrows, Enter and F1-F8 pick and cast spell targets instead of doing their usual jobs. ---
     public static bool TabTargeting { get; set; }
 
+    //J keeps group members highlighted until pressed again, instead of the one-second flash
+    public static bool ToggleGroupHighlight { get; set; }
+
     // --- Map effects a player can hide, for flicker and flashing that bothers them (client-local; read by
     // MapEffectFilter). Off by default: every effect shows until the player opts out. ---
     public static bool HideLightning { get; set; }
@@ -338,6 +341,11 @@ public static class ClientSettings
 
                         break;
 
+                    case "ToggleGroupHighlight":
+                        ToggleGroupHighlight = value == "1";
+
+                        break;
+
                     case "MaxEffectAnimations":
                         if (int.TryParse(value, out var mea))
                             MaxEffectAnimationsPerEntity = Math.Clamp(mea, 0, 10);
@@ -404,6 +412,7 @@ public static class ClientSettings
             writer.WriteLine($"RaidGridView : {(RaidGridView ? 1 : 0)}");
             writer.WriteLine($"GroundTargetSnapToEntity : {(GroundTargetSnapToEntity ? 1 : 0)}");
             writer.WriteLine($"TabTargeting : {(TabTargeting ? 1 : 0)}");
+            writer.WriteLine($"ToggleGroupHighlight : {(ToggleGroupHighlight ? 1 : 0)}");
             writer.WriteLine($"MaxEffectAnimations : {MaxEffectAnimationsPerEntity}");
             writer.WriteLine($"HideLightning : {(HideLightning ? 1 : 0)}");
             writer.WriteLine($"HideRain : {(HideRain ? 1 : 0)}");

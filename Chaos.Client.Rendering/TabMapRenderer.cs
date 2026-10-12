@@ -43,6 +43,7 @@ public sealed class TabMapRenderer : IDisposable
     private const int ATLAS_CREATURE = 17;
     private const int ATLAS_AISLING = 18;
     private const int ATLAS_MERCHANT = 19;
+    private const int ATLAS_GATHER_NODE = 20;
 
     //fill is 25% transparent black; border is fully opaque white
     private static readonly Color FILL_COLOR = Color.LightGray * 0.25f;
@@ -51,6 +52,7 @@ public sealed class TabMapRenderer : IDisposable
     private static readonly Color COLOR_CREATURE = new(206, 0, 16);
     private static readonly Color COLOR_MERCHANT = new(0, 255, 0);
     private static readonly Color COLOR_AISLING = new(123, 166, 247);
+    private static readonly Color COLOR_GATHER_NODE = new(200, 162, 200);
 
     //diamond row bounds for 20x10 tile (staircase: 4px at top, +4px/row, full 20px at center)
     private static readonly (int StartX, int EndX)[] DiamondRows = ComputeDiamondRows();
@@ -103,7 +105,7 @@ public sealed class TabMapRenderer : IDisposable
     }
 
     /// <summary>
-    ///     Builds a texture atlas: 16 border-collapse wall variants + 4 solid entity diamonds. All colors fully opaque —
+    ///     Builds a texture atlas: 16 border-collapse wall variants + 5 solid entity diamonds. All colors fully opaque —
     ///     overall transparency applied via SpriteBatch tint at draw time.
     /// </summary>
     private void BuildAtlas(GraphicsDevice device)
@@ -162,13 +164,14 @@ public sealed class TabMapRenderer : IDisposable
                 TILE_H);
         }
 
-        //entity diamonds: solid fill (indices 16-19)
+        //entity diamonds: solid fill (indices 16-20)
         Color[] entityColors =
         [
             COLOR_PLAYER,
             COLOR_CREATURE,
             COLOR_AISLING,
-            COLOR_MERCHANT
+            COLOR_MERCHANT,
+            COLOR_GATHER_NODE
         ];
 
         int[] entityIndices =
@@ -176,7 +179,8 @@ public sealed class TabMapRenderer : IDisposable
             ATLAS_PLAYER,
             ATLAS_CREATURE,
             ATLAS_AISLING,
-            ATLAS_MERCHANT
+            ATLAS_MERCHANT,
+            ATLAS_GATHER_NODE
         ];
 
         for (var i = 0; i < entityColors.Length; i++)
@@ -402,6 +406,8 @@ public sealed class TabMapRenderer : IDisposable
                 atlasIndex = ATLAS_AISLING;
             else if (entity.CreatureType == CreatureType.Merchant)
                 atlasIndex = ATLAS_MERCHANT;
+            else if (entity.IsGatherNode)
+                atlasIndex = ATLAS_GATHER_NODE;
             else
                 atlasIndex = ATLAS_CREATURE;
 

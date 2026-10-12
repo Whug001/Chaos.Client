@@ -131,8 +131,25 @@ public sealed partial class WorldScreen
         WorldState.UpdateEffects(elapsedMs);
         AdvanceProjectiles(elapsedMs);
 
+        //latched group highlight: off when the F4 toggle is turned off, otherwise re-picked twice a second
+        if (GroupHighlightLatched)
+        {
+            if (!ClientSettings.ToggleGroupHighlight)
+                ClearGroupHighlight();
+            else if (!GroupHighlightRequested)
+            {
+                GroupHighlightTimer -= elapsedMs;
+
+                if (GroupHighlightTimer <= 0)
+                {
+                    GroupHighlightTimer = 500f;
+                    RefreshLatchedGroupHighlight();
+                }
+            }
+        }
+
         //group highlight auto-expire (1000ms flash)
-        if (GroupHighlightedIds.Count > 0)
+        else if (GroupHighlightedIds.Count > 0)
         {
             GroupHighlightTimer -= elapsedMs;
 

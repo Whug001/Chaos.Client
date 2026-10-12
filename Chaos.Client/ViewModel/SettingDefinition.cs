@@ -81,7 +81,8 @@ public enum SettingKey
     HideFrost,
     HideBlizzard,
     ReduceTumbleMotion,
-    TabTargeting
+    TabTargeting,
+    ToggleGroupHighlight
 }
 
 /// <summary>
@@ -347,6 +348,14 @@ public static class SettingDefinitions
             SettingCategory.ClientLocal,
             Get: () => ClientSettings.TabTargeting,
             Set: v => ClientSettings.TabTargeting = v,
+            Span: SettingSpan.Full),
+        new(
+            SettingKey.ToggleGroupHighlight,
+            "J key toggles group highlight",
+            SettingSection.Interaction,
+            SettingCategory.ClientLocal,
+            Get: () => ClientSettings.ToggleGroupHighlight,
+            Set: v => ClientSettings.ToggleGroupHighlight = v,
             Span: SettingSpan.Full),
 
         //── Chat filter ──

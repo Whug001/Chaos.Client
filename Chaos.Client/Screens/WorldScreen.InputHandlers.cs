@@ -857,11 +857,16 @@ public sealed partial class WorldScreen
             return;
         }
 
-        //escape — collapse any expanded HUD panel back to normal size. only consume
-        //the key when something was actually collapsed so it stays a no-op otherwise.
+        //escape — close the quest log, else collapse any expanded HUD panel back to normal size. only consume
+        //the key when something was actually closed or collapsed so it stays a no-op otherwise.
+        //the quest log stays off the control stack so the player can walk with it open, which is why it is closed here
         if (e.Scancode == Scancode.Escape)
         {
-            if (WorldHud.CollapseExpanded())
+            if (QuestLogWindow.Visible)
+            {
+                QuestLogWindow.Close();
+                e.Handled = true;
+            } else if (WorldHud.CollapseExpanded())
                 e.Handled = true;
 
             return;
@@ -1117,10 +1122,19 @@ public sealed partial class WorldScreen
 
                 return true;
 
-            //flash group member highlighting (1000ms, gated while pending or active)
+            //flash group member highlighting (1000ms, gated while pending or active), or latch it on/off in toggle mode
             case GameAction.GroupHighlight:
+                if (GroupHighlightLatched)
+                {
+                    ClearGroupHighlight();
+
+                    return true;
+                }
+
                 if (GroupHighlightRequested || (GroupHighlightedIds.Count > 0))
                     return false;
+
+                GroupHighlightLatched = ClientSettings.ToggleGroupHighlight;
 
                 GroupHighlightRequested = true;
                 Game.Connection.RequestSelfProfile();
