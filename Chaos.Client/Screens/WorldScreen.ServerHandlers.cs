@@ -1031,11 +1031,47 @@ public sealed partial class WorldScreen
         }
     }
 
+    private void ClearGroupHighlight()
+    {
+        GroupHighlightLatched = false;
+        GroupHighlightedIds.Clear();
+        Game.AislingRenderer.ClearGroupTintCache();
+        Game.CreatureRenderer.ClearTintCaches();
+    }
+
     private void ApplyGroupHighlight()
     {
         GroupHighlightedIds.Clear();
         Game.AislingRenderer.ClearGroupTintCache();
         Game.CreatureRenderer.ClearTintCaches();
+
+        foreach (var id in FindVisibleGroupMemberIds())
+            GroupHighlightedIds.Add(id);
+
+        if (GroupHighlightedIds.Count > 0)
+            GroupHighlightTimer = 1000f;
+    }
+
+    /// <summary>
+    ///     Re-picks the highlighted members while the highlight is latched on, so members who walk into view, or join,
+    ///     light up. The tint caches are only dropped when the set changes.
+    /// </summary>
+    private void RefreshLatchedGroupHighlight()
+    {
+        var ids = FindVisibleGroupMemberIds();
+
+        if (GroupHighlightedIds.SetEquals(ids))
+            return;
+
+        GroupHighlightedIds.Clear();
+        GroupHighlightedIds.UnionWith(ids);
+        Game.AislingRenderer.ClearGroupTintCache();
+        Game.CreatureRenderer.ClearTintCaches();
+    }
+
+    private HashSet<uint> FindVisibleGroupMemberIds()
+    {
+        var ids = new HashSet<uint>();
 
         var memberSet = new HashSet<string>(WorldState.Group.Members, StringComparer.OrdinalIgnoreCase);
 
@@ -1045,7 +1081,7 @@ public sealed partial class WorldScreen
                 memberSet.Add(member.Name);
 
         if (memberSet.Count == 0)
-            return;
+            return ids;
 
         foreach (var entity in WorldState.GetSortedEntities())
         {
@@ -1053,11 +1089,10 @@ public sealed partial class WorldScreen
                 continue;
 
             if ((entity.Id != WorldState.PlayerEntityId) && !string.IsNullOrEmpty(entity.Name) && memberSet.Contains(entity.Name))
-                GroupHighlightedIds.Add(entity.Id);
+                ids.Add(entity.Id);
         }
 
-        if (GroupHighlightedIds.Count > 0)
-            GroupHighlightTimer = 1000f;
+        return ids;
     }
 
     private void ShowStatusBook(StatusBookTab tab = StatusBookTab.Equipment)

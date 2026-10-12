@@ -9,4 +9,5 @@ public readonly record struct TabMapEntity(
     int TileY,
     ClientEntityType Type,
     uint Id,
-    CreatureType CreatureType);
+    CreatureType CreatureType,
+    bool IsGatherNode = false);

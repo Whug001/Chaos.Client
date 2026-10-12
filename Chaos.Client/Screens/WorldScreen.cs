@@ -169,6 +169,9 @@ public sealed partial class WorldScreen : IScreen
     //true when j was pressed — the next selfprofile response triggers group highlighting instead of opening the panel
     private bool GroupHighlightRequested;
     private float GroupHighlightTimer;
+
+    //true while J has turned the highlight on in toggle mode; it then stays on and follows members until J is pressed again
+    private bool GroupHighlightLatched;
     private GroupTabControl GroupPanel = null!;
     private HotkeyHelpControl HotkeyHelp = null!;
     private KeyBindingsControl KeyBindingsWindow = null!;

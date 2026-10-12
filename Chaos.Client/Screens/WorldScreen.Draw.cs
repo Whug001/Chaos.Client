@@ -302,7 +302,8 @@ public sealed partial class WorldScreen
                         e.TileY,
                         e.Type,
                         e.Id,
-                        e.CreatureType);
+                        e.CreatureType,
+                        (e.Type == ClientEntityType.Creature) && GatherNodeSprites.Contains(e.SpriteId));
                 }
 
                 TabMapRenderer.Draw(
