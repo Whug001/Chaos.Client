@@ -73,6 +73,31 @@ public sealed class FittingRoomViewModelTests
     }
 
     [Test]
+    public void Crown_leaves_room_for_two_accessories()
+    {
+        var a = Enumerable.Range(1, 3).Select(i => Look($"acc{i}", TownImportLayer.Accessory, (ushort)(100 + i))).ToArray();
+        var crown = Look("crown", TownImportLayer.OverHair, 600);
+        var room = Open([..a, crown]);
+
+        foreach (var look in a)
+            room.Toggle(look);
+
+        room.Toggle(crown);
+
+        room.Worn.Select(w => w.Look.Name).Should().Equal("crown", "acc2", "acc3");
+        room.Effective.Accessory3Sprite.Should().Be(600);
+
+        var acc4 = Look("acc4", TownImportLayer.Accessory, 104);
+        room = Open([..a, crown, acc4]);
+        room.Toggle(crown);
+
+        foreach (var look in a)
+            room.Toggle(look);
+
+        room.Worn.Select(w => w.Look.Name).Should().Equal("crown", "acc2", "acc3");
+    }
+
+    [Test]
     public void Toggle_removes_a_worn_look()
     {
         var coat = Look("coat", TownImportLayer.Overcoat);

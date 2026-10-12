@@ -140,7 +140,8 @@ public sealed class FittingRoom
                 HairColor,
                 Piece(overcoat),
                 Piece(head),
-                accessories.Select(a => new FittingRoomPiece(a.Look.Look, a.Color)).ToList());
+                accessories.Select(a => new FittingRoomPiece(a.Look.Look, a.Color)).ToList(),
+                HairStyle);
         }
     }
 
@@ -253,18 +254,26 @@ public sealed class FittingRoom
                 break;
             case TownImportLayer.Head or TownImportLayer.OverHair:
                 head = worn;
+                KeepAccessories(accessories, AccessoryRoom(head));
 
                 break;
             default:
                 accessories.RemoveAll(a => a.Look == look);
-
-                if (accessories.Count >= FittingRoomOutfit.MAX_ACCESSORIES)
-                    accessories.RemoveAt(0);
-
+                KeepAccessories(accessories, AccessoryRoom(head) - 1);
                 accessories.Add(worn);
 
                 break;
         }
+    }
+
+    //a crown takes one of the three accessory slots, so it leaves room for two accessories
+    private static int AccessoryRoom(FittingRoomWorn? head)
+        => head?.Look.Look.Layer == TownImportLayer.OverHair ? FittingRoomOutfit.MAX_ACCESSORIES - 1 : FittingRoomOutfit.MAX_ACCESSORIES;
+
+    private static void KeepAccessories(List<FittingRoomWorn> accessories, int max)
+    {
+        while (accessories.Count > max)
+            accessories.RemoveAt(0);
     }
 
     private static FittingRoomPiece? Piece(FittingRoomWorn? worn)
