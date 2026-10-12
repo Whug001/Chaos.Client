@@ -832,7 +832,7 @@ public sealed partial class WorldScreen
     {
         WorldState.Chat.AddOrangeBarMessage(message);
 
-        if (!ClientSettings.AutoAcceptGroupInvites)
+        if (ClientSettings.AutoAcceptGroupInvites)
         {
             Game.Connection.SendGroupInvite(ClientGroupSwitch.AcceptInvite, sourceName);
 
