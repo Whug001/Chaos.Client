@@ -1162,10 +1162,11 @@ public sealed partial class WorldScreen
             return;
         }
 
-        if (ClientSettings.HideOwnBodyAnimations
-            && (args.SourceId == WorldState.PlayerEntityId)
-            && !DataUtilities.IsEmote(args.BodyAnimation))
-            return;
+        //your own hidden attack still runs for its full length so you can't move sooner than with it showing; the
+        //server sends your own animations even while "Show body animations" is off for the same reason
+        var hidden = (args.SourceId == WorldState.PlayerEntityId)
+                     && !DataUtilities.IsEmote(args.BodyAnimation)
+                     && (ClientSettings.HideOwnBodyAnimations || !WorldState.UserOptions.Value(SettingKey.ShowBodyAnimations));
 
         //creature sprites (native creatures AND aislings in monster form) use their mpf attack frame
         //counts; normal aislings use epf suffix-based frame counts. Gate on IsRenderedAsCreatureSprite
@@ -1180,7 +1181,8 @@ public sealed partial class WorldScreen
                     entity,
                     args.BodyAnimation,
                     args.AnimationSpeed,
-                    in info);
+                    in info,
+                    hidden);
         } else
         {
             (_, var framesPerDir, _, _) = AnimationSystem.ResolveBodyAnimParams(args.BodyAnimation);
@@ -1190,7 +1192,7 @@ public sealed partial class WorldScreen
                 if (entity.Appearance.HasValue && !Game.AislingRenderer.HasArmorAnimation(entity.Appearance.Value, args.BodyAnimation))
                     return;
 
-                AnimationSystem.StartBodyAnimation(entity, args.BodyAnimation, args.AnimationSpeed);
+                AnimationSystem.StartBodyAnimation(entity, args.BodyAnimation, args.AnimationSpeed, hidden);
             } else if (DataUtilities.IsEmote(args.BodyAnimation))
             {
                 //emote overlay — face/bubble icon composited into the aisling sprite

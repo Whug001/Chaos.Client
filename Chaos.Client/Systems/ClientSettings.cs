@@ -102,7 +102,7 @@ public static class ClientSettings
     //J keeps group members highlighted until pressed again, instead of the one-second flash
     public static bool ToggleGroupHighlight { get; set; }
 
-    //hides your own attack and cast body animations; emotes still play. Others' animations are unaffected
+    //draws your own attack and cast body animations as your standing pose; emotes still play. Others' are unaffected
     public static bool HideOwnBodyAnimations { get; set; }
 
     // --- Map effects a player can hide, for flicker and flashing that bothers them (client-local; read by

@@ -110,7 +110,7 @@ public static class AnimationSystem
     /// <summary>
     ///     Sets up a body animation (attack/cast) on an aisling entity. Ignores if currently walking.
     /// </summary>
-    public static void StartBodyAnimation(WorldEntity entity, BodyAnimation bodyAnim, ushort animSpeed)
+    public static void StartBodyAnimation(WorldEntity entity, BodyAnimation bodyAnim, ushort animSpeed, bool hidden = false)
     {
         if (entity.AnimState == EntityAnimState.Walking)
             return;
@@ -145,6 +145,7 @@ public static class AnimationSystem
         entity.AnimFrameCount = framesPerDir;
         entity.AnimFrameIntervalMs = frameIntervalMs;
         entity.BodyAnimRepeatsLeft = repeats;
+        entity.BodyAnimHidden = hidden;
     }
 
     /// <summary>
@@ -159,7 +160,8 @@ public static class AnimationSystem
         WorldEntity entity,
         BodyAnimation bodyAnim,
         ushort animSpeed,
-        in CreatureAnimInfo animInfo)
+        in CreatureAnimInfo animInfo,
+        bool hidden = false)
     {
         if (entity.AnimState == EntityAnimState.Walking)
             return;
@@ -178,6 +180,7 @@ public static class AnimationSystem
         entity.AnimElapsedMs = 0;
         entity.AnimFrameCount = framesPerDir;
         entity.AnimFrameIntervalMs = CREATURE_ATTACK_FRAME_MS;
+        entity.BodyAnimHidden = hidden;
     }
 
     /// <summary>
@@ -384,6 +387,7 @@ public static class AnimationSystem
     {
         entity.AnimState = EntityAnimState.Idle;
         entity.ActiveBodyAnimation = null;
+        entity.BodyAnimHidden = false;
         entity.AnimFrameIndex = 0;
         entity.AnimElapsedMs = 0;
         entity.VisualOffset = Vector2.Zero;
@@ -439,7 +443,7 @@ public static class AnimationSystem
                 };
             }
 
-            case EntityAnimState.BodyAnim:
+            case EntityAnimState.BodyAnim when !entity.BodyAnimHidden:
             {
                 //use the correct attack range based on the active bodyanimation
                 (var attackStart, var framesPerDir) = ResolveCreatureAttack(entity.ActiveBodyAnimation ?? BodyAnimation.Assail, in info);
@@ -508,7 +512,7 @@ public static class AnimationSystem
                 return (frameIndex, flip, "01", isFront);
             }
 
-            case EntityAnimState.BodyAnim:
+            case EntityAnimState.BodyAnim when !entity.BodyAnimHidden:
             {
                 (var suffix, var framesPerDir, var upStart, var rightStart)
                     = ResolveBodyAnimParams(entity.ActiveBodyAnimation ?? BodyAnimation.Assail);
