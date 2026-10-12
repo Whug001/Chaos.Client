@@ -82,7 +82,8 @@ public enum SettingKey
     HideBlizzard,
     ReduceTumbleMotion,
     TabTargeting,
-    ToggleGroupHighlight
+    ToggleGroupHighlight,
+    HideOwnBodyAnimations
 }
 
 /// <summary>
@@ -129,6 +130,13 @@ public static class SettingDefinitions
             GetChoice: () => (int)ClientSettings.ScreenMode,
             SetChoice: DisplaySettings.Apply),
         new(SettingKey.ShowBodyAnimations, "Show body animations", SettingSection.Display, SettingCategory.ServerOption, UserOption.ShowBodyAnimations),
+        new(
+            SettingKey.HideOwnBodyAnimations,
+            "Hide my own body animations",
+            SettingSection.Display,
+            SettingCategory.ClientLocal,
+            Get: () => ClientSettings.HideOwnBodyAnimations,
+            Set: v => ClientSettings.HideOwnBodyAnimations = v),
         new(SettingKey.PriorityAnimations, "Priority animations", SettingSection.Display, SettingCategory.ServerOption, UserOption.PriorityAnimations),
         new(SettingKey.HideEnemyHealthBars, "Hide enemy health bars", SettingSection.Display, SettingCategory.ServerOption, UserOption.HideEnemyHealthBars),
         new(SettingKey.ShowFriendlyNametags, "Always show friendly nametags", SettingSection.Display, SettingCategory.ServerOption, UserOption.AlwaysShowFriendlyNametags),
