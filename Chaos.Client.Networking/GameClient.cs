@@ -44,8 +44,7 @@ public sealed class GameClient : IDisposable
 
     //set while the receive loop raises OnDisconnected, so a Disconnect called from that handler does not wait on the
     //very task it is running inside
-    [ThreadStatic]
-    private static bool InReceiveLoopExit;
+    private int ReceiveExitThreadId;
 
     private bool IsAlive => Volatile.Read(ref Alive) == 1;
 
@@ -201,7 +200,7 @@ public sealed class GameClient : IDisposable
         //this prevents a race where the old task's finally block runs after
         //a new connection sets isalive=true, killing the new connection, and keeps the
         //receive buffer from being returned to the pool while the loop still reads it.
-        if (!InReceiveLoopExit)
+        if (ReceiveExitThreadId != Environment.CurrentManagedThreadId)
             try
             {
                 ReceiveTask?.GetAwaiter()
@@ -397,14 +396,14 @@ public sealed class GameClient : IDisposable
             //during redirects, a new connection may already be established.
             if ((generation == Volatile.Read(ref ConnectionGeneration)) && (Interlocked.Exchange(ref Alive, 0) == 1))
             {
-                InReceiveLoopExit = true;
+                ReceiveExitThreadId = Environment.CurrentManagedThreadId;
 
                 try
                 {
                     OnDisconnected?.Invoke();
                 } finally
                 {
-                    InReceiveLoopExit = false;
+                    ReceiveExitThreadId = 0;
                 }
             }
         }

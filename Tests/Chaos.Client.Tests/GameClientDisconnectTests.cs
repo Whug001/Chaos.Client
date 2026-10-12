@@ -20,7 +20,7 @@ public class GameClientDisconnectTests
 
         using var client = new GameClient();
         var disconnects = 0;
-        var disconnected = new TaskCompletionSource();
+        var disconnected = new TaskCompletionSource(TaskCreationOptions.RunContinuationsAsynchronously);
 
         client.OnDisconnected += () =>
         {
@@ -53,7 +53,7 @@ public class GameClientDisconnectTests
         var port = ((IPEndPoint)listener.LocalEndpoint).Port;
 
         using var client = new GameClient();
-        var disconnected = new TaskCompletionSource();
+        var disconnected = new TaskCompletionSource(TaskCreationOptions.RunContinuationsAsynchronously);
         client.OnDisconnected += () => disconnected.TrySetResult();
 
         var accept = listener.AcceptSocketAsync();
