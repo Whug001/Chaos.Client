@@ -32,7 +32,11 @@ public static class ClientSettings
 
     /// <summary>Who is logged in, or null before anyone is. Decides which file <see cref="FilePath" /> names.</summary>
     private static string? ActiveCharacter;
-    public static bool AutoAcceptGroupInvites { get; set; } = true;
+    /// <summary>
+    ///     Off unless the player turns it on. Saved under its own key: the old GroupObjectOption value was read the
+    ///     wrong way round, so it is ignored rather than trusted.
+    /// </summary>
+    public static bool AutoAcceptGroupInvites { get; set; }
     public static bool ClickToOpenProfile { get; set; }
     public static bool AllowGroupInvites { get; set; }
     public static int MusicVolume { get; set; } = 5;
@@ -215,7 +219,7 @@ public static class ClientSettings
 
                         break;
 
-                    case "GroupObjectOption":
+                    case "AutoAcceptGroupInvites":
                         AutoAcceptGroupInvites = value == "1";
 
                         break;
@@ -384,7 +388,7 @@ public static class ClientSettings
             writer.WriteLine($"ScrollLevel : {ScrollLevel}");
             writer.WriteLine($"UserClickMode : {(ClickToOpenProfile ? 0 : 1)}");
             writer.WriteLine($"MonsterSayRecordMode : {(NpcRecordChat ? 1 : 0)}");
-            writer.WriteLine($"GroupObjectOption : {(AutoAcceptGroupInvites ? 1 : 0)}");
+            writer.WriteLine($"AutoAcceptGroupInvites : {(AutoAcceptGroupInvites ? 1 : 0)}");
             writer.WriteLine($"ScreenMode : {(int)ScreenMode}");
             writer.WriteLine($"DamageNumbersEnabled : {(DamageNumbersEnabled ? 1 : 0)}");
             writer.WriteLine($"ShowDamageNumbersOnAislings : {(ShowDamageNumbersOnAislings ? 1 : 0)}");
