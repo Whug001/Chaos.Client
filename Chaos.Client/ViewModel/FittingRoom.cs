@@ -45,8 +45,25 @@ public sealed class FittingRoom
     /// <summary>The look under the cursor, previewed on top of what is worn. Null when none.</summary>
     public FittingRoomLook? Hovered { get; set; }
 
-    /// <summary>Shows the figure without the player's overcoat, accessories and guild cloak, wearing only their hair.</summary>
-    public bool Stripped { get; set; }
+    /// <summary>
+    ///     Shows the figure without the player's overcoat, accessories and guild cloak, wearing only their hair.
+    ///     Turning it on also takes off every piece being tried on.
+    /// </summary>
+    public bool Stripped
+    {
+        get;
+        set
+        {
+            field = value;
+
+            if (!value)
+                return;
+
+            _overcoat = null;
+            _head = null;
+            _accessories.Clear();
+        }
+    }
 
     public FittingRoomTab Tab
     {

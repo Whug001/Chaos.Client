@@ -142,6 +142,41 @@ public sealed class FittingRoomViewModelTests
     }
 
     [Test]
+    public void Stripping_takes_off_the_tried_on_pieces_and_they_stay_off()
+    {
+        var coat = Look("coat", TownImportLayer.Overcoat, 777);
+        var hat = Look("hat", TownImportLayer.Head, 600);
+        var acc = Look("acc", TownImportLayer.Accessory, 101);
+        var room = Open(coat, hat, acc);
+        room.Toggle(coat);
+        room.Toggle(hat);
+        room.Toggle(acc);
+
+        room.Stripped = true;
+
+        room.Worn.Should().BeEmpty();
+        room.Effective.OvercoatSprite.Should().Be(0);
+        room.Effective.Accessory1Sprite.Should().Be(0);
+
+        room.Stripped = false;
+
+        room.Worn.Should().BeEmpty();
+        room.Effective.OvercoatSprite.Should().Be(40);
+    }
+
+    [Test]
+    public void Pieces_tried_on_after_stripping_stay_on()
+    {
+        var coat = Look("coat", TownImportLayer.Overcoat, 777);
+        var room = Open(coat);
+        room.Stripped = true;
+
+        room.Toggle(coat);
+
+        room.Effective.OvercoatSprite.Should().Be(777);
+    }
+
+    [Test]
     public void Not_stripped_shows_the_live_look()
     {
         var look = Open().Effective;
