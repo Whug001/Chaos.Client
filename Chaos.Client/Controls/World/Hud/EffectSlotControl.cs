@@ -1,5 +1,6 @@
 #region
 using Chaos.Client.Controls.Components;
+using Chaos.Client.Rendering;
 using Chaos.DarkAges.Definitions;
 using Microsoft.Xna.Framework;
 using Microsoft.Xna.Framework.Graphics;
@@ -23,6 +24,9 @@ public sealed class EffectSlotControl : UIPanel
     private readonly UIImage Icon;
 
     public byte EffectIcon { get; private set; }
+
+    //the stack level drawn in the icon's bottom-right corner; null draws nothing
+    private string? StackText;
 
     /// <summary>
     ///     True if this slot currently holds an effect. Derived from <see cref="UIProgressBar.FillColor" />, which
@@ -71,7 +75,25 @@ public sealed class EffectSlotControl : UIPanel
         Bar.Percent = 0;
         Bar.FillColor = null;
         EffectIcon = 0;
+        StackText = null;
         Visible = false;
+    }
+
+    public override void Draw(SpriteBatch spriteBatch)
+    {
+        if (!Visible)
+            return;
+
+        base.Draw(spriteBatch);
+
+        if (StackText is null)
+            return;
+
+        StackNumberFont.Draw(
+            spriteBatch,
+            StackText,
+            ScreenX + ICON_OFFSET_X + ICON_SIZE - StackNumberFont.MeasureWidth(StackText),
+            ScreenY + ICON_OFFSET_Y + ICON_SIZE - StackNumberFont.GlyphHeight);
     }
 
     public static Color GetBarColor(EffectColor effectColor)
@@ -98,13 +120,24 @@ public sealed class EffectSlotControl : UIPanel
             _                  => 0f
         };
 
-    public void SetEffect(byte iconId, EffectColor color, Texture2D? iconTexture)
+    public void SetEffect(
+        byte iconId,
+        EffectColor color,
+        byte stackCount,
+        Texture2D? iconTexture)
     {
         EffectIcon = iconId;
         Icon.Texture = iconTexture;
         ApplyBarColor(color);
+        SetStackCount(stackCount);
         Visible = true;
     }
 
-    public void UpdateColor(EffectColor color) => ApplyBarColor(color);
+    private void SetStackCount(byte stackCount) => StackText = stackCount > 0 ? stackCount.ToString() : null;
+
+    public void Update(EffectColor color, byte stackCount)
+    {
+        ApplyBarColor(color);
+        SetStackCount(stackCount);
+    }
 }

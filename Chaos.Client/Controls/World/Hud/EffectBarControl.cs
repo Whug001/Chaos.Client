@@ -74,9 +74,9 @@ public sealed class EffectBarControl : UIPanel
 
     /// <summary>
     ///     Updates or adds an effect. EffectIcon acts as a key — only one effect per icon value. EffectColor None removes the
-    ///     effect.
+    ///     effect. A non-zero <paramref name="stackCount" /> is drawn as a small number on the icon.
     /// </summary>
-    public void SetEffect(byte effectIcon, EffectColor effectColor)
+    public void SetEffect(byte effectIcon, EffectColor effectColor, byte stackCount = 0)
     {
         if (effectColor == EffectColor.None)
         {
@@ -90,7 +90,7 @@ public sealed class EffectBarControl : UIPanel
             if (Slots[i].HasEffect && (Slots[i].EffectIcon == effectIcon))
             {
                 Slots[i]
-                    .UpdateColor(effectColor);
+                    .Update(effectColor, stackCount);
 
                 return;
             }
@@ -100,7 +100,7 @@ public sealed class EffectBarControl : UIPanel
             if (!Slots[i].HasEffect)
             {
                 Slots[i]
-                    .SetEffect(effectIcon, effectColor, RenderHalfSizeIcon(effectIcon));
+                    .SetEffect(effectIcon, effectColor, stackCount, RenderHalfSizeIcon(effectIcon));
                 ActiveCount++;
                 UpdateVisibility();
 

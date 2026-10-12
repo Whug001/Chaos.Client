@@ -14,6 +14,7 @@ using Chaos.Client.Systems.KeyBinds;
 using Chaos.Client.ViewModel;
 using Chaos.DarkAges.Definitions;
 using Chaos.Networking.Entities.Client;
+using Chaos.Networking.Entities.Server;
 using Microsoft.Xna.Framework;
 using Microsoft.Xna.Framework.Graphics;
 #endregion
@@ -1305,8 +1306,8 @@ public sealed partial class WorldScreen
             h.EmoteButton.SelectedTexture = icon;
         };
 
-        public static readonly Action<IWorldHud, byte, EffectColor> SetEffect =
-            static (h, icon, color) => h.EffectBar.SetEffect(icon, color);
+        public static readonly Action<IWorldHud, EffectArgs> SetEffect =
+            static (h, args) => h.EffectBar.SetEffect(args.EffectIcon, args.EffectColor, args.StackCount);
     }
     #endregion
 
