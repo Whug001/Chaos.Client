@@ -102,6 +102,9 @@ public static class ClientSettings
     //J keeps group members highlighted until pressed again, instead of the one-second flash
     public static bool ToggleGroupHighlight { get; set; }
 
+    //hides your own attack and cast body animations; emotes still play. Others' animations are unaffected
+    public static bool HideOwnBodyAnimations { get; set; }
+
     // --- Map effects a player can hide, for flicker and flashing that bothers them (client-local; read by
     // MapEffectFilter). Off by default: every effect shows until the player opts out. ---
     public static bool HideLightning { get; set; }
@@ -346,6 +349,11 @@ public static class ClientSettings
 
                         break;
 
+                    case "HideOwnBodyAnimations":
+                        HideOwnBodyAnimations = value == "1";
+
+                        break;
+
                     case "MaxEffectAnimations":
                         if (int.TryParse(value, out var mea))
                             MaxEffectAnimationsPerEntity = Math.Clamp(mea, 0, 10);
@@ -413,6 +421,7 @@ public static class ClientSettings
             writer.WriteLine($"GroundTargetSnapToEntity : {(GroundTargetSnapToEntity ? 1 : 0)}");
             writer.WriteLine($"TabTargeting : {(TabTargeting ? 1 : 0)}");
             writer.WriteLine($"ToggleGroupHighlight : {(ToggleGroupHighlight ? 1 : 0)}");
+            writer.WriteLine($"HideOwnBodyAnimations : {(HideOwnBodyAnimations ? 1 : 0)}");
             writer.WriteLine($"MaxEffectAnimations : {MaxEffectAnimationsPerEntity}");
             writer.WriteLine($"HideLightning : {(HideLightning ? 1 : 0)}");
             writer.WriteLine($"HideRain : {(HideRain ? 1 : 0)}");
