@@ -88,13 +88,14 @@ public sealed class ThumbnailGrid<T> : UIPanel where T : notnull
     /// <summary>
     ///     Shows one page. <paramref name="selected" /> is compared with <see cref="object.Equals(object)" />;
     ///     <paramref name="thumbFor" /> may return null (cell draws its border only). The arrows show only when
-    ///     <paramref name="pageCount" /> is more than one.
+    ///     <paramref name="pageCount" /> is more than one. <paramref name="isSelected" />, when given, replaces the
+    ///     comparison with <paramref name="selected" />, so several cells can show as selected at once.
     /// </summary>
     /// <remarks>
     ///     There is no "no selection" sentinel for value-type <typeparamref name="T" />: pass a real, currently-selected
     ///     value -- <c>default</c> would just compare equal to whatever item equals <c>default(T)</c>.
     /// </remarks>
-    public void SetItems(IReadOnlyList<T> items, T? selected, int pageCount, Func<T, Texture2D?> thumbFor)
+    public void SetItems(IReadOnlyList<T> items, T? selected, int pageCount, Func<T, Texture2D?> thumbFor, Func<T, bool>? isSelected = null)
     {
         if (Left is not null)
             Left.Visible = pageCount > 1;
@@ -112,7 +113,7 @@ public sealed class ThumbnailGrid<T> : UIPanel where T : notnull
                 cell.Visible = true;
                 cell.Item = items[i];
                 cell.Thumbnail = thumbFor(items[i]);
-                cell.IsSelected = (selected is not null) && items[i].Equals(selected);
+                cell.IsSelected = isSelected?.Invoke(items[i]) ?? ((selected is not null) && items[i].Equals(selected));
             } else
             {
                 cell.Visible = false;

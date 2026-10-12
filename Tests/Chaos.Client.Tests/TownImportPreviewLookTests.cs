@@ -74,4 +74,35 @@ public sealed class TownImportPreviewLookTests
         look.HeadSprite.Should().Be(0);
         look.BootsSprite.Should().Be(0);
     }
+
+    [Test]
+    public void Over_hair_takes_the_first_empty_accessory_slot_and_leaves_the_head()
+    {
+        var look = TownImportPreviewLook.Apply(Base, Look(TownImportLayer.OverHair));
+
+        look.Accessory1Sprite.Should().Be(900);
+        look.Accessory2Sprite.Should().Be(500);
+        look.Accessory2Color.Should().Be(DisplayColor.Lime);
+        look.HeadSprite.Should().Be(12);
+        look.HeadColor.Should().Be(DisplayColor.Fire);
+    }
+
+    [Test]
+    public void Over_hair_keeps_its_own_color_not_the_hair_color()
+    {
+        var look = TownImportPreviewLook.Apply(Base, Look(TownImportLayer.OverHair, true));
+
+        look.Accessory2Color.Should().Be(DisplayColor.Lime);
+    }
+
+    [Test]
+    public void Over_hair_uses_the_third_slot_when_all_are_full()
+    {
+        var full = Base with { Accessory2Sprite = 901, Accessory3Sprite = 902 };
+
+        var look = TownImportPreviewLook.Apply(full, Look(TownImportLayer.OverHair));
+
+        look.Accessory3Sprite.Should().Be(500);
+        look.Accessory1Sprite.Should().Be(900);
+    }
 }

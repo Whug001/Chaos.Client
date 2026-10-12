@@ -319,6 +319,11 @@ public sealed partial class WorldScreen
     }
     #endregion
 
+    #region Fitting Room Wiring
+    //the window sends nothing: closing it only hides it, and the server closes it when the player steps off the tile
+    private void WireFittingRoom() => Game.Connection.OnFittingRoomDisplay += HandleFittingRoomDisplay;
+    #endregion
+
     #region Bug Report Wiring
     private static readonly string ClientBuild
         = typeof(ChaosGame).Assembly.GetCustomAttribute<AssemblyInformationalVersionAttribute>()?.InformationalVersion ?? "unknown";

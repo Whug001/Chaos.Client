@@ -593,6 +593,8 @@ public sealed class ConnectionManager : IDisposable
     /// </summary>
     public event BeautyShopDisplayHandler? OnBeautyShopDisplay;
 
+    public event FittingRoomDisplayHandler? OnFittingRoomDisplay;
+
     public event BugReportOpenHandler? OnBugReportOpen;
 
     /// <summary>
@@ -1869,6 +1871,7 @@ public sealed class ConnectionManager : IDisposable
         PacketHandlers[(byte)ServerOpCode.HotkeyHelpOpen] = HandleHotkeyHelpOpen;
         PacketHandlers[(byte)ServerOpCode.PokerTableDisplay] = HandlePokerTableDisplay;
         PacketHandlers[(byte)ServerOpCode.BeautyShopDisplay] = HandleBeautyShopDisplay;
+        PacketHandlers[(byte)ServerOpCode.FittingRoomDisplay] = HandleFittingRoomDisplay;
         PacketHandlers[(byte)ServerOpCode.BugReportOpen] = HandleBugReportOpen;
         PacketHandlers[(byte)ServerOpCode.StageLightingState] = HandleStageLightingState;
         PacketHandlers[(byte)ServerOpCode.MirrorLayout] = HandleMirrorLayout;
@@ -2355,6 +2358,12 @@ public sealed class ConnectionManager : IDisposable
     {
         var args = Client.Deserialize<BeautyShopDisplayArgs>(in pkt);
         OnBeautyShopDisplay?.Invoke(args);
+    }
+
+    private void HandleFittingRoomDisplay(ServerPacket pkt)
+    {
+        var args = Client.Deserialize<FittingRoomDisplayArgs>(in pkt);
+        OnFittingRoomDisplay?.Invoke(args);
     }
 
 

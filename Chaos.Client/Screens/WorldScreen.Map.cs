@@ -106,6 +106,10 @@ public sealed partial class WorldScreen
         //same reason.
         Poker.Hide();
 
+        //the fitting room belongs to its mirror tile; the window sends nothing, so it just goes
+        FittingRoom.Hide();
+        WorldState.FittingRoom.Clear();
+
         //a new map starts with no stage lighting; a same-map refresh (above) deliberately keeps it
         ResetStageLighting();
         ResetMirrors();

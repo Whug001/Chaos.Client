@@ -36,6 +36,11 @@ public static class TownImportPreviewLook
                 OvercoatSprite = 0,
                 OvercoatColor = DisplayColor.Default
             },
+            TownImportLayer.OverHair => FittingRoomOutfit.PlaceAccessory(
+                look,
+                FittingRoomOutfit.FirstEmptySlot(look),
+                item.DisplaySprite,
+                item.Color),
             _ => look with
             {
                 HeadSprite = item.DisplaySprite,

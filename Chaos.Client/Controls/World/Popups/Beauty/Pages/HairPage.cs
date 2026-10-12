@@ -69,7 +69,7 @@ public sealed class HairPage : MirrorPageView
         Colors.SetColors(vm.HairColors, vm.HairColor, SwatchColorFor);
     }
 
-    private static Color SwatchColorFor(DisplayColor color)
+    internal static Color SwatchColorFor(DisplayColor color)
     {
         if (color == DisplayColor.Default)
             return LegendColors.DeepLavender;

@@ -226,6 +226,11 @@ public static class WorldState
     public static BeautyShop BeautyShop { get; } = new();
 
     /// <summary>
+    ///     Illustria's Closet: the catalog and the tried-on outfit. Not cleared by <see cref="Clear" />.
+    /// </summary>
+    public static FittingRoom FittingRoom { get; } = new();
+
+    /// <summary>
     ///     Authoritative spell book state with cooldown timers.
     /// </summary>
     public static SpellBook SpellBook { get; } = new();
