@@ -53,6 +53,13 @@ public sealed class ArtEditor(PixelDrawing drawing)
         PendingText = "";
     }
 
+    /// <summary>Takes someone else's board between strokes; unlike <see cref="Load" /> the text tool keeps its anchor and text.</summary>
+    public void Adopt(PixelDrawing drawing)
+    {
+        if (!IsPressing)
+            Drawing = drawing;
+    }
+
     /// <summary>Stamps <see cref="PendingText" /> at <see cref="TextAnchor" /> in the current swatch, as one undo step.</summary>
     public bool StampText()
     {

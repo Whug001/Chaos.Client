@@ -284,4 +284,25 @@ public class ArtEditorTests
 
         Painted(editor).Should().Be(CollegeProtocol.BOARD_PIXELS);
     }
+
+    [Test]
+    public void Adopting_a_board_keeps_the_text_tool_but_waits_for_a_stroke_to_end()
+    {
+        var editor = Editor();
+        editor.Tool = ArtTool.Text;
+        Tap(editor, 5, 5);
+        editor.PendingText = "HI";
+        var other = PixelDrawing.Blank();
+
+        editor.Adopt(other);
+
+        editor.Drawing.Should().BeSameAs(other);
+        editor.TextAnchor.Should().Be(new Point(5, 5));
+        editor.PendingText.Should().Be("HI");
+
+        editor.Tool = ArtTool.Pen;
+        editor.Press(0, 0, false);
+        editor.Adopt(PixelDrawing.Blank());
+        editor.Drawing.Should().BeSameAs(other);
+    }
 }
