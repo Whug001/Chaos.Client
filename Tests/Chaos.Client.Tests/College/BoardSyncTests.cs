@@ -28,4 +28,18 @@ public class BoardSyncTests
         sync.Unsent(4).Should().BeFalse();
         sync.Due(4, 10_000).Should().BeFalse();
     }
+
+    [Test]
+    public void It_knows_the_last_eight_boards_it_sent_or_loaded()
+    {
+        var sync = new BoardSync();
+
+        for (byte i = 0; i < 9; i++)
+            sync.Remember([i, 1]);
+
+        sync.IsKnown([0, 1]).Should().BeFalse();
+        sync.IsKnown([1, 1]).Should().BeTrue();
+        sync.IsKnown([8, 1]).Should().BeTrue();
+        sync.IsKnown([9, 1]).Should().BeFalse();
+    }
 }

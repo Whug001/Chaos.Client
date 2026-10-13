@@ -74,6 +74,7 @@ public sealed class BoardEditorControl : GuildCloakDialogBase
 
     private bool CanSave;
     private int EditingSwatch = -1;
+    private int SeenDrawingVersion;
 
     public BoardEditorControl()
         : base("_nsett", false)
@@ -212,6 +213,8 @@ public sealed class BoardEditorControl : GuildCloakDialogBase
     {
         IsLive = state.Info.Live;
         Load(state.Drawing);
+        Sync.Remember(state.Info.Data);
+        SeenDrawingVersion = state.DrawingVersion;
         NameBox.Text = string.Empty;
         Status.Text = string.Empty;
         SetCanSave(state.Info.CanSave);
@@ -235,11 +238,24 @@ public sealed class BoardEditorControl : GuildCloakDialogBase
         }
 
         IsLive = info.Live;
+        var fresh = state.DrawingVersion != SeenDrawingVersion;
+        SeenDrawingVersion = state.DrawingVersion;
 
-        if (info.Replace && state.Drawing is not null)
+        //the server sends every editor's whole board, so this one keeps up with other drawers or its next send would wipe their strokes
+        if ((state.Drawing is not null) && !Sync.IsKnown(info.Data))
         {
-            Load(state.Drawing);
-            RefreshControls();
+            if (info.Replace)
+            {
+                Load(state.Drawing);
+                Sync.Remember(info.Data);
+                RefreshControls();
+            } else if (fresh && !Editor.IsPressing && !Sync.Unsent(Editor.Drawing.Version))
+            {
+                Editor.Adopt(Copy(state.Drawing));
+                Sync.Reset(Editor.Drawing.Version);
+                Sync.Remember(info.Data);
+                RefreshControls();
+            }
         }
 
         SetCanSave(info.CanSave);
@@ -318,12 +334,11 @@ public sealed class BoardEditorControl : GuildCloakDialogBase
         base.Update(gameTime);
     }
 
+    private static PixelDrawing Copy(PixelDrawing drawing) => PixelDrawing.From(drawing.PaletteBytes(), drawing.Pixels, drawing.Width, drawing.Height);
+
     private void Load(PixelDrawing? drawing)
     {
-        Editor.Load(
-            drawing is null
-                ? BoardState.NewBoard()
-                : PixelDrawing.From(drawing.PaletteBytes(), drawing.Pixels, drawing.Width, drawing.Height));
+        Editor.Load(drawing is null ? BoardState.NewBoard() : Copy(drawing));
 
         TextBox.Text = string.Empty;
         Sync.Reset(Editor.Drawing.Version);
@@ -352,14 +367,17 @@ public sealed class BoardEditorControl : GuildCloakDialogBase
 
     private void SendBoard(long now)
     {
+        var data = CollegeBoardCodec.Pack(Editor.Drawing.PaletteBytes(), Editor.Drawing.Pixels);
+
         ActionRequested?.Invoke(
             new CollegeActionArgs
             {
                 Type = CollegeActionType.BoardUpdate,
-                Data = CollegeBoardCodec.Pack(Editor.Drawing.PaletteBytes(), Editor.Drawing.Pixels)
+                Data = data
             });
 
         Sync.MarkSent(Editor.Drawing.Version, now);
+        Sync.Remember(data);
     }
 
     private void OnSaveClicked()
