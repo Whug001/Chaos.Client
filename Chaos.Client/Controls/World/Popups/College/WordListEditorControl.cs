@@ -320,6 +320,14 @@ public sealed class WordListEditorControl : GuildCloakDialogBase
         if (draft is null)
             return;
 
+        if (EditingPage && !IsQuick && !IsPreview && (mode != WordListEditMode.Quick))
+        {
+            Pull();
+
+            if (Document.IsDirty)
+                Save(false);
+        }
+
         Document.Load(id, draft, mode);
         AwaitingSave = false;
         BackAfterSave = false;

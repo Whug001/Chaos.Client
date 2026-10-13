@@ -275,7 +275,7 @@ public sealed class ScrambleCardControl : GuildCloakDialogBase
         if (open && !GuessShown && !Hidden)
         {
             GuessBox.Text = string.Empty;
-            GuessBox.IsFocused = true;
+            GuessBox.IsFocused = GuessBox.IsFocused || !UITextBox.IsAnyFocused;
             GuessShown = true;
         }
         else if (!open)

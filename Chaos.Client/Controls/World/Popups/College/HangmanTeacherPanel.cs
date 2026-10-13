@@ -17,14 +17,15 @@ namespace Chaos.Client.Controls.World.Popups.College;
 public sealed class HangmanTeacherPanel : GuildCloakDialogBase
 {
     private const int WIDTH = 250;
-    private const int HEIGHT = 306;
+    private const int HEIGHT = 334;
     private const int LEFT = 16;
     private const int INNER_WIDTH = WIDTH - (2 * LEFT);
     private const int LINE_HEIGHT = TextRenderer.CHAR_HEIGHT + 2;
     private const int CAPTION_TOP = 10;
     private const int ANSWER_TOP = 28;
     private const int MASK_TOP = ANSWER_TOP + LINE_HEIGHT;
-    private const int ROWS_TOP = MASK_TOP + LINE_HEIGHT + 4;
+    private const int MISS_TOP = MASK_TOP + LINE_HEIGHT;
+    private const int ROWS_TOP = MISS_TOP + LINE_HEIGHT + 4;
     private const int ROWS = 8;
     private const int SCORE_X = INNER_WIDTH - 40;
     private const int MORE_TOP = ROWS_TOP + (ROWS * CollegeListRow.HEIGHT) + 2;
@@ -43,6 +44,7 @@ public sealed class HangmanTeacherPanel : GuildCloakDialogBase
     private readonly ToolCountdown Countdown = new();
     private readonly CustomButton EndButton;
     private readonly UILabel MaskLabel;
+    private readonly UILabel MissLabel;
     private readonly UILabel MoreLabel;
     private readonly CustomButton NextButton;
     private readonly CustomButton RemoveButton;
@@ -71,6 +73,7 @@ public sealed class HangmanTeacherPanel : GuildCloakDialogBase
         CaptionLabel = Caption(string.Empty, LEFT, CAPTION_TOP, INNER_WIDTH, HorizontalAlignment.Center, LegendColors.Gold);
         AnswerLabel = Caption(string.Empty, LEFT, ANSWER_TOP, INNER_WIDTH, HorizontalAlignment.Center, LegendColors.Lime);
         MaskLabel = Caption(string.Empty, LEFT, MASK_TOP, INNER_WIDTH, HorizontalAlignment.Center, LegendColors.Gray);
+        MissLabel = Caption(string.Empty, LEFT, MISS_TOP, INNER_WIDTH, HorizontalAlignment.Center, LegendColors.Gray);
 
         for (var i = 0; i < ROWS; i++)
         {
@@ -241,7 +244,8 @@ public sealed class HangmanTeacherPanel : GuildCloakDialogBase
         var waiting = info.Phase == HangmanPhase.Waiting;
         CaptionLabel.Text = $"Hangman {info.Number}/{info.Count} · {info.Mode}";
         AnswerLabel.Text = waiting ? string.Empty : info.Word;
-        MaskLabel.Text = waiting ? "Start the first word when you are ready." : $"{info.Mask} · {ClassToolText.MissLine(info)}";
+        MaskLabel.Text = waiting ? "Start the first word when you are ready." : info.Mask;
+        MissLabel.Text = waiting ? string.Empty : ClassToolText.MissLine(info);
         ArmedLabel.Text = EndArmed ? END_ARMED : string.Empty;
         NextButton.Caption = waiting ? "First word" : IsLastRevealed(info) ? "Finish game" : "Next word";
         NextButton.Enabled = info.Phase is HangmanPhase.Waiting or HangmanPhase.Revealed;

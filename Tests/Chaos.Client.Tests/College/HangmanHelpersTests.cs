@@ -145,4 +145,24 @@ public class HangmanHelpersTests
         order.Selected.Should().Be(-1);
         order.Rows.Should().HaveCount(4);
     }
+
+    [Test]
+    public void Reconcile_keeps_order_and_ticks_drops_gone_names_and_appends_new_ones()
+    {
+        var order = new TurnOrderList(["A", "B", "C"]);
+        order.Move(0, 2);
+        order.Toggle(0);
+        order.Select(1);
+
+        order.Reconcile(["A", "C", "D", "B"]);
+
+        order.Rows.Select(r => r.Name).Should().Equal("B", "C", "A", "D");
+        order.Rows.Select(r => r.Ticked).Should().Equal(false, true, true, true);
+        order.Selected.Should().Be(1);
+
+        order.Reconcile(["D", "A"]);
+
+        order.Rows.Select(r => r.Name).Should().Equal("A", "D");
+        order.Selected.Should().Be(-1);
+    }
 }

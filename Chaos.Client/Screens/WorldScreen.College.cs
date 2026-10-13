@@ -332,6 +332,7 @@ public sealed partial class WorldScreen
                 break;
             case CollegeDisplayType.HangmanBoard when args.Hangman.IsTeacher:
                 HideQuickListEditor();
+                College.HangmanOrder.Close();
                 College.HangmanTeacher.Apply(args.Hangman, args.Reopen);
 
                 break;

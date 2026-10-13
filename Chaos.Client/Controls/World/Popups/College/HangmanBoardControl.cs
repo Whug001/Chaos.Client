@@ -62,6 +62,7 @@ public sealed class HangmanBoardControl : GuildCloakDialogBase
     private bool Hidden;
     private bool SolveShown;
     private HangmanBoardState? State;
+    private bool WasMyTurn;
     private string Viewer = string.Empty;
 
     public event Action<CollegeActionArgs>? ActionRequested;
@@ -125,9 +126,10 @@ public sealed class HangmanBoardControl : GuildCloakDialogBase
         Viewer = viewer;
         Countdown.Start(info.Phase == HangmanPhase.Solving ? info.SolveSecondsLeft : info.TurnSecondsLeft);
 
-        if (reopen || info.ISolve || (info.Number != DismissedNumber))
+        if (reopen || info.ISolve || (info.Number != DismissedNumber) || (info.MyTurn && !WasMyTurn))
             Hidden = false;
 
+        WasMyTurn = info.MyTurn;
         Refresh();
 
         if (!Visible && !Hidden)
@@ -140,6 +142,7 @@ public sealed class HangmanBoardControl : GuildCloakDialogBase
         State = null;
         DismissedNumber = -1;
         Hidden = false;
+        WasMyTurn = false;
         SolveShown = false;
         SolveBox.IsFocused = false;
         Hide();
@@ -160,7 +163,9 @@ public sealed class HangmanBoardControl : GuildCloakDialogBase
     {
         if (e.Keycode == Keycode.Escape)
         {
-            Dismiss();
+            if (State is not { ShowSolveBox: true })
+                Dismiss();
+
             e.Handled = true;
 
             return;

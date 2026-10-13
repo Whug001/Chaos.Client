@@ -17,7 +17,6 @@ namespace Chaos.Client.Controls.World.Popups.College;
 public sealed class HangmanTurnOrderControl : GuildCloakDialogBase
 {
     private const int WIDTH = 300;
-    private const int HEIGHT = 340;
     private const int LEFT = 16;
     private const int INNER_WIDTH = WIDTH - (2 * LEFT);
     private const int CAPTION_TOP = 10;
@@ -26,7 +25,8 @@ public sealed class HangmanTurnOrderControl : GuildCloakDialogBase
     private const int ROWS = 10;
     private const int INFO_TOP = ROWS_TOP + (ROWS * TurnOrderRow.HEIGHT) + 6;
     private const int MOVE_TOP = INFO_TOP + TextRenderer.CHAR_HEIGHT + 6;
-    private const int BUTTONS_TOP = HEIGHT - BORDER_BOTTOM_HEIGHT - 4 - CustomButton.HEIGHT;
+    private const int BUTTONS_TOP = MOVE_TOP + CustomButton.HEIGHT + 6;
+    private const int HEIGHT = BUTTONS_TOP + CustomButton.HEIGHT + 4 + BORDER_BOTTOM_HEIGHT;
     private const int OK_RIGHT_MARGIN = 20;
     private const int OK_BOTTOM_MARGIN = 3;
 
@@ -78,9 +78,17 @@ public sealed class HangmanTurnOrderControl : GuildCloakDialogBase
     /// <summary>A HangmanOrder message: everyone on the map but the Teacher, and the server's line about the game.</summary>
     public void ShowOrder(IReadOnlyList<string> names, string message)
     {
-        Order = new TurnOrderList(names);
+        if (Order.Rows.Count > 0)
+        {
+            Order.Reconcile(names);
+            ScrollTop = Math.Clamp(ScrollTop, 0, Math.Max(0, Order.Rows.Count - ROWS));
+        } else
+        {
+            Order = new TurnOrderList(names);
+            ScrollTop = 0;
+        }
+
         Message = message;
-        ScrollTop = 0;
         Refresh();
         Show();
     }
@@ -158,7 +166,7 @@ public sealed class HangmanTurnOrderControl : GuildCloakDialogBase
             return;
 
         Raise(new CollegeActionArgs { Type = CollegeActionType.HangmanOrder, Names = Order.TickedNames.ToList() });
-        Close();
+        Hide();
     }
 
     /// <summary>One name in the order: its place, a tick box and the name. Drag it onto another row to move it.</summary>

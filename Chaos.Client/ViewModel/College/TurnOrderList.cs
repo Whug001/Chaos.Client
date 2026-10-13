@@ -12,6 +12,20 @@ public sealed class TurnOrderList
     public int TickedCount => Items.Count(i => i.Ticked);
     public IReadOnlyList<string> TickedNames => Items.Where(i => i.Ticked).Select(i => i.Name).ToList();
 
+    /// <summary>Keeps the order and ticks of names still offered, drops the rest and appends new names ticked at the end.</summary>
+    public void Reconcile(IReadOnlyList<string> names)
+    {
+        var selected = Selected >= 0 ? Items[Selected].Name : null;
+        var offered = new HashSet<string>(names, StringComparer.OrdinalIgnoreCase);
+        Items.RemoveAll(i => !offered.Contains(i.Name));
+
+        foreach (var name in names)
+            if (!Items.Any(i => i.Name.Equals(name, StringComparison.OrdinalIgnoreCase)))
+                Items.Add((name, true));
+
+        Selected = selected is null ? -1 : Items.FindIndex(i => i.Name.Equals(selected, StringComparison.OrdinalIgnoreCase));
+    }
+
     public void Select(int index) => Selected = (index >= 0) && (index < Items.Count) ? index : -1;
 
     public void Toggle(int index)
