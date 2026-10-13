@@ -64,6 +64,9 @@ public sealed partial class WorldScreen
         //the checkbox states the f4 screen reads
         WorldState.UserOptions.SeedLocalDefaults();
 
+        //what this character put on their hotbars. The per-character store is initialized just before this is called
+        LoadHotbars();
+
         //volume is live: the sliders and the mixer were both set from the previous file
         MainOptions.SetSoundVolume(ClientSettings.SoundVolume);
         MainOptions.SetMusicVolume(ClientSettings.MusicVolume);

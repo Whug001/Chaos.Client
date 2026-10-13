@@ -14,6 +14,11 @@ public enum SettingSection
     DamageNumbers,
     Sound,
     Interaction,
+    Hotbars,
+    Hotbar1,
+    Hotbar2,
+    Hotbar3,
+    Hotbar4,
     Chat
 }
 
@@ -83,7 +88,32 @@ public enum SettingKey
     ReduceTumbleMotion,
     TabTargeting,
     ToggleGroupHighlight,
-    HideOwnBodyAnimations
+    HideOwnBodyAnimations,
+    SolidHotbars,
+    Hotbar1Visible,
+    Hotbar1Vertical,
+    Hotbar1Slots,
+    Hotbar2Visible,
+    Hotbar2Vertical,
+    Hotbar2Slots,
+    Hotbar3Visible,
+    Hotbar3Vertical,
+    Hotbar3Slots,
+    Hotbar4Visible,
+    Hotbar4Vertical,
+    Hotbar4Slots,
+    Hotbar1Locked,
+    Hotbar1Dock,
+    Hotbar2Locked,
+    Hotbar2Dock,
+    Hotbar3Locked,
+    Hotbar3Dock,
+    Hotbar4Locked,
+    Hotbar4Dock,
+    Hotbar1SlotsLocked,
+    Hotbar2SlotsLocked,
+    Hotbar3SlotsLocked,
+    Hotbar4SlotsLocked
 }
 
 /// <summary>
@@ -366,6 +396,22 @@ public static class SettingDefinitions
             Set: v => ClientSettings.ToggleGroupHighlight = v,
             Span: SettingSpan.Full),
 
+        //── Hotbars ──
+        //four bars, each shown, turned on its side and sized on its own; one switch for all their backings, like the
+        //group panels. What each slot holds is set by dragging onto the bar, and its keys are in F12
+        new(
+            SettingKey.SolidHotbars,
+            "Solid hotbars",
+            SettingSection.Hotbars,
+            SettingCategory.ClientLocal,
+            Get: () => ClientSettings.SolidHotbars,
+            Set: v => ClientSettings.SolidHotbars = v,
+            Span: SettingSpan.Full),
+        ..HotbarRows(0),
+        ..HotbarRows(1),
+        ..HotbarRows(2),
+        ..HotbarRows(3),
+
         //── Chat filter ──
         //Rides the 0x1B/UserOption options round-trip, no dedicated packet: the 4-state mode travels in
         //OptionToggleArgs.Value as an index, and the server appends both prefs to the UserOptions response.
@@ -420,8 +466,101 @@ public static class SettingDefinitions
         SettingSection.DamageNumbers,
         SettingSection.Sound,
         SettingSection.Interaction,
+        SettingSection.Hotbars,
+        SettingSection.Hotbar1,
+        SettingSection.Hotbar2,
+        SettingSection.Hotbar3,
+        SettingSection.Hotbar4,
         SettingSection.Chat
     ];
+
+    /// <summary>
+    ///     One hotbar's F4 section, three rows of two: shown and vertical; how many slots and whether they are locked;
+    ///     whether the position is locked and the edge it locks to. Everything but Show only applies while the bar is
+    ///     shown, and the edge only while the position is locked. The section header names the bar, so the labels don't.
+    /// </summary>
+    /// <remarks>
+    ///     A method rather than a static list because <see cref="All" /> is built first: a static field below it would
+    ///     still be null when this runs.
+    /// </remarks>
+    private static SettingDefinition[] HotbarRows(int bar)
+    {
+        SettingSection[] sections = [SettingSection.Hotbar1, SettingSection.Hotbar2, SettingSection.Hotbar3, SettingSection.Hotbar4];
+        SettingKey[] visible = [SettingKey.Hotbar1Visible, SettingKey.Hotbar2Visible, SettingKey.Hotbar3Visible, SettingKey.Hotbar4Visible];
+        SettingKey[] vertical = [SettingKey.Hotbar1Vertical, SettingKey.Hotbar2Vertical, SettingKey.Hotbar3Vertical, SettingKey.Hotbar4Vertical];
+        SettingKey[] slots = [SettingKey.Hotbar1Slots, SettingKey.Hotbar2Slots, SettingKey.Hotbar3Slots, SettingKey.Hotbar4Slots];
+
+        SettingKey[] slotsLocked =
+            [SettingKey.Hotbar1SlotsLocked, SettingKey.Hotbar2SlotsLocked, SettingKey.Hotbar3SlotsLocked, SettingKey.Hotbar4SlotsLocked];
+        SettingKey[] locked = [SettingKey.Hotbar1Locked, SettingKey.Hotbar2Locked, SettingKey.Hotbar3Locked, SettingKey.Hotbar4Locked];
+        SettingKey[] dock = [SettingKey.Hotbar1Dock, SettingKey.Hotbar2Dock, SettingKey.Hotbar3Dock, SettingKey.Hotbar4Dock];
+
+        var section = sections[bar];
+
+        return
+        [
+            new(
+                visible[bar],
+                "Show",
+                section,
+                SettingCategory.ClientLocal,
+                Get: () => ClientSettings.HotbarVisible[bar],
+                Set: v => ClientSettings.HotbarVisible[bar] = v),
+            new(
+                vertical[bar],
+                "Vertical",
+                section,
+                SettingCategory.ClientLocal,
+                Get: () => ClientSettings.HotbarVertical[bar],
+                Set: v => ClientSettings.HotbarVertical[bar] = v,
+                GatedBy: visible[bar]),
+            new(
+                slots[bar],
+                "Slots",
+                section,
+                SettingCategory.ClientLocal,
+                Choices: [..Enumerable.Range(1, HotbarSet.MAX_SLOTS).Select(count => count.ToString())],
+                GetChoice: () => ClientSettings.HotbarSlotCount[bar] - 1,
+                SetChoice: i =>
+                {
+                    ClientSettings.HotbarSlotCount[bar] = Math.Clamp(i + 1, 1, HotbarSet.MAX_SLOTS);
+                    ClientSettings.Save();
+                },
+                GatedBy: visible[bar]),
+            new(
+                slotsLocked[bar],
+                "Lock slots",
+                section,
+                SettingCategory.ClientLocal,
+                Get: () => ClientSettings.HotbarSlotsLocked[bar],
+                Set: v => ClientSettings.HotbarSlotsLocked[bar] = v,
+                GatedBy: visible[bar]),
+            new(
+                locked[bar],
+                "Lock position",
+                section,
+                SettingCategory.ClientLocal,
+                Get: () => ClientSettings.HotbarLocked[bar],
+                Set: v => ClientSettings.HotbarLocked[bar] = v,
+                GatedBy: visible[bar]),
+            new(
+                dock[bar],
+                "Position",
+                section,
+                SettingCategory.ClientLocal,
+                Choices: HotbarDockNames,
+                GetChoice: () => (int)ClientSettings.HotbarDockEdge[bar],
+                SetChoice: i =>
+                {
+                    ClientSettings.HotbarDockEdge[bar] = Enum.IsDefined((HotbarDock)i) ? (HotbarDock)i : HotbarDock.Bottom;
+                    ClientSettings.Save();
+                },
+                GatedBy: locked[bar])
+        ];
+    }
+
+    /// <summary>The position dropdown's choices, in <see cref="HotbarDock" /> order -- the index is the edge.</summary>
+    private static string[] HotbarDockNames => ["Bottom", "Top", "Left", "Right"];
 
     /// <summary>The settings F4 draws a row for in <paramref name="section" />, in order. Hidden settings are left out.</summary>
     public static IEnumerable<SettingDefinition> PanelRows(SettingSection section)

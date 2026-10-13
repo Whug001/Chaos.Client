@@ -92,7 +92,8 @@ public sealed partial class WorldScreen : IScreen
     ///     entity under the cursor, because the tile is the target rather than the entity.
     /// </summary>
     private bool IsDraggingGroundSpell
-        => Game.Dispatcher.ActiveDragPayload is SlotDragPayload { Source: SpellSlot { SpellType: SpellType.GroundTargeted } };
+        => Game.Dispatcher.ActiveDragPayload is SlotDragPayload { Source: SpellSlot { SpellType: SpellType.GroundTargeted } }
+           || IsDraggingHotbarGroundSpell;
 
     /// <summary>
     ///     True while a ground-targeted spell is being aimed at a tile — either armed in cast mode, or its icon dragged
@@ -899,6 +900,7 @@ public sealed partial class WorldScreen : IScreen
         WireTownBallot();
         WireTowerLeaderboard();
         WireCollege();
+        WireHotbars();
 
         //buy-confirm popup for the market: lives on Root (it centers on-screen and must not be clipped inside the Market
         //panel) and draws above the Market window (ZIndex 3 > 2). Shown when the Results tab raises BuyRequested.
@@ -1023,6 +1025,7 @@ public sealed partial class WorldScreen : IScreen
         Root.AddChild(VotePanel);
         Root.AddChild(GroupVitals);
         Root.AddChild(RaidVitals);
+        BuildHotbars();
         VotePanel.VoteCast += (pollId, index) => Game.Connection.SendVote(pollId, index);
 
         //inventory drop-target registry: each panel owns its eligibility/drop-zone; the paired action owns the networking
@@ -1138,6 +1141,7 @@ public sealed partial class WorldScreen : IScreen
         UnwireTownBallot();
         UnwireTowerLeaderboard();
         UnwireCollege();
+        UnwireHotbars();
 
         //unwire panel click-to-use events
         WorldHud.Inventory.OnSlotClicked -= HandleInventorySlotClicked;

@@ -471,6 +471,18 @@ public sealed partial class WorldScreen
         if (spellSlot is null)
             return;
 
+        CastSpellAtDrop(spellSlot, mouseX, mouseY);
+    }
+
+    /// <summary>
+    ///     Casts a spell dragged into the world on what it was dropped on: the entity under the cursor, or for a
+    ///     ground-targeted spell the tile. Shared by the spell panels and by a locked hotbar's slots.
+    /// </summary>
+    private void CastSpellAtDrop(SpellSlot spellSlot, int mouseX, int mouseY)
+    {
+        if (IsOverVisiblePopup(mouseX, mouseY) || !IsInWorldViewport(mouseX, mouseY))
+            return;
+
         uint targetId;
         int tileX;
         int tileY;
@@ -905,6 +917,14 @@ public sealed partial class WorldScreen
 
         if (GameActions.SlotNumber(action) is var slot and > 0)
             return UseSlotHotkey(slot);
+
+        //a hotbar key works whichever panel is open, and whether or not its bar is shown
+        if (GameActions.HotbarIndex(action) is var hotbar and >= 0)
+        {
+            UseHotbarSlot(hotbar, GameActions.HotbarSlot(action));
+
+            return true;
+        }
 
         switch (action)
         {
@@ -1565,6 +1585,13 @@ public sealed partial class WorldScreen
         {
             case SlotDragPayload { Source.Parent: PanelBase { IsDragging: true } panel }:
                 panel.CompleteDragOutside(e.ScreenX, e.ScreenY);
+                e.Handled = true;
+
+                break;
+
+            //no hotbar took it: from an unlocked bar the slot is emptied, from a locked one what it holds is used here
+            case HotbarDragPayload hotbar:
+                DropHotbarSlot(hotbar, e.ScreenX, e.ScreenY);
                 e.Handled = true;
 
                 break;

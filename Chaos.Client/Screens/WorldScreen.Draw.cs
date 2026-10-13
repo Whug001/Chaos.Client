@@ -1114,6 +1114,19 @@ public sealed partial class WorldScreen
     }
 
     /// <summary>
+    ///     The y the status strips and bottom-locked hotbars stack up from: the hud's strip anchor, just above the orange
+    ///     bar. An expanded inventory or ability panel grows upward past the anchor, so the stack has to start from the
+    ///     panel's top edge instead or it is drawn across its extra slot rows. Whichever of the two is higher wins, so
+    ///     collapsing the panel puts everything straight back where it was.
+    /// </summary>
+    private int StatusStripBaseline()
+    {
+        var anchorY = WorldHud.StripAnchor.Y;
+
+        return (WorldHud.ExpandedPanelTop is { } top) && (top < anchorY) ? top : anchorY;
+    }
+
+    /// <summary>
     ///     Draws the class resource strip and the bard song strip, stacked upward from the active hud's
     ///     <see cref="IWorldHud.StripAnchor" />.
     /// </summary>
@@ -1135,11 +1148,8 @@ public sealed partial class WorldScreen
 
         var anchor = WorldHud.StripAnchor;
 
-        //an expanded inventory or ability panel grows upward past the anchor, so the strips have to stack off the
-        //panel's top edge instead or they are drawn across its extra slot rows. Whichever of the two is higher wins,
-        //so collapsing the panel puts them straight back where they were
-        var expandedTop = WorldHud.ExpandedPanelTop;
-        var baselineY = (expandedTop is { } top) && (top < anchor.Y) ? top : anchor.Y;
+        //hotbars locked to the bottom take the rows right above the orange bar; the strips stack above them
+        var baselineY = HotbarBottomStackTop ?? StatusStripBaseline();
 
         //ichor / rage / valor / malice. Server-authoritative (WorldState.ClassResource) -- this only displays
         //the last value the server reported.

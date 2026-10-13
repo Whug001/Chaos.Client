@@ -53,6 +53,7 @@ public sealed partial class WorldScreen
         //the world map is a full-screen overlay; a floating group panel over it would sit on the map art
         GroupVitals.Suppressed = WorldMap.Visible;
         RaidVitals.Suppressed = WorldMap.Visible;
+        SuppressHotbars(WorldMap.Visible);
 
         var elapsedMs = (float)gameTime.ElapsedGameTime.TotalMilliseconds;
 
@@ -323,7 +324,8 @@ public sealed partial class WorldScreen
         //── track which entity the mouse is hovering over ──
         var hoverEntity = GetEntityAtScreen(InputBuffer.MouseX, InputBuffer.MouseY);
 
-        var isItemDrag = Game.Dispatcher.ActiveDragPayload is SlotDragPayload slotDrag && (slotDrag.Source.Parent == WorldHud.Inventory);
+        var isItemDrag = (Game.Dispatcher.ActiveDragPayload is SlotDragPayload slotDrag && (slotDrag.Source.Parent == WorldHud.Inventory))
+                         || IsDraggingHotbarItem;
 
         var newHoveredId = hoverEntity?.Type is ClientEntityType.Aisling or ClientEntityType.Creature
                            && !hoverEntity.IsHidden
@@ -395,6 +397,7 @@ public sealed partial class WorldScreen
         PopulateFrameState(newHoveredId);
 
         Root!.Update(gameTime);
+        LayoutHotbars();
     }
 
     private void UpdateEmoteWheel()

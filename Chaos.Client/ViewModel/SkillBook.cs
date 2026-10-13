@@ -114,6 +114,20 @@ public sealed class SkillBook
     }
 
     /// <summary>
+    ///     The first 1-based slot whose skill is <paramref name="abilityName" /> (the name without its level suffix,
+    ///     case-insensitive), or 0 when none is. The hotbars find their skills this way, so a skill keeps working after it
+    ///     levels or is moved to another slot.
+    /// </summary>
+    public byte FindSlotByAbilityName(string abilityName)
+    {
+        for (var i = 0; i < MAX_SLOTS; i++)
+            if (Slots[i].IsOccupied && (Slots[i].AbilityName?.EqualsI(abilityName) ?? false))
+                return (byte)(i + 1);
+
+        return 0;
+    }
+
+    /// <summary>
     ///     Starts or resets a cooldown on a 1-based slot. No event — controls poll cooldown directly each frame.
     /// </summary>
     public void SetCooldown(byte slot, uint durationSecs)

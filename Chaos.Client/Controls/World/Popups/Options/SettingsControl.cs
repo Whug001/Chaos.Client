@@ -120,6 +120,11 @@ public sealed class SettingsControl : FramedDialogPanelBase
             SettingSection.DamageNumbers => "Damage Numbers",
             SettingSection.Sound         => "Sound",
             SettingSection.Interaction   => "Interaction",
+            SettingSection.Hotbars       => "Hotbars",
+            SettingSection.Hotbar1       => "Hotbar 1",
+            SettingSection.Hotbar2       => "Hotbar 2",
+            SettingSection.Hotbar3       => "Hotbar 3",
+            SettingSection.Hotbar4       => "Hotbar 4",
             SettingSection.Chat          => "Chat",
             _                            => string.Empty
         };

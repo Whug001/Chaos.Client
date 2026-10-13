@@ -1,5 +1,6 @@
 #region
 using Chaos.Client.Definitions;
+using Chaos.Client.ViewModel;
 using Chaos.DarkAges.Definitions;
 #endregion
 
@@ -95,6 +96,56 @@ public enum GameAction
     TargetNearestEnemy,
     TargetFurthestEnemy,
 
+    //hotbars: twelve slots for each of the four bars, unbound until the player picks keys
+    Hotbar1Slot1,
+    Hotbar1Slot2,
+    Hotbar1Slot3,
+    Hotbar1Slot4,
+    Hotbar1Slot5,
+    Hotbar1Slot6,
+    Hotbar1Slot7,
+    Hotbar1Slot8,
+    Hotbar1Slot9,
+    Hotbar1Slot10,
+    Hotbar1Slot11,
+    Hotbar1Slot12,
+    Hotbar2Slot1,
+    Hotbar2Slot2,
+    Hotbar2Slot3,
+    Hotbar2Slot4,
+    Hotbar2Slot5,
+    Hotbar2Slot6,
+    Hotbar2Slot7,
+    Hotbar2Slot8,
+    Hotbar2Slot9,
+    Hotbar2Slot10,
+    Hotbar2Slot11,
+    Hotbar2Slot12,
+    Hotbar3Slot1,
+    Hotbar3Slot2,
+    Hotbar3Slot3,
+    Hotbar3Slot4,
+    Hotbar3Slot5,
+    Hotbar3Slot6,
+    Hotbar3Slot7,
+    Hotbar3Slot8,
+    Hotbar3Slot9,
+    Hotbar3Slot10,
+    Hotbar3Slot11,
+    Hotbar3Slot12,
+    Hotbar4Slot1,
+    Hotbar4Slot2,
+    Hotbar4Slot3,
+    Hotbar4Slot4,
+    Hotbar4Slot5,
+    Hotbar4Slot6,
+    Hotbar4Slot7,
+    Hotbar4Slot8,
+    Hotbar4Slot9,
+    Hotbar4Slot10,
+    Hotbar4Slot11,
+    Hotbar4Slot12,
+
     //emotes: 11 Ctrl, then 11 Ctrl+Alt, then 11 Alt
     Emote01,
     Emote02,
@@ -141,6 +192,7 @@ public enum GameActionCategory
     Chat,
     Song,
     Targeting,
+    Hotbars,
     Emotes
 }
 
@@ -179,6 +231,7 @@ public static class GameActions
             <= GameAction.ScrollChatDown => GameActionCategory.Chat,
             <= GameAction.SongNote4           => GameActionCategory.Song,
             <= GameAction.TargetFurthestEnemy => GameActionCategory.Targeting,
+            <= GameAction.Hotbar4Slot12       => GameActionCategory.Hotbars,
             _                                 => GameActionCategory.Emotes
         };
 
@@ -203,6 +256,17 @@ public static class GameActions
 
     /// <summary>1-12 for the slot actions, otherwise 0.</summary>
     public static int SlotNumber(GameAction action) => action is >= GameAction.Slot1 and <= GameAction.Slot12 ? action - GameAction.Slot1 + 1 : 0;
+
+    public static bool IsHotbar(GameAction action) => action is >= GameAction.Hotbar1Slot1 and <= GameAction.Hotbar4Slot12;
+
+    /// <summary>0-3 for the hotbar actions (which bar), otherwise -1.</summary>
+    public static int HotbarIndex(GameAction action) => IsHotbar(action) ? (action - GameAction.Hotbar1Slot1) / HotbarSet.MAX_SLOTS : -1;
+
+    /// <summary>0-11 for the hotbar actions (which slot on the bar), otherwise -1.</summary>
+    public static int HotbarSlot(GameAction action) => IsHotbar(action) ? (action - GameAction.Hotbar1Slot1) % HotbarSet.MAX_SLOTS : -1;
+
+    /// <summary>The action that uses slot <paramref name="slot" /> (0-11) of hotbar <paramref name="bar" /> (0-3).</summary>
+    public static GameAction HotbarAction(int bar, int slot) => GameAction.Hotbar1Slot1 + (bar * HotbarSet.MAX_SLOTS) + slot;
 
     /// <summary>1-4 for the song note actions, otherwise 0.</summary>
     public static byte SongNote(GameAction action) => action is >= GameAction.SongNote1 and <= GameAction.SongNote4 ? (byte)(action - GameAction.SongNote1 + 1) : (byte)0;
@@ -239,6 +303,9 @@ public static class GameActions
 
         if (SongNote(action) is var note and > 0)
             return $"Note {note}";
+
+        if (HotbarIndex(action) is var bar and >= 0)
+            return $"Hotbar {bar + 1} Slot {HotbarSlot(action) + 1}";
 
         if (TargetGroupIndex(action) is var member and >= 0)
             return $"Target Group Member {member + 1}";

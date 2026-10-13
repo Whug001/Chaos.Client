@@ -157,6 +157,12 @@ public class KeyBindingTableTests
         foreach (var action in GameActions.All)
         {
             GameActions.NameOf(action).Should().NotBeNullOrWhiteSpace();
+
+            //the hotbar slots are the exception: every key that would suit them is already taken, so the player picks
+            //their own in F12 (HotbarTests.Hotbar_keys_start_unbound)
+            if (GameActions.IsHotbar(action))
+                continue;
+
             KeyBindingTable.DefaultChord(action, 0).IsNone.Should().BeFalse($"{action} needs a default key");
         }
 
