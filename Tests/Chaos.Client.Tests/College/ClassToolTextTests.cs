@@ -119,10 +119,10 @@ public class ClassToolTextTests
             Mode = HangmanMode.Survival
         };
 
-        ClassToolText.HangmanTitle(info).Should().Be("Hangman: Mileth (2/8) · Survival");
+        ClassToolText.HangmanTitle(info).Should().Be("Hangman 2/8 · Survival: Mileth");
 
         info.Mode = HangmanMode.Casual;
-        ClassToolText.HangmanTitle(info).Should().Be("Hangman: Mileth (2/8) · Casual");
+        ClassToolText.HangmanTitle(info).Should().Be("Hangman 2/8 · Casual: Mileth");
     }
 
     [Test]
@@ -130,6 +130,7 @@ public class ClassToolTextTests
     {
         ClassToolText.MissLine(new CollegeHangmanInfo { Mode = HangmanMode.Survival, Misses = 3 }).Should().Be("3 of 6 misses");
         ClassToolText.MissLine(new CollegeHangmanInfo { Mode = HangmanMode.Casual, Misses = 3 }).Should().Be("3 misses");
+        ClassToolText.MissLine(new CollegeHangmanInfo { Mode = HangmanMode.Casual, Misses = 1 }).Should().Be("1 miss");
     }
 
     [Test]

@@ -8,6 +8,10 @@ namespace Chaos.Client.Tests.College;
 public class ScrambleHelpersTests
 {
     [Test]
+    public void Card_title_puts_the_count_before_the_list_title()
+        => ScrambleCardState.Title(new CollegeScrambleInfo { Title = "Mileth", Number = 3, Count = 10 }).Should().Be("Scramble 3/10: Mileth");
+
+    [Test]
     public void Short_words_get_full_size_tiles()
     {
         var layout = new ScrambleTileLayout("HILMET", 338, 18);

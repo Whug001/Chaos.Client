@@ -9,10 +9,10 @@ public static class ClassToolText
 {
     public static string Clock(int seconds) => $"{seconds / 60}:{seconds % 60:00}";
 
-    public static string HangmanTitle(CollegeHangmanInfo info) => $"Hangman: {info.Title} ({info.Number}/{info.Count}) · {info.Mode}";
+    public static string HangmanTitle(CollegeHangmanInfo info) => $"Hangman {info.Number}/{info.Count} · {info.Mode}: {info.Title}";
 
     public static string MissLine(CollegeHangmanInfo info)
-        => info.Mode == HangmanMode.Survival ? $"{info.Misses} of {CollegeProtocol.HANGMAN_MAX_MISSES} misses" : $"{info.Misses} misses";
+        => info.Mode == HangmanMode.Survival ? $"{info.Misses} of {CollegeProtocol.HANGMAN_MAX_MISSES} misses" : info.Misses == 1 ? "1 miss" : $"{info.Misses} misses";
 
     public static string TurnLabel(string name, int seconds) => $"{name} {Clock(seconds)}";
 

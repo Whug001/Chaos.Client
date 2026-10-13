@@ -28,7 +28,7 @@ public sealed class ScrambleCardControl : GuildCloakDialogBase
     private const int TILE_HEIGHT = 22;
     private const int TILE_MAX_WIDTH = 18;
     private const int HINT_TOP = TILES_TOP + TILE_HEIGHT + 6;
-    private const int BAR_TOP = HINT_TOP + LINE_HEIGHT + 4;
+    private const int BAR_TOP = HINT_TOP + (2 * LINE_HEIGHT) + 4;
     private const int BAR_HEIGHT = 4;
     private const int GUESS_TOP = BAR_TOP + 10;
     private const int GUESS_BUTTON_WIDTH = 70;
@@ -69,6 +69,8 @@ public sealed class ScrambleCardControl : GuildCloakDialogBase
         CaptionLabel = Caption(string.Empty, LEFT, CAPTION_TOP, INNER_WIDTH - SCORE_WIDTH, color: LegendColors.Gold);
         ScoreLabel = Caption(string.Empty, LEFT + INNER_WIDTH - SCORE_WIDTH, CAPTION_TOP, SCORE_WIDTH, HorizontalAlignment.Right);
         HintLabel = Caption(string.Empty, LEFT, HINT_TOP, INNER_WIDTH, HorizontalAlignment.Center, LegendColors.Gray);
+        HintLabel.WordWrap = true;
+        HintLabel.Height = 2 * LINE_HEIGHT;
 
         GuessBox = new CustomTextBox
         {

@@ -35,7 +35,7 @@ public sealed class ScrambleCardState
 
     public void NoteGuess() => WrongNumber = -1;
 
-    public static string Title(CollegeScrambleInfo info) => $"Scramble: {info.Title} ({info.Number}/{info.Count})";
+    public static string Title(CollegeScrambleInfo info) => $"Scramble {info.Number}/{info.Count}: {info.Title}";
 
     public static string SolvedLine(CollegeScrambleInfo info) => $"{info.SolvedCount} of {info.Students} got it";
 

@@ -20,7 +20,7 @@ namespace Chaos.Client.Controls.World.Popups.College;
 public sealed class HangmanBoardControl : GuildCloakDialogBase
 {
     private const int WIDTH = 380;
-    private const int HEIGHT = 276;
+    private const int HEIGHT = 276 + LINE_HEIGHT;
     private const int LEFT = 16;
     private const int INNER_WIDTH = WIDTH - (2 * LEFT);
     private const int CAPTION_TOP = 10;
@@ -33,10 +33,10 @@ public sealed class HangmanBoardControl : GuildCloakDialogBase
     private const int MASK_SCALE = 2;
     private const int MASK_CELL = 14;
     private const int HINT_TOP = 68;
-    private const int STRIP_TOP = 88;
+    private const int STRIP_TOP = 88 + LINE_HEIGHT;
     private const int STRIP_HEIGHT = 15;
     private const int STRIP_GAP = 4;
-    private const int KEYS_TOP = 108;
+    private const int KEYS_TOP = 108 + LINE_HEIGHT;
     private const int KEY_STEP = CustomButton.HEIGHT + 2;
     private const int KEYS_PER_ROW = 13;
     private const int ACTION_TOP = KEYS_TOP + (2 * KEY_STEP) + 6;
@@ -81,6 +81,8 @@ public sealed class HangmanBoardControl : GuildCloakDialogBase
         ScoreLabel = Caption(string.Empty, LEFT + INNER_WIDTH - SCORE_WIDTH, CAPTION_TOP, SCORE_WIDTH, HorizontalAlignment.Right);
         MissLabel = Caption(string.Empty, LEFT, GALLOWS_TOP + 14, GALLOWS_SLOT - 4, HorizontalAlignment.Left, LegendColors.Gray);
         HintLabel = Caption(string.Empty, WORD_X, HINT_TOP, WORD_WIDTH, HorizontalAlignment.Center, LegendColors.Gray);
+        HintLabel.WordWrap = true;
+        HintLabel.Height = 2 * LINE_HEIGHT;
 
         for (var i = 0; i < LetterButtons.Length; i++)
         {
@@ -178,6 +180,7 @@ public sealed class HangmanBoardControl : GuildCloakDialogBase
             && (key is >= 'a' and <= 'z')
             && !e.Ctrl
             && !e.Alt
+            && !e.IsRepeat
             && !UITextBox.IsAnyFocused)
         {
             Pick((char)(key - 'a' + 'A'));
@@ -443,8 +446,7 @@ public sealed class HangmanBoardControl : GuildCloakDialogBase
             HangmanPhase.Solving                         => $"{info.Solver} is solving: {ClassToolText.Clock(Countdown.Left)}",
             HangmanPhase.Revealed or HangmanPhase.Ended  => info.Hint,
             _ when info.Hint.Length == 0                 => miss,
-            _ when miss.Length == 0                      => $"Hint: {info.Hint}",
-            _                                            => $"Hint: {info.Hint} - {miss}"
+            _                                            => $"Hint: {info.Hint}"
         };
     }
 
