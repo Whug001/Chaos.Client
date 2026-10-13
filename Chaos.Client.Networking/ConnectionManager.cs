@@ -648,6 +648,9 @@ public sealed class ConnectionManager : IDisposable
     /// <summary>Fired when the server opens, refreshes or closes the Arena Host Panel.</summary>
     public event ArenaHostDisplayHandler? OnArenaHostDisplay;
 
+    /// <summary>Fired when the server opens, refreshes, updates or closes the crafting windows.</summary>
+    public event CraftingDisplayHandler? OnCraftingDisplay;
+
     /// <summary>Fired when the server sends one season of the Endless Tower leaderboard.</summary>
     public event TowerLeaderboardHandler? OnTowerLeaderboard;
 
@@ -1459,6 +1462,9 @@ public sealed class ConnectionManager : IDisposable
     /// <summary>A host panel button. The server checks host rank and every rule again.</summary>
     public void SendArenaHostAction(ArenaHostActionArgs args) => SendIfWorld(args);
 
+    /// <summary>A crafting window action. The server checks the station, the recipe and the bag again.</summary>
+    public void SendCraftingAction(CraftingActionArgs args) => SendIfWorld(args);
+
     /// <summary>Sends a Mileth College window action. The server checks every rule again.</summary>
     public void SendCollegeAction(CollegeActionArgs args) => SendIfWorld(args);
 
@@ -1890,6 +1896,7 @@ public sealed class ConnectionManager : IDisposable
         PacketHandlers[(byte)ServerOpCode.TownImportAdmin] = HandleTownImportAdmin;
         PacketHandlers[(byte)ServerOpCode.TownBallot] = HandleTownBallot;
         PacketHandlers[(byte)ServerOpCode.ArenaHostDisplay] = HandleArenaHostDisplay;
+        PacketHandlers[(byte)ServerOpCode.CraftingDisplay] = HandleCraftingDisplay;
         PacketHandlers[(byte)ServerOpCode.TowerLeaderboard] = HandleTowerLeaderboard;
         PacketHandlers[(byte)ServerOpCode.CollegeDisplay] = HandleCollegeDisplay;
         PacketHandlers[(byte)ServerOpCode.TownContestDisplay] = HandleTownContestDisplay;
@@ -2452,6 +2459,12 @@ public sealed class ConnectionManager : IDisposable
     {
         var args = Client.Deserialize<ArenaHostDisplayArgs>(in pkt);
         OnArenaHostDisplay?.Invoke(args);
+    }
+
+    private void HandleCraftingDisplay(ServerPacket pkt)
+    {
+        var args = Client.Deserialize<CraftingDisplayArgs>(in pkt);
+        OnCraftingDisplay?.Invoke(args);
     }
 
     private void HandleTownContestDisplay(ServerPacket pkt)
