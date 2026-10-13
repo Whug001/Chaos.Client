@@ -1651,6 +1651,13 @@ public sealed partial class WorldScreen
                 return WorldState.GetEntity(hitbox.EntityId);
         }
 
+        //tile-based lookup for ground items, ahead of wide sprites so an item lying under a big monster's art can still
+        //be picked up
+        (var tileX, var tileY) = ScreenToTile(mouseX, mouseY);
+
+        if (WorldState.GetGroundItemAt(tileX, tileY) is { } groundItem)
+            return groundItem;
+
         for (var i = WideSpriteHitBoxes.Count - 1; i >= 0; i--)
         {
             var hitbox = WideSpriteHitBoxes[i];
@@ -1659,10 +1666,7 @@ public sealed partial class WorldScreen
                 return WorldState.GetEntity(hitbox.EntityId);
         }
 
-        //fallback: tile-based lookup for ground items
-        (var tileX, var tileY) = ScreenToTile(mouseX, mouseY);
-
-        return WorldState.GetGroundItemAt(tileX, tileY);
+        return null;
     }
 
     private (int TileX, int TileY) ScreenToTile(int mouseX, int mouseY)
