@@ -63,8 +63,15 @@ public sealed class CraftingWindowState
 
     public float RankBarPercent => RankThreshold <= 0 ? 1f : Math.Clamp((float)RankCount / RankThreshold, 0f, 1f);
 
+    /// <summary>The rank word alone ("Novice" of "Novice Alchemist"), short enough for the rank cell.</summary>
+    public string RankShortTitle => RankWord(RankTitle);
+
+    //the bar holds about 28 characters, so the counts come first and only the next rank's word follows
     public string RankBarText
-        => string.IsNullOrEmpty(NextRankTitle) ? RankTitle : $"Next rank: {NextRankTitle} ({RankCount} / {RankThreshold})";
+        => string.IsNullOrEmpty(NextRankTitle) ? RankTitle : $"{RankCount} / {RankThreshold} to {RankWord(NextRankTitle)}";
+
+    /// <summary>The recipe whose confirm window opens once its detail arrives (a double-click beat the server's reply).</summary>
+    public ushort? PendingConfirmId { get; private set; }
 
     public string IngredientText
     {
@@ -133,11 +140,48 @@ public sealed class CraftingWindowState
             Quantity = 0;
         }
 
+        if (PendingConfirmId != id)
+            PendingConfirmId = null;
+
         SelectedId = id;
         Changed?.Invoke();
 
         return new CraftingActionArgs { Type = CraftingActionType.Select, RecipeId = id };
     }
+
+    /// <summary>
+    ///     True when the selected recipe's detail is here and the confirm window can open now. Otherwise the selected
+    ///     recipe is remembered and <see cref="TakePendingConfirm" /> says when its detail has arrived.
+    /// </summary>
+    public bool RequestConfirm()
+    {
+        if (SelectedId is not { } id)
+            return false;
+
+        if (Detail?.RecipeId == id)
+        {
+            PendingConfirmId = null;
+
+            return true;
+        }
+
+        PendingConfirmId = id;
+
+        return false;
+    }
+
+    /// <summary>True once, when the detail of the recipe waiting for its confirm window has arrived.</summary>
+    public bool TakePendingConfirm()
+    {
+        if ((PendingConfirmId is not { } id) || (id != SelectedId) || (Detail?.RecipeId != id))
+            return false;
+
+        PendingConfirmId = null;
+
+        return true;
+    }
+
+    public void CancelPendingConfirm() => PendingConfirmId = null;
 
     public void Step(int delta)
     {
@@ -210,6 +254,7 @@ public sealed class CraftingWindowState
         CatalystCount = 0;
         Running = false;
         ProgressText = string.Empty;
+        PendingConfirmId = null;
     }
 
     private void ApplyList(CraftingDisplayArgs args)
@@ -221,5 +266,21 @@ public sealed class CraftingWindowState
         RankCount = args.RankCount;
         RankThreshold = args.RankThreshold;
         Recipes = args.Recipes;
+        PendingConfirmId = null;
+
+        //an upgrade can move the item to another recipe; the old one is gone from the list
+        if ((SelectedId is { } id) && Recipes.All(r => r.Id != id))
+        {
+            SelectedId = null;
+            Detail = null;
+            Quantity = 0;
+        }
+    }
+
+    private static string RankWord(string title)
+    {
+        var space = title.IndexOf(' ');
+
+        return space > 0 ? title[..space] : title;
     }
 }

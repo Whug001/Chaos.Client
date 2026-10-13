@@ -9,7 +9,9 @@ namespace Chaos.Client.Controls.World.Popups.Crafting;
 public sealed class CraftingIngredientRow : UIPanel
 {
     public const int HEIGHT = 34;
-    private const int COUNT_WIDTH = 60;
+    private const int COUNT_WIDTH = 42;
+    private const int NAME_GAP = 2;
+    private const int NAME_X = 38;
 
     private readonly UILabel CountLabel;
     private readonly UIImage IconImage;
@@ -31,9 +33,9 @@ public sealed class CraftingIngredientRow : UIPanel
 
         NameLabel = new UILabel
         {
-            X = 38,
+            X = NAME_X,
             Y = (HEIGHT - TextRenderer.CHAR_HEIGHT) / 2,
-            Width = Math.Max(0, width - 40 - COUNT_WIDTH),
+            Width = Math.Max(0, width - NAME_X - NAME_GAP - COUNT_WIDTH),
             Height = TextRenderer.CHAR_HEIGHT,
             ForegroundColor = LegendColors.White,
             IsHitTestVisible = false
@@ -62,6 +64,13 @@ public sealed class CraftingIngredientRow : UIPanel
         var need = ingredient.Need * Math.Max(quantity, 1);
         NameLabel.Text = ingredient.Name;
         CountText = (ingredient.Have >= need ? "{=u" : "{=b") + $"{ingredient.Have} / {need}";
+
+        //the count takes only the room its text needs (plus the label's padding and the last glyph's overhang),
+        //so the name gets the rest of the row
+        var countWidth = Math.Min(TextRenderer.MeasureWidth(CountText) + 4, Math.Max(0, Width - NAME_X));
+        CountLabel.X = Width - countWidth;
+        CountLabel.Width = countWidth;
+        NameLabel.Width = Math.Max(0, CountLabel.X - NAME_GAP - NAME_X);
 
         //color-code measuring needs the legend palette, which only exists once the client has loaded its data
         if (UiRenderer.Instance is not { } ui)

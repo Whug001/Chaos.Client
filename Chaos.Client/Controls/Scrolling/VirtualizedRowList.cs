@@ -175,6 +175,26 @@ internal sealed class VirtualizedRowList<T> : UIPanel, IVerticalScrollable
     }
 
     /// <summary>
+    ///     Replaces the items like <see cref="SetItems" /> but keeps the scroll offset (clamped to the new bounds), for a
+    ///     host that refreshes the same list while the player may be scrolled into it. A selection past the new end is
+    ///     dropped. Does not raise <see cref="SelectionChanged" />.
+    /// </summary>
+    public void ReplaceItems(IReadOnlyList<T> items)
+    {
+        Items = items;
+        LoadMorePending = false;
+
+        if (SelectedIndex >= items.Count)
+            SelectedIndex = -1;
+
+        if (PinToBottom && Pinned)
+            ScrollOffset = MaxOffset;
+
+        ScrollOffset = Math.Clamp(ScrollOffset, 0, MaxOffset);
+        DataVersion++;
+    }
+
+    /// <summary>
     ///     Highlights the first item matching <paramref name="predicate" />, or clears the selection when none does.
     ///     Does not raise <see cref="SelectionChanged" />: this restores a selection the host already knows about.
     /// </summary>
