@@ -76,6 +76,7 @@ public sealed partial class WorldScreen : IScreen
     //entity hitbox dimensions (screen pixels)
     private const int HITBOX_WIDTH = 28;
     private const int HITBOX_HEIGHT = 60;
+    private const int WIDE_SPRITE_MIN_WIDTH = 3 * HITBOX_WIDTH;
 
     //doubleclick entity cache expiry — slightly larger than the dispatcher's 300ms double-click window so the cache
     //remains valid through the full doubleclick detection window
@@ -105,6 +106,10 @@ public sealed partial class WorldScreen : IScreen
 
     //draw-pass hitbox list: rebuilt every frame during entity rendering, in draw order (back-to-front)
     private readonly List<EntityHitBox> EntityHitBoxes = new(256);
+
+    //the whole drawn area of creatures wider than WIDE_SPRITE_MIN_WIDTH, such as the 5-tile seal wall, whose 28px box
+    //sits on one tile; only checked when no EntityHitBoxes entry is under the cursor, so nothing in front loses a click
+    private readonly List<EntityHitBox> WideSpriteHitBoxes = new(16);
 
     //set of entity ids currently highlighted as group members (auto-expires after 1000ms)
     private readonly HashSet<uint> GroupHighlightedIds = [];

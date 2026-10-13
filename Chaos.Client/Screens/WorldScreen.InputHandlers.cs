@@ -1651,6 +1651,14 @@ public sealed partial class WorldScreen
                 return WorldState.GetEntity(hitbox.EntityId);
         }
 
+        for (var i = WideSpriteHitBoxes.Count - 1; i >= 0; i--)
+        {
+            var hitbox = WideSpriteHitBoxes[i];
+
+            if (hitbox.ScreenRect.Contains(viewportMouseX, viewportMouseY))
+                return WorldState.GetEntity(hitbox.EntityId);
+        }
+
         //fallback: tile-based lookup for ground items
         (var tileX, var tileY) = ScreenToTile(mouseX, mouseY);
 

@@ -152,7 +152,10 @@ public sealed class FittingRoom
         HairStyle = args.HairStyle;
         HairColor = args.HairColor;
         Looks = args.Looks;
-        _liveLook = liveLook;
+        //a rider is a head-only body with the mount drawn as its overcoat, so stripping it left no legs; show them dismounted
+        _liveLook = liveLook is { BodySpriteId: AislingRenderer.HEAD_BODY_ID } riding
+            ? riding with { BodySpriteId = AislingRenderer.BODY_ID, OvercoatSprite = 0, OvercoatColor = DisplayColor.Default }
+            : liveLook;
         IsOpen = true;
     }
 

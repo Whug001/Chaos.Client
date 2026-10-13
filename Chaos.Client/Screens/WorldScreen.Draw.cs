@@ -397,6 +397,7 @@ public sealed partial class WorldScreen
             return;
 
         EntityHitBoxes.Clear();
+        WideSpriteHitBoxes.Clear();
 
         (var fgMinX, var fgMinY, var fgMaxX, var fgMaxY) = Camera.GetVisibleTileBounds(
             MapFile.Width,
@@ -766,6 +767,9 @@ public sealed partial class WorldScreen
                         entity,
                         tileCenterX,
                         tileCenterY);
+
+                    if (Game.CreatureRenderer.LastDrawBounds.Width >= WIDE_SPRITE_MIN_WIDTH)
+                        WideSpriteHitBoxes.Add(new EntityHitBox(entity.Id, Game.CreatureRenderer.LastDrawBounds));
 
                     break;
 
