@@ -12,17 +12,16 @@ using Microsoft.Xna.Framework.Graphics;
 namespace Chaos.Client.Controls.World.Popups.College;
 
 /// <summary>
-///     The drawing at zoom 4, with grid lines, the mirror line and a line tool's preview. Mouse input goes to the
+///     The drawing at its zoom (4 by default), with grid lines, the mirror line and a line tool's preview. Mouse input goes to the
 ///     <see cref="ArtEditor" /> in canvas pixels; the texture is rebuilt only when the drawing's version changes.
 /// </summary>
 public sealed class ArtCanvas : UIElement
 {
-    private const int ZOOM = CollegeProtocol.DRAWING_ZOOM;
-
     private static readonly Color GridLine = new(0, 0, 0, 50);
     private static readonly Color MirrorLine = new(255, 255, 255, 150);
 
     private readonly ArtEditor Editor;
+    private readonly int Zoom;
     private bool Painting;
     private bool RightButton;
     private Texture2D? Texture;
@@ -30,11 +29,11 @@ public sealed class ArtCanvas : UIElement
     private PixelDrawing? TextureDrawing;
     private int TextureVersion = -1;
 
-    public ArtCanvas(ArtEditor editor)
+    public ArtCanvas(ArtEditor editor, int zoom = CollegeProtocol.DRAWING_ZOOM)
     {
         Editor = editor;
-        Width = PixelDrawing.WIDTH * ZOOM;
-        Height = PixelDrawing.HEIGHT * ZOOM;
+        Zoom = zoom;
+        Resize();
     }
 
     public bool ShowGrid { get; set; } = true;
@@ -60,15 +59,15 @@ public sealed class ArtCanvas : UIElement
         var preview = Editor.Drawing.Palette[Editor.Current];
 
         foreach (var pixel in Editor.PreviewPixels())
-            DrawRectClipped(spriteBatch, new Rectangle(ScreenX + (pixel.X * ZOOM), ScreenY + (pixel.Y * ZOOM), ZOOM, ZOOM), preview);
+            DrawRectClipped(spriteBatch, new Rectangle(ScreenX + (pixel.X * Zoom), ScreenY + (pixel.Y * Zoom), Zoom, Zoom), preview);
 
         if (ShowGrid)
         {
-            for (var x = 1; x < PixelDrawing.WIDTH; x++)
-                DrawRectClipped(spriteBatch, new Rectangle(ScreenX + (x * ZOOM), ScreenY, 1, Height), GridLine);
+            for (var x = 1; x < Editor.Drawing.Width; x++)
+                DrawRectClipped(spriteBatch, new Rectangle(ScreenX + (x * Zoom), ScreenY, 1, Height), GridLine);
 
-            for (var y = 1; y < PixelDrawing.HEIGHT; y++)
-                DrawRectClipped(spriteBatch, new Rectangle(ScreenX, ScreenY + (y * ZOOM), Width, 1), GridLine);
+            for (var y = 1; y < Editor.Drawing.Height; y++)
+                DrawRectClipped(spriteBatch, new Rectangle(ScreenX, ScreenY + (y * Zoom), Width, 1), GridLine);
         }
 
         if (Editor.Mirror)
@@ -130,8 +129,14 @@ public sealed class ArtCanvas : UIElement
         Changed?.Invoke();
     }
 
+    private void Resize()
+    {
+        Width = Editor.Drawing.Width * Zoom;
+        Height = Editor.Drawing.Height * Zoom;
+    }
+
     private (int X, int Y) CellAt(int screenX, int screenY)
-        => ((int)Math.Floor((screenX - ScreenX) / (double)ZOOM), (int)Math.Floor((screenY - ScreenY) / (double)ZOOM));
+        => ((int)Math.Floor((screenX - ScreenX) / (double)Zoom), (int)Math.Floor((screenY - ScreenY) / (double)Zoom));
 
     private void Finish(int x, int y)
     {
@@ -147,9 +152,17 @@ public sealed class ArtCanvas : UIElement
         if ((Texture is not null) && ReferenceEquals(TextureDrawing, drawing) && (TextureVersion == drawing.Version))
             return;
 
+        if ((Width != drawing.Width * Zoom) || (Height != drawing.Height * Zoom))
+        {
+            Resize();
+            Texture?.Dispose();
+            Texture = null;
+            TextureColours = null;
+        }
+
         Texture ??= new Texture2D(TextureConverter.Device, Width, Height);
         TextureColours ??= new Color[Width * Height];
-        Texture.SetData(DrawingTextures.ToColors(drawing.Palette, drawing.Pixels, ZOOM, TextureColours));
+        Texture.SetData(DrawingTextures.ToColors(drawing.Palette, drawing.Pixels, Zoom, drawing.Width, drawing.Height, TextureColours));
         TextureDrawing = drawing;
         TextureVersion = drawing.Version;
     }

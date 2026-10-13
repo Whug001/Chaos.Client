@@ -1170,6 +1170,7 @@ public sealed partial class WorldScreen : IScreen
         SilhouetteRenderer.Dispose();
         MirrorRenderer.Dispose();
         ScareRenderer?.Dispose();
+        ResetCollegeWall(false, false);
         Root?.Dispose();
         SongBar?.Dispose();
         ClassResourceBar?.Dispose();

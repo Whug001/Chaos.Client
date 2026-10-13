@@ -9,21 +9,33 @@ namespace Chaos.Client.Systems.College;
 public static class DrawingTextures
 {
     public static Color[] ToColors(IReadOnlyList<Color> palette, byte[] pixels, int zoom)
-        => ToColors(palette, pixels, zoom, new Color[PixelDrawing.WIDTH * zoom * PixelDrawing.HEIGHT * zoom]);
+        => ToColors(palette, pixels, zoom, PixelDrawing.WIDTH, PixelDrawing.HEIGHT);
+
+    public static Color[] ToColors(IReadOnlyList<Color> palette, byte[] pixels, int zoom, int width, int height)
+        => ToColors(palette, pixels, zoom, width, height, new Color[width * zoom * height * zoom]);
 
     /// <summary>Fills <paramref name="colours" />, which must hold the whole zoomed drawing, and returns it.</summary>
     public static Color[] ToColors(IReadOnlyList<Color> palette, byte[] pixels, int zoom, Color[] colours)
-    {
-        var width = PixelDrawing.WIDTH * zoom;
+        => ToColors(palette, pixels, zoom, PixelDrawing.WIDTH, PixelDrawing.HEIGHT, colours);
 
-        for (var y = 0; y < PixelDrawing.HEIGHT; y++)
-            for (var x = 0; x < PixelDrawing.WIDTH; x++)
+    public static Color[] ToColors(
+        IReadOnlyList<Color> palette,
+        byte[] pixels,
+        int zoom,
+        int width,
+        int height,
+        Color[] colours)
+    {
+        var rowWidth = width * zoom;
+
+        for (var y = 0; y < height; y++)
+            for (var x = 0; x < width; x++)
             {
-                var c = palette[pixels[(y * PixelDrawing.WIDTH) + x]];
+                var c = palette[pixels[(y * width) + x]];
                 var colour = new Color(c.R, c.G, c.B);
 
                 for (var dy = 0; dy < zoom; dy++)
-                    Array.Fill(colours, colour, (((y * zoom) + dy) * width) + (x * zoom), zoom);
+                    Array.Fill(colours, colour, (((y * zoom) + dy) * rowWidth) + (x * zoom), zoom);
             }
 
         return colours;
@@ -31,8 +43,20 @@ public static class DrawingTextures
 
     public static Texture2D Build(PixelDrawing drawing, int zoom)
     {
-        var texture = new Texture2D(TextureConverter.Device, PixelDrawing.WIDTH * zoom, PixelDrawing.HEIGHT * zoom);
-        texture.SetData(ToColors(drawing.Palette, drawing.Pixels, zoom));
+        var texture = new Texture2D(TextureConverter.Device, drawing.Width * zoom, drawing.Height * zoom);
+        texture.SetData(ToColors(drawing.Palette, drawing.Pixels, zoom, drawing.Width, drawing.Height));
+
+        return texture;
+    }
+
+    /// <summary>A live board at <paramref name="zoom" />: swatch 0 shows <see cref="BoardState.Pane" />.</summary>
+    public static Texture2D BuildBoard(PixelDrawing? drawing, int zoom)
+    {
+        drawing ??= BoardState.NewBoard();
+        var palette = drawing.Palette.ToArray();
+        palette[0] = BoardState.Pane;
+        var texture = new Texture2D(TextureConverter.Device, drawing.Width * zoom, drawing.Height * zoom);
+        texture.SetData(ToColors(palette, drawing.Pixels, zoom, drawing.Width, drawing.Height));
 
         return texture;
     }

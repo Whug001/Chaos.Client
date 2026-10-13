@@ -8,7 +8,8 @@ public enum ArtTool
     Eraser,
     Fill,
     Line,
-    Pick
+    Pick,
+    Text
 }
 
 /// <summary>
@@ -33,12 +34,55 @@ public sealed class ArtEditor(PixelDrawing drawing)
 
     private bool DrawingLine => IsPressing && !Erasing && (Tool == ArtTool.Line);
 
-    public static int Mirrored(int x) => PixelDrawing.WIDTH - 1 - x;
+    public Point? TextAnchor { get; private set; }
+    public int TextScale { get; set; } = 1;
+
+    public string PendingText
+    {
+        get;
+        set => field = BoardFont.FilterText(value);
+    } = "";
+
+    private int Mirrored(int x) => Drawing.Width - 1 - x;
 
     public void Load(PixelDrawing drawing)
     {
         Drawing = drawing;
         IsPressing = false;
+        TextAnchor = null;
+        PendingText = "";
+    }
+
+    /// <summary>Stamps <see cref="PendingText" /> at <see cref="TextAnchor" /> in the current swatch, as one undo step.</summary>
+    public bool StampText()
+    {
+        if (IsPressing || TextAnchor is not { } at || (PendingText.Length == 0))
+            return false;
+
+        Drawing.BeginStep();
+
+        foreach (var point in BoardFont.Pixels(PendingText, at.X, at.Y, TextScale))
+            Drawing.Set(point.X, point.Y, Current);
+
+        Drawing.EndStep();
+        PendingText = "";
+
+        return true;
+    }
+
+    /// <summary>Empties the whole drawing, as one undo step.</summary>
+    public void ClearAll()
+    {
+        if (IsPressing)
+            return;
+
+        Drawing.BeginStep();
+
+        for (var y = 0; y < Drawing.Height; y++)
+            for (var x = 0; x < Drawing.Width; x++)
+                Drawing.Set(x, y, 0);
+
+        Drawing.EndStep();
     }
 
     public void CycleBrush() => BrushSize = (BrushSize % 3) + 1;
@@ -66,6 +110,13 @@ public sealed class ArtEditor(PixelDrawing drawing)
         if (IsPressing)
             return;
 
+        if (Tool == ArtTool.Text)
+        {
+            TextAnchor = new Point(x, y);
+
+            return;
+        }
+
         Erasing = erase;
 
         if (!erase)
@@ -82,7 +133,7 @@ public sealed class ArtEditor(PixelDrawing drawing)
 
                     return;
                 case ArtTool.Pick:
-                    if (PixelDrawing.InBounds(x, y))
+                    if (Drawing.Contains(x, y))
                     {
                         Current = Drawing.SwatchAt(x, y);
                         Tool = ArtTool.Pen;
@@ -148,6 +199,9 @@ public sealed class ArtEditor(PixelDrawing drawing)
     /// <summary>The pixels a line being dragged would paint, mirrored if Mirror is on. Empty when no line is being dragged.</summary>
     public IReadOnlyCollection<Point> PreviewPixels()
     {
+        if ((Tool == ArtTool.Text) && TextAnchor is { } at && (PendingText.Length > 0))
+            return BoardFont.Pixels(PendingText, at.X, at.Y, TextScale).Where(p => Drawing.Contains(p.X, p.Y)).ToList();
+
         if (!DrawingLine)
             return [];
 
@@ -156,10 +210,10 @@ public sealed class ArtEditor(PixelDrawing drawing)
         foreach (var point in LinePoints(LineStart, Last))
             foreach (var pixel in Brush(point.X, point.Y))
             {
-                if (PixelDrawing.InBounds(pixel.X, pixel.Y))
+                if (Drawing.Contains(pixel.X, pixel.Y))
                     pixels.Add(pixel);
 
-                if (Mirror && PixelDrawing.InBounds(Mirrored(pixel.X), pixel.Y))
+                if (Mirror && Drawing.Contains(Mirrored(pixel.X), pixel.Y))
                     pixels.Add(new Point(Mirrored(pixel.X), pixel.Y));
             }
 

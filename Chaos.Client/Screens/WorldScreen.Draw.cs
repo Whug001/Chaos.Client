@@ -413,6 +413,7 @@ public sealed partial class WorldScreen
             entityIndex++;
 
         var mirrorsOn = WorldState.Mirrors.HasMirrors && MirrorRenderer.FacesReady;
+        var collegeWallOn = College?.Wall.HasWall == true;
 
         for (var depth = minDepth; depth <= maxDepth; depth++)
         {
@@ -471,6 +472,9 @@ public sealed partial class WorldScreen
 
                 if (mirrorsOn)
                     DrawMirrorTile(scope, tileX, depth - tileX);
+
+                if (collegeWallOn)
+                    DrawCollegeWallTile(scope, tileX, depth - tileX);
             }
         }
     }
