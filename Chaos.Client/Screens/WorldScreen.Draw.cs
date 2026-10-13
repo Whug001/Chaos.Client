@@ -768,7 +768,9 @@ public sealed partial class WorldScreen
                         tileCenterX,
                         tileCenterY);
 
-                    if (Game.CreatureRenderer.LastDrawBounds.Width >= WIDE_SPRITE_MIN_WIDTH)
+                    //DrawCreature returns 0 without drawing for a sprite with no anim info, leaving the previous
+                    //creature's bounds behind
+                    if ((entityTextureBottom > 0) && (Game.CreatureRenderer.LastDrawBounds.Width >= WIDE_SPRITE_MIN_WIDTH))
                         WideSpriteHitBoxes.Add(new EntityHitBox(entity.Id, Game.CreatureRenderer.LastDrawBounds));
 
                     break;
