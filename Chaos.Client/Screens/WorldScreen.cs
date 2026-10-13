@@ -107,9 +107,12 @@ public sealed partial class WorldScreen : IScreen
     //draw-pass hitbox list: rebuilt every frame during entity rendering, in draw order (back-to-front)
     private readonly List<EntityHitBox> EntityHitBoxes = new(256);
 
-    //the whole drawn area of creatures wider than WIDE_SPRITE_MIN_WIDTH, such as the 5-tile seal wall, whose 28px box
-    //sits on one tile; only checked when no EntityHitBoxes entry is under the cursor, so nothing in front loses a click
-    private readonly List<EntityHitBox> WideSpriteHitBoxes = new(16);
+    //the drawn art of creatures wider than WIDE_SPRITE_MIN_WIDTH, such as the 5-tile seal wall, whose 28px box sits on
+    //one tile; only checked when no EntityHitBoxes entry is under the cursor, so nothing in front loses a click, and
+    //only on the frame's opaque pixels, so the floor, doors and signs showing through the art stay clickable
+    private readonly List<WideSpriteHitBox> WideSpriteHitBoxes = new(16);
+
+    private readonly record struct WideSpriteHitBox(uint EntityId, Rectangle ScreenRect, Texture2D Frame, bool Flip);
 
     //set of entity ids currently highlighted as group members (auto-expires after 1000ms)
     private readonly HashSet<uint> GroupHighlightedIds = [];

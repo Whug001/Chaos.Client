@@ -1662,7 +1662,12 @@ public sealed partial class WorldScreen
         {
             var hitbox = WideSpriteHitBoxes[i];
 
-            if (hitbox.ScreenRect.Contains(viewportMouseX, viewportMouseY))
+            if (hitbox.ScreenRect.Contains(viewportMouseX, viewportMouseY)
+                && Game.CreatureRenderer.IsOpaqueAt(
+                    hitbox.Frame,
+                    hitbox.Flip,
+                    viewportMouseX - hitbox.ScreenRect.X,
+                    viewportMouseY - hitbox.ScreenRect.Y))
                 return WorldState.GetEntity(hitbox.EntityId);
         }
 

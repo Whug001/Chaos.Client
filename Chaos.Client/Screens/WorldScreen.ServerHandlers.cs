@@ -1157,19 +1157,19 @@ public sealed partial class WorldScreen
         //Always return here on a custom-emote byte so it never falls through to the creature attack
         //animation below. Only start it when the entity is NOT rendered as a creature sprite — creature
         //sprites have no aisling head to draw it on.
+        var isOwn = args.SourceId == WorldState.PlayerEntityId;
+
         if (CustomEmoteRegistry.TryGet((int)args.BodyAnimation, out var customEmote))
         {
             if (!entity.IsRenderedAsCreatureSprite)
-                entity.StartCustomEmote(customEmote);
+                entity.StartCustomEmote(customEmote, isOwn && OwnAnimationHidden(isEmote: true));
 
             return;
         }
 
         //your own hidden attack still runs for its full length so you can't move sooner than with it showing; the
         //server sends your own animations even while "Show body animations" is off for the same reason
-        var hidden = (args.SourceId == WorldState.PlayerEntityId)
-                     && !DataUtilities.IsEmote(args.BodyAnimation)
-                     && (ClientSettings.HideOwnBodyAnimations || !WorldState.UserOptions.Value(SettingKey.ShowBodyAnimations));
+        var hidden = isOwn && OwnAnimationHidden(DataUtilities.IsEmote(args.BodyAnimation));
 
         //creature sprites (native creatures AND aislings in monster form) use their mpf attack frame
         //counts; normal aislings use epf suffix-based frame counts. Gate on IsRenderedAsCreatureSprite
@@ -1202,17 +1202,17 @@ public sealed partial class WorldScreen
                 (var startFrame, var frameCount, var durationMs) = AnimationSystem.ResolveEmoteFrames(args.BodyAnimation);
 
                 if (startFrame >= 0)
-                {
-                    entity.EmoteStartFrame = startFrame;
-                    entity.EmoteFrameCount = frameCount;
-                    entity.ActiveEmoteFrame = startFrame;
-                    entity.EmoteDurationMs = durationMs;
-                    entity.EmoteElapsedMs = 0;
-                    entity.EmoteRemainingMs = durationMs;
-                }
+                    entity.StartEmoteOverlay(startFrame, frameCount, durationMs, hidden);
             }
         }
     }
+
+    /// <summary>Whether one of the player's own body animations or emotes is hidden by their F4 settings right now.</summary>
+    private static bool OwnAnimationHidden(bool isEmote)
+        => AnimationSystem.HidesOwnAnimation(
+            isEmote,
+            ClientSettings.HideOwnBodyAnimations,
+            WorldState.UserOptions.Value(SettingKey.ShowBodyAnimations));
 
     //TargetAnimation values in [PROJECTILE_ANIMATION_BASE, PROJECTILE_ANIMATION_MAX_EXCLUSIVE) are MEFC projectiles;
     //the meffect id is recovered by subtracting the base.

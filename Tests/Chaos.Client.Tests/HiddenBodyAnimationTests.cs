@@ -81,4 +81,35 @@ public class HiddenBodyAnimationTests
 
         entity.BodyAnimHidden.Should().BeFalse();
     }
+
+    [Test]
+    public void ShowBodyAnimationsOffHidesYourEmotesToo()
+    {
+        AnimationSystem.HidesOwnAnimation(isEmote: true, hideOwnBodyAnimations: false, showBodyAnimations: false).Should().BeTrue();
+        AnimationSystem.HidesOwnAnimation(isEmote: false, hideOwnBodyAnimations: false, showBodyAnimations: false).Should().BeTrue();
+    }
+
+    [Test]
+    public void HideMyOwnBodyAnimationsLeavesYourEmotesShowing()
+    {
+        AnimationSystem.HidesOwnAnimation(isEmote: true, hideOwnBodyAnimations: true, showBodyAnimations: true).Should().BeFalse();
+        AnimationSystem.HidesOwnAnimation(isEmote: false, hideOwnBodyAnimations: true, showBodyAnimations: true).Should().BeTrue();
+        AnimationSystem.HidesOwnAnimation(isEmote: false, hideOwnBodyAnimations: false, showBodyAnimations: true).Should().BeFalse();
+    }
+
+    [Test]
+    public void AHiddenEmoteRunsItsTimeButDrawsNoFrame()
+    {
+        var entity = Standing();
+
+        entity.StartEmoteOverlay(4, 2, 1000, hidden: true);
+
+        entity.ActiveEmoteFrame.Should().Be(4);
+        entity.IsAtRest.Should().BeFalse();
+        entity.VisibleEmoteFrame.Should().Be(-1);
+
+        entity.StartEmoteOverlay(4, 2, 1000);
+
+        entity.VisibleEmoteFrame.Should().Be(4);
+    }
 }

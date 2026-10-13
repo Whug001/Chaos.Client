@@ -26,7 +26,8 @@ public sealed partial class WorldScreen
 
     /// <summary>
     ///     The layer a bar drops to while one of the windows that sit under the hud (F4, the options menu, the world list,
-    ///     the boards, at -2 and -3) is open over it, so the window is drawn, and clicked, over the bar.
+    ///     the boards, at -2 and -3) or the quest log (on the hud's own layer) is open over it, so the window is drawn, and
+    ///     clicked, over the bar.
     /// </summary>
     private const int HOTBAR_UNDER_Z_INDEX = -4;
 
@@ -34,6 +35,10 @@ public sealed partial class WorldScreen
     private const int HOTBAR_STACK_GAP = 2;
 
     private readonly HotbarControl[] HotbarBars = new HotbarControl[HotbarSet.BAR_COUNT];
+
+    //LayoutHotbars' per-frame scratch
+    private readonly DockedHotbar?[] DockedHotbars = new DockedHotbar?[HotbarSet.BAR_COUNT];
+    private readonly Point?[] HotbarPlaces = new Point?[HotbarSet.BAR_COUNT];
 
     /// <summary>
     ///     How high the bars docked to the bottom reach, as a y, or null when none are. The status strips (class
@@ -79,10 +84,10 @@ public sealed partial class WorldScreen
     ///     target, places the docked bars (an edge picked in F4) against their edges, and puts any bar a low window covers under it.
     /// </summary>
     /// <remarks>
-    ///     Bars docked to the same edge stack outward from it in bar order. Bottom and top bars are centred along the
-    ///     edge. Left and right bars sit where the group panel first appears -- in from the edge past the vines in the map
-    ///     art, and down past the system messages. The bottom stack starts from the same baseline as the status strips --
-    ///     the top of the orange bar, or of an expanded inventory or ability panel -- and the strips then stack above it.
+    ///     Bars docked to the same edge are placed together by <see cref="HotbarDockLayout" />. Left and right bars sit
+    ///     where the group panel first appears -- in from the edge past the vines in the map art, and down past the system
+    ///     messages. The bottom stack starts from the same baseline as the status strips -- the top of the orange bar, or
+    ///     of an expanded inventory or ability panel -- and the strips then stack above its rows.
     /// </remarks>
     private void LayoutHotbars()
     {
@@ -91,69 +96,64 @@ public sealed partial class WorldScreen
 
         GroupVitals.ClickThrough = clickThrough;
 
-        var bottom = StatusStripBaseline() - HOTBAR_STACK_GAP;
-        var top = viewport.Y + HOTBAR_STACK_GAP;
-        var left = viewport.X + GroupPanelStack.DEFAULT_LEFT_MARGIN;
-        var right = viewport.Right - GroupPanelStack.DEFAULT_LEFT_MARGIN;
-        var sideY = viewport.Y + GroupPanelStack.DEFAULT_TOP_GAP;
-        var anyBottom = false;
+        var docked = DockedHotbars;
+        docked.AsSpan().Clear();
 
-        foreach (var bar in HotbarBars)
+        for (var i = 0; i < HotbarBars.Length; i++)
         {
+            var bar = HotbarBars[i];
             bar.SetViewportBounds(viewport);
             bar.ClickThrough = clickThrough;
 
             if (bar.IsShown && bar.IsDocked)
             {
                 bar.RefreshSize();
-
-                var centredX = viewport.X + ((viewport.Width - bar.Width) / 2);
-
-                switch (bar.Edge)
-                {
-                    case HotbarDock.Bottom:
-                        bottom -= bar.Height;
-                        bar.Dock(centredX, bottom);
-                        bottom -= HOTBAR_STACK_GAP;
-                        anyBottom = true;
-
-                        break;
-
-                    case HotbarDock.Top:
-                        bar.Dock(centredX, top);
-                        top += bar.Height + HOTBAR_STACK_GAP;
-
-                        break;
-
-                    case HotbarDock.Left:
-                        bar.Dock(left, sideY);
-                        left += bar.Width + HOTBAR_STACK_GAP;
-
-                        break;
-
-                    case HotbarDock.Right:
-                        right -= bar.Width;
-                        bar.Dock(right, sideY);
-                        right -= HOTBAR_STACK_GAP;
-
-                        break;
-                }
+                docked[i] = new DockedHotbar(bar.Edge, bar.Vertical, bar.Width, bar.Height);
             }
+        }
+
+        HotbarDockLayout.Place(
+            docked,
+            HotbarPlaces,
+            viewport,
+            StatusStripBaseline(),
+            GroupPanelStack.DEFAULT_LEFT_MARGIN,
+            viewport.Y + GroupPanelStack.DEFAULT_TOP_GAP,
+            HOTBAR_STACK_GAP,
+            out HotbarBottomStackTop);
+
+        for (var i = 0; i < HotbarBars.Length; i++)
+        {
+            var bar = HotbarBars[i];
+
+            if (HotbarPlaces[i] is { } place)
+                bar.Dock(place.X, place.Y);
 
             SetHotbarLayer(bar, bar.IsShown && IsUnderLowWindow(bar));
         }
-
-        HotbarBottomStackTop = anyBottom ? bottom + HOTBAR_STACK_GAP : null;
     }
 
-    /// <summary>True when a window drawn under the hud (ZIndex below it) is open over any part of the bar.</summary>
+    /// <summary>
+    ///     True when a window drawn under the hud (ZIndex below it), or a window on the hud's own layer such as the quest
+    ///     log, is open over any part of the bar. A window on the hud's layer added before the bars would otherwise be drawn,
+    ///     and clicked, under them.
+    /// </summary>
     private bool IsUnderLowWindow(HotbarControl bar)
     {
         var bounds = bar.ScreenBounds;
 
         foreach (var child in Root!.Children)
-            if ((child.ZIndex < HOTBAR_Z_INDEX) && child.Visible && child is not HotbarControl && child.ScreenBounds.Intersects(bounds))
+        {
+            if (!child.Visible || child is HotbarControl || !child.ScreenBounds.Intersects(bounds))
+                continue;
+
+            if (child.ZIndex < HOTBAR_Z_INDEX)
                 return true;
+
+            //the hud frames and the message pane share the layer too, but are the full screen and not windows
+            if ((child.ZIndex == HOTBAR_Z_INDEX) && (child != SmallHud) && (child != LargeHud) && (child != SystemMessagePane))
+                return true;
+        }
 
         return false;
     }

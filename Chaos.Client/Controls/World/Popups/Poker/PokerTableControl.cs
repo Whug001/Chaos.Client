@@ -3189,7 +3189,7 @@ public sealed class PokerTableControl : FramedDialogPanelBase
         {
             SyncSubject();
 
-            var frame = Subject?.ActiveEmoteFrame ?? -1;
+            var frame = Subject?.VisibleEmoteFrame ?? -1;
 
             if (frame == RenderedEmoteFrame)
                 return;

@@ -148,7 +148,9 @@ public sealed class HotbarControl : UIPanel
     public event Action<int, int>? SlotUsed;
 
     private int SlotCount => Math.Clamp(ClientSettings.HotbarSlotCount[Index], 1, HotbarSet.MAX_SLOTS);
-    private bool Vertical => ClientSettings.HotbarVertical[Index];
+
+    /// <summary>The slots run down a column rather than along a row.</summary>
+    public bool Vertical => ClientSettings.HotbarVertical[Index];
 
     /// <summary>
     ///     Locked by the padlock or F4's Lock hotbar, one setting: the bar stays where it is and cannot be dragged, nothing
@@ -228,6 +230,10 @@ public sealed class HotbarControl : UIPanel
         {
             IsHitTestVisible = false;
             DropSlot = -1;
+
+            //the bar stays Visible for Update's sake, so the rect it last drew in would still read as "over a window"
+            //to the screen's drop checks
+            ClipRect = Rectangle.Empty;
 
             return;
         }
@@ -371,6 +377,10 @@ public sealed class HotbarControl : UIPanel
 
         var wasDragging = Dragging;
         Dragging = false;
+
+        //a release off the padlock ends its press here; on it, the click that follows reads the flag and clears it
+        if (!LockBounds.Contains(e.ScreenX - ScreenX, e.ScreenY - ScreenY))
+            LockPressed = false;
 
         //saved on release rather than on every move: dragging fires per frame, and this writes a file
         if (wasDragging)
@@ -542,7 +552,11 @@ public sealed class HotbarControl : UIPanel
     public override void Draw(SpriteBatch spriteBatch)
     {
         if (!IsShown)
+        {
+            ClipRect = Rectangle.Empty;
+
             return;
+        }
 
         UpdateClipRect();
 
