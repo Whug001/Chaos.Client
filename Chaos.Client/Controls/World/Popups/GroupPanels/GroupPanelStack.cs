@@ -68,14 +68,14 @@ public sealed class GroupPanelStack : UIPanel
     ///     clear the vines along that edge, which are part of the map art rather than the hud and so are not
     ///     something <see cref="ViewportBounds" /> knows about.
     /// </summary>
-    private const int DEFAULT_LEFT_MARGIN = 14;
+    public const int DEFAULT_LEFT_MARGIN = 14;
 
     /// <summary>
     ///     How far down the viewport the column starts before the player moves it: clear of the system message
     ///     pane, which is three lines pinned to the viewport's top-left corner
     ///     (<c>SystemMessagePaneControl</c>).
     /// </summary>
-    private const int DEFAULT_TOP_GAP = (3 * TextRenderer.CHAR_HEIGHT) + 4;
+    public const int DEFAULT_TOP_GAP = (3 * TextRenderer.CHAR_HEIGHT) + 4;
 
     /// <summary>
     ///     The plate behind the whole column. Opaque, and the same colour the grab bar and the bar tracks are
@@ -159,6 +159,12 @@ public sealed class GroupPanelStack : UIPanel
     ///     and a floating panel on top of it would sit on the map art.
     /// </summary>
     public bool Suppressed { get; set; }
+
+    /// <summary>
+    ///     While a spell is waiting for a target the column lets clicks through to the world under it, so a target behind
+    ///     it can still be picked. Set by the screen each frame; the column is still drawn.
+    /// </summary>
+    public bool ClickThrough { get; set; }
 
     /// <summary>
     ///     Whether the column is drawn at all. Turning it off in the F4 settings takes it down outright rather
@@ -303,7 +309,7 @@ public sealed class GroupPanelStack : UIPanel
         //a raid caption is wider than a member's row; the grab bar grows to hold it
         Width = Math.Max(GroupMemberPanel.PANEL_WIDTH, CaptionX + TextRenderer.MeasureWidth(Caption) + 2);
         ClampIntoViewport();
-        IsHitTestVisible = true;
+        IsHitTestVisible = !ClickThrough;
     }
 
     /// <summary>

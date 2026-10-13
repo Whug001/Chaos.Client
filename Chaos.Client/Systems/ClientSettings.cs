@@ -1,6 +1,7 @@
 ﻿#region
 using Chaos.Client.Definitions;
 using Chaos.Client.Systems.KeyBinds;
+using Chaos.Client.ViewModel;
 using Chaos.DarkAges.Definitions;
 #endregion
 
@@ -92,6 +93,24 @@ public static class ClientSettings
     // --- Raid view (client-local; Shift+Y). On: the raid grid. Off: your own party's panels. ---
     public static bool RaidGridView { get; set; } = true;
 
+    // --- Hotbars (client-local; read by HotbarControl). Indexed by bar, 0-3. Off until the player turns one on in F4,
+    // twelve slots across. Every one of these is per character: reset as each character loads (ResetHotbarSettings),
+    // and never read from or written to the install-wide Darkages.cfg. What each slot holds is in Hotbars.cfg ---
+    public static bool[] HotbarVisible { get; } = new bool[HotbarSet.BAR_COUNT];
+    public static int[] HotbarSlotCount { get; } = [..Enumerable.Repeat(HotbarSet.DEFAULT_SLOTS, HotbarSet.BAR_COUNT)];
+    public static bool[] HotbarVertical { get; } = new bool[HotbarSet.BAR_COUNT];
+
+    // Locked (the padlock on the bar, or F4's Lock hotbar): the bar stays where it is and cannot be dragged, nothing
+    // can be put on or taken off it, and dragging a slot out uses it -- an item given or dropped, a spell cast where it
+    // lands -- instead of emptying it. Separately, a bar with an edge (picked from F4's Position dropdown) is docked
+    // against it until dragged away, which sets it back to None
+    public static bool[] HotbarLocked { get; } = new bool[HotbarSet.BAR_COUNT];
+    public static HotbarDock[] HotbarDockEdge { get; } = new HotbarDock[HotbarSet.BAR_COUNT];
+
+    // Off by default: the bars sit over the world, so they are drawn see-through like the group panels' look, and a
+    // player who wants them easier to read turns the solid backing on
+    public static bool SolidHotbars { get; set; }
+
     // --- Ground-target aim snapping (client-local; applied in WorldScreen.GroundTargetTileAt) ---
     public static bool GroundTargetSnapToEntity { get; set; } = true;
 
@@ -143,6 +162,9 @@ public static class ClientSettings
 
         ActiveCharacter = characterName;
 
+        //unlike the rest, hotbars never carry over: not from the last character, not into a brand new one
+        ResetHotbarSettings();
+
         if (File.Exists(FilePath))
         {
             Load();
@@ -184,6 +206,16 @@ public static class ClientSettings
 
                 if (KeyBindings.Current.TryLoadSetting(key, value))
                     continue;
+
+                //hotbar lines are only read from a character's own file; any left in Darkages.cfg by an older build
+                //are skipped, or they would carry over to every character who logs in
+                if (IsHotbarSetting(key))
+                {
+                    if (ActiveCharacter is not null)
+                        TryLoadHotbarSetting(key, value);
+
+                    continue;
+                }
 
                 switch (key)
                 {
@@ -385,6 +417,99 @@ public static class ClientSettings
     }
 
     /// <summary>
+    ///     Reads one "Hotbar{n}Visible", "Hotbar{n}Slots", "Hotbar{n}Vertical", "Hotbar{n}Locked" or "Hotbar{n}Edge"
+    ///     line, n being 1-4. False when the line is not one of those; a slot count out of range is pulled back into 1-15,
+    ///     and an unknown edge is ignored.
+    /// </summary>
+    public static bool TryLoadHotbarSetting(string key, string value)
+    {
+        if (key == "SolidHotbars")
+        {
+            SolidHotbars = value == "1";
+
+            return true;
+        }
+
+        if (!TryParseHotbarKey(key, out var bar, out var setting))
+            return false;
+
+        switch (setting)
+        {
+            case "Visible":
+                HotbarVisible[bar] = value == "1";
+
+                return true;
+
+            case "Vertical":
+                HotbarVertical[bar] = value == "1";
+
+                return true;
+
+            case "Slots":
+                if (int.TryParse(value, out var slots))
+                    HotbarSlotCount[bar] = Math.Clamp(slots, 1, HotbarSet.MAX_SLOTS);
+
+                return true;
+
+            case "Locked":
+                HotbarLocked[bar] = value == "1";
+
+                return true;
+
+//"Edge", not the older "Dock": a Dock line meant an edge used only while locked, so it is left unread rather
+            //than docking a bar its player had moved
+            case "Edge":
+                if (int.TryParse(value, out var dock) && Enum.IsDefined((HotbarDock)dock))
+                    HotbarDockEdge[bar] = (HotbarDock)dock;
+
+                return true;
+
+            default:
+                return false;
+        }
+    }
+
+    /// <summary>
+    ///     True for any key that belongs to the hotbars ("SolidHotbars", or "Hotbar{n}..." for a bar 1-4), whether or not
+    ///     the rest of it is one this build knows.
+    /// </summary>
+    public static bool IsHotbarSetting(string key) => (key == "SolidHotbars") || TryParseHotbarKey(key, out _, out _);
+
+    private static bool TryParseHotbarKey(string key, out int bar, out string setting)
+    {
+        const string PREFIX = "Hotbar";
+
+        bar = -1;
+        setting = string.Empty;
+
+        if (!key.StartsWith(PREFIX, StringComparison.Ordinal)
+            || (key.Length < PREFIX.Length + 2)
+            || !char.IsAsciiDigit(key[PREFIX.Length]))
+            return false;
+
+        bar = key[PREFIX.Length] - '1';
+        setting = key[(PREFIX.Length + 1)..];
+
+        return bar is >= 0 and < HotbarSet.BAR_COUNT;
+    }
+
+    /// <summary>
+    ///     Puts every hotbar setting back to its default: all four bars hidden, twelve slots across, unlocked and free,
+    ///     backing see-through. Run as each character's settings load, so a character only ever has the hotbars
+    ///     they set up themselves -- a character with no hotbar lines in their file yet starts from these, not from
+    ///     whoever was logged in before.
+    /// </summary>
+    public static void ResetHotbarSettings()
+    {
+        SolidHotbars = false;
+        Array.Fill(HotbarVisible, false);
+        Array.Fill(HotbarSlotCount, HotbarSet.DEFAULT_SLOTS);
+        Array.Fill(HotbarVertical, false);
+        Array.Fill(HotbarLocked, false);
+        Array.Fill(HotbarDockEdge, HotbarDock.None);
+    }
+
+    /// <summary>
     ///     Saves the current settings to Darkages.cfg. Only client-used keys are written.
     /// </summary>
     public static void Save()
@@ -418,6 +543,21 @@ public static class ClientSettings
             writer.WriteLine($"GroupPanelEnabled : {(GroupPanelEnabled ? 1 : 0)}");
             writer.WriteLine($"TransparentGroupPanels : {(TransparentGroupPanels ? 1 : 0)}");
             writer.WriteLine($"RaidGridView : {(RaidGridView ? 1 : 0)}");
+            //hotbars belong to a character, never to the install-wide file (see ResetHotbarSettings)
+            if (ActiveCharacter is not null)
+            {
+                writer.WriteLine($"SolidHotbars : {(SolidHotbars ? 1 : 0)}");
+
+                for (var bar = 0; bar < HotbarSet.BAR_COUNT; bar++)
+                {
+                    writer.WriteLine($"Hotbar{bar + 1}Visible : {(HotbarVisible[bar] ? 1 : 0)}");
+                    writer.WriteLine($"Hotbar{bar + 1}Slots : {HotbarSlotCount[bar]}");
+                    writer.WriteLine($"Hotbar{bar + 1}Vertical : {(HotbarVertical[bar] ? 1 : 0)}");
+                    writer.WriteLine($"Hotbar{bar + 1}Locked : {(HotbarLocked[bar] ? 1 : 0)}");
+                    writer.WriteLine($"Hotbar{bar + 1}Edge : {(int)HotbarDockEdge[bar]}");
+                }
+            }
+
             writer.WriteLine($"GroundTargetSnapToEntity : {(GroundTargetSnapToEntity ? 1 : 0)}");
             writer.WriteLine($"TabTargeting : {(TabTargeting ? 1 : 0)}");
             writer.WriteLine($"ToggleGroupHighlight : {(ToggleGroupHighlight ? 1 : 0)}");

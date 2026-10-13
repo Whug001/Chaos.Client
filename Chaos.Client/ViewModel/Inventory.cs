@@ -95,6 +95,46 @@ public sealed class Inventory
     }
 
     /// <summary>
+    ///     The first 1-based slot holding <paramref name="itemName" />, matched the same way as <see cref="CountOf" />, or
+    ///     0 when the player carries none. The hotbars find their items by name, so a potion keeps working after it moves
+    ///     slot or its stack runs out and is picked up again.
+    /// </summary>
+    public byte FindSlot(string itemName)
+    {
+        var stackedPrefix = itemName + "[ ";
+
+        for (var i = 0; i < MAX_SLOTS; i++)
+        {
+            var slot = Slots[i];
+
+            if (!slot.IsOccupied || slot.Name is null)
+                continue;
+
+            if ((slot.Name == itemName) || slot.Name.StartsWith(stackedPrefix, StringComparison.Ordinal))
+                return (byte)(i + 1);
+        }
+
+        return 0;
+    }
+
+    /// <summary>
+    ///     A slot's item name without the "[ count ]" suffix <see cref="SetSlot" /> adds to a stack, or null for an empty
+    ///     slot.
+    /// </summary>
+    public static string? BaseName(in InventorySlotData slot)
+    {
+        if (!slot.IsOccupied || slot.Name is null)
+            return null;
+
+        if (!slot.Stackable)
+            return slot.Name;
+
+        var suffix = slot.Name.LastIndexOf("[ ", StringComparison.Ordinal);
+
+        return suffix > 0 ? slot.Name[..suffix] : slot.Name;
+    }
+
+    /// <summary>
     ///     Fired when the gold amount changes.
     /// </summary>
     public event GoldChangedHandler? GoldChanged;

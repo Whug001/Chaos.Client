@@ -140,6 +140,12 @@ public static class WorldState
     public static GroupInvite GroupInvite { get; } = new();
 
     /// <summary>
+    ///     What the four hotbars hold. Client-only and per character: loaded from the character's <c>Hotbars.cfg</c> when
+    ///     they enter the world, and not cleared on a map change or logout, since it is not server state.
+    /// </summary>
+    public static HotbarSet Hotbars { get; } = new();
+
+    /// <summary>
     ///     Authoritative inventory state with gold tracking.
     /// </summary>
     public static Inventory Inventory { get; } = new();

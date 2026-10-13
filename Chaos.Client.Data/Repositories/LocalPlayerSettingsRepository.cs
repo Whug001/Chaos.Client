@@ -13,6 +13,7 @@ public sealed class LocalPlayerSettingsRepository
 {
     private const string FAMILY_LIST_FILE = "Familylist.cfg";
     private const string FRIEND_LIST_FILE = "Friendlist.cfg";
+    private const string HOTBARS_FILE = "Hotbars.cfg";
     private const string LAYOUT_FILE = "Layout.cfg";
     private const string MACRO_FILE = "Macro.cfg";
     private const string SKILL_BOOK_FILE = "SkillBook.cfg";
@@ -21,6 +22,9 @@ public sealed class LocalPlayerSettingsRepository
 
     public string FamilyListPath => Path.Combine(PlayerDirectory, FAMILY_LIST_FILE);
     public string FriendListPath => Path.Combine(PlayerDirectory, FRIEND_LIST_FILE);
+
+    /// <summary>What this character's hotbars hold. Positions live in <see cref="LayoutPath" /> with the other moveable UI.</summary>
+    public string HotbarsPath => Path.Combine(PlayerDirectory, HOTBARS_FILE);
 
     // ReSharper disable once ConditionIsAlwaysTrueOrFalseAccordingToNullableAPIContract
     public bool IsInitialized => PlayerDirectory is not null;
@@ -119,6 +123,70 @@ public sealed class LocalPlayerSettingsRepository
                 ["GroupPanelX"] = x.ToString(),
                 ["GroupPanelY"] = y.ToString()
             });
+    }
+
+    /// <summary>
+    ///     Where this character last dragged hotbar <paramref name="bar" /> (0-based) to, if they ever did.
+    /// </summary>
+    public bool TryLoadHotbarPosition(int bar, out int x, out int y)
+    {
+        x = 0;
+        y = 0;
+
+        if (!IsInitialized)
+            return false;
+
+        var values = ReadLayout();
+
+        return values.TryGetValue($"Hotbar{bar + 1}X", out var rawX)
+               && values.TryGetValue($"Hotbar{bar + 1}Y", out var rawY)
+               && int.TryParse(rawX, out x)
+               && int.TryParse(rawY, out y);
+    }
+
+    /// <summary>Remembers where hotbar <paramref name="bar" /> (0-based) was dropped.</summary>
+    public void SaveHotbarPosition(int bar, int x, int y)
+    {
+        if (!IsInitialized)
+            return;
+
+        WriteLayout(
+            new Dictionary<string, string>(StringComparer.Ordinal)
+            {
+                [$"Hotbar{bar + 1}X"] = x.ToString(),
+                [$"Hotbar{bar + 1}Y"] = y.ToString()
+            });
+    }
+
+    /// <summary>
+    ///     The lines of this character's <c>Hotbars.cfg</c>: what each hotbar slot holds. Empty when there is no file yet or
+    ///     it cannot be read.
+    /// </summary>
+    public string[] LoadHotbarLines()
+    {
+        try
+        {
+            return IsInitialized && File.Exists(HotbarsPath) ? File.ReadAllLines(HotbarsPath) : [];
+        } catch
+        {
+            //corrupt or locked -- empty hotbars rather than losing the session over them
+            return [];
+        }
+    }
+
+    /// <summary>Writes this character's <c>Hotbars.cfg</c> whole.</summary>
+    public void SaveHotbarLines(IEnumerable<string> lines)
+    {
+        if (!IsInitialized)
+            return;
+
+        try
+        {
+            File.WriteAllLines(HotbarsPath, lines);
+        } catch
+        {
+            //best effort -- don't crash on save failure
+        }
     }
 
     private void EnsureFileExists(string fileName)
