@@ -96,6 +96,10 @@ public sealed partial class WorldScreen
 
                 break;
             case CraftingDisplayType.List:
+                //the selected recipe left the list, so there is nothing left to confirm
+                if (WorldState.Crafting.SelectedId is null)
+                    CraftingConfirm.Hide();
+
                 CraftingBrowser.ReloadList();
 
                 break;
@@ -111,13 +115,17 @@ public sealed partial class WorldScreen
                 CraftingBrowser.Refresh();
                 CraftingConfirm.Refresh();
 
+                if ((args.Type == CraftingDisplayType.Detail) && CraftingBrowser.Visible && WorldState.Crafting.TakePendingConfirm())
+                    CraftingConfirm.Open();
+
                 break;
         }
     }
 
     private void OpenCraftingConfirm()
     {
-        if ((CraftingConfirm is null) || (WorldState.Crafting.Detail?.RecipeId != WorldState.Crafting.SelectedId))
+        //a double-click on a new recipe arrives before the server's detail; the confirm then opens when it does
+        if ((CraftingConfirm is null) || !WorldState.Crafting.RequestConfirm())
             return;
 
         CraftingConfirm.Open();
@@ -127,7 +135,10 @@ public sealed partial class WorldScreen
     {
         //closing the browser takes the confirm window with it
         if (args.Type == CraftingActionType.Close)
+        {
             CraftingConfirm?.Hide();
+            WorldState.Crafting.CancelPendingConfirm();
+        }
 
         Game.Connection.SendCraftingAction(args);
     }

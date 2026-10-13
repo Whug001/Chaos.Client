@@ -190,7 +190,115 @@ public sealed class CraftingWindowStateTests
         var state = Opened();
 
         state.RankBarPercent.Should().BeApproximately(0.4f, 0.001f);
-        state.RankBarText.Should().Be("Next rank: Apprentice Alchemist (30 / 75)");
+        state.RankBarText.Should().Be("30 / 75 to Apprentice");
+        state.RankShortTitle.Should().Be("Novice");
+    }
+
+    [Test]
+    public void Rank_texts_fit_their_boxes()
+    {
+        var state = new CraftingWindowState();
+        state.Apply(
+            Open(Recipe(1, "x")) with
+            {
+                RankTitle = "Ascendant Weaponsmith", NextRankTitle = "Eternal Weaponsmith", RankCount = 99999, RankThreshold = 99999
+            });
+
+        state.RankShortTitle.Length.Should().BeLessThanOrEqualTo(10);
+        state.RankBarText.Length.Should().BeLessThanOrEqualTo(28);
+    }
+
+    [Test]
+    public void A_list_without_the_selected_recipe_clears_the_selection()
+    {
+        var state = Opened();
+        state.Select(1);
+        state.Apply(Detail(1, 3));
+
+        state.Apply(Open(Recipe(2, "Mana Tonic"), Recipe(4, "Upgraded Blade")) with { Type = CraftingDisplayType.List });
+
+        state.SelectedId.Should().BeNull();
+        state.Detail.Should().BeNull();
+        state.Quantity.Should().Be(0);
+    }
+
+    [Test]
+    public void A_list_with_the_selected_recipe_keeps_it()
+    {
+        var state = Opened();
+        state.Select(2);
+        state.Apply(Detail(2, 3));
+
+        state.Apply(Open(Recipe(2, "Mana Tonic")) with { Type = CraftingDisplayType.List });
+
+        state.SelectedId.Should().Be((ushort)2);
+        state.Detail.Should().NotBeNull();
+    }
+
+    [Test]
+    public void Confirm_opens_at_once_when_the_detail_is_here()
+    {
+        var state = Opened();
+        state.Select(1);
+        state.Apply(Detail(1, 3));
+
+        state.RequestConfirm().Should().BeTrue();
+        state.PendingConfirmId.Should().BeNull();
+    }
+
+    [Test]
+    public void Confirm_waits_for_the_detail_of_a_new_recipe()
+    {
+        var state = Opened();
+        state.Select(1);
+
+        state.RequestConfirm().Should().BeFalse();
+        state.TakePendingConfirm().Should().BeFalse();
+
+        state.Apply(Detail(1, 3));
+
+        state.TakePendingConfirm().Should().BeTrue();
+        state.TakePendingConfirm().Should().BeFalse();
+    }
+
+    [Test]
+    public void Selecting_another_recipe_drops_the_waiting_confirm()
+    {
+        var state = Opened();
+        state.Select(1);
+        state.RequestConfirm();
+
+        state.Select(2);
+        state.Apply(Detail(2, 3));
+
+        state.PendingConfirmId.Should().BeNull();
+        state.TakePendingConfirm().Should().BeFalse();
+    }
+
+    [Test]
+    public void A_list_reload_drops_the_waiting_confirm()
+    {
+        var state = Opened();
+        state.Select(1);
+        state.RequestConfirm();
+
+        state.Apply(Open(Recipe(1, "Hemloch Draught")) with { Type = CraftingDisplayType.List });
+        state.Apply(Detail(1, 3));
+
+        state.TakePendingConfirm().Should().BeFalse();
+    }
+
+    [Test]
+    public void Cancelling_drops_the_waiting_confirm()
+    {
+        var state = Opened();
+        state.Select(1);
+        state.RequestConfirm();
+
+        state.CancelPendingConfirm();
+        state.Apply(Detail(1, 3));
+
+        state.TakePendingConfirm().Should().BeFalse();
     }
 
     [Test]

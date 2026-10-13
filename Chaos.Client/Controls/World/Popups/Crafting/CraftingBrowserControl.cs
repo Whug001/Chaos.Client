@@ -28,6 +28,7 @@ public sealed class CraftingBrowserControl : PrefabPanel
     private readonly VirtualizedRowList<CraftingRecipeInfo> RecipeList;
     private readonly UILabel SuccessValue;
     private bool ClosedByServer;
+    private ushort? IngredientsRecipeId;
     private string LastFilter = string.Empty;
 
     private static CraftingWindowState State => WorldState.Crafting;
@@ -197,8 +198,14 @@ public sealed class CraftingBrowserControl : PrefabPanel
         RecipeList.Invalidate();
         var detail = State.Detail;
 
-        IngredientList.SetItems(detail?.Ingredients ?? []);
-        RankValue.Text = State.RankTitle;
+        //every crafted item in a batch resends the detail; only a new recipe starts the ingredients at the top
+        if ((detail is not null) && (detail.RecipeId == IngredientsRecipeId))
+            IngredientList.ReplaceItems(detail.Ingredients);
+        else
+            IngredientList.SetItems(detail?.Ingredients ?? []);
+
+        IngredientsRecipeId = detail?.RecipeId;
+        RankValue.Text = State.RankShortTitle;
         SuccessValue.Text = detail is null ? string.Empty : $"{detail.SuccessRate}%";
         MadeValue.Text = detail is null ? string.Empty : detail.TimesMade.ToString();
         LevelValue.Text = detail is null ? string.Empty : $"{detail.Level} / {detail.RequiredLevel}";
@@ -214,7 +221,7 @@ public sealed class CraftingBrowserControl : PrefabPanel
     /// <summary>The list changed on the server (after a batch): keep the filter, reload rows.</summary>
     public void ReloadList()
     {
-        LoadRecipes();
+        LoadRecipes(keepScroll: true);
         Refresh();
     }
 
@@ -239,9 +246,13 @@ public sealed class CraftingBrowserControl : PrefabPanel
     }
 
     //SetItems drops the highlight; put it back on the recipe the server still has selected, if it is in view
-    private void LoadRecipes()
+    private void LoadRecipes(bool keepScroll = false)
     {
-        RecipeList.SetItems(State.VisibleRecipes);
+        if (keepScroll)
+            RecipeList.ReplaceItems(State.VisibleRecipes);
+        else
+            RecipeList.SetItems(State.VisibleRecipes);
+
         RecipeList.RestoreSelection(recipe => recipe.Id == State.SelectedId);
     }
 
