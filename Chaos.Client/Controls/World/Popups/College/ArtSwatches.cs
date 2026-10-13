@@ -8,25 +8,28 @@ using Microsoft.Xna.Framework.Graphics;
 
 namespace Chaos.Client.Controls.World.Popups.College;
 
-/// <summary>The drawing's 32 swatches in two columns. A click picks a swatch; a double-click asks to change its colour.</summary>
+/// <summary>The drawing's 32 swatches in columns (two by default). A click picks a swatch; a double-click asks to change its colour.</summary>
 public sealed class ArtSwatches : UIElement
 {
     private const int CELL_WIDTH = 20;
     private const int CELL_HEIGHT = 14;
-    private const int COLUMNS = 2;
+    private const int DEFAULT_COLUMNS = 2;
     private const int STEP_X = CELL_WIDTH + 2;
     private const int STEP_Y = CELL_HEIGHT + 1;
-    private const int ROWS = PixelDrawing.COLOURS / COLUMNS;
 
+    private readonly int Columns;
     private readonly ArtEditor Editor;
+    private readonly int Rows;
     private int LastClick = -1;
     private int PreviousClick = -1;
 
-    public ArtSwatches(ArtEditor editor)
+    public ArtSwatches(ArtEditor editor, int columns = DEFAULT_COLUMNS)
     {
         Editor = editor;
-        Width = (COLUMNS * STEP_X) - 2;
-        Height = (ROWS * STEP_Y) - 1;
+        Columns = columns;
+        Rows = (PixelDrawing.COLOURS + columns - 1) / columns;
+        Width = (Columns * STEP_X) - 2;
+        Height = (Rows * STEP_Y) - 1;
     }
 
     public event Action<int>? EditRequested;
@@ -41,7 +44,7 @@ public sealed class ArtSwatches : UIElement
 
         for (var i = 0; i < PixelDrawing.COLOURS; i++)
         {
-            var bounds = new Rectangle(ScreenX + ((i % COLUMNS) * STEP_X), ScreenY + ((i / COLUMNS) * STEP_Y), CELL_WIDTH, CELL_HEIGHT);
+            var bounds = new Rectangle(ScreenX + ((i % Columns) * STEP_X), ScreenY + ((i / Columns) * STEP_Y), CELL_WIDTH, CELL_HEIGHT);
             DrawRectClipped(spriteBatch, bounds, Editor.Drawing.Palette[i]);
             DrawBorder(spriteBatch, bounds, i == Editor.Current ? Color.White : Color.Black);
         }
@@ -86,6 +89,6 @@ public sealed class ArtSwatches : UIElement
         var column = x / STEP_X;
         var row = y / STEP_Y;
 
-        return (column < COLUMNS) && (row < ROWS) ? (row * COLUMNS) + column : null;
+        return (column < Columns) && (row < Rows) ? (row * Columns) + column : null;
     }
 }

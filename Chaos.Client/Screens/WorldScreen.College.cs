@@ -4,6 +4,7 @@ using Chaos.Client.Controls.Components;
 using Chaos.Client.Controls.Generic;
 using Chaos.Client.Controls.World.Popups.College;
 using Chaos.Client.Systems.College;
+using Chaos.Client.ViewModel.College;
 using Chaos.DarkAges.Definitions;
 using Chaos.Networking.Entities.Client;
 using Chaos.Networking.Entities.Server;
@@ -45,6 +46,7 @@ public sealed partial class WorldScreen
         College?.Composer.SaveIfDirty();
         College?.QuizEditor.SaveIfDirty();
         College?.WordLists.SaveIfDirty();
+        College?.BoardEditor.SendUnsent();
     }
 
     private void SendCollegeAction(CollegeActionArgs args) => Game.Connection.SendCollegeAction(args);
@@ -143,6 +145,28 @@ public sealed partial class WorldScreen
                 ZIndex = 2
             },
             Marks = new DebateMarkTable(),
+            Wall = new CollegeWallDecals(),
+            WallFrame = new WallFrameControl
+            {
+                ZIndex = 2
+            },
+            WallPicker = new WallPickerControl
+            {
+                ZIndex = 2
+            },
+            BoardView = new BoardViewControl
+            {
+                ZIndex = 2
+            },
+            BoardEditor = new BoardEditorControl
+            {
+                ZIndex = 2
+            },
+            BoardSaved = new BoardSavedControl
+            {
+                ZIndex = 2
+            },
+            Board = new BoardState(),
             Work = new WorkMarkTable()
         };
 
@@ -165,6 +189,31 @@ public sealed partial class WorldScreen
         windows.HangmanTeacher.ActionRequested += SendCollegeAction;
         windows.ScrambleCard.ActionRequested += SendCollegeAction;
         windows.ScrambleTeacher.ActionRequested += SendCollegeAction;
+        windows.WallFrame.ActionRequested += SendCollegeAction;
+        windows.WallPicker.ActionRequested += SendCollegeAction;
+        windows.BoardView.ActionRequested += SendCollegeAction;
+        windows.BoardEditor.ActionRequested += SendCollegeAction;
+        windows.BoardSaved.ActionRequested += SendCollegeAction;
+
+        windows.WallFrame.HangRequested += slot =>
+        {
+            BringToFront(windows.WallPicker);
+            windows.WallPicker.Open(slot);
+        };
+
+        windows.BoardView.EditRequested += () =>
+        {
+            BringToFront(windows.BoardEditor);
+            windows.BoardEditor.Open(windows.Board);
+        };
+
+        windows.BoardEditor.SavedListRequested += () =>
+        {
+            windows.SavedListAsked = true;
+            BringToFront(windows.BoardSaved);
+            windows.BoardSaved.Open();
+        };
+
         windows.PictureCanvas.PictureMade += windows.Writer.InsertDrawnPicture;
 
         windows.Writer.DrawRequested += (drawing, replacing) =>
@@ -192,6 +241,11 @@ public sealed partial class WorldScreen
         Root.AddChild(windows.HangmanTeacher);
         Root.AddChild(windows.ScrambleCard);
         Root.AddChild(windows.ScrambleTeacher);
+        Root.AddChild(windows.WallFrame);
+        Root.AddChild(windows.WallPicker);
+        Root.AddChild(windows.BoardView);
+        Root.AddChild(windows.BoardEditor);
+        Root.AddChild(windows.BoardSaved);
         Root.AddChild(votesPopup);
 
         return windows;
@@ -365,6 +419,27 @@ public sealed partial class WorldScreen
                 College.Work.Set(args.WorkMarks);
 
                 break;
+            case CollegeDisplayType.WallArt:
+                ShowWallArt(args);
+
+                break;
+            case CollegeDisplayType.WallOpen:
+                OpenWallFrame(args.Slot);
+
+                break;
+            case CollegeDisplayType.WallPicker:
+                if (College.WallPicker.Visible)
+                    College.WallPicker.Show(args);
+
+                break;
+            case CollegeDisplayType.Board:
+                HandleBoardDisplay(args);
+
+                break;
+            case CollegeDisplayType.BoardSaved:
+                HandleBoardSaved(args);
+
+                break;
         }
     }
 
@@ -460,6 +535,19 @@ public sealed partial class WorldScreen
         public required DebateVoteCard DebateVote { get; init; }
         public required DebateMarkTable Marks { get; init; }
         public required WorkMarkTable Work { get; init; }
+        public required CollegeWallDecals Wall { get; init; }
+        public IReadOnlyList<CollegeWallSlotInfo> WallSlots { get; set; } = [];
+        public bool CanHang { get; set; }
+        public required WallFrameControl WallFrame { get; init; }
+        public required WallPickerControl WallPicker { get; init; }
+        public required BoardViewControl BoardView { get; init; }
+        public required BoardEditorControl BoardEditor { get; init; }
+        public required BoardSavedControl BoardSaved { get; init; }
+        public required BoardState Board { get; init; }
+        public bool SavedListAsked { get; set; }
+        public long ReopenBoardViewUntilMs { get; set; }
+        public int WallBoardDrawingVersion { get; set; } = -1;
+        public bool WallBoardLive { get; set; }
         public required QuizCardControl QuizCard { get; init; }
         public required QuizEditorControl QuizEditor { get; init; }
         public required QuizTeacherPanel QuizTeacher { get; init; }

@@ -1,3 +1,4 @@
+using Chaos.DarkAges.Definitions;
 using Chaos.Client.ViewModel.College;
 using FluentAssertions;
 using Microsoft.Xna.Framework;
@@ -182,5 +183,105 @@ public class ArtEditorTests
 
         editor.IsPressing.Should().BeFalse();
         editor.Drawing.SwatchAt(0, 0).Should().Be(0);
+    }
+
+    private static ArtEditor BoardEditor()
+        => new(PixelDrawing.Blank(CollegeProtocol.BOARD_WIDTH, CollegeProtocol.BOARD_HEIGHT)) { Current = 7 };
+
+    [Test]
+    public void Mirror_follows_the_drawings_own_width()
+    {
+        var editor = BoardEditor();
+        editor.Mirror = true;
+
+        Tap(editor, 0, 0);
+
+        editor.Drawing.SwatchAt(159, 0).Should().Be(7);
+    }
+
+    [Test]
+    public void Text_stamps_at_the_click_and_undoes_in_one_step()
+    {
+        var editor = BoardEditor();
+        editor.Tool = ArtTool.Text;
+        Tap(editor, 10, 20);
+        Painted(editor).Should().Be(0);
+
+        editor.PendingText = "hi";
+        editor.PreviewPixels().Should().HaveCount(20);
+        editor.StampText().Should().BeTrue();
+
+        editor.Drawing.SwatchAt(10, 20).Should().Be(7);
+        Painted(editor).Should().Be(20);
+        editor.PendingText.Should().BeEmpty();
+        editor.Undo();
+        Painted(editor).Should().Be(0);
+    }
+
+    [Test]
+    public void Text_is_clipped_at_the_edge()
+    {
+        var editor = BoardEditor();
+        editor.Tool = ArtTool.Text;
+        Tap(editor, 158, 78);
+        editor.PendingText = "I";
+
+        editor.PreviewPixels().Should().HaveCount(3);
+        editor.StampText();
+
+        Painted(editor).Should().Be(3);
+    }
+
+    [Test]
+    public void Large_text_is_twice_the_size()
+    {
+        var editor = BoardEditor();
+        editor.Tool = ArtTool.Text;
+        editor.TextScale = 2;
+        Tap(editor, 0, 0);
+        editor.PendingText = "I";
+
+        editor.StampText();
+
+        Painted(editor).Should().Be(36);
+    }
+
+    [Test]
+    public void Nothing_stamps_without_an_anchor_or_text()
+    {
+        var editor = BoardEditor();
+        editor.Tool = ArtTool.Text;
+        editor.PendingText = "I";
+        editor.StampText().Should().BeFalse();
+
+        Tap(editor, 5, 5);
+        editor.PendingText = "";
+        editor.StampText().Should().BeFalse();
+    }
+
+    [Test]
+    public void Clear_all_empties_the_drawing_in_one_undo_step()
+    {
+        var editor = BoardEditor();
+        Tap(editor, 3, 3);
+        Tap(editor, 50, 50);
+
+        editor.ClearAll();
+
+        Painted(editor).Should().Be(0);
+        editor.Undo();
+        Painted(editor).Should().Be(2);
+    }
+
+    [Test]
+    public void A_mirrored_fill_covers_both_sides_of_a_board()
+    {
+        var editor = BoardEditor();
+        editor.Mirror = true;
+        editor.Tool = ArtTool.Fill;
+
+        Tap(editor, 0, 0);
+
+        Painted(editor).Should().Be(CollegeProtocol.BOARD_PIXELS);
     }
 }

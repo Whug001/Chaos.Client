@@ -100,7 +100,7 @@ public abstract class CollegeListWindow<TItem> : GuildCloakDialogBase
             PAGE_WIDTH,
             color: LegendColors.Gray);
 
-        AddSelectionButton("Read", 80, OpenItem);
+        AddSelectionButton(OpenCaption, 80, OpenItem);
     }
 
     /// <summary>Raised with what a list sends: OpenPiece, and a list's own actions (GalleryPage, ShowToClass).</summary>
@@ -118,6 +118,9 @@ public abstract class CollegeListWindow<TItem> : GuildCloakDialogBase
 
     /// <summary>The items the list shows now, in order (all pages).</summary>
     protected abstract IReadOnlyList<TItem> Items { get; }
+
+    /// <summary>The caption of the button that opens the selected item.</summary>
+    protected virtual string OpenCaption => "Read";
 
     /// <summary>Items per page; the rows hold at most their own count.</summary>
     protected virtual int PageSize => Rows.Length;

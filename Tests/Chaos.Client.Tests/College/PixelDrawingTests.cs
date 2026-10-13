@@ -151,4 +151,50 @@ public class PixelDrawingTests
 
         drawing.DrawnPixels.Should().Be(1);
     }
+
+    [Test]
+    public void A_sized_drawing_keeps_its_own_size()
+    {
+        var drawing = PixelDrawing.Blank(CollegeProtocol.BOARD_WIDTH, CollegeProtocol.BOARD_HEIGHT);
+
+        drawing.Width.Should().Be(160);
+        drawing.Height.Should().Be(80);
+        drawing.Pixels.Should().HaveCount(CollegeProtocol.BOARD_PIXELS);
+        drawing.Contains(159, 79).Should().BeTrue();
+        drawing.Contains(160, 0).Should().BeFalse();
+        drawing.Contains(0, 80).Should().BeFalse();
+
+        drawing.BeginStep();
+        drawing.Set(159, 79, 4);
+        drawing.EndStep();
+
+        drawing.SwatchAt(159, 79).Should().Be(4);
+        drawing.Pixels[^1].Should().Be(4);
+        PixelDrawing.Blank().Width.Should().Be(PixelDrawing.WIDTH);
+    }
+
+    [Test]
+    public void A_sized_drawing_round_trips_through_its_bytes()
+    {
+        var pixels = new byte[CollegeProtocol.BOARD_PIXELS];
+        pixels[CollegeProtocol.BOARD_WIDTH] = 9;
+        var source = PixelDrawing.Blank(CollegeProtocol.BOARD_WIDTH, CollegeProtocol.BOARD_HEIGHT);
+
+        var copy = PixelDrawing.From(source.PaletteBytes(), pixels, CollegeProtocol.BOARD_WIDTH, CollegeProtocol.BOARD_HEIGHT);
+
+        copy.SwatchAt(0, 1).Should().Be(9);
+        copy.PaletteBytes().Should().Equal(source.PaletteBytes());
+    }
+
+    [Test]
+    public void A_fill_stays_inside_a_sized_drawing()
+    {
+        var drawing = PixelDrawing.Blank(CollegeProtocol.BOARD_WIDTH, CollegeProtocol.BOARD_HEIGHT);
+
+        drawing.BeginStep();
+        drawing.Fill(10, 10, 3);
+        drawing.EndStep();
+
+        drawing.Pixels.Should().OnlyContain(p => p == 3);
+    }
 }
