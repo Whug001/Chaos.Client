@@ -159,17 +159,30 @@ public sealed class LocalPlayerSettingsRepository
     }
 
     /// <summary>
+    ///     Set when this character's <c>Hotbars.cfg</c> exists but could not be read. Saving is then skipped for the rest of
+    ///     the session: the empty bars in memory would otherwise be written over the slots still in the file.
+    /// </summary>
+    private bool HotbarsUnreadable;
+
+    /// <summary>
     ///     The lines of this character's <c>Hotbars.cfg</c>: what each hotbar slot holds. Empty when there is no file yet or
-    ///     it cannot be read.
+    ///     it cannot be read; in the second case the file is also left alone by <see cref="SaveHotbarLines" />.
     /// </summary>
     public string[] LoadHotbarLines()
     {
+        HotbarsUnreadable = false;
+
+        if (!IsInitialized || !File.Exists(HotbarsPath))
+            return [];
+
         try
         {
-            return IsInitialized && File.Exists(HotbarsPath) ? File.ReadAllLines(HotbarsPath) : [];
+            return File.ReadAllLines(HotbarsPath);
         } catch
         {
-            //corrupt or locked -- empty hotbars rather than losing the session over them
+            //locked or unreadable -- empty hotbars rather than losing the session over them
+            HotbarsUnreadable = true;
+
             return [];
         }
     }
@@ -177,7 +190,7 @@ public sealed class LocalPlayerSettingsRepository
     /// <summary>Writes this character's <c>Hotbars.cfg</c> whole.</summary>
     public void SaveHotbarLines(IEnumerable<string> lines)
     {
-        if (!IsInitialized)
+        if (!IsInitialized || HotbarsUnreadable)
             return;
 
         try

@@ -1,8 +1,10 @@
+using Chaos.Client.Controls.World.Hud;
 using Chaos.Client.Systems;
 using Chaos.Client.Systems.KeyBinds;
 using Chaos.Client.ViewModel;
 using Chaos.DarkAges.Definitions;
 using FluentAssertions;
+using Microsoft.Xna.Framework;
 
 namespace Chaos.Client.Tests;
 
@@ -63,7 +65,52 @@ public class HotbarTests
 
         set.Get(0, 0).Should().Be(Potion);
         set.Get(3, 11).Should().Be(Strike);
-        set.ToLines().Should().HaveCount(2);
+        set.Get(1, 1).Should().BeNull();
+    }
+
+    [Test]
+    public void Lines_that_cannot_be_read_are_written_back_unchanged()
+    {
+        var set = new HotbarSet();
+
+        set.LoadLines(
+        [
+            "Bar1Slot1 : Item|140|0|Hemloch Potion",
+            "Bar1Slot16 : Item|140|0|From A Newer Client",
+            "",
+            "Bar2Slot3 : Spell|notanumber|0|Bad Sprite"
+        ]);
+
+        set.ToLines()
+           .Should()
+           .Equal(
+               "Bar1Slot1 : Item|140|0|Hemloch Potion",
+               "Bar1Slot16 : Item|140|0|From A Newer Client",
+               "Bar2Slot3 : Spell|notanumber|0|Bad Sprite");
+    }
+
+    [Test]
+    public void An_unread_line_gives_way_once_its_slot_is_filled()
+    {
+        var set = new HotbarSet();
+        set.LoadLines(["Bar2Slot3 : Spell|notanumber|0|Bad Sprite"]);
+
+        set.Set(1, 2, Ioc);
+
+        set.ToLines().Should().Equal($"Bar2Slot3 : {Ioc.Serialize()}");
+    }
+
+    [Test]
+    public void Loading_is_not_announced_as_a_change()
+    {
+        var set = new HotbarSet();
+        var changes = 0;
+        set.Changed += () => changes++;
+
+        set.LoadLines(["Bar1Slot1 : Item|140|0|Hemloch Potion", "Bar1Slot15 : Skill|1|0|Assail"]);
+
+        changes.Should().Be(0);
+        set.Get(0, 14).Should().Be(Strike);
     }
 
     [Test]
@@ -109,6 +156,119 @@ public class HotbarTests
 
         set.Get(4, 0).Should().BeNull();
         set.ToLines().Should().BeEmpty();
+    }
+    #endregion
+
+    #region Docking
+    private static readonly Rectangle Viewport = new(0, 0, 640, 400);
+    private const int BASELINE = 380;
+    private const int MARGIN = 14;
+    private const int SIDE_TOP = 40;
+    private const int GAP = 2;
+
+    private static Point?[] Place(out int? bottomStackTop, params DockedHotbar?[] bars)
+    {
+        var places = new Point?[bars.Length];
+        HotbarDockLayout.Place(bars, places, Viewport, BASELINE, MARGIN, SIDE_TOP, GAP, out bottomStackTop);
+
+        return places;
+    }
+
+    [Test]
+    public void Rows_on_the_bottom_stack_upward_and_raise_the_strips()
+    {
+        var places = Place(
+            out var stackTop,
+            new DockedHotbar(HotbarDock.Bottom, false, 300, 32),
+            new DockedHotbar(HotbarDock.Bottom, false, 200, 32));
+
+        places[0].Should().Be(new Point(170, BASELINE - GAP - 32));
+        places[1].Should().Be(new Point(220, BASELINE - GAP - 32 - GAP - 32));
+        stackTop.Should().Be(places[1]!.Value.Y);
+    }
+
+    [Test]
+    public void Columns_on_the_bottom_sit_side_by_side_and_leave_the_strips_where_they_are()
+    {
+        var places = Place(
+            out var stackTop,
+            new DockedHotbar(HotbarDock.Bottom, true, 32, 350),
+            null,
+            new DockedHotbar(HotbarDock.Bottom, true, 32, 350));
+
+        places[0]!.Value.Y.Should().Be(BASELINE - GAP - 350);
+        places[2]!.Value.Y.Should().Be(places[0]!.Value.Y);
+        places[2]!.Value.X.Should().Be(places[0]!.Value.X + 32 + GAP);
+        places[1].Should().BeNull();
+        stackTop.Should().BeNull();
+    }
+
+    [Test]
+    public void A_column_on_the_bottom_stands_on_the_rows_there()
+    {
+        var places = Place(
+            out var stackTop,
+            new DockedHotbar(HotbarDock.Bottom, true, 32, 200),
+            new DockedHotbar(HotbarDock.Bottom, false, 300, 32));
+
+        places[1]!.Value.Y.Should().Be(BASELINE - GAP - 32);
+        places[0]!.Value.Y.Should().Be(places[1]!.Value.Y - GAP - 200);
+        stackTop.Should().Be(places[1]!.Value.Y);
+    }
+
+    [Test]
+    public void The_strips_are_never_pushed_above_the_viewport()
+    {
+        Place(
+            out var stackTop,
+            new DockedHotbar(HotbarDock.Bottom, false, 300, 200),
+            new DockedHotbar(HotbarDock.Bottom, false, 300, 200));
+
+        stackTop.Should().Be(Viewport.Y);
+    }
+
+    [Test]
+    public void Rows_on_a_side_stack_downward_instead_of_overlapping()
+    {
+        var places = Place(
+            out _,
+            new DockedHotbar(HotbarDock.Left, false, 300, 32),
+            new DockedHotbar(HotbarDock.Left, false, 300, 32),
+            new DockedHotbar(HotbarDock.Right, false, 300, 32),
+            new DockedHotbar(HotbarDock.Right, false, 300, 32));
+
+        places[0].Should().Be(new Point(MARGIN, SIDE_TOP));
+        places[1].Should().Be(new Point(MARGIN, SIDE_TOP + 32 + GAP));
+        places[2].Should().Be(new Point(Viewport.Right - MARGIN - 300, SIDE_TOP));
+        places[3].Should().Be(new Point(Viewport.Right - MARGIN - 300, SIDE_TOP + 32 + GAP));
+    }
+
+    [Test]
+    public void Columns_on_a_side_stack_inward_and_rows_go_past_them()
+    {
+        var places = Place(
+            out _,
+            new DockedHotbar(HotbarDock.Left, true, 32, 300),
+            new DockedHotbar(HotbarDock.Left, false, 200, 32),
+            new DockedHotbar(HotbarDock.Left, true, 32, 300));
+
+        places[0].Should().Be(new Point(MARGIN, SIDE_TOP));
+        places[2].Should().Be(new Point(MARGIN + 32 + GAP, SIDE_TOP));
+        places[1].Should().Be(new Point(MARGIN + 32 + GAP + 32 + GAP, SIDE_TOP));
+    }
+
+    [Test]
+    public void Columns_on_the_top_sit_side_by_side_under_the_rows()
+    {
+        var places = Place(
+            out _,
+            new DockedHotbar(HotbarDock.Top, true, 32, 200),
+            new DockedHotbar(HotbarDock.Top, true, 32, 200),
+            new DockedHotbar(HotbarDock.Top, false, 300, 32));
+
+        places[2].Should().Be(new Point(170, GAP));
+        places[0].Should().Be(new Point(287, GAP + 32 + GAP));
+        places[1].Should().Be(new Point(287 + 32 + GAP, GAP + 32 + GAP));
     }
     #endregion
 

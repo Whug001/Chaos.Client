@@ -102,11 +102,33 @@ public sealed class WorldEntity
     /// <summary>True while a client-side emote is playing.</summary>
     public bool IsPlayingCustomEmote => ActiveCustomEmote is not null;
 
+    /// <summary>
+    ///     The emote playing now, overlay or client-side, runs its full length (holding off the next body animation) but
+    ///     is not drawn. Set each time an emote starts.
+    /// </summary>
+    public bool EmoteHidden { get; set; }
+
+    /// <summary>The emot01 frame to draw, or -1 when there is none or it is hidden.</summary>
+    public int VisibleEmoteFrame => EmoteHidden ? -1 : ActiveEmoteFrame;
+
     /// <summary>Starts a client-side emote from its first frame.</summary>
-    public void StartCustomEmote(ICustomEmote emote)
+    public void StartCustomEmote(ICustomEmote emote, bool hidden = false)
     {
         ActiveCustomEmote = emote;
         CustomEmoteElapsedMs = 0f;
+        EmoteHidden = hidden;
+    }
+
+    /// <summary>Starts an emot01 overlay emote: <paramref name="frameCount" /> frames from <paramref name="startFrame" />.</summary>
+    public void StartEmoteOverlay(int startFrame, int frameCount, float durationMs, bool hidden = false)
+    {
+        EmoteStartFrame = startFrame;
+        EmoteFrameCount = frameCount;
+        ActiveEmoteFrame = startFrame;
+        EmoteDurationMs = durationMs;
+        EmoteElapsedMs = 0;
+        EmoteRemainingMs = durationMs;
+        EmoteHidden = hidden;
     }
 
     /// <summary>Ends the client-side emote, if one is playing.</summary>

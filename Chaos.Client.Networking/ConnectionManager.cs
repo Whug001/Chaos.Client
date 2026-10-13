@@ -78,6 +78,12 @@ public sealed class ConnectionManager : IDisposable
     } = ConnectionState.Disconnected;
 
     /// <summary>
+    ///     A redirect has been received and the old connection is being torn down before it is followed. The state passes
+    ///     through <see cref="ConnectionState.Disconnected" /> meanwhile, which is not a lost connection.
+    /// </summary>
+    public bool IsRedirecting => PendingRedirect is not null;
+
+    /// <summary>
     ///     The low-level TCP client used for packet I/O, encryption, and socket management.
     /// </summary>
     public GameClient Client { get; }

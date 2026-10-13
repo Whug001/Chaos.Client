@@ -110,6 +110,14 @@ public static class AnimationSystem
     /// <summary>
     ///     Sets up a body animation (attack/cast) on an aisling entity. Ignores if currently walking.
     /// </summary>
+    /// <summary>
+    ///     Whether one of the player's own body animations is hidden: run for its full length, but not drawn. "Show body
+    ///     animations" off hides all of them, emotes included, as it hides everyone else's; "Hide my own body animations"
+    ///     hides attacks and casts but leaves emotes, which are said on purpose, showing.
+    /// </summary>
+    public static bool HidesOwnAnimation(bool isEmote, bool hideOwnBodyAnimations, bool showBodyAnimations)
+        => !showBodyAnimations || (hideOwnBodyAnimations && !isEmote);
+
     public static void StartBodyAnimation(WorldEntity entity, BodyAnimation bodyAnim, ushort animSpeed, bool hidden = false)
     {
         if (entity.AnimState == EntityAnimState.Walking)

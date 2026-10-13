@@ -21,11 +21,24 @@ namespace Chaos.Client.Screens;
 
 public sealed class LobbyLoginScreen : IScreen
 {
+    private const string CONNECTION_LOST_MESSAGE = "You were disconnected from the server. Please log in again.";
+
+    //kept for the session, so the screen a dropped connection restarts on does not ask for the notice again
+    private static uint? CachedNoticeCheckSum;
+
     private readonly bool ReturningFromWorld;
+
+    //shown once the screen has loaded; set when this screen replaced one whose connection dropped
+    private readonly string? StartMessage;
     private bool _autoLoginAttempted;
     private bool AwaitingCharFinalize;
 
-    private uint? CachedNoticeCheckSum;
+    //the lobby or login server was reached. A later drop is a lost connection rather than a failed connect, which
+    //is left alone so a server that is down is not retried in a loop
+    private volatile bool WasConnected;
+
+    //set from the connection's thread when it drops; acted on in Update
+    private volatile bool ConnectionLost;
     private bool ChangingPassword;
     private CharacterCreationControl CharCreateControl = null!;
 
@@ -51,7 +64,11 @@ public sealed class LobbyLoginScreen : IScreen
     /// <inheritdoc />
     public UIPanel? Root { get; private set; }
 
-    public LobbyLoginScreen(bool returningFromWorld = false) => ReturningFromWorld = returningFromWorld;
+    public LobbyLoginScreen(bool returningFromWorld = false, string? startMessage = null)
+    {
+        ReturningFromWorld = returningFromWorld;
+        StartMessage = startMessage;
+    }
 
     /// <inheritdoc />
     public void Dispose() => Root?.Dispose();
@@ -72,6 +89,8 @@ public sealed class LobbyLoginScreen : IScreen
         Game = game;
 
         Game.Window.Title = "Unora";
+
+        WasConnected = Game.Connection.State is ConnectionState.Lobby or ConnectionState.Login;
 
         Game.Connection.StateChanged += OnConnectionStateChanged;
         Game.Connection.OnError += OnConnectionError;
@@ -152,6 +171,9 @@ public sealed class LobbyLoginScreen : IScreen
 
         WireRootInputHandlers();
 
+        if (StartMessage is not null)
+            LobbyLoginPopupMessage.Show(StartMessage);
+
         if (ReturningFromWorld)
         {
             //already connected to login server via redirect — skip lobby handshake, show login directly
@@ -193,6 +215,19 @@ public sealed class LobbyLoginScreen : IScreen
             Game.Screens.Switch(new WorldScreen());
 
             return;
+        }
+
+        if (ConnectionLost)
+        {
+            ConnectionLost = false;
+
+            //the server drops a client left idle on these screens; a fresh screen connects to the lobby again
+            if (IsLostConnection(Game.Connection.State, Game.Connection.IsRedirecting))
+            {
+                Game.Screens.Switch(new LobbyLoginScreen(startMessage: CONNECTION_LOST_MESSAGE));
+
+                return;
+            }
         }
 
         Game.Dispatcher.ProcessInput(Root!, gameTime);
@@ -424,9 +459,12 @@ public sealed class LobbyLoginScreen : IScreen
         switch (newState)
         {
             case ConnectionState.Lobby:
+                WasConnected = true;
+
                 break;
 
             case ConnectionState.Login:
+                WasConnected = true;
                 Connecting = false;
 
                 //buttons are enabled after eula acceptance (or checksum cache hit) in onloginnotice
@@ -437,12 +475,23 @@ public sealed class LobbyLoginScreen : IScreen
 
                 break;
 
-            case ConnectionState.Disconnected when Connecting:
+            case ConnectionState.Disconnected:
                 Connecting = false;
+
+                if (WasConnected)
+                    ConnectionLost = true;
 
                 break;
         }
     }
+
+    /// <summary>
+    ///     Whether the connection is really gone once a drop has been seen. A redirect (lobby to login, login to world)
+    ///     also passes through <see cref="ConnectionState.Disconnected" /> while the old socket closes, and is followed
+    ///     from the game loop; by the time the screen looks, it is either still pending or already connecting.
+    /// </summary>
+    public static bool IsLostConnection(ConnectionState state, bool redirecting)
+        => (state == ConnectionState.Disconnected) && !redirecting;
 
     private void OnConnectionError(string error) => Connecting = false;
 

@@ -473,7 +473,7 @@ public sealed partial class WorldScreen
         if (CustomEmoteRegistry.TryGet((int)anim, out var customEmote))
         {
             if (!entity.IsRenderedAsCreatureSprite)
-                entity.StartCustomEmote(customEmote);
+                entity.StartCustomEmote(customEmote, OwnAnimationHidden(isEmote: true));
 
             return;
         }
@@ -488,12 +488,7 @@ public sealed partial class WorldScreen
         if (startFrame < 0)
             return;
 
-        entity.EmoteStartFrame = startFrame;
-        entity.EmoteFrameCount = frameCount;
-        entity.ActiveEmoteFrame = startFrame;
-        entity.EmoteDurationMs = durationMs;
-        entity.EmoteElapsedMs = 0;
-        entity.EmoteRemainingMs = durationMs;
+        entity.StartEmoteOverlay(startFrame, frameCount, durationMs, OwnAnimationHidden(isEmote: true));
     }
 
     /// <summary>

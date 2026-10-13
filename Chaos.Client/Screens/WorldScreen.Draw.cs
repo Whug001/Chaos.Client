@@ -770,8 +770,15 @@ public sealed partial class WorldScreen
 
                     //DrawCreature returns 0 without drawing for a sprite with no anim info, leaving the previous
                     //creature's bounds behind
-                    if ((entityTextureBottom > 0) && (Game.CreatureRenderer.LastDrawBounds.Width >= WIDE_SPRITE_MIN_WIDTH))
-                        WideSpriteHitBoxes.Add(new EntityHitBox(entity.Id, Game.CreatureRenderer.LastDrawBounds));
+                    if ((entityTextureBottom > 0)
+                        && (Game.CreatureRenderer.LastDrawBounds.Width >= WIDE_SPRITE_MIN_WIDTH)
+                        && Game.CreatureRenderer.LastDrawTexture is { } wideFrame)
+                        WideSpriteHitBoxes.Add(
+                            new WideSpriteHitBox(
+                                entity.Id,
+                                Game.CreatureRenderer.LastDrawBounds,
+                                wideFrame,
+                                Game.CreatureRenderer.LastDrawFlipped));
 
                     break;
 
@@ -948,9 +955,9 @@ public sealed partial class WorldScreen
                 tileCenterX,
                 tileCenterY,
                 entity.VisualOffset,
-                entity.ActiveEmoteFrame);
+                entity.VisibleEmoteFrame);
 
-        var emotionFrame = entity.ActiveEmoteFrame;
+        var emotionFrame = entity.VisibleEmoteFrame;
         var groundPaintHeight = entity.IsOnSwimmingTile ? 0 : entity.GroundPaintHeight;
 
         var tint = ResolveEntityTint(entity);
@@ -1004,7 +1011,7 @@ public sealed partial class WorldScreen
         //custom emotes ride on top of the finished composite rather than inside it — see CustomEmoteRenderer.
         //Only the front-facing poses show a face to hang them off; the swimming, resting and creature-form
         //paths have already returned above.
-        if (isFrontFacing && (textureBottomY != 0) && entity.ActiveCustomEmote is { } customEmote)
+        if (isFrontFacing && (textureBottomY != 0) && !entity.EmoteHidden && entity.ActiveCustomEmote is { } customEmote)
         {
             Game.AislingRenderer.TryGetCompositeTopPadding(entity.RenderCacheId, out var topPadding);
 

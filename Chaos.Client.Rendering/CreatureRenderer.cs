@@ -39,8 +39,17 @@ public sealed class CreatureRenderer : IDisposable
     private const int PUMPKIN_CACHE_LIMIT = 128;
     private const int PUMPKIN_CACHE_TRIM = 96;
 
+    //which pixels of a frame are drawn, read back from the gpu the first time a click is tested against that frame
+    private readonly Dictionary<Texture2D, OpaqueMask> OpaqueMaskCache = [];
+
     /// <summary>The screen area the last <see cref="Draw" /> call covered, or empty when it drew nothing.</summary>
     public Rectangle LastDrawBounds { get; private set; }
+
+    /// <summary>The untinted frame the last <see cref="Draw" /> call drew, for <see cref="IsOpaqueAt" />.</summary>
+    public Texture2D? LastDrawTexture { get; private set; }
+
+    /// <summary>Whether the last <see cref="Draw" /> call drew its frame flipped.</summary>
+    public bool LastDrawFlipped { get; private set; }
 
     public CreatureRenderer()
     {
@@ -60,6 +69,7 @@ public sealed class CreatureRenderer : IDisposable
     public void Clear()
     {
         FrameCache.DisposeAndClear();
+        OpaqueMaskCache.Clear();
         AverageTopOffsetCache.Clear();
         GroundTintCache.DisposeAndClear();
         ClearTintCaches();
@@ -104,6 +114,7 @@ public sealed class CreatureRenderer : IDisposable
         int pumpkinPhase = 0)
     {
         LastDrawBounds = Rectangle.Empty;
+        LastDrawTexture = null;
 
         if (pumpkin is not null && (spriteId == PumpkinFaceMap.SPRITE_ID) && (pumpkin.State != PumpkinLookState.Carving))
             CarvingCache.Forget(pumpkin.EntityId);
@@ -179,8 +190,30 @@ public sealed class CreatureRenderer : IDisposable
         }
 
         LastDrawBounds = new Rectangle((int)screenPos.X, (int)screenPos.Y, frame.Texture.Width, frame.Texture.Height);
+        LastDrawTexture = frame.Texture;
+        LastDrawFlipped = flip;
 
         return (int)screenPos.Y + frame.Texture.Height;
+    }
+
+    /// <summary>
+    ///     True when the pixel at (<paramref name="x" />, <paramref name="y" />) of <paramref name="frame" />, drawn with
+    ///     <paramref name="flip" />, is part of the art rather than the transparent space around it. The tints only change
+    ///     colour, so the untinted frame answers for all of them.
+    /// </summary>
+    public bool IsOpaqueAt(Texture2D frame, bool flip, int x, int y)
+    {
+        if (frame.IsDisposed)
+            return false;
+
+        if (!OpaqueMaskCache.TryGetValue(frame, out var mask))
+        {
+            using var pixels = new PixelBufferScope(frame);
+            mask = new OpaqueMask(pixels.AsSpan(), pixels.Width, pixels.Height);
+            OpaqueMaskCache[frame] = mask;
+        }
+
+        return mask.IsOpaque(x, y, flip);
     }
 
     /// <summary>

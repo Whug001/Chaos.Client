@@ -78,6 +78,9 @@ public sealed class HotbarSet
 
     private readonly HotbarEntry?[,] Entries = new HotbarEntry?[BAR_COUNT, MAX_SLOTS];
 
+    /// <summary>The lines the last <see cref="LoadLines" /> could not read, in file order.</summary>
+    private readonly List<string> UnreadLines = [];
+
     /// <summary>Fired whenever a slot's contents change, so the owner can save.</summary>
     public event Action? Changed;
 
@@ -110,41 +113,56 @@ public sealed class HotbarSet
         Changed?.Invoke();
     }
 
-    /// <summary>One "Bar1Slot3 : Spell|12|0|beag ioc" line per filled slot, bars and slots counted from 1.</summary>
+    /// <summary>
+    ///     One "Bar1Slot3 : Spell|12|0|beag ioc" line per filled slot, bars and slots counted from 1, then the lines the last
+    ///     load could not read -- except one for a slot that has been filled since, which the slot's own line replaces.
+    /// </summary>
     public IEnumerable<string> ToLines()
     {
         for (var bar = 0; bar < BAR_COUNT; bar++)
             for (var slot = 0; slot < MAX_SLOTS; slot++)
                 if (Entries[bar, slot] is { } entry)
                     yield return $"{KEY_PREFIX}{bar + 1}Slot{slot + 1} : {entry.Serialize()}";
+
+        foreach (var line in UnreadLines)
+        {
+            var colonIndex = line.IndexOf(':');
+
+            if ((colonIndex >= 0) && TryParseKey(line[..colonIndex].Trim(), out var bar, out var slot) && Entries[bar, slot] is not null)
+                continue;
+
+            yield return line;
+        }
     }
 
     /// <summary>
     ///     Replaces the contents with what <paramref name="lines" /> hold. A line that cannot be read is skipped; it never
-    ///     costs the rest of the file.
+    ///     costs the rest of the file, and it is kept to be written back (see <see cref="ToLines" />), so a slot from a newer
+    ///     client or a hand edit gone wrong is not lost by the next save.
     /// </summary>
+    /// <remarks>
+    ///     Not announced through <see cref="Changed" />: what was just read needs no saving, and saving it would rewrite
+    ///     the file at every login.
+    /// </remarks>
     public void LoadLines(IEnumerable<string> lines)
     {
         Array.Clear(Entries);
+        UnreadLines.Clear();
 
         foreach (var line in lines)
         {
-            var colonIndex = line.IndexOf(':');
-
-            if (colonIndex < 0)
+            if (string.IsNullOrWhiteSpace(line))
                 continue;
 
-            var key = line[..colonIndex]
-                .Trim();
+            var colonIndex = line.IndexOf(':');
 
-            var value = line[(colonIndex + 1)..]
-                .Trim();
-
-            if (TryParseKey(key, out var bar, out var slot) && HotbarEntry.TryParse(value, out var entry))
+            if ((colonIndex >= 0)
+                && TryParseKey(line[..colonIndex].Trim(), out var bar, out var slot)
+                && HotbarEntry.TryParse(line[(colonIndex + 1)..].Trim(), out var entry))
                 Entries[bar, slot] = entry;
+            else
+                UnreadLines.Add(line);
         }
-
-        Changed?.Invoke();
     }
 
     private static bool TryParseKey(string key, out int bar, out int slot)
