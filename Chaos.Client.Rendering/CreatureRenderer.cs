@@ -39,6 +39,9 @@ public sealed class CreatureRenderer : IDisposable
     private const int PUMPKIN_CACHE_LIMIT = 128;
     private const int PUMPKIN_CACHE_TRIM = 96;
 
+    /// <summary>The screen area the last <see cref="Draw" /> call covered, or empty when it drew nothing.</summary>
+    public Rectangle LastDrawBounds { get; private set; }
+
     public CreatureRenderer()
     {
         CarvingCache = new PumpkinCarvingCache<Texture2D>(ReleaseCarvingTexture);
@@ -100,6 +103,8 @@ public sealed class CreatureRenderer : IDisposable
         PumpkinLook? pumpkin = null,
         int pumpkinPhase = 0)
     {
+        LastDrawBounds = Rectangle.Empty;
+
         if (pumpkin is not null && (spriteId == PumpkinFaceMap.SPRITE_ID) && (pumpkin.State != PumpkinLookState.Carving))
             CarvingCache.Forget(pumpkin.EntityId);
 
@@ -172,6 +177,8 @@ public sealed class CreatureRenderer : IDisposable
                 effects,
                 0f);
         }
+
+        LastDrawBounds = new Rectangle((int)screenPos.X, (int)screenPos.Y, frame.Texture.Width, frame.Texture.Height);
 
         return (int)screenPos.Y + frame.Texture.Height;
     }
