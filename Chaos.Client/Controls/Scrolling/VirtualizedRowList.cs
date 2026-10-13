@@ -175,6 +175,28 @@ internal sealed class VirtualizedRowList<T> : UIPanel, IVerticalScrollable
     }
 
     /// <summary>
+    ///     Highlights the first item matching <paramref name="predicate" />, or clears the selection when none does.
+    ///     Does not raise <see cref="SelectionChanged" />: this restores a selection the host already knows about.
+    /// </summary>
+    public void RestoreSelection(Func<T, bool> predicate)
+    {
+        SelectedIndex = -1;
+
+        if (!Selectable)
+            return;
+
+        for (var i = 0; i < Items.Count; i++)
+            if (predicate(Items[i]))
+            {
+                SelectedIndex = i;
+
+                break;
+            }
+
+        DataVersion++;
+    }
+
+    /// <summary>
     ///     Re-renders after the backing list was mutated in place (e.g. a paged append, a chat line arriving, or a row
     ///     removal). The scroll offset and selection are clamped to the new bounds on the same frame (matching the
     ///     pre-migration lists' synchronous clamp), so shrinking the list never flashes a blank tail. A pin-to-bottom

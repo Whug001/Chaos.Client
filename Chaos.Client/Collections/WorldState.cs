@@ -181,6 +181,9 @@ public static class WorldState
     /// </summary>
     public static QuestLogState QuestLog { get; } = new();
 
+    /// <summary>The crafting windows' state.</summary>
+    public static CraftingWindowState Crafting { get; } = new();
+
     /// <summary>
     ///     Authoritative poker table state (table properties, seat roster, board, pot, whose turn it is, legal
     ///     actions).
@@ -504,6 +507,7 @@ public static class WorldState
         GildedSpindle.Clear();
         Lockpick.Clear();
         QuestLog.Clear();
+        Crafting.Clear();
         PokerTable.Clear();
         BeautyShop.Clear();
     }

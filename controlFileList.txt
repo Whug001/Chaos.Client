@@ -299,6 +299,23 @@ lssbook.txt
   Also manually loads:
     butt001.epf          — Custom OK/Cancel buttons (GetEpfImages, palette 0)
 
+produce.txt
+  Class:    CraftingBrowserControl : PrefabPanel
+  File:     Controls/World/Popups/Crafting/CraftingBrowserControl.cs
+  Purpose:  Crafting recipe browser (Korean produce panel) - filter box, recipe list, ingredient list, rank bar, OK/Cancel
+  Images referenced by controls:
+    produce.spf          - Anchor background
+    _nbtn.spf            - OK/Cancel button frames 3-8
+
+lmanu.txt
+  Class:    CraftingConfirmControl : PrefabPanel
+  File:     Controls/World/Popups/Crafting/CraftingConfirmControl.cs
+  Purpose:  Crafting confirm window - quantity arrows, catalyst slot (inventory drop target), scaled ingredients, OK/Cancel
+  Images referenced by controls:
+    manufac.spf          - Anchor background
+    manuprev.spf         - Quantity down arrow
+    manunext.spf         - Quantity up arrow
+
 _nhotkem.txt
   Class:    HotkeyHelpControl : PrefabPanel
   File:     Controls/World/Popups/HotkeyHelpControl.cs
@@ -610,7 +627,7 @@ msg.tbl
 # SECTION 5: SUMMARY — QUICK REFERENCE
 # ═══════════════════════════════════════════════════════════════════════════════
 
-# Control .txt files:        34 total
+# Control .txt files:        36 total
 #   Login flow:              _nstart, _nlogin, _nsvr, _ncreate, _nagree, _npw
 #   Main HUD:                _nbk_s, _nstatus
 #   Self-profile tabs:       _nui, _nui_eq, _nui_sk, _nui_dr, _nui_ev, _nui_ebl, _nui_fm

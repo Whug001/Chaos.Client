@@ -88,6 +88,9 @@ public sealed partial class WorldScreen
         //and any line that was still in the water
         FishingWindow.Hide();
 
+        //the server ends a crafting session by reach, so nothing to send
+        HideCraftingWindows();
+
         //the round on the old map already let this carver go; nothing to send
         PumpkinWindow.Hide();
 

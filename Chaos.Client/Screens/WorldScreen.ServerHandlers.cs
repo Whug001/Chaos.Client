@@ -207,6 +207,10 @@ public sealed partial class WorldScreen
         if (!IsGameMaster && GlassRefusesStep())
             return;
 
+        //the server refuses steps during a batch too; refusing here avoids a rubber-band
+        if (WorldState.Crafting.Running)
+            return;
+
         Game.Connection.Walk(direction);
 
         //one more ack outstanding from the server
