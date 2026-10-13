@@ -50,7 +50,9 @@ public sealed class BoardSavedControl : CollegeListWindow<CollegeSavedBoardRowIn
         if (!Visible)
             Page = 0;
 
+        var kept = BoardSavedSelection.PositionOf(args.SavedBoards, BoardSavedSelection.IdAt(All, SelectedId));
         All = args.SavedBoards;
+        SelectId(kept);
         Status.Text = args.Message;
         DisarmDelete();
         ShowRows();

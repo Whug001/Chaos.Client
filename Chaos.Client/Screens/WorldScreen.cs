@@ -1170,6 +1170,7 @@ public sealed partial class WorldScreen : IScreen
         SilhouetteRenderer.Dispose();
         MirrorRenderer.Dispose();
         ScareRenderer?.Dispose();
+        ResetCollegeWall(false, false);
         Root?.Dispose();
         SongBar?.Dispose();
         ClassResourceBar?.Dispose();
@@ -1183,7 +1184,6 @@ public sealed partial class WorldScreen : IScreen
         College?.Tunes.Clear();
         College?.Marks.Clear();
         College?.Work.Clear();
-        ResetCollegeWall(false, false);
         Game.TunePlayer.Stop();
         Game.CreatureRenderer.ClearTintCaches();
         Game.ItemRenderer.Clear();
