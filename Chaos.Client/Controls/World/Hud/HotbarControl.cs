@@ -15,7 +15,7 @@ using Microsoft.Xna.Framework.Graphics;
 namespace Chaos.Client.Controls.World.Hud;
 
 /// <summary>
-///     One of the four hotbars: a row (or column) of up to twelve slots holding items, skills and spells, each used by
+///     One of the four hotbars: a row (or column) of up to fifteen slots holding items, skills and spells, each used by
 ///     clicking it or by its key from F12.
 /// </summary>
 /// <remarks>
@@ -24,18 +24,22 @@ namespace Chaos.Client.Controls.World.Hud;
 ///     that can come from any of three books, so it shares the panels' icons and cooldown tints but none of their
 ///     wiring.
 ///     <para />
-///     The padlock in the top-right corner locks the slots. Unlocked, slots are filled by dragging from the inventory,
-///     skill or spell panel, a hotbar slot dragged onto another swaps with it, and one dragged anywhere else is emptied.
-///     Locked, nothing goes on or comes off, and dragging a slot out uses it instead (see <see cref="HotbarDragPayload" />).
+///     The padlock in the top-right corner locks the bar; it is the same setting as F4's Lock hotbar. Unlocked, slots
+///     are filled by dragging from the inventory, skill or spell panel, a hotbar slot dragged onto another swaps with
+///     it, one dragged anywhere else is emptied, and the grip moves the bar. Locked, the bar stays where it is, nothing
+///     goes on or comes off, and dragging a slot out uses it instead (see <see cref="HotbarDragPayload" />).
 ///     <para />
 ///     The grip at the start of the bar moves it, the same way the group panels' grab bar does, anywhere on the screen
-///     as long as the whole bar stays on it; where it was left is kept per character. With its position locked in F4 the
-///     grip goes, and the screen places the bar against an edge of the viewport.
+///     as long as the whole bar stays on it; where it was left is kept per character. Locking never moves the bar.
+///     Picking an edge from F4's Position dropdown docks the bar there, placed by the screen, until it is dragged away.
 /// </remarks>
 public sealed class HotbarControl : UIPanel
 {
-    /// <summary>The icon area inside a slot's frame. Icons are drawn here whole; nothing is drawn over them.</summary>
-    private const int ICON_SIZE = 32;
+    /// <summary>
+    ///     The icon area inside a slot's frame. The panels' 32-pixel icons are drawn scaled down into it whole -- the bars
+    ///     are about four-fifths the panels' size -- and nothing is drawn over them but the labels.
+    /// </summary>
+    private const int ICON_SIZE = 26;
 
     /// <summary>A slot: the icon area and a one-pixel frame around the outside of it.</summary>
     private const int SLOT_SIZE = ICON_SIZE + 2;
@@ -43,14 +47,22 @@ public sealed class HotbarControl : UIPanel
     private const int SLOT_GAP = 1;
     private const int PADDING = 2;
 
-    /// <summary>The handle the bar is dragged by: this deep along a horizontal bar, a slot wide across it. Gone while locked.</summary>
-    private const int GRIP_DEPTH = 8;
+    /// <summary>
+    ///     The handle the bar is dragged by: this deep along a horizontal bar, a slot wide across it. Its space stays while
+    ///     the bar is locked, only empty, so locking never shifts the slots.
+    /// </summary>
+    private const int GRIP_DEPTH = 6;
 
     /// <summary>
     ///     The padlock button, square. A horizontal bar has it at the far end; a vertical one has a header row this tall,
     ///     the grip on its left and the padlock on its right. Either way it is the bar's top-right corner.
     /// </summary>
     private const int LOCK_SIZE = 10;
+
+    /// <summary>The bar's number, drawn pixel by pixel this size: under the padlock on a horizontal bar, beside it on a vertical one.</summary>
+    private const int DIGIT_WIDTH = 3;
+
+    private const int DIGIT_HEIGHT = 5;
 
     /// <summary>How see-through the backing is while <see cref="ClientSettings.SolidHotbars" /> is off.</summary>
     private const float TRANSPARENT_PLATE_ALPHA = 0.45f;
@@ -75,6 +87,15 @@ public sealed class HotbarControl : UIPanel
     private static readonly Color LockedColor = new(214, 190, 146);
     private static readonly Color UnlockedColor = new(120, 96, 64);
 
+    /// <summary>The bar numbers 1-4 as 3 x 5 pixel glyphs, a row per string. The text font is too tall for a vertical bar's header.</summary>
+    private static readonly string[][] BarDigits =
+    [
+        [".#.", "##.", ".#.", ".#.", "###"],
+        ["##.", "..#", ".#.", "#..", "###"],
+        ["##.", "..#", ".#.", "..#", "##."],
+        ["#.#", "#.#", "###", "..#", "..#"]
+    ];
+
     /// <summary>The whole window: a free bar can go anywhere, hud included, so long as all of it stays on screen.</summary>
     private readonly Rectangle ScreenArea;
 
@@ -82,6 +103,9 @@ public sealed class HotbarControl : UIPanel
     private Rectangle ViewportArea;
 
     private bool Placed;
+
+    /// <summary>Docked last frame. A bar freed from its edge saves where it was left, so it is still there next login.</summary>
+    private bool WasDocked;
     private bool Dragging;
     private int DragOffsetX;
     private int DragOffsetY;
@@ -120,31 +144,32 @@ public sealed class HotbarControl : UIPanel
     /// </summary>
     public bool ClickThrough { get; set; }
 
-    /// <summary>Fired when a slot is clicked. Arguments are the bar (0-3) and the slot (0-11).</summary>
+    /// <summary>Fired when a slot is clicked. Arguments are the bar (0-3) and the slot (0-14).</summary>
     public event Action<int, int>? SlotUsed;
 
     private int SlotCount => Math.Clamp(ClientSettings.HotbarSlotCount[Index], 1, HotbarSet.MAX_SLOTS);
     private bool Vertical => ClientSettings.HotbarVertical[Index];
 
-    /// <summary>Position locked in F4: placed against <see cref="Edge" /> by the screen, and not draggable.</summary>
-    public bool PositionLocked => ClientSettings.HotbarLocked[Index];
+    /// <summary>
+    ///     Locked by the padlock or F4's Lock hotbar, one setting: the bar stays where it is and cannot be dragged, nothing
+    ///     goes on or comes off it, and a slot dragged out is used.
+    /// </summary>
+    public bool Locked => ClientSettings.HotbarLocked[Index];
 
-    /// <summary>Slots locked by the padlock (or F4): nothing goes on or comes off, and a slot dragged out is used.</summary>
-    public bool SlotsLocked => ClientSettings.HotbarSlotsLocked[Index];
-
+    /// <summary>The edge picked from F4's Position dropdown, or <see cref="HotbarDock.None" /> for a free bar.</summary>
     public HotbarDock Edge => ClientSettings.HotbarDockEdge[Index];
+
+    /// <summary>Docked: placed against <see cref="Edge" /> by the screen each frame (see <see cref="Dock" />).</summary>
+    public bool IsDocked => Edge != HotbarDock.None;
 
     /// <summary>Shown when turned on in F4, once a character is in the world (the per-character files are ready).</summary>
     public bool IsShown => ClientSettings.HotbarVisible[Index] && !Suppressed && DataContext.LocalPlayerSettings.IsInitialized;
 
     /// <summary>
-    ///     Where the slots start along the bar. Horizontal: past the grip, when there is one. Vertical: past the header row
-    ///     the grip and padlock share, which stays even without the grip.
+    ///     Where the slots start along the bar. Horizontal: past the grip. Vertical: past the header row the grip and
+    ///     padlock share. Either way the grip's space stays while the bar is locked, so locking never moves a slot.
     /// </summary>
-    private int SlotsStart
-        => Vertical
-            ? PADDING + LOCK_SIZE + SLOT_GAP
-            : PADDING + (PositionLocked ? 0 : GRIP_DEPTH + SLOT_GAP);
+    private int SlotsStart => PADDING + (Vertical ? LOCK_SIZE : GRIP_DEPTH) + SLOT_GAP;
 
     private int SlotsSpan => (SlotCount * SLOT_SIZE) + ((SlotCount - 1) * SLOT_GAP);
 
@@ -161,9 +186,18 @@ public sealed class HotbarControl : UIPanel
         return Vertical ? new Point(PADDING, along) : new Point(along, PADDING);
     }
 
+    /// <summary>A vertical bar's grip leaves room at its right end for the bar number, next to the padlock.</summary>
     private Rectangle GripBounds => Vertical
-        ? new Rectangle(PADDING, PADDING, SLOT_SIZE - LOCK_SIZE - SLOT_GAP, LOCK_SIZE)
+        ? new Rectangle(PADDING, PADDING, SLOT_SIZE - LOCK_SIZE - SLOT_GAP - DIGIT_WIDTH - 2, LOCK_SIZE)
         : new Rectangle(PADDING, PADDING, GRIP_DEPTH, SLOT_SIZE);
+
+    /// <summary>
+    ///     Where the bar number's top-left pixel goes. Horizontal: under the padlock, in the column it heads. Vertical: in
+    ///     the header row, just left of the padlock, its foot level with the padlock's body.
+    /// </summary>
+    private Point NumberOrigin => Vertical
+        ? new Point(PADDING + SLOT_SIZE - LOCK_SIZE - SLOT_GAP - DIGIT_WIDTH - 1, PADDING + LOCK_SIZE - DIGIT_HEIGHT)
+        : new Point(LockBounds.X + 3, PADDING + LOCK_SIZE + 3);
 
     /// <summary>The padlock, in the bar's top-right corner.</summary>
     private Rectangle LockBounds => Vertical
@@ -204,13 +238,22 @@ public sealed class HotbarControl : UIPanel
         if (InputDispatcher.Instance?.ActiveDragPayload is null)
             DropSlot = -1;
 
-        //a bar with its position locked is put in place by the screen (see Dock); only a free one finds its own spot
-        if (!PositionLocked)
+        //a docked bar is put in place by the screen (see Dock); only a free one finds its own spot
+        if (IsDocked)
+            WasDocked = true;
+        else
         {
             if (!Placed)
                 PlaceAtDefault();
 
             ClampIntoScreen();
+
+            //just freed (dragged off its edge, or "Free" picked in F4): it stays where the edge had it, and is kept there
+            if (WasDocked)
+            {
+                WasDocked = false;
+                DataContext.LocalPlayerSettings.SaveHotbarPosition(Index, X, Y);
+            }
         }
 
         IsHitTestVisible = !ClickThrough;
@@ -229,12 +272,15 @@ public sealed class HotbarControl : UIPanel
     /// <summary>The viewport changes with the hud layout; a bar never moved appears in the current one.</summary>
     public void SetViewportBounds(Rectangle bounds) => ViewportArea = bounds;
 
-    /// <summary>Puts a position-locked bar at its place against its edge, worked out by the screen with the other locked bars.</summary>
+    /// <summary>Puts a docked bar at its place against its edge, worked out by the screen with the other docked bars.</summary>
     public void Dock(int x, int y)
     {
         X = x;
         Y = y;
-        Dragging = false;
+        Placed = true;
+
+        //a long vertical bar docked to a side can reach past the bottom; it stays on screen like a free one
+        ClampIntoScreen();
     }
 
     /// <summary>
@@ -289,7 +335,7 @@ public sealed class HotbarControl : UIPanel
             return;
         }
 
-        if (!PositionLocked && GripBounds.Contains(localX, localY))
+        if (!Locked && GripBounds.Contains(localX, localY))
         {
             Dragging = true;
             DragOffsetX = localX;
@@ -305,6 +351,13 @@ public sealed class HotbarControl : UIPanel
     {
         if (!Dragging)
             return;
+
+        //dragging a docked bar takes it off its edge; from here it goes where it is put
+        if (IsDocked)
+        {
+            ClientSettings.HotbarDockEdge[Index] = HotbarDock.None;
+            ClientSettings.Save();
+        }
 
         X = e.ScreenX - DragOffsetX;
         Y = e.ScreenY - DragOffsetY;
@@ -337,7 +390,7 @@ public sealed class HotbarControl : UIPanel
         if (LockBounds.Contains(e.ScreenX - ScreenX, e.ScreenY - ScreenY))
         {
             if (wasLockPressed)
-                ToggleSlotsLocked();
+                ToggleLock();
 
             return;
         }
@@ -348,9 +401,10 @@ public sealed class HotbarControl : UIPanel
             SlotUsed?.Invoke(Index, slot);
     }
 
-    private void ToggleSlotsLocked()
+    /// <summary>The padlock is F4's Lock hotbar. Locking keeps the bar exactly where it is.</summary>
+    private void ToggleLock()
     {
-        ClientSettings.HotbarSlotsLocked[Index] = !ClientSettings.HotbarSlotsLocked[Index];
+        ClientSettings.HotbarLocked[Index] = !Locked;
         ClientSettings.Save();
     }
 
@@ -381,14 +435,14 @@ public sealed class HotbarControl : UIPanel
             Bar = Index,
             Slot = PressedSlot,
             Entry = entry,
-            KeepsSource = SlotsLocked,
+            KeepsSource = Locked,
             GhostTexture = IconFor(entry)
         };
     }
 
     public override void OnDragMove(DragMoveEvent e)
     {
-        DropSlot = !SlotsLocked && Accepts(e.Payload) ? SlotAtScreen(e.ScreenX, e.ScreenY) : -1;
+        DropSlot = !Locked && Accepts(e.Payload) ? SlotAtScreen(e.ScreenX, e.ScreenY) : -1;
     }
 
     /// <summary>
@@ -400,7 +454,7 @@ public sealed class HotbarControl : UIPanel
     {
         DropSlot = -1;
 
-        var slot = SlotsLocked ? -1 : SlotAtScreen(e.ScreenX, e.ScreenY);
+        var slot = Locked ? -1 : SlotAtScreen(e.ScreenX, e.ScreenY);
 
         switch (e.Payload)
         {
@@ -501,10 +555,11 @@ public sealed class HotbarControl : UIPanel
         DrawRect(spriteBatch, bounds, fill);
         DrawBorder(spriteBatch, bounds, PlateBorder);
 
-        if (!PositionLocked)
+        if (!Locked)
             DrawGrip(spriteBatch);
 
         DrawPadlock(spriteBatch);
+        DrawBarNumber(spriteBatch);
 
         for (var slot = 0; slot < SlotCount; slot++)
             DrawSlot(spriteBatch, slot);
@@ -518,18 +573,18 @@ public sealed class HotbarControl : UIPanel
 
         for (var line = 0; line < 3; line++)
         {
-            var offset = 2 + (line * 2);
+            var offset = 1 + (line * 2);
 
             var rect = Vertical
-                ? new Rectangle(grip.X + 3, grip.Y + offset + 1, grip.Width - 6, 1)
-                : new Rectangle(grip.X + offset, grip.Y + 6, 1, grip.Height - 12);
+                ? new Rectangle(grip.X + 3, grip.Y + offset + 2, grip.Width - 6, 1)
+                : new Rectangle(grip.X + offset, grip.Y + 5, 1, grip.Height - 10);
 
             DrawRect(spriteBatch, rect, GripLine);
         }
     }
 
     /// <summary>
-    ///     A small padlock: closed and bright while the slots are locked, open (the shackle's right side lifted off the
+    ///     A small padlock: closed and bright while the bar is locked, open (the shackle's right side lifted off the
     ///     body) and dim while they are not.
     /// </summary>
     private void DrawPadlock(SpriteBatch spriteBatch)
@@ -537,7 +592,7 @@ public sealed class HotbarControl : UIPanel
         var button = LockBounds;
         button.Offset(ScreenX, ScreenY);
 
-        var locked = SlotsLocked;
+        var locked = Locked;
         var color = locked ? LockedColor : UnlockedColor;
 
         //body: 8 x 5 along the bottom of the button
@@ -551,6 +606,28 @@ public sealed class HotbarControl : UIPanel
 
         //closed, the right side reaches the body; open, it stops short and leaves a gap
         DrawRect(spriteBatch, new Rectangle(button.X + 7, top, 1, locked ? button.Y + 5 - top : 2), color);
+    }
+
+    /// <summary>Which bar this is, 1-4, small and shadowed so it reads on the see-through backing.</summary>
+    private void DrawBarNumber(SpriteBatch spriteBatch)
+    {
+        if (Index >= BarDigits.Length)
+            return;
+
+        var glyph = BarDigits[Index];
+        var origin = NumberOrigin;
+        var x = ScreenX + origin.X;
+        var y = ScreenY + origin.Y;
+
+        for (var row = 0; row < DIGIT_HEIGHT; row++)
+            for (var column = 0; column < DIGIT_WIDTH; column++)
+                if (glyph[row][column] == '#')
+                    DrawRect(spriteBatch, new Rectangle(x + column + 1, y + row + 1, 1, 1), Shadow);
+
+        for (var row = 0; row < DIGIT_HEIGHT; row++)
+            for (var column = 0; column < DIGIT_WIDTH; column++)
+                if (glyph[row][column] == '#')
+                    DrawRect(spriteBatch, new Rectangle(x + column, y + row, 1, 1), LabelText);
     }
 
     private void DrawSlot(SpriteBatch spriteBatch, int slot)
@@ -577,8 +654,8 @@ public sealed class HotbarControl : UIPanel
         if (icon is null)
             return;
 
-        //centred, so an icon a pixel or two off the slot's size still sits whole inside the frame
-        var position = new Vector2(rect.X + ((rect.Width - icon.Width) / 2), rect.Y + ((rect.Height - icon.Height) / 2));
+        //scaled down into the icon area whole
+        var position = rect;
 
         switch (entry.Kind)
         {
@@ -586,7 +663,7 @@ public sealed class HotbarControl : UIPanel
                 {
                     var count = WorldState.Inventory.CountOf(entry.Name);
 
-                    DrawTexture(spriteBatch, icon, position, count > 0 ? Color.White : Color.White * MISSING_ICON_ALPHA);
+                    DrawScaled(spriteBatch, icon, position, null, count > 0 ? Color.White : Color.White * MISSING_ICON_ALPHA);
 
                     if (count > 1)
                         DrawCount(spriteBatch, count, rect);
@@ -600,7 +677,7 @@ public sealed class HotbarControl : UIPanel
 
                     if (bookSlot == 0)
                     {
-                        DrawTexture(spriteBatch, icon, position, Color.White * MISSING_ICON_ALPHA);
+                        DrawScaled(spriteBatch, icon, position, null, Color.White * MISSING_ICON_ALPHA);
 
                         return;
                     }
@@ -622,7 +699,7 @@ public sealed class HotbarControl : UIPanel
 
                     if (bookSlot == 0)
                     {
-                        DrawTexture(spriteBatch, icon, position, Color.White * MISSING_ICON_ALPHA);
+                        DrawScaled(spriteBatch, icon, position, null, Color.White * MISSING_ICON_ALPHA);
 
                         return;
                     }
@@ -648,7 +725,7 @@ public sealed class HotbarControl : UIPanel
         SpriteBatch spriteBatch,
         Texture2D icon,
         string cacheKey,
-        Vector2 position,
+        Rectangle destination,
         float cooldownPercent,
         int secondsRemaining)
     {
@@ -656,7 +733,7 @@ public sealed class HotbarControl : UIPanel
 
         if ((cooldownPercent <= 0) || renderer is null)
         {
-            DrawTexture(spriteBatch, icon, position, Color.White);
+            DrawScaled(spriteBatch, icon, destination, null, Color.White);
 
             return;
         }
@@ -664,12 +741,16 @@ public sealed class HotbarControl : UIPanel
         var grey = renderer.GetCooldownTintedTexture(cacheKey, icon, LegendColors.DimGray);
         var blue = renderer.GetCooldownTintedTexture(cacheKey, icon, LegendColors.CornflowerBlue);
 
-        DrawTexture(spriteBatch, grey, position, Color.White);
+        DrawScaled(spriteBatch, grey, destination, null, Color.White);
 
         var revealHeight = (int)(blue.Height * (1f - cooldownPercent));
 
         if (revealHeight > 0)
-            DrawTexture(spriteBatch, blue, position, new Rectangle(0, 0, blue.Width, revealHeight), Color.White);
+        {
+            var revealed = destination with { Height = destination.Height * revealHeight / blue.Height };
+
+            DrawScaled(spriteBatch, blue, revealed, new Rectangle(0, 0, blue.Width, revealHeight), Color.White);
+        }
 
         if (!ClientSettings.CooldownNumbersEnabled || (secondsRemaining <= 0))
             return;
@@ -681,8 +762,29 @@ public sealed class HotbarControl : UIPanel
         CooldownNumberFont.Draw(
             spriteBatch,
             text,
-            (int)position.X + ((icon.Width - width) / 2),
-            (int)position.Y + ((icon.Height - CooldownNumberFont.GlyphHeight) / 2));
+            destination.X + ((destination.Width - width) / 2),
+            destination.Y + ((destination.Height - CooldownNumberFont.GlyphHeight) / 2));
+    }
+
+    /// <summary>
+    ///     Draws <paramref name="source" /> of a texture (all of it when null) stretched into <paramref name="destination" />.
+    ///     The base class only draws at a texture's own size; the bars draw the panels' icons smaller.
+    /// </summary>
+    private static void DrawScaled(SpriteBatch spriteBatch, Texture2D texture, Rectangle destination, Rectangle? source, Color color)
+    {
+        if ((destination.Width <= 0) || (destination.Height <= 0))
+            return;
+
+        var part = source ?? new Rectangle(0, 0, texture.Width, texture.Height);
+
+        if (texture is CachedTexture2D { AtlasRegion: { } region })
+        {
+            spriteBatch.Draw(region.Atlas, destination, part with { X = region.SourceRect.X + part.X, Y = region.SourceRect.Y + part.Y }, color);
+
+            return;
+        }
+
+        spriteBatch.Draw(texture, destination, part, color);
     }
 
     /// <summary>How many of a stacked item the player carries, in the slot's bottom-right corner.</summary>

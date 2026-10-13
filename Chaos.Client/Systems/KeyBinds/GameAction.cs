@@ -96,7 +96,7 @@ public enum GameAction
     TargetNearestEnemy,
     TargetFurthestEnemy,
 
-    //hotbars: twelve slots for each of the four bars, unbound until the player picks keys
+    //hotbars: fifteen slots for each of the four bars, unbound until the player picks keys
     Hotbar1Slot1,
     Hotbar1Slot2,
     Hotbar1Slot3,
@@ -109,6 +109,9 @@ public enum GameAction
     Hotbar1Slot10,
     Hotbar1Slot11,
     Hotbar1Slot12,
+    Hotbar1Slot13,
+    Hotbar1Slot14,
+    Hotbar1Slot15,
     Hotbar2Slot1,
     Hotbar2Slot2,
     Hotbar2Slot3,
@@ -121,6 +124,9 @@ public enum GameAction
     Hotbar2Slot10,
     Hotbar2Slot11,
     Hotbar2Slot12,
+    Hotbar2Slot13,
+    Hotbar2Slot14,
+    Hotbar2Slot15,
     Hotbar3Slot1,
     Hotbar3Slot2,
     Hotbar3Slot3,
@@ -133,6 +139,9 @@ public enum GameAction
     Hotbar3Slot10,
     Hotbar3Slot11,
     Hotbar3Slot12,
+    Hotbar3Slot13,
+    Hotbar3Slot14,
+    Hotbar3Slot15,
     Hotbar4Slot1,
     Hotbar4Slot2,
     Hotbar4Slot3,
@@ -145,6 +154,9 @@ public enum GameAction
     Hotbar4Slot10,
     Hotbar4Slot11,
     Hotbar4Slot12,
+    Hotbar4Slot13,
+    Hotbar4Slot14,
+    Hotbar4Slot15,
 
     //emotes: 11 Ctrl, then 11 Ctrl+Alt, then 11 Alt
     Emote01,
@@ -231,7 +243,7 @@ public static class GameActions
             <= GameAction.ScrollChatDown => GameActionCategory.Chat,
             <= GameAction.SongNote4           => GameActionCategory.Song,
             <= GameAction.TargetFurthestEnemy => GameActionCategory.Targeting,
-            <= GameAction.Hotbar4Slot12       => GameActionCategory.Hotbars,
+            <= GameAction.Hotbar4Slot15       => GameActionCategory.Hotbars,
             _                                 => GameActionCategory.Emotes
         };
 
@@ -257,15 +269,15 @@ public static class GameActions
     /// <summary>1-12 for the slot actions, otherwise 0.</summary>
     public static int SlotNumber(GameAction action) => action is >= GameAction.Slot1 and <= GameAction.Slot12 ? action - GameAction.Slot1 + 1 : 0;
 
-    public static bool IsHotbar(GameAction action) => action is >= GameAction.Hotbar1Slot1 and <= GameAction.Hotbar4Slot12;
+    public static bool IsHotbar(GameAction action) => action is >= GameAction.Hotbar1Slot1 and <= GameAction.Hotbar4Slot15;
 
     /// <summary>0-3 for the hotbar actions (which bar), otherwise -1.</summary>
     public static int HotbarIndex(GameAction action) => IsHotbar(action) ? (action - GameAction.Hotbar1Slot1) / HotbarSet.MAX_SLOTS : -1;
 
-    /// <summary>0-11 for the hotbar actions (which slot on the bar), otherwise -1.</summary>
+    /// <summary>0-14 for the hotbar actions (which slot on the bar), otherwise -1.</summary>
     public static int HotbarSlot(GameAction action) => IsHotbar(action) ? (action - GameAction.Hotbar1Slot1) % HotbarSet.MAX_SLOTS : -1;
 
-    /// <summary>The action that uses slot <paramref name="slot" /> (0-11) of hotbar <paramref name="bar" /> (0-3).</summary>
+    /// <summary>The action that uses slot <paramref name="slot" /> (0-14) of hotbar <paramref name="bar" /> (0-3).</summary>
     public static GameAction HotbarAction(int bar, int slot) => GameAction.Hotbar1Slot1 + (bar * HotbarSet.MAX_SLOTS) + slot;
 
     /// <summary>1-4 for the song note actions, otherwise 0.</summary>

@@ -30,13 +30,13 @@ public sealed partial class WorldScreen
     /// </summary>
     private const int HOTBAR_UNDER_Z_INDEX = -4;
 
-    /// <summary>Pixels between two locked bars stacked on the same edge, and between a bar and its edge.</summary>
+    /// <summary>Pixels between two docked bars stacked on the same edge, and between a bar and its edge.</summary>
     private const int HOTBAR_STACK_GAP = 2;
 
     private readonly HotbarControl[] HotbarBars = new HotbarControl[HotbarSet.BAR_COUNT];
 
     /// <summary>
-    ///     How high the bars locked to the bottom reach, as a y, or null when none are. The status strips (class
+    ///     How high the bars docked to the bottom reach, as a y, or null when none are. The status strips (class
     ///     resource, song, oxygen) stack above this instead of the hud's baseline, so the bars sit between them and the
     ///     orange bar. Worked out in <see cref="LayoutHotbars" /> each frame.
     /// </summary>
@@ -76,10 +76,10 @@ public sealed partial class WorldScreen
 
     /// <summary>
     ///     Per frame, after the root has updated: lets clicks through the bars and the group panel while a spell waits for a
-    ///     target, places the position-locked bars against their edges, and puts any bar a low window covers under it.
+    ///     target, places the docked bars (an edge picked in F4) against their edges, and puts any bar a low window covers under it.
     /// </summary>
     /// <remarks>
-    ///     Bars locked to the same edge stack outward from it in bar order. Bottom and top bars are centred along the
+    ///     Bars docked to the same edge stack outward from it in bar order. Bottom and top bars are centred along the
     ///     edge. Left and right bars sit where the group panel first appears -- in from the edge past the vines in the map
     ///     art, and down past the system messages. The bottom stack starts from the same baseline as the status strips --
     ///     the top of the orange bar, or of an expanded inventory or ability panel -- and the strips then stack above it.
@@ -103,7 +103,7 @@ public sealed partial class WorldScreen
             bar.SetViewportBounds(viewport);
             bar.ClickThrough = clickThrough;
 
-            if (bar.IsShown && bar.PositionLocked)
+            if (bar.IsShown && bar.IsDocked)
             {
                 bar.RefreshSize();
 

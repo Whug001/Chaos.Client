@@ -13,11 +13,13 @@ public enum HotbarEntryKind : byte
 }
 
 /// <summary>
-///     The viewport edge a locked hotbar sits against. Bars locked to the same edge stack outward from it in bar order.
-///     The order is the F4 dropdown's, and is saved as the index.
+///     The viewport edge a hotbar is docked against, picked from F4's Position dropdown, or <see cref="None" /> for a bar
+///     that stays wherever it was put. Bars docked to the same edge stack outward from it in bar order. Dragging a docked
+///     bar away frees it. The order is the F4 dropdown's, and is saved as the index.
 /// </summary>
 public enum HotbarDock : byte
 {
+    None,
     Bottom,
     Top,
     Left,
@@ -61,13 +63,16 @@ public readonly record struct HotbarEntry(HotbarEntryKind Kind, string Name, ush
 }
 
 /// <summary>
-///     The contents of the four hotbars: up to twelve <see cref="HotbarEntry" /> each. How many slots a bar shows is an F4
+///     The contents of the four hotbars: up to fifteen <see cref="HotbarEntry" /> each. How many slots a bar shows is an F4
 ///     setting; a bar cut down to fewer slots keeps what was in the rest, so turning it back up brings them back.
 /// </summary>
 public sealed class HotbarSet
 {
     public const int BAR_COUNT = 4;
-    public const int MAX_SLOTS = 12;
+    public const int MAX_SLOTS = 15;
+
+    /// <summary>How many slots a bar shows until its player picks another count in F4.</summary>
+    public const int DEFAULT_SLOTS = 12;
 
     private const string KEY_PREFIX = "Bar";
 

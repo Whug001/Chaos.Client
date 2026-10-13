@@ -97,16 +97,15 @@ public static class ClientSettings
     // twelve slots across. Every one of these is per character: reset as each character loads (ResetHotbarSettings),
     // and never read from or written to the install-wide Darkages.cfg. What each slot holds is in Hotbars.cfg ---
     public static bool[] HotbarVisible { get; } = new bool[HotbarSet.BAR_COUNT];
-    public static int[] HotbarSlotCount { get; } = [..Enumerable.Repeat(HotbarSet.MAX_SLOTS, HotbarSet.BAR_COUNT)];
+    public static int[] HotbarSlotCount { get; } = [..Enumerable.Repeat(HotbarSet.DEFAULT_SLOTS, HotbarSet.BAR_COUNT)];
     public static bool[] HotbarVertical { get; } = new bool[HotbarSet.BAR_COUNT];
 
-    // Locked, a bar sits against HotbarDockEdge's viewport edge and cannot be dragged; unlocked, it goes where it is put
+    // Locked (the padlock on the bar, or F4's Lock hotbar): the bar stays where it is and cannot be dragged, nothing
+    // can be put on or taken off it, and dragging a slot out uses it -- an item given or dropped, a spell cast where it
+    // lands -- instead of emptying it. Separately, a bar with an edge (picked from F4's Position dropdown) is docked
+    // against it until dragged away, which sets it back to None
     public static bool[] HotbarLocked { get; } = new bool[HotbarSet.BAR_COUNT];
     public static HotbarDock[] HotbarDockEdge { get; } = new HotbarDock[HotbarSet.BAR_COUNT];
-
-    // Slots locked (the padlock on the bar, or F4): nothing can be put on or taken off the bar, and dragging a slot out
-    // uses it -- an item given or dropped, a spell cast where it lands -- instead of emptying it
-    public static bool[] HotbarSlotsLocked { get; } = new bool[HotbarSet.BAR_COUNT];
 
     // Off by default: the bars sit over the world, so they are drawn see-through like the group panels' look, and a
     // player who wants them easier to read turns the solid backing on
@@ -418,8 +417,8 @@ public static class ClientSettings
     }
 
     /// <summary>
-    ///     Reads one "Hotbar{n}Visible", "Hotbar{n}Slots", "Hotbar{n}Vertical", "Hotbar{n}Locked", "Hotbar{n}Dock" or "Hotbar{n}SlotsLocked"
-    ///     line, n being 1-4. False when the line is not one of those; a slot count out of range is pulled back into 1-12,
+    ///     Reads one "Hotbar{n}Visible", "Hotbar{n}Slots", "Hotbar{n}Vertical", "Hotbar{n}Locked" or "Hotbar{n}Edge"
+    ///     line, n being 1-4. False when the line is not one of those; a slot count out of range is pulled back into 1-15,
     ///     and an unknown edge is ignored.
     /// </summary>
     public static bool TryLoadHotbarSetting(string key, string value)
@@ -457,12 +456,9 @@ public static class ClientSettings
 
                 return true;
 
-            case "SlotsLocked":
-                HotbarSlotsLocked[bar] = value == "1";
-
-                return true;
-
-            case "Dock":
+//"Edge", not the older "Dock": a Dock line meant an edge used only while locked, so it is left unread rather
+            //than docking a bar its player had moved
+            case "Edge":
                 if (int.TryParse(value, out var dock) && Enum.IsDefined((HotbarDock)dock))
                     HotbarDockEdge[bar] = (HotbarDock)dock;
 
@@ -498,8 +494,8 @@ public static class ClientSettings
     }
 
     /// <summary>
-    ///     Puts every hotbar setting back to its default: all four bars hidden, twelve slots across, free to move, slots
-    ///     unlocked, backing see-through. Run as each character's settings load, so a character only ever has the hotbars
+    ///     Puts every hotbar setting back to its default: all four bars hidden, twelve slots across, unlocked and free,
+    ///     backing see-through. Run as each character's settings load, so a character only ever has the hotbars
     ///     they set up themselves -- a character with no hotbar lines in their file yet starts from these, not from
     ///     whoever was logged in before.
     /// </summary>
@@ -507,11 +503,10 @@ public static class ClientSettings
     {
         SolidHotbars = false;
         Array.Fill(HotbarVisible, false);
-        Array.Fill(HotbarSlotCount, HotbarSet.MAX_SLOTS);
+        Array.Fill(HotbarSlotCount, HotbarSet.DEFAULT_SLOTS);
         Array.Fill(HotbarVertical, false);
         Array.Fill(HotbarLocked, false);
-        Array.Fill(HotbarDockEdge, HotbarDock.Bottom);
-        Array.Fill(HotbarSlotsLocked, false);
+        Array.Fill(HotbarDockEdge, HotbarDock.None);
     }
 
     /// <summary>
@@ -559,8 +554,7 @@ public static class ClientSettings
                     writer.WriteLine($"Hotbar{bar + 1}Slots : {HotbarSlotCount[bar]}");
                     writer.WriteLine($"Hotbar{bar + 1}Vertical : {(HotbarVertical[bar] ? 1 : 0)}");
                     writer.WriteLine($"Hotbar{bar + 1}Locked : {(HotbarLocked[bar] ? 1 : 0)}");
-                    writer.WriteLine($"Hotbar{bar + 1}Dock : {(int)HotbarDockEdge[bar]}");
-                    writer.WriteLine($"Hotbar{bar + 1}SlotsLocked : {(HotbarSlotsLocked[bar] ? 1 : 0)}");
+                    writer.WriteLine($"Hotbar{bar + 1}Edge : {(int)HotbarDockEdge[bar]}");
                 }
             }
 

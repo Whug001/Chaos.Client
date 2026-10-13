@@ -109,11 +109,7 @@ public enum SettingKey
     Hotbar3Locked,
     Hotbar3Dock,
     Hotbar4Locked,
-    Hotbar4Dock,
-    Hotbar1SlotsLocked,
-    Hotbar2SlotsLocked,
-    Hotbar3SlotsLocked,
-    Hotbar4SlotsLocked
+    Hotbar4Dock
 }
 
 /// <summary>
@@ -490,8 +486,6 @@ public static class SettingDefinitions
         SettingKey[] vertical = [SettingKey.Hotbar1Vertical, SettingKey.Hotbar2Vertical, SettingKey.Hotbar3Vertical, SettingKey.Hotbar4Vertical];
         SettingKey[] slots = [SettingKey.Hotbar1Slots, SettingKey.Hotbar2Slots, SettingKey.Hotbar3Slots, SettingKey.Hotbar4Slots];
 
-        SettingKey[] slotsLocked =
-            [SettingKey.Hotbar1SlotsLocked, SettingKey.Hotbar2SlotsLocked, SettingKey.Hotbar3SlotsLocked, SettingKey.Hotbar4SlotsLocked];
         SettingKey[] locked = [SettingKey.Hotbar1Locked, SettingKey.Hotbar2Locked, SettingKey.Hotbar3Locked, SettingKey.Hotbar4Locked];
         SettingKey[] dock = [SettingKey.Hotbar1Dock, SettingKey.Hotbar2Dock, SettingKey.Hotbar3Dock, SettingKey.Hotbar4Dock];
 
@@ -527,17 +521,12 @@ public static class SettingDefinitions
                     ClientSettings.Save();
                 },
                 GatedBy: visible[bar]),
-            new(
-                slotsLocked[bar],
-                "Lock slots",
-                section,
-                SettingCategory.ClientLocal,
-                Get: () => ClientSettings.HotbarSlotsLocked[bar],
-                Set: v => ClientSettings.HotbarSlotsLocked[bar] = v,
-                GatedBy: visible[bar]),
+
+            //one lock for the whole bar, the same as the padlock on it: the bar stays where it is (only picking an edge
+            //below moves it), and its slots are kept
             new(
                 locked[bar],
-                "Lock position",
+                "Lock hotbar",
                 section,
                 SettingCategory.ClientLocal,
                 Get: () => ClientSettings.HotbarLocked[bar],
@@ -552,15 +541,18 @@ public static class SettingDefinitions
                 GetChoice: () => (int)ClientSettings.HotbarDockEdge[bar],
                 SetChoice: i =>
                 {
-                    ClientSettings.HotbarDockEdge[bar] = Enum.IsDefined((HotbarDock)i) ? (HotbarDock)i : HotbarDock.Bottom;
+                    ClientSettings.HotbarDockEdge[bar] = Enum.IsDefined((HotbarDock)i) ? (HotbarDock)i : HotbarDock.None;
                     ClientSettings.Save();
                 },
-                GatedBy: locked[bar])
+                GatedBy: visible[bar])
         ];
     }
 
-    /// <summary>The position dropdown's choices, in <see cref="HotbarDock" /> order -- the index is the edge.</summary>
-    private static string[] HotbarDockNames => ["Bottom", "Top", "Left", "Right"];
+    /// <summary>
+    ///     The position dropdown's choices, in <see cref="HotbarDock" /> order -- the index is the edge. "Free" is a bar
+    ///     docked nowhere: where it was dragged to, or where it was when it was taken off its edge.
+    /// </summary>
+    public static string[] HotbarDockNames => ["Free", "Bottom", "Top", "Left", "Right"];
 
     /// <summary>The settings F4 draws a row for in <paramref name="section" />, in order. Hidden settings are left out.</summary>
     public static IEnumerable<SettingDefinition> PanelRows(SettingSection section)

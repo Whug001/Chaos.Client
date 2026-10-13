@@ -8,6 +8,7 @@ using Chaos.Client.Rendering;
 using Chaos.Client.Rendering.Definitions;
 using Chaos.Client.Systems;
 using Chaos.Client.Systems.KeyBinds;
+using Chaos.Client.ViewModel;
 #endregion
 
 namespace Chaos.Client.Controls.World.Popups.Options;
@@ -19,7 +20,8 @@ namespace Chaos.Client.Controls.World.Popups.Options;
 /// </summary>
 /// <remarks>
 ///     Layout: the title across the top; the category buttons down the left; on the right the column captions, a page of
-///     rows (action name, primary key, secondary key) and the page row under them. Under both sit the status line and
+///     rows (action name, primary key, secondary key) and the page row under them. The Hotbars page gives its first row
+///     to a dropdown picking one bar, and lists only that bar's slots. Under both sit the status line and
 ///     Reset All, then the frame's ornate bottom border with the Close button.
 /// </remarks>
 public sealed class KeyBindingsControl : GuildCloakDialogBase
@@ -50,6 +52,9 @@ public sealed class KeyBindingsControl : GuildCloakDialogBase
     private const string TARGETING_HINT = "Used while a spell is armed, with Tab targeting on in F4. Arrows also move.";
 
     private readonly CustomButton[] CategoryButtons;
+
+    //the Hotbars page shows one bar at a time, picked here in its first row, rather than all four bars' slots in a list
+    private readonly CustomComboBox HotbarPicker;
     private readonly CustomButton NextPageButton;
     private readonly UILabel PageLabel;
     private readonly CustomButton PrevPageButton;
@@ -57,6 +62,9 @@ public sealed class KeyBindingsControl : GuildCloakDialogBase
     private readonly UILabel StatusLabel;
 
     private GameActionCategory Category = GameActionCategory.Movement;
+
+    /// <summary>The bar the Hotbars page shows, 0-3.</summary>
+    private int HotbarBar;
     private bool Changed;
     private int Page;
     private (GameAction Action, int Slot)? Pending;
@@ -113,6 +121,18 @@ public sealed class KeyBindingsControl : GuildCloakDialogBase
                 AddButton(string.Empty, KEY_WIDTH, secondaryLeft, top, () => StartCapture(index, 1)));
         }
 
+        HotbarPicker = new CustomComboBox(NAME_WIDTH)
+        {
+            Name = "HotbarPicker",
+            X = listLeft,
+            Visible = false
+        };
+
+        HotbarPicker.Y = ROWS_TOP + ((ROW_HEIGHT - HotbarPicker.Height) / 2);
+        HotbarPicker.SetItems([..Enumerable.Range(1, HotbarSet.BAR_COUNT).Select(bar => $"Hotbar {bar}")]);
+        HotbarPicker.SelectionChanged += ShowHotbar;
+        AddChild(HotbarPicker);
+
         PrevPageButton = AddButton("<", SMALL_BUTTON, listLeft, pageTop, () => TurnPage(-1));
         NextPageButton = AddButton(">", SMALL_BUTTON, listLeft + SMALL_BUTTON + 4, pageTop, () => TurnPage(1));
 
@@ -129,9 +149,26 @@ public sealed class KeyBindingsControl : GuildCloakDialogBase
         Refresh();
     }
 
-    private IReadOnlyList<GameAction> Actions => GameActions.InCategory(Category).ToList();
+    /// <summary>The page's actions: the category's, or on the Hotbars page only the picked bar's slots.</summary>
+    private IReadOnlyList<GameAction> Actions
+        => Category == GameActionCategory.Hotbars
+            ? [..Enumerable.Range(0, HotbarSet.MAX_SLOTS).Select(slot => GameActions.HotbarAction(HotbarBar, slot))]
+            : GameActions.InCategory(Category).ToList();
 
-    private int PageCount => Math.Max(1, (Actions.Count + PAGE_SIZE - 1) / PAGE_SIZE);
+    /// <summary>The rows above the actions: the bar picker's, on the Hotbars page.</summary>
+    private int FirstRow => Category == GameActionCategory.Hotbars ? 1 : 0;
+
+    private int RowsPerPage => PAGE_SIZE - FirstRow;
+
+    private int PageCount => Math.Max(1, (Actions.Count + RowsPerPage - 1) / RowsPerPage);
+
+    /// <summary>The action on row <paramref name="row" /> of the current page, or null for the picker's row or past the end.</summary>
+    private GameAction? ActionOnRow(int row, IReadOnlyList<GameAction> actions)
+    {
+        var index = (Page * RowsPerPage) + row - FirstRow;
+
+        return (row >= FirstRow) && (index < actions.Count) ? actions[index] : null;
+    }
 
     public override void Show()
     {
@@ -146,6 +183,7 @@ public sealed class KeyBindingsControl : GuildCloakDialogBase
             return;
 
         CancelCapture();
+        HotbarPicker.Close();
         base.Hide();
 
         if (!Changed)
@@ -225,19 +263,16 @@ public sealed class KeyBindingsControl : GuildCloakDialogBase
 
     private void StartCapture(int rowIndex, int slot)
     {
-        var index = (Page * PAGE_SIZE) + rowIndex;
-        var actions = Actions;
-
-        if (index >= actions.Count)
+        if (ActionOnRow(rowIndex, Actions) is not { } action)
             return;
 
-        Pending = (actions[index], slot);
+        Pending = (action, slot);
         KeyBindings.IsCapturing = true;
 
         SetStatus(
-            actions[index] == GameAction.TargetCancel
-                ? $"Press a key for {GameActions.NameOf(actions[index])}. Backspace clears."
-                : $"Press a key for {GameActions.NameOf(actions[index])}. Esc cancels, Backspace clears.",
+            action == GameAction.TargetCancel
+                ? $"Press a key for {GameActions.NameOf(action)}. Backspace clears."
+                : $"Press a key for {GameActions.NameOf(action)}. Esc cancels, Backspace clears.",
             LegendColors.Gold);
         Refresh();
     }
@@ -255,9 +290,19 @@ public sealed class KeyBindingsControl : GuildCloakDialogBase
     private void ShowCategory(GameActionCategory category)
     {
         CancelCapture();
+        HotbarPicker.Close();
         Category = category;
         Page = 0;
         SetStatus(category == GameActionCategory.Targeting ? TARGETING_HINT : HINT, LegendColors.Gray);
+        Refresh();
+    }
+
+    /// <summary>The Hotbars page's picker: shows bar <paramref name="bar" /> (0-3) from its first slot.</summary>
+    private void ShowHotbar(int bar)
+    {
+        CancelCapture();
+        HotbarBar = Math.Clamp(bar, 0, HotbarSet.BAR_COUNT - 1);
+        Page = 0;
         Refresh();
     }
 
@@ -290,26 +335,30 @@ public sealed class KeyBindingsControl : GuildCloakDialogBase
         for (var i = 0; i < CategoryButtons.Length; i++)
             CategoryButtons[i].Selected = categories[i] == Category;
 
+        var hotbars = Category == GameActionCategory.Hotbars;
+        HotbarPicker.Visible = hotbars;
+        HotbarPicker.SelectedIndex = HotbarBar;
+
         var actions = Actions;
         var table = KeyBindings.Current;
 
         for (var i = 0; i < PAGE_SIZE; i++)
         {
-            var index = (Page * PAGE_SIZE) + i;
             var row = Rows[i];
-            var visible = index < actions.Count;
+            var action = ActionOnRow(i, actions);
+            var visible = action is not null;
 
             row.Name.Visible = visible;
             row.Primary.Visible = visible;
             row.Secondary.Visible = visible;
 
-            if (!visible)
+            if (action is not { } shown)
                 continue;
 
-            var action = actions[index];
-            row.Name.Text = GameActions.NameOf(action);
-            ShowKey(row.Primary, action, 0);
-            ShowKey(row.Secondary, action, 1);
+            //the picker already names the bar
+            row.Name.Text = hotbars ? $"Slot {GameActions.HotbarSlot(shown) + 1}" : GameActions.NameOf(shown);
+            ShowKey(row.Primary, shown, 0);
+            ShowKey(row.Secondary, shown, 1);
         }
 
         void ShowKey(CustomButton button, GameAction action, int slot)

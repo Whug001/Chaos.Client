@@ -10,6 +10,8 @@ namespace Chaos.Client.Tests;
 ///     The hotbars' model and the pieces around it: what a slot holds and how it is saved, how an item, skill or spell is
 ///     found again by name, the F12 actions and the F4 rows.
 /// </summary>
+//the bar settings tests change and reset the static ClientSettings arrays, so they can't share a run with each other
+[NotInParallel]
 public class HotbarTests
 {
     private static readonly HotbarEntry Potion = new(HotbarEntryKind.Item, "Hemloch Potion", 140, DisplayColor.Default);
@@ -52,7 +54,7 @@ public class HotbarTests
         [
             "Bar1Slot1 : Item|140|0|Hemloch Potion",
             "Bar9Slot1 : Item|140|0|Out Of Range Bar",
-            "Bar1Slot13 : Item|140|0|Out Of Range Slot",
+            "Bar1Slot16 : Item|140|0|Out Of Range Slot",
             "Bar2Slot2 : Nonsense|1|0|Bad Kind",
             "Bar2Slot3 : Spell|notanumber|0|Bad Sprite",
             "garbage",
@@ -103,7 +105,7 @@ public class HotbarTests
         var set = new HotbarSet();
 
         set.Set(4, 0, Potion);
-        set.Set(0, 12, Potion);
+        set.Set(0, HotbarSet.MAX_SLOTS, Potion);
 
         set.Get(4, 0).Should().BeNull();
         set.ToLines().Should().BeEmpty();
@@ -190,7 +192,7 @@ public class HotbarTests
         GameActions.HotbarIndex(GameAction.Slot1).Should().Be(-1);
         GameActions.HotbarIndex(GameAction.TargetFurthestEnemy).Should().Be(-1);
         GameActions.HotbarIndex(GameAction.Emote01).Should().Be(-1);
-        GameActions.IsEmote(GameAction.Hotbar4Slot12).Should().BeFalse();
+        GameActions.IsEmote(GameAction.Hotbar4Slot15).Should().BeFalse();
     }
     #endregion
 
@@ -210,7 +212,6 @@ public class HotbarTests
                               SettingKey.Hotbar2Visible,
                               SettingKey.Hotbar2Vertical,
                               SettingKey.Hotbar2Slots,
-                              SettingKey.Hotbar2SlotsLocked,
                               SettingKey.Hotbar2Locked,
                               SettingKey.Hotbar2Dock);
 
@@ -219,15 +220,15 @@ public class HotbarTests
         sections.IndexOf(SettingSection.Hotbar4).Should().Be(sections.IndexOf(SettingSection.Hotbars) + 4);
 
         var slots = SettingDefinitions.ByKey(SettingKey.Hotbar2Slots);
-        slots.Choices.Should().Equal(Enumerable.Range(1, 12).Select(count => count.ToString()));
+        slots.Choices.Should().Equal(Enumerable.Range(1, 15).Select(count => count.ToString()));
         slots.GatedBy.Should().Be(SettingKey.Hotbar2Visible);
         SettingDefinitions.ByKey(SettingKey.Hotbar2Vertical).GatedBy.Should().Be(SettingKey.Hotbar2Visible);
-        SettingDefinitions.ByKey(SettingKey.Hotbar2SlotsLocked).GatedBy.Should().Be(SettingKey.Hotbar2Visible);
         SettingDefinitions.ByKey(SettingKey.Hotbar2Locked).GatedBy.Should().Be(SettingKey.Hotbar2Visible);
 
         var position = SettingDefinitions.ByKey(SettingKey.Hotbar2Dock);
-        position.GatedBy.Should().Be(SettingKey.Hotbar2Locked);
-        position.Choices.Should().Equal(Enum.GetValues<HotbarDock>().Select(edge => edge.ToString()));
+        position.GatedBy.Should().Be(SettingKey.Hotbar2Visible);
+        position.Choices.Should().Equal("Free", "Bottom", "Top", "Left", "Right");
+        position.Choices.Should().HaveCount(Enum.GetValues<HotbarDock>().Length);
     }
 
     [Test]
@@ -235,7 +236,7 @@ public class HotbarTests
     {
         ClientSettings.IsHotbarSetting("SolidHotbars").Should().BeTrue();
         ClientSettings.IsHotbarSetting("Hotbar1Visible").Should().BeTrue();
-        ClientSettings.IsHotbarSetting("Hotbar4SlotsLocked").Should().BeTrue();
+        ClientSettings.IsHotbarSetting("Hotbar4Locked").Should().BeTrue();
         ClientSettings.IsHotbarSetting("Hotbar2SomethingNewer").Should().BeTrue();
 
         ClientSettings.IsHotbarSetting("Hotbar5Visible").Should().BeFalse();
@@ -252,7 +253,6 @@ public class HotbarTests
         var vertical = (bool[])ClientSettings.HotbarVertical.Clone();
         var locked = (bool[])ClientSettings.HotbarLocked.Clone();
         var edges = (HotbarDock[])ClientSettings.HotbarDockEdge.Clone();
-        var slotsLocked = (bool[])ClientSettings.HotbarSlotsLocked.Clone();
 
         try
         {
@@ -263,17 +263,15 @@ public class HotbarTests
             ClientSettings.HotbarVertical[2] = true;
             ClientSettings.HotbarLocked[3] = true;
             ClientSettings.HotbarDockEdge[3] = HotbarDock.Left;
-            ClientSettings.HotbarSlotsLocked[0] = true;
 
             ClientSettings.ResetHotbarSettings();
 
             ClientSettings.SolidHotbars.Should().BeFalse();
             ClientSettings.HotbarVisible.Should().AllBeEquivalentTo(false);
-            ClientSettings.HotbarSlotCount.Should().AllBeEquivalentTo(HotbarSet.MAX_SLOTS);
+            ClientSettings.HotbarSlotCount.Should().AllBeEquivalentTo(HotbarSet.DEFAULT_SLOTS);
             ClientSettings.HotbarVertical.Should().AllBeEquivalentTo(false);
             ClientSettings.HotbarLocked.Should().AllBeEquivalentTo(false);
-            ClientSettings.HotbarDockEdge.Should().AllBeEquivalentTo(HotbarDock.Bottom);
-            ClientSettings.HotbarSlotsLocked.Should().AllBeEquivalentTo(false);
+            ClientSettings.HotbarDockEdge.Should().AllBeEquivalentTo(HotbarDock.None);
         } finally
         {
             ClientSettings.SolidHotbars = solid;
@@ -282,7 +280,6 @@ public class HotbarTests
             vertical.CopyTo(ClientSettings.HotbarVertical, 0);
             locked.CopyTo(ClientSettings.HotbarLocked, 0);
             edges.CopyTo(ClientSettings.HotbarDockEdge, 0);
-            slotsLocked.CopyTo(ClientSettings.HotbarSlotsLocked, 0);
         }
     }
 
@@ -291,26 +288,28 @@ public class HotbarTests
     {
         var locked = ClientSettings.HotbarLocked[1];
         var edge = ClientSettings.HotbarDockEdge[1];
-        var slotsLocked = ClientSettings.HotbarSlotsLocked[1];
 
         try
         {
-            ClientSettings.TryLoadHotbarSetting("Hotbar2SlotsLocked", "1").Should().BeTrue();
-            ClientSettings.HotbarSlotsLocked[1].Should().BeTrue();
+            //the slots had their own lock once; it is one lock with the position now, and the old line is not read
+            ClientSettings.TryLoadHotbarSetting("Hotbar2SlotsLocked", "1").Should().BeFalse();
 
             ClientSettings.TryLoadHotbarSetting("Hotbar2Locked", "1").Should().BeTrue();
-            ClientSettings.TryLoadHotbarSetting("Hotbar2Dock", ((int)HotbarDock.Right).ToString()).Should().BeTrue();
+            ClientSettings.TryLoadHotbarSetting("Hotbar2Edge", ((int)HotbarDock.Right).ToString()).Should().BeTrue();
 
             ClientSettings.HotbarLocked[1].Should().BeTrue();
             ClientSettings.HotbarDockEdge[1].Should().Be(HotbarDock.Right);
 
-            ClientSettings.TryLoadHotbarSetting("Hotbar2Dock", "9").Should().BeTrue();
+            ClientSettings.TryLoadHotbarSetting("Hotbar2Edge", "9").Should().BeTrue();
+            ClientSettings.HotbarDockEdge[1].Should().Be(HotbarDock.Right);
+
+            //a line from before edges were picked in the dropdown is not read: it would dock a bar its player had moved
+            ClientSettings.TryLoadHotbarSetting("Hotbar2Dock", "1").Should().BeFalse();
             ClientSettings.HotbarDockEdge[1].Should().Be(HotbarDock.Right);
         } finally
         {
             ClientSettings.HotbarLocked[1] = locked;
             ClientSettings.HotbarDockEdge[1] = edge;
-            ClientSettings.HotbarSlotsLocked[1] = slotsLocked;
         }
     }
 
@@ -329,7 +328,7 @@ public class HotbarTests
 
             ClientSettings.HotbarVisible[2].Should().BeTrue();
             ClientSettings.HotbarVertical[2].Should().BeTrue();
-            ClientSettings.HotbarSlotCount[2].Should().Be(12);
+            ClientSettings.HotbarSlotCount[2].Should().Be(HotbarSet.MAX_SLOTS);
 
             ClientSettings.TryLoadHotbarSetting("Hotbar3Slots", "0").Should().BeTrue();
             ClientSettings.HotbarSlotCount[2].Should().Be(1);
