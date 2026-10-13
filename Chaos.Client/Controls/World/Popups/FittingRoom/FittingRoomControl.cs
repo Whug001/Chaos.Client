@@ -282,8 +282,10 @@ public sealed class FittingRoomControl : FramedDialogPanelBase
     {
         var vm = WorldState.FittingRoom;
 
-        //a look that was taken off (or a catalog that changed) no longer drives the swatches
-        if (Picked is not null && !vm.IsWorn(Picked))
+        //a look that was taken off (or a catalog that changed) no longer drives the swatches, and one from another tab
+        //would leave its name as the caption under this tab's grid
+        if (Picked is not null
+            && (!vm.IsWorn(Picked) || ((vm.Tab != FittingRoomTab.Wearing) && !vm.FilteredLooks.Contains(Picked))))
             Picked = null;
 
         for (var i = 0; i < TabButtons.Length; i++)
