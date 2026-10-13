@@ -11,7 +11,7 @@ using Chaos.Networking.Entities.Server;
 
 namespace Chaos.Client.Screens;
 
-/// <summary>The Mileth College windows: writer, Art canvas, Music composer, reader, judging list, gallery, hand-in list, quiz editor and the class quiz and debate windows.</summary>
+/// <summary>The Mileth College windows: writer, Art canvas, Music composer, reader, judging list, gallery, hand-in list, quiz editor, word-list editor and the class quiz, debate, Hangman and Word Scramble windows.</summary>
 public sealed partial class WorldScreen
 {
     //built on first use
@@ -44,6 +44,7 @@ public sealed partial class WorldScreen
         College?.Canvas.SaveIfDirty();
         College?.Composer.SaveIfDirty();
         College?.QuizEditor.SaveIfDirty();
+        College?.WordLists.SaveIfDirty();
     }
 
     private void SendCollegeAction(CollegeActionArgs args) => Game.Connection.SendCollegeAction(args);
@@ -105,6 +106,30 @@ public sealed partial class WorldScreen
             {
                 ZIndex = 2
             },
+            WordLists = new WordListEditorControl
+            {
+                ZIndex = 2
+            },
+            HangmanOrder = new HangmanTurnOrderControl
+            {
+                ZIndex = 2
+            },
+            HangmanBoard = new HangmanBoardControl
+            {
+                ZIndex = 2
+            },
+            HangmanTeacher = new HangmanTeacherPanel
+            {
+                ZIndex = 2
+            },
+            ScrambleCard = new ScrambleCardControl
+            {
+                ZIndex = 2
+            },
+            ScrambleTeacher = new ScrambleTeacherPanel
+            {
+                ZIndex = 2
+            },
             QuizTeacher = new QuizTeacherPanel
             {
                 ZIndex = 2
@@ -134,6 +159,12 @@ public sealed partial class WorldScreen
         windows.QuizTeacher.ActionRequested += SendCollegeAction;
         windows.Debate.ActionRequested += SendCollegeAction;
         windows.DebateVote.ActionRequested += SendCollegeAction;
+        windows.WordLists.ActionRequested += SendCollegeAction;
+        windows.HangmanOrder.ActionRequested += SendCollegeAction;
+        windows.HangmanBoard.ActionRequested += SendCollegeAction;
+        windows.HangmanTeacher.ActionRequested += SendCollegeAction;
+        windows.ScrambleCard.ActionRequested += SendCollegeAction;
+        windows.ScrambleTeacher.ActionRequested += SendCollegeAction;
         windows.PictureCanvas.PictureMade += windows.Writer.InsertDrawnPicture;
 
         windows.Writer.DrawRequested += (drawing, replacing) =>
@@ -155,6 +186,12 @@ public sealed partial class WorldScreen
         Root.AddChild(windows.QuizEditor);
         Root.AddChild(windows.QuizCard);
         Root.AddChild(windows.DebateVote);
+        Root.AddChild(windows.WordLists);
+        Root.AddChild(windows.HangmanOrder);
+        Root.AddChild(windows.HangmanBoard);
+        Root.AddChild(windows.HangmanTeacher);
+        Root.AddChild(windows.ScrambleCard);
+        Root.AddChild(windows.ScrambleTeacher);
         Root.AddChild(votesPopup);
 
         return windows;
@@ -269,6 +306,57 @@ public sealed partial class WorldScreen
                 College.Marks.Set(args.DebateMarks);
 
                 break;
+            case CollegeDisplayType.WordLists:
+                ShowList(College.WordLists, () => College.WordLists.ShowList(args.WordListRows));
+
+                break;
+            case CollegeDisplayType.WordListEdit:
+                BringToFront(College.WordLists);
+                College.WordLists.ShowEdit(args.WordListId, args.WordListMode, args.WordListDraft, args.Message);
+
+                break;
+            case CollegeDisplayType.WordBank:
+                College.WordLists.ShowBank(args.Page, args.PageCount, args.WordListRows);
+
+                break;
+            case CollegeDisplayType.WordListResult:
+                if (College.WordLists.ShowResult(args.WordListId, args.WordListResult, args.Message))
+                    BringToFront(College.WordLists);
+
+                break;
+            case CollegeDisplayType.HangmanOrder:
+                HideQuickListEditor();
+                BringToFront(College.HangmanOrder);
+                College.HangmanOrder.ShowOrder(args.OrderNames, args.Message);
+
+                break;
+            case CollegeDisplayType.HangmanBoard when args.Hangman.IsTeacher:
+                HideQuickListEditor();
+                College.HangmanOrder.Close();
+                College.HangmanTeacher.Apply(args.Hangman, args.Reopen);
+
+                break;
+            case CollegeDisplayType.HangmanBoard:
+                College.HangmanBoard.Apply(args.Hangman, WorldState.PlayerName, args.Reopen);
+
+                break;
+            case CollegeDisplayType.ScrambleCard when args.Scramble.IsTeacher:
+                HideQuickListEditor();
+                College.ScrambleTeacher.Apply(args.Scramble, args.Reopen);
+
+                break;
+            case CollegeDisplayType.ScrambleCard:
+                College.ScrambleCard.Apply(args.Scramble, WorldState.PlayerName, args.Reopen);
+
+                break;
+            case CollegeDisplayType.ToolClosed when args.Tool == CollegeTool.Hangman:
+                CloseHangman();
+
+                break;
+            case CollegeDisplayType.ToolClosed when args.Tool == CollegeTool.Scramble:
+                CloseScramble();
+
+                break;
             case CollegeDisplayType.ToolClosed:
                 CloseClassTools();
 
@@ -299,12 +387,34 @@ public sealed partial class WorldScreen
         open();
     }
 
-    /// <summary>Closes the class quiz and debate windows and clears the side markers: the tool ended, or the player left the room.</summary>
+    //a quick list that started a game is done with; hiding it, not cancelling, keeps the server's pending game
+    private void HideQuickListEditor()
+    {
+        if (College!.WordLists is { Visible: true, Document.Mode: WordListEditMode.Quick } editor)
+            editor.Hide();
+    }
+
+    private void CloseHangman()
+    {
+        College!.HangmanOrder.Close();
+        College.HangmanBoard.Close();
+        College.HangmanTeacher.Close();
+    }
+
+    private void CloseScramble()
+    {
+        College!.ScrambleCard.Close();
+        College.ScrambleTeacher.Close();
+    }
+
+    /// <summary>Closes the class tool windows and clears the side markers: the tool ended, or the player left the room.</summary>
     private void CloseClassTools()
     {
         if (College is null)
             return;
 
+        CloseHangman();
+        CloseScramble();
         College.QuizCard.Close();
         College.QuizTeacher.Close();
         College.Debate.Close();
@@ -334,6 +444,8 @@ public sealed partial class WorldScreen
         //a tall panel under a tall poll box would run off the bottom; being on screen wins over clearing the poll box
         College.QuizTeacher.Place(viewport, Math.Max(viewport.Top + 2, Math.Min(top, viewport.Bottom - College.QuizTeacher.Height - 2)));
         College.Debate.Place(viewport, Math.Max(viewport.Top + 2, Math.Min(top, viewport.Bottom - College.Debate.Height - 2)));
+        College.HangmanTeacher.Place(viewport, Math.Max(viewport.Top + 2, Math.Min(top, viewport.Bottom - College.HangmanTeacher.Height - 2)));
+        College.ScrambleTeacher.Place(viewport, Math.Max(viewport.Top + 2, Math.Min(top, viewport.Bottom - College.ScrambleTeacher.Height - 2)));
     }
 
     private sealed class CollegeWindows
@@ -351,6 +463,12 @@ public sealed partial class WorldScreen
         public required QuizCardControl QuizCard { get; init; }
         public required QuizEditorControl QuizEditor { get; init; }
         public required QuizTeacherPanel QuizTeacher { get; init; }
+        public required WordListEditorControl WordLists { get; init; }
+        public required HangmanTurnOrderControl HangmanOrder { get; init; }
+        public required HangmanBoardControl HangmanBoard { get; init; }
+        public required HangmanTeacherPanel HangmanTeacher { get; init; }
+        public required ScrambleCardControl ScrambleCard { get; init; }
+        public required ScrambleTeacherPanel ScrambleTeacher { get; init; }
         public required ArtCanvasControl PictureCanvas { get; init; }
         public required CollegeReaderControl Reader { get; init; }
         public required CollegePictureTransfers Transfers { get; init; }

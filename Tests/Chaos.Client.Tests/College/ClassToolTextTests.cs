@@ -107,4 +107,85 @@ public class ClassToolTextTests
         ClassToolText.ShownVote(DebatePhase.Final, DebateSide.Against, false).Should().Be(DebateSide.None);
         ClassToolText.ShownVote(DebatePhase.Final, DebateSide.Against, true).Should().Be(DebateSide.Against);
     }
+
+    [Test]
+    public void Hangman_title_has_number_and_mode()
+    {
+        var info = new CollegeHangmanInfo
+        {
+            Title = "Mileth",
+            Number = 2,
+            Count = 8,
+            Mode = HangmanMode.Survival
+        };
+
+        ClassToolText.HangmanTitle(info).Should().Be("Hangman 2/8 · Survival: Mileth");
+
+        info.Mode = HangmanMode.Casual;
+        ClassToolText.HangmanTitle(info).Should().Be("Hangman 2/8 · Casual: Mileth");
+    }
+
+    [Test]
+    public void Miss_line_depends_on_mode()
+    {
+        ClassToolText.MissLine(new CollegeHangmanInfo { Mode = HangmanMode.Survival, Misses = 3 }).Should().Be("3 of 6 misses");
+        ClassToolText.MissLine(new CollegeHangmanInfo { Mode = HangmanMode.Casual, Misses = 3 }).Should().Be("3 misses");
+        ClassToolText.MissLine(new CollegeHangmanInfo { Mode = HangmanMode.Casual, Misses = 1 }).Should().Be("1 miss");
+    }
+
+    [Test]
+    public void Turn_label_has_name_and_clock()
+    {
+        ClassToolText.TurnLabel("Kael", 14).Should().Be("Kael 0:14");
+    }
+
+    [Test]
+    public void Scramble_status_counts_solvers_while_open()
+    {
+        var info = new CollegeScrambleInfo { Phase = ScramblePhase.Open, SolvedCount = 2 };
+
+        ClassToolText.ScrambleStatus(info).Should().Be("2 classmates have solved it");
+
+        info.SolvedCount = 1;
+        ClassToolText.ScrambleStatus(info).Should().Be("1 classmate has solved it");
+
+        info.SolvedCount = 0;
+        ClassToolText.ScrambleStatus(info).Should().Be("No one has solved it yet");
+    }
+
+    [Test]
+    public void Scramble_status_after_the_reveal_gives_my_place_and_points()
+    {
+        var info = new CollegeScrambleInfo { Phase = ScramblePhase.Revealed, MyPlace = 2 };
+
+        ClassToolText.ScrambleStatus(info).Should().Be("You got it 2nd: +2");
+
+        info.MyPlace = 1;
+        ClassToolText.ScrambleStatus(info).Should().Be("You got it 1st: +3");
+
+        info.MyPlace = 5;
+        ClassToolText.ScrambleStatus(info).Should().Be("You got it 5th: +1");
+
+        info.MyPlace = 0;
+        ClassToolText.ScrambleStatus(info).Should().Be("You did not get it this time");
+    }
+
+    [Test]
+    public void Scramble_status_when_I_solved_it_before_the_reveal_gives_my_place()
+    {
+        var info = new CollegeScrambleInfo { Phase = ScramblePhase.Open, MyPlace = 3, SolvedCount = 3 };
+
+        ClassToolText.ScrambleStatus(info).Should().Be("You got it 3rd: +1");
+    }
+
+    [Test]
+    public void Ordinal_gives_suffixes()
+    {
+        ClassToolText.Ordinal(1).Should().Be("1st");
+        ClassToolText.Ordinal(2).Should().Be("2nd");
+        ClassToolText.Ordinal(3).Should().Be("3rd");
+        ClassToolText.Ordinal(4).Should().Be("4th");
+        ClassToolText.Ordinal(11).Should().Be("11th");
+        ClassToolText.Ordinal(22).Should().Be("22nd");
+    }
 }

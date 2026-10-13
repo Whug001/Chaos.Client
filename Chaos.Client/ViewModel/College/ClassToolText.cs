@@ -9,6 +9,51 @@ public static class ClassToolText
 {
     public static string Clock(int seconds) => $"{seconds / 60}:{seconds % 60:00}";
 
+    public static string HangmanTitle(CollegeHangmanInfo info) => $"Hangman {info.Number}/{info.Count} · {info.Mode}: {info.Title}";
+
+    public static string MissLine(CollegeHangmanInfo info)
+        => info.Mode == HangmanMode.Survival ? $"{info.Misses} of {CollegeProtocol.HANGMAN_MAX_MISSES} misses" : info.Misses == 1 ? "1 miss" : $"{info.Misses} misses";
+
+    public static string TurnLabel(string name, int seconds) => $"{name} {Clock(seconds)}";
+
+    public static string ScrambleStatus(CollegeScrambleInfo info)
+    {
+        if (info.MyPlace > 0)
+            return $"You got it {Ordinal(info.MyPlace)}: +{ScramblePoints(info.MyPlace)}";
+
+        if (info.Phase is ScramblePhase.Revealed or ScramblePhase.Ended)
+            return "You did not get it this time";
+
+        return info.SolvedCount switch
+        {
+            0 => "No one has solved it yet",
+            1 => "1 classmate has solved it",
+            _ => $"{info.SolvedCount} classmates have solved it"
+        };
+    }
+
+    public static int ScramblePoints(int place) => place switch
+    {
+        1 => 3,
+        2 => 2,
+        _ => 1
+    };
+
+    public static string Ordinal(int number)
+    {
+        var suffix = (number % 100) is >= 11 and <= 13
+            ? "th"
+            : (number % 10) switch
+            {
+                1 => "st",
+                2 => "nd",
+                3 => "rd",
+                _ => "th"
+            };
+
+        return $"{number}{suffix}";
+    }
+
     public static string QuizCaption(CollegeQuizInfo quiz) => $"Quiz: {quiz.Title} ({quiz.Number}/{quiz.Count})";
 
     public static string RightLine(int right, int answered) => answered == 0 ? "No one answered." : $"{right} of {answered} got it right.";
