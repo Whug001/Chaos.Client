@@ -19,23 +19,21 @@ public sealed class CollegeWallDecals : IDisposable
 
     private readonly Dictionary<(int X, int Y), List<Decal>> BoardStrips = [];
     private readonly Dictionary<(int X, int Y), List<Decal>> FrameStrips = [];
-    private readonly Dictionary<(int X, int Y), List<Decal>> ShimmerStrips = [];
 
-    //frames, then board, then shimmer per tile, rebuilt on every change so At allocates nothing
+    //frames, then board per tile, rebuilt on every change so At allocates nothing
     private readonly Dictionary<(int X, int Y), List<Decal>> Ordered = [];
 
     public bool HasWall { get; private set; }
 
     public void Dispose() => Clear();
 
-    /// <summary>The strips on wall tile (x, y), in draw order: frames, board, then the board's shimmer.</summary>
+    /// <summary>The strips on wall tile (x, y), in draw order: frames, then the board.</summary>
     public IReadOnlyList<Decal> At(int x, int y) => Ordered.TryGetValue((x, y), out var decals) ? decals : NoDecals;
 
     public void Clear()
     {
         Release(FrameStrips);
         Release(BoardStrips);
-        Release(ShimmerStrips);
         Ordered.Clear();
         HasWall = false;
     }
@@ -48,16 +46,7 @@ public sealed class CollegeWallDecals : IDisposable
             device,
             BoardStrips,
             WallDecalPainter.Board(drawing?.Palette, drawing?.Pixels),
-            WallDecalGeometry.Board,
-            false);
-
-        if (ShimmerStrips.Count == 0)
-            Add(
-                device,
-                ShimmerStrips,
-                WallDecalPainter.ShimmerMask(),
-                WallDecalGeometry.Board,
-                true);
+            WallDecalGeometry.Board);
 
         Reorder();
     }
@@ -81,8 +70,7 @@ public sealed class CollegeWallDecals : IDisposable
                 device,
                 FrameStrips,
                 WallDecalPainter.Framed(drawing.Palette, drawing.Pixels),
-                WallDecalGeometry.Frames[i],
-                false);
+                WallDecalGeometry.Frames[i]);
         }
 
         HasWall = true;
@@ -97,8 +85,7 @@ public sealed class CollegeWallDecals : IDisposable
         GraphicsDevice device,
         Dictionary<(int X, int Y), List<Decal>> target,
         Color[] image,
-        WallSpot spot,
-        bool shimmer)
+        WallSpot spot)
     {
         var strips = WallDecalPainter.Strips(image, WallDecalGeometry.PICTURE_HEIGHT, spot);
         var height = WallDecalGeometry.StripHeight(WallDecalGeometry.PICTURE_HEIGHT);
@@ -113,7 +100,7 @@ public sealed class CollegeWallDecals : IDisposable
             if (!target.TryGetValue(tile, out var list))
                 target[tile] = list = [];
 
-            list.Add(new Decal(texture, spot.Side, shimmer, i, strips.Length));
+            list.Add(new Decal(texture, spot.Side));
         }
     }
 
@@ -130,7 +117,7 @@ public sealed class CollegeWallDecals : IDisposable
     {
         Ordered.Clear();
 
-        foreach (var source in (ReadOnlySpan<Dictionary<(int X, int Y), List<Decal>>>)[FrameStrips, BoardStrips, ShimmerStrips])
+        foreach (var source in (ReadOnlySpan<Dictionary<(int X, int Y), List<Decal>>>)[FrameStrips, BoardStrips])
             foreach (var (tile, decals) in source)
             {
                 if (!Ordered.TryGetValue(tile, out var list))
@@ -140,10 +127,5 @@ public sealed class CollegeWallDecals : IDisposable
             }
     }
 
-    public sealed record Decal(
-        Texture2D Texture,
-        MirrorSide Side,
-        bool Shimmer,
-        int Strip,
-        int Strips);
+    public sealed record Decal(Texture2D Texture, MirrorSide Side);
 }

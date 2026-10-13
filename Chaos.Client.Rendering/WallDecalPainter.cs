@@ -5,12 +5,9 @@ using Microsoft.Xna.Framework;
 
 namespace Chaos.Client.Rendering;
 
-/// <summary>The College wall images (frame, board, shimmer mask) and their slanted strips, as premultiplied colours.</summary>
+/// <summary>The College wall images (frame and board) and their slanted strips, as premultiplied colours.</summary>
 public static class WallDecalPainter
 {
-    public const double SHIMMER_SECONDS = 6;
-    private const float SHIMMER_PEAK = 0.3f;
-
     public static readonly Color FrameOuter = new(120, 80, 44);
     public static readonly Color FrameInner = new(166, 118, 68);
     public static readonly Color FrameLine = new(58, 36, 20);
@@ -69,9 +66,6 @@ public static class WallDecalPainter
         return image;
     }
 
-    /// <summary>A solid white 168 x 88 mask, drawn additively and faded per strip for the shimmer.</summary>
-    public static Color[] ShimmerMask() => Enumerable.Repeat(Color.White, WallDecalGeometry.BOARD_IMAGE_WIDTH * WallDecalGeometry.PICTURE_HEIGHT).ToArray();
-
     /// <summary>Cuts an image <paramref name="spot" />.Width wide into one slanted strip per wall tile, left to right on screen.</summary>
     public static Color[][] Strips(Color[] image, int height, WallSpot spot)
     {
@@ -91,13 +85,5 @@ public static class WallDecalPainter
         }
 
         return strips;
-    }
-
-    /// <summary>How bright the shimmer is over strip <paramref name="strip" /> of <paramref name="strips" /> at a time in seconds.</summary>
-    public static float ShimmerIntensity(double seconds, int strip, int strips)
-    {
-        var band = (seconds % SHIMMER_SECONDS / SHIMMER_SECONDS * (strips + 2)) - 1;
-
-        return (float)Math.Max(0, 1 - Math.Abs(strip + 0.5 - band)) * SHIMMER_PEAK;
     }
 }

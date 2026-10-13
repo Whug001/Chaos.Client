@@ -20,30 +20,11 @@ public sealed partial class WorldScreen
 
         var tile = Camera.WorldToScreen(Camera.TileToWorld(x, y, MapFile!.Height));
         var top = MathF.Floor(tile.Y) + WallDecalGeometry.StripTop(WallDecalGeometry.PICTURE_HEIGHT);
-        var seconds = Environment.TickCount64 / 1000.0;
+
+        scope.Require(BlendState.AlphaBlend);
 
         foreach (var decal in decals)
-        {
-            var origin = new Vector2(MathF.Floor(tile.X) + MirrorGeometry.FaceLocalX(decal.Side), top);
-
-            if (decal.Shimmer)
-            {
-                var glow = WallDecalPainter.ShimmerIntensity(seconds, decal.Strip, decal.Strips);
-
-                if (glow <= 0)
-                    continue;
-
-                scope.Require(BlendState.Additive);
-                scope.Batch.Draw(decal.Texture, origin, Color.White * glow);
-            } else
-            {
-                scope.Require(BlendState.AlphaBlend);
-                scope.Batch.Draw(decal.Texture, origin, Color.White);
-            }
-        }
-
-        //the rest of the stripe pass draws straight to the batch, so leaving it additive washes out later tiles
-        scope.Require(BlendState.AlphaBlend);
+            scope.Batch.Draw(decal.Texture, new Vector2(MathF.Floor(tile.X) + MirrorGeometry.FaceLocalX(decal.Side), top), Color.White);
     }
 
     private void ShowWallArt(CollegeDisplayArgs args)

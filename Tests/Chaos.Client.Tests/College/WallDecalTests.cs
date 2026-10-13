@@ -91,14 +91,4 @@ public class WallDecalTests
         image[4 * 168 + 5].Should().Be(palette[9]);
         blank[40 * 168 + 80].Should().Be(WallDecalPainter.PaneFill);
     }
-
-    [Test]
-    public void The_shimmer_band_drifts_across_and_repeats()
-    {
-        var peak = WallDecalPainter.ShimmerIntensity(1.5 / 8 * 6, 0, 6);
-
-        peak.Should().BeApproximately(0.3f, 0.001f);
-        WallDecalPainter.ShimmerIntensity(1.5 / 8 * 6, 2, 6).Should().Be(0);
-        WallDecalPainter.ShimmerIntensity((1.5 / 8 * 6) + 6, 0, 6).Should().BeApproximately(peak, 0.001f);
-    }
 }
