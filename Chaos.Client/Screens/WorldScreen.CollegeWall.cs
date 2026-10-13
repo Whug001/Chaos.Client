@@ -41,6 +41,9 @@ public sealed partial class WorldScreen
                 scope.Batch.Draw(decal.Texture, origin, Color.White);
             }
         }
+
+        //the rest of the stripe pass draws straight to the batch, so leaving it additive washes out later tiles
+        scope.Require(BlendState.AlphaBlend);
     }
 
     private void ShowWallArt(CollegeDisplayArgs args)
