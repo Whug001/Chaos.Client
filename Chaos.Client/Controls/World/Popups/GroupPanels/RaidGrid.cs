@@ -11,13 +11,14 @@ using Microsoft.Xna.Framework.Graphics;
 namespace Chaos.Client.Controls.World.Popups.GroupPanels;
 
 /// <summary>
-///     The whole raid at a glance: one column per party, a name and a health bar per member. Shown in place of
-///     <see cref="GroupPanelStack" /> during a raid while the grid view is chosen (Shift+Y toggles it).
+///     The whole raid at a glance: one column per party, one health bar per member with the name written over it.
+///     Shown in place of <see cref="GroupPanelStack" /> during a raid while the grid view is chosen (Shift+Y toggles it).
 /// </summary>
 /// <remarks>
-///     The columns are rebuilt into the same four lists whenever the group snapshot changes or the player's own row
+///     Only parties with members get a column, and the grid is only as tall as the largest party, so it grows with the
+///     raid. The columns are rebuilt into the same four lists whenever the group snapshot changes or the player's own row
 ///     does (their health is not in the group packet, so it is compared each frame), and drawn from those lists the
-///     rest of the time. Dragged by its header like the panel column; the position is kept for the session.
+///     rest of the time. Dragged by its heading row like the panel column; the position is kept for the session.
 /// </remarks>
 public sealed class RaidGrid : UIPanel
 {
@@ -25,10 +26,8 @@ public sealed class RaidGrid : UIPanel
     private const int CELL_PAD = 2;
     private const int COLUMN_WIDTH = (NAME_CHARS * TextRenderer.CHAR_WIDTH) + (CELL_PAD * 2);
     private const int COLUMN_GAP = 3;
-    private const int HEADER_HEIGHT = 16;
-    private const int HEADING_HEIGHT = TextRenderer.CHAR_HEIGHT + 2;
-    private const int BAR_HEIGHT = 4;
-    private const int CELL_HEIGHT = TextRenderer.CHAR_HEIGHT + BAR_HEIGHT + 4;
+    private const int HEADER_HEIGHT = TextRenderer.CHAR_HEIGHT + 2;
+    private const int CELL_HEIGHT = TextRenderer.CHAR_HEIGHT + 2;
     private const int PLATE_MARGIN = 2;
     private const int DEFAULT_LEFT_MARGIN = 14;
     private const int DEFAULT_TOP_GAP = (3 * TextRenderer.CHAR_HEIGHT) + 4;
@@ -42,10 +41,11 @@ public sealed class RaidGrid : UIPanel
     private static readonly Color NameColor = new(232, 220, 196);
     private static readonly Color LeaderColor = new(255, 214, 102);
     private static readonly Color DeadColor = new(150, 150, 158);
+    private static readonly Color DeadFill = new(70, 70, 76);
     private static readonly Color OwnPartyBorder = new(212, 175, 55);
     private static readonly Color CellBorder = new(54, 34, 16);
     private static readonly Color BarTrack = new(18, 11, 5);
-    private static readonly Color HealthFill = new(196, 46, 46);
+    private static readonly Color HealthFill = new(150, 32, 32);
     private static readonly Color Shadow = Color.Black;
 
     private static readonly string[] PartyHeadings = Enumerable.Range(1, GroupMembersState.PARTY_COUNT)
@@ -59,7 +59,9 @@ public sealed class RaidGrid : UIPanel
                                                       .Select(_ => new List<Cell>(GroupMembersState.PARTY_SIZE))
                                                       .ToArray();
 
-    private string Caption = string.Empty;
+    private readonly int[] PartySizes = new int[GroupMembersState.PARTY_COUNT];
+    private int[] ShownParties = [];
+
     private bool RosterDirty = true;
     private string LastPlayerName = string.Empty;
     private bool LastPlayerLeads;
@@ -76,8 +78,8 @@ public sealed class RaidGrid : UIPanel
     {
         Name = "RaidGrid";
         ViewportBounds = viewportBounds;
-        Width = (GroupMembersState.PARTY_COUNT * COLUMN_WIDTH) + ((GroupMembersState.PARTY_COUNT - 1) * COLUMN_GAP);
-        Height = HEADER_HEIGHT + HEADING_HEIGHT + (GroupMembersState.PARTY_SIZE * CELL_HEIGHT);
+        Width = COLUMN_WIDTH;
+        Height = HEADER_HEIGHT;
 
         //stay Visible so the parent keeps calling Update; whether anything is drawn is decided per frame
         Visible = true;
@@ -98,6 +100,19 @@ public sealed class RaidGrid : UIPanel
     public void SetViewportBounds(Rectangle bounds) => ViewportBounds = bounds;
 
     private void OnGroupChanged() => RosterDirty = true;
+
+    /// <summary>
+    ///     Which parties get a column (zero-based, in party order) and how many rows the grid needs, given each party's
+    ///     member count.
+    /// </summary>
+    public static (int[] Parties, int Rows) Fit(IReadOnlyList<int> partySizes)
+    {
+        var parties = Enumerable.Range(0, partySizes.Count)
+                                .Where(party => partySizes[party] > 0)
+                                .ToArray();
+
+        return (parties, partySizes.Count == 0 ? 0 : partySizes.Max());
+    }
 
     public override void Update(GameTime gameTime)
     {
@@ -124,7 +139,10 @@ public sealed class RaidGrid : UIPanel
         IsHitTestVisible = true;
     }
 
-    /// <summary>Refills <see cref="Columns" /> if the snapshot or the player's own row has changed since the last fill.</summary>
+    /// <summary>
+    ///     Refills <see cref="Columns" /> and resizes the grid if the snapshot or the player's own row has changed since
+    ///     the last fill.
+    /// </summary>
     private void RefreshColumns()
     {
         var self = WorldState.Attributes.Current;
@@ -170,7 +188,14 @@ public sealed class RaidGrid : UIPanel
                 .Add(new Cell(entry, label));
         }
 
-        Caption = $"Raid {WorldState.GroupMembers.Size}/{GroupMembersState.MAX_RAID_SIZE}";
+        for (var party = 0; party < Columns.Length; party++)
+            PartySizes[party] = Columns[party].Count;
+
+        (ShownParties, var rows) = Fit(PartySizes);
+
+        var columnCount = Math.Max(1, ShownParties.Length);
+        Width = (columnCount * COLUMN_WIDTH) + ((columnCount - 1) * COLUMN_GAP);
+        Height = HEADER_HEIGHT + (rows * CELL_HEIGHT);
     }
 
     public override void OnMouseDown(MouseDownEvent e)
@@ -220,18 +245,16 @@ public sealed class RaidGrid : UIPanel
 
     private RaidRosterEntry? EntryAt(int localX, int localY)
     {
-        var top = HEADER_HEIGHT + HEADING_HEIGHT;
-
-        if ((localX < 0) || (localY < top))
+        if ((localX < 0) || (localY < HEADER_HEIGHT))
             return null;
 
-        var column = localX / (COLUMN_WIDTH + COLUMN_GAP);
+        var slot = localX / (COLUMN_WIDTH + COLUMN_GAP);
 
-        if ((column >= GroupMembersState.PARTY_COUNT) || ((localX - (column * (COLUMN_WIDTH + COLUMN_GAP))) >= COLUMN_WIDTH))
+        if ((slot >= ShownParties.Length) || ((localX - (slot * (COLUMN_WIDTH + COLUMN_GAP))) >= COLUMN_WIDTH))
             return null;
 
-        var row = (localY - top) / CELL_HEIGHT;
-        var cells = Columns[column];
+        var row = (localY - HEADER_HEIGHT) / CELL_HEIGHT;
+        var cells = Columns[ShownParties[slot]];
 
         return row < cells.Count ? cells[row].Entry : null;
     }
@@ -267,33 +290,27 @@ public sealed class RaidGrid : UIPanel
         DrawRect(spriteBatch, header, HeaderFill);
         DrawBorder(spriteBatch, header, PlateBorder);
 
-        TextRenderer.DrawShadowedText(
-            spriteBatch,
-            new Vector2(ScreenX + CELL_PAD, ScreenY + ((HEADER_HEIGHT - TextRenderer.CHAR_HEIGHT) / 2)),
-            Caption,
-            HeaderText,
-            Shadow);
-
-        for (var column = 0; column < GroupMembersState.PARTY_COUNT; column++)
+        for (var slot = 0; slot < ShownParties.Length; slot++)
         {
-            var x = ScreenX + (column * (COLUMN_WIDTH + COLUMN_GAP));
-            var ownParty = column + 1 == WorldState.GroupMembers.OwnParty;
+            var party = ShownParties[slot];
+            var x = ScreenX + (slot * (COLUMN_WIDTH + COLUMN_GAP));
+            var ownParty = party + 1 == WorldState.GroupMembers.OwnParty;
 
             TextRenderer.DrawShadowedText(
                 spriteBatch,
-                new Vector2(x + CELL_PAD, ScreenY + HEADER_HEIGHT + 1),
-                PartyHeadings[column],
+                new Vector2(x + CELL_PAD, ScreenY + 1),
+                PartyHeadings[party],
                 ownParty ? OwnPartyBorder : HeaderText,
                 Shadow);
 
-            var cells = Columns[column];
+            var cells = Columns[party];
 
             for (var row = 0; row < cells.Count; row++)
                 DrawCell(
                     spriteBatch,
                     cells[row],
                     x,
-                    ScreenY + HEADER_HEIGHT + HEADING_HEIGHT + (row * CELL_HEIGHT),
+                    ScreenY + HEADER_HEIGHT + (row * CELL_HEIGHT),
                     ownParty);
         }
     }
@@ -312,7 +329,34 @@ public sealed class RaidGrid : UIPanel
             x,
             y,
             COLUMN_WIDTH,
-            CELL_HEIGHT - 1);
+            CELL_HEIGHT);
+
+        var bar = new Rectangle(
+            bounds.X + 1,
+            bounds.Y + 1,
+            bounds.Width - 2,
+            bounds.Height - 2);
+
+        DrawRect(spriteBatch, bar, BarTrack * fade);
+
+        var fillWidth = (int)Math.Round(bar.Width * entry.HealthPercent);
+
+        //one hit point must not read as none
+        if ((fillWidth == 0) && (entry.HealthPercent > 0))
+            fillWidth = 1;
+
+        if (entry.Dead)
+            fillWidth = bar.Width;
+
+        if (fillWidth > 0)
+            DrawRect(
+                spriteBatch,
+                new Rectangle(
+                    bar.X,
+                    bar.Y,
+                    fillWidth,
+                    bar.Height),
+                (entry.Dead ? DeadFill : HealthFill) * fade);
 
         DrawBorder(spriteBatch, bounds, (ownParty ? OwnPartyBorder : CellBorder) * fade);
 
@@ -324,30 +368,6 @@ public sealed class RaidGrid : UIPanel
             cell.Label,
             nameColor * fade,
             Shadow * fade);
-
-        var track = new Rectangle(
-            x + CELL_PAD,
-            y + TextRenderer.CHAR_HEIGHT + 2,
-            COLUMN_WIDTH - (CELL_PAD * 2),
-            BAR_HEIGHT);
-
-        DrawRect(spriteBatch, track, BarTrack * fade);
-
-        var fillWidth = (int)Math.Round((track.Width - 2) * entry.HealthPercent);
-
-        //one hit point must not read as none
-        if ((fillWidth == 0) && (entry.HealthPercent > 0))
-            fillWidth = 1;
-
-        if (fillWidth > 0)
-            DrawRect(
-                spriteBatch,
-                new Rectangle(
-                    track.X + 1,
-                    track.Y + 1,
-                    fillWidth,
-                    BAR_HEIGHT - 2),
-                (entry.Dead ? DeadColor : HealthFill) * fade);
     }
 
     public override void Dispose()
