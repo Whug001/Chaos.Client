@@ -78,6 +78,10 @@ public sealed class CraftingConfirmControl : PrefabPanel, IInventoryDropTarget
         DescLabel.WordWrap = true;
         NumLabel = CreateLabel("NUM", HorizontalAlignment.Center)!;
 
+        //"255/255" is 42 px and NUM is 43 px wide, so the default 1 px side padding would cut it to "..."
+        NumLabel.PaddingLeft = 0;
+        NumLabel.PaddingRight = 0;
+
         var numRect = GetRect("NUM");
 
         QuantityBox = new CustomTextBox
@@ -162,7 +166,7 @@ public sealed class CraftingConfirmControl : PrefabPanel, IInventoryDropTarget
             success += $" ({withCatalyst}% with catalyst)";
 
         DescLabel.Text = $"{success}\nMade: {detail.TimesMade}\nCrafting {State.Quantity} (one roll each)";
-        NumLabel.Text = $"{State.Quantity} / {State.QuantityMax}";
+        NumLabel.Text = $"{State.Quantity}/{State.QuantityMax}";
 
         if (!QuantityBox.IsFocused)
             QuantityBox.Text = State.Quantity.ToString();
