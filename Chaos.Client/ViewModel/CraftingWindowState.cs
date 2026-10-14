@@ -73,27 +73,30 @@ public sealed class CraftingWindowState
     /// <summary>The recipe whose confirm window opens once its detail arrives (a double-click beat the server's reply).</summary>
     public ushort? PendingConfirmId { get; private set; }
 
-    public string IngredientText
+    /// <summary>The selected recipe's ingredients for the chosen quantity.</summary>
+    public IReadOnlyList<CraftingIngredientInfo> ScaledIngredients
     {
         get
         {
             if (Detail is not { } detail)
-                return string.Empty;
+                return [];
 
             var quantity = Math.Max(Quantity, 1);
-            var lines = detail.Ingredients.Select(i =>
-            {
-                var need = i.Need * quantity;
 
-                return (i.Have >= need ? "{=u" : "{=b") + $"{i.Name} {i.Have} / {need}";
-            });
-
-            if (CatalystIndex >= 0)
-                lines = lines.Append("{=u" + $"{CraftingProtocol.Catalysts[CatalystIndex].Name} {CatalystCount} / {quantity}");
-
-            return string.Join("\n", lines);
+            return detail.Ingredients.Select(i => i with { Need = i.Need * quantity }).ToList();
         }
     }
+
+    /// <summary>The catalyst's line under the ingredients, without an icon (the window takes it from the bag slot).</summary>
+    public CraftingIngredientInfo? CatalystLine
+        => CatalystIndex < 0
+            ? null
+            : new CraftingIngredientInfo
+            {
+                Name = CraftingProtocol.Catalysts[CatalystIndex].Name,
+                Have = (int)CatalystCount,
+                Need = Math.Max(Quantity, 1)
+            };
 
     public void Apply(CraftingDisplayArgs args)
     {

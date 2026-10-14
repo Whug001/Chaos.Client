@@ -17,9 +17,12 @@ public sealed class CraftingBrowserControl : PrefabPanel
 {
     public const string PREFAB = "produce";
 
+    //the art's scroll track is wider than the scroll bar control, so rows stop short of it
+    private const int SCROLL_BAR_GAP = 4;
+
     private readonly UILabel AbilityValue;
     private readonly UITextBox FilterBox;
-    private readonly VirtualizedRowList<CraftingIngredientInfo> IngredientList;
+    private readonly UILabel DescriptionLabel;
     private readonly UILabel LevelValue;
     private readonly UILabel MadeValue;
     private readonly UIProgressBar RankBar;
@@ -28,7 +31,7 @@ public sealed class CraftingBrowserControl : PrefabPanel
     private readonly VirtualizedRowList<CraftingRecipeInfo> RecipeList;
     private readonly UILabel SuccessValue;
     private bool ClosedByServer;
-    private ushort? IngredientsRecipeId;
+    private ushort? DescriptionRecipeId;
     private string LastFilter = string.Empty;
 
     private static CraftingWindowState State => WorldState.Crafting;
@@ -47,7 +50,7 @@ public sealed class CraftingBrowserControl : PrefabPanel
         UsesControlStack = true;
 
         var listRect = GetRect("skill");
-        var rowWidth = listRect.Width - ScrollBarControl.DEFAULT_WIDTH;
+        var rowWidth = listRect.Width - ScrollBarControl.DEFAULT_WIDTH - SCROLL_BAR_GAP;
 
         RecipeList = new VirtualizedRowList<CraftingRecipeInfo>(
             rowWidth,
@@ -70,17 +73,20 @@ public sealed class CraftingBrowserControl : PrefabPanel
             });
 
         var elementRect = GetRect("element");
-        var ingredientWidth = elementRect.Width - ScrollBarControl.DEFAULT_WIDTH;
 
-        IngredientList = new VirtualizedRowList<CraftingIngredientInfo>(
-            ingredientWidth,
-            elementRect.Height,
-            CraftingIngredientRow.HEIGHT,
-            () => new CraftingIngredientRow(ingredientWidth),
-            (row, ingredient, _) => ((CraftingIngredientRow)row).Bind(ingredient, 1));
+        DescriptionLabel = new UILabel
+        {
+            Width = elementRect.Width - ScrollBarControl.DEFAULT_WIDTH - SCROLL_BAR_GAP,
+            Height = elementRect.Height,
+            PaddingLeft = 2,
+            PaddingTop = 2,
+            WordWrap = true,
+            VerticalAlignment = VerticalAlignment.Top,
+            ForegroundColor = LegendColors.White
+        };
 
         AddChild(
-            new ScrollViewerControl(IngredientList)
+            new ScrollViewerControl(DescriptionLabel)
             {
                 X = elementRect.X,
                 Y = elementRect.Y,
@@ -198,13 +204,12 @@ public sealed class CraftingBrowserControl : PrefabPanel
         RecipeList.Invalidate();
         var detail = State.Detail;
 
-        //every crafted item in a batch resends the detail; only a new recipe starts the ingredients at the top
-        if ((detail is not null) && (detail.RecipeId == IngredientsRecipeId))
-            IngredientList.ReplaceItems(detail.Ingredients);
-        else
-            IngredientList.SetItems(detail?.Ingredients ?? []);
+        //every crafted item in a batch resends the detail; only a new recipe starts the description at the top
+        if (detail?.RecipeId != DescriptionRecipeId)
+            DescriptionLabel.ScrollOffset = 0;
 
-        IngredientsRecipeId = detail?.RecipeId;
+        DescriptionLabel.Text = detail?.Description ?? string.Empty;
+        DescriptionRecipeId = detail?.RecipeId;
         RankValue.Text = State.RankShortTitle;
         SuccessValue.Text = detail is null ? string.Empty : $"{detail.SuccessRate}%";
         MadeValue.Text = detail is null ? string.Empty : detail.TimesMade.ToString();

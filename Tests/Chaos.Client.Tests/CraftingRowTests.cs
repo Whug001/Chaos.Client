@@ -23,7 +23,7 @@ public sealed class CraftingRowTests
     {
         var row = new CraftingIngredientRow(150);
 
-        row.Bind(new CraftingIngredientInfo { Name = "Hemloch", Have = 1, Need = 2 }, 1);
+        row.Bind(new CraftingIngredientInfo { Name = "Hemloch", Have = 1, Need = 2 });
 
         row.CountText.Should().Be("{=b1 / 2");
     }
@@ -33,7 +33,7 @@ public sealed class CraftingRowTests
     {
         var row = new CraftingIngredientRow(150);
 
-        row.Bind(new CraftingIngredientInfo { Name = "Hemloch", Have = 2, Need = 2 }, 1);
+        row.Bind(new CraftingIngredientInfo { Name = "Hemloch", Have = 2, Need = 2 });
 
         row.CountText.Should().Be("{=u2 / 2");
     }
@@ -43,13 +43,24 @@ public sealed class CraftingRowTests
     {
         var row = new CraftingIngredientRow(156);
 
-        row.Bind(new CraftingIngredientInfo { Name = "Hemloch", Have = 2, Need = 2 }, 1);
+        row.Bind(new CraftingIngredientInfo { Name = "Hemloch", Have = 2, Need = 2 });
 
         var name = row.Children.OfType<UILabel>().First();
         var count = row.Children.OfType<UILabel>().Last();
-        name.Width.Should().BeGreaterThanOrEqualTo(80);
+        name.Width.Should().BeGreaterThanOrEqualTo(100);
         (name.X + name.Width).Should().BeLessThanOrEqualTo(count.X);
         (count.X + count.Width).Should().Be(156);
         count.Width.Should().BeGreaterThanOrEqualTo(TextRenderer.MeasureWidth("2 / 2"));
+    }
+
+    [Test]
+    public void A_long_essence_name_fits_beside_a_two_digit_count_in_the_confirm_window()
+    {
+        var row = new CraftingIngredientRow(190);
+
+        row.Bind(new CraftingIngredientInfo { Name = "Essence of Theselene", Have = 12, Need = 10 });
+
+        var name = row.Children.OfType<UILabel>().First();
+        name.Width.Should().BeGreaterThanOrEqualTo(TextRenderer.MeasureWidth("Essence of Theselene"));
     }
 }

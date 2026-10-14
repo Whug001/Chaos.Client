@@ -2,40 +2,33 @@ using Chaos.Client.Controls.Components;
 using Chaos.Client.Rendering;
 using Chaos.Client.Rendering.Definitions;
 using Chaos.Networking.Entities.Server;
+using Microsoft.Xna.Framework;
+using Microsoft.Xna.Framework.Graphics;
 
 namespace Chaos.Client.Controls.World.Popups.Crafting;
 
-/// <summary>One ingredient in the browser: icon, name and "have / need" on the right, red when short.</summary>
+/// <summary>One ingredient in the confirm window: a half-size icon, the name and "have / need" on the right, red when short.</summary>
 public sealed class CraftingIngredientRow : UIPanel
 {
-    public const int HEIGHT = 34;
-    private const int COUNT_WIDTH = 42;
+    public const int HEIGHT = 20;
+    private const int ICON_X = 1;
     private const int NAME_GAP = 2;
-    private const int NAME_X = 38;
+    private const int NAME_X = 20;
 
     private readonly UILabel CountLabel;
-    private readonly UIImage IconImage;
     private readonly UILabel NameLabel;
+    private Texture2D? Icon;
 
     public CraftingIngredientRow(int width)
     {
         Width = width;
         Height = HEIGHT;
 
-        IconImage = new UIImage
-        {
-            X = 1,
-            Y = 1,
-            Width = 32,
-            Height = 32,
-            IsHitTestVisible = false
-        };
-
         NameLabel = new UILabel
         {
             X = NAME_X,
             Y = (HEIGHT - TextRenderer.CHAR_HEIGHT) / 2,
-            Width = Math.Max(0, width - NAME_X - NAME_GAP - COUNT_WIDTH),
+            Width = Math.Max(0, width - NAME_X),
             Height = TextRenderer.CHAR_HEIGHT,
             ForegroundColor = LegendColors.White,
             IsHitTestVisible = false
@@ -43,27 +36,24 @@ public sealed class CraftingIngredientRow : UIPanel
 
         CountLabel = new UILabel
         {
-            X = width - COUNT_WIDTH,
             Y = (HEIGHT - TextRenderer.CHAR_HEIGHT) / 2,
-            Width = COUNT_WIDTH,
             Height = TextRenderer.CHAR_HEIGHT,
             HorizontalAlignment = HorizontalAlignment.Right,
             ColorCodesEnabled = true,
             IsHitTestVisible = false
         };
 
-        AddChild(IconImage);
         AddChild(NameLabel);
         AddChild(CountLabel);
     }
 
     public string CountText { get; private set; } = string.Empty;
 
-    public void Bind(CraftingIngredientInfo ingredient, int quantity)
+    /// <summary>Binds an ingredient whose Need is already the total for the batch.</summary>
+    public void Bind(CraftingIngredientInfo ingredient)
     {
-        var need = ingredient.Need * Math.Max(quantity, 1);
         NameLabel.Text = ingredient.Name;
-        CountText = (ingredient.Have >= need ? "{=u" : "{=b") + $"{ingredient.Have} / {need}";
+        CountText = (ingredient.Have >= ingredient.Need ? "{=u" : "{=b") + $"{ingredient.Have} / {ingredient.Need}";
 
         //the count takes only the room its text needs (plus the label's padding and the last glyph's overhang),
         //so the name gets the rest of the row
@@ -76,14 +66,56 @@ public sealed class CraftingIngredientRow : UIPanel
         if (UiRenderer.Instance is not { } ui)
             return;
 
-        IconImage.Texture = ui.GetItemIcon(ingredient.Sprite, ingredient.Color);
+        Icon = ingredient.Sprite == 0 ? null : ui.GetItemIcon(ingredient.Sprite, ingredient.Color);
         CountLabel.Text = CountText;
+    }
+
+    public override void Draw(SpriteBatch spriteBatch)
+    {
+        base.Draw(spriteBatch);
+
+        if (Visible)
+            DrawIcon(spriteBatch);
     }
 
     public override void Dispose()
     {
         //shared cached texture
-        IconImage.Texture = null;
+        Icon = null;
         base.Dispose();
+    }
+
+    private void DrawIcon(SpriteBatch spriteBatch)
+    {
+        if (Icon is null)
+            return;
+
+        var texture = Icon;
+        var source = new Rectangle(0, 0, Icon.Width, Icon.Height);
+
+        if (Icon is CachedTexture2D { AtlasRegion: { } region })
+        {
+            texture = region.Atlas;
+            source = region.SourceRect;
+        }
+
+        //exactly half size, so the point sampler keeps every other pixel and the icon stays crisp
+        var destination = new Rectangle(
+            ScreenX + ICON_X,
+            ScreenY + (HEIGHT - source.Height / 2) / 2,
+            source.Width / 2,
+            source.Height / 2);
+        var visible = Rectangle.Intersect(destination, ClipRect);
+
+        if ((visible.Width <= 0) || (visible.Height <= 0))
+            return;
+
+        var visibleSource = new Rectangle(
+            source.X + (visible.X - destination.X) * 2,
+            source.Y + (visible.Y - destination.Y) * 2,
+            visible.Width * 2,
+            visible.Height * 2);
+
+        spriteBatch.Draw(texture, visible, visibleSource, Color.White);
     }
 }

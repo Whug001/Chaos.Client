@@ -66,6 +66,10 @@ internal sealed class VirtualizedRowList<T> : UIPanel, IVerticalScrollable
     //fired when the selected row changes (selectable lists). Hosts use it to refresh dependent button states.
     public event Action? SelectionChanged;
 
+    //item indices of the last two left clicks; a double-click only activates when both landed on the same item
+    private int LastClickIndex = -1;
+    private int PreviousClickIndex = -1;
+
     //fired on double-click of a data row (selectable lists). Non-selectable lists raise activation from their own rows.
     public event Action<T>? RowActivated;
 
@@ -394,6 +398,9 @@ internal sealed class VirtualizedRowList<T> : UIPanel, IVerticalScrollable
     {
         base.OnClick(e);
 
+        PreviousClickIndex = LastClickIndex;
+        LastClickIndex = -1;
+
         if (!Selectable || (e.Button != MouseButton.Left))
             return;
 
@@ -401,6 +408,8 @@ internal sealed class VirtualizedRowList<T> : UIPanel, IVerticalScrollable
 
         if ((entryIndex < 0) || (entryIndex >= Items.Count))
             return;
+
+        LastClickIndex = entryIndex;
 
         SelectedIndex = entryIndex;
         DataVersion++;
@@ -411,12 +420,17 @@ internal sealed class VirtualizedRowList<T> : UIPanel, IVerticalScrollable
     {
         base.OnDoubleClick(e);
 
+        var pairedIndex = PreviousClickIndex;
+        PreviousClickIndex = -1;
+        LastClickIndex = -1;
+
         if (!Selectable || (e.Button != MouseButton.Left))
             return;
 
         var entryIndex = RowAt(e.ScreenY);
 
-        if ((entryIndex < 0) || (entryIndex >= Items.Count))
+        //the dispatcher pairs any two quick clicks on this list, so two different rows clicked in a row must not count
+        if ((entryIndex < 0) || (entryIndex >= Items.Count) || (entryIndex != pairedIndex))
             return;
 
         SelectedIndex = entryIndex;

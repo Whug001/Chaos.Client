@@ -159,14 +159,17 @@ public sealed class CraftingWindowStateTests
     }
 
     [Test]
-    public void A_short_ingredient_is_red()
+    public void Ingredients_scale_with_the_quantity()
     {
         var state = Opened();
         state.Select(1);
         state.Apply(Detail(1, 2, have: 3, need: 2));
         state.Step(+1);
 
-        state.IngredientText.Should().Contain("{=bHemloch 3 / 4");
+        state.ScaledIngredients
+             .Select(i => (i.Name, i.Have, i.Need))
+             .Should()
+             .Equal(("Hemloch", 3, 4));
     }
 
     [Test]

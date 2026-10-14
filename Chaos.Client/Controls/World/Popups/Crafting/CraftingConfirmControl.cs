@@ -1,10 +1,13 @@
 using Chaos.Client.Collections;
 using Chaos.Client.Controls.Components;
+using Chaos.Client.Controls.Generic;
+using Chaos.Client.Controls.Scrolling;
 using Chaos.Client.Data;
 using Chaos.Client.Definitions;
 using Chaos.Client.Rendering;
 using Chaos.Client.ViewModel;
 using Chaos.Networking.Entities.Client;
+using Chaos.Networking.Entities.Server;
 using Microsoft.Xna.Framework;
 
 namespace Chaos.Client.Controls.World.Popups.Crafting;
@@ -19,8 +22,9 @@ public sealed class CraftingConfirmControl : PrefabPanel, IInventoryDropTarget
     private readonly UILabel NameLabel;
     private readonly UILabel DescLabel;
     private readonly UILabel NumLabel;
-    private readonly UILabel IngredientLabel;
+    private readonly VirtualizedRowList<CraftingIngredientInfo> IngredientList;
     private readonly Rectangle CatalystRect;
+    private ushort? IngredientsRecipeId;
 
     private static CraftingWindowState State => WorldState.Crafting;
 
@@ -66,8 +70,26 @@ public sealed class CraftingConfirmControl : PrefabPanel, IInventoryDropTarget
         DescLabel = CreateLabel("DESC")!;
         DescLabel.WordWrap = true;
         NumLabel = CreateLabel("NUM", HorizontalAlignment.Center)!;
-        IngredientLabel = CreateLabel("INGREDIENT")!;
-        IngredientLabel.WordWrap = true;
+
+        //the art's scroll column sits inside the ingredient box, so the scroll bar covers it and the rows stop short of it
+        var ingredientRect = GetRect("INGREDIENT");
+        var rowWidth = ingredientRect.Width - ScrollBarControl.DEFAULT_WIDTH - 4;
+
+        IngredientList = new VirtualizedRowList<CraftingIngredientInfo>(
+            rowWidth,
+            ingredientRect.Height,
+            CraftingIngredientRow.HEIGHT,
+            () => new CraftingIngredientRow(rowWidth),
+            (row, ingredient, _) => ((CraftingIngredientRow)row).Bind(ingredient));
+
+        AddChild(
+            new ScrollViewerControl(IngredientList)
+            {
+                X = ingredientRect.X,
+                Y = ingredientRect.Y,
+                Width = ingredientRect.Width,
+                Height = ingredientRect.Height
+            });
 
         CreateButton("PREV")!.Clicked += () => Step(-1);
         CreateButton("NEXT")!.Clicked += () => Step(+1);
@@ -119,15 +141,24 @@ public sealed class CraftingConfirmControl : PrefabPanel, IInventoryDropTarget
 
         DescLabel.Text = $"{success}\nMade: {detail.TimesMade}\nCrafting {State.Quantity} (one roll each)";
         NumLabel.Text = $"{State.Quantity} / {State.QuantityMax}";
-        IngredientLabel.Text = State.IngredientText;
+        var ingredients = State.ScaledIngredients.ToList();
 
-        if (State.CatalystIndex < 0)
+        if (State.CatalystLine is not { } catalystLine)
             CatalystImage.Texture = null;
         else
         {
             ref readonly var catalyst = ref WorldState.Inventory.GetSlot(State.CatalystSlot);
             CatalystImage.Texture = ui.GetItemIcon(catalyst.Sprite, catalyst.Color);
+            ingredients.Add(catalystLine with { Sprite = catalyst.Sprite, Color = catalyst.Color });
         }
+
+        //quantity steps and batch progress resend the same recipe; only a new recipe starts the list at the top
+        if (detail.RecipeId == IngredientsRecipeId)
+            IngredientList.ReplaceItems(ingredients);
+        else
+            IngredientList.SetItems(ingredients);
+
+        IngredientsRecipeId = detail.RecipeId;
     }
 
     public override void OnKeyDown(KeyDownEvent e)
