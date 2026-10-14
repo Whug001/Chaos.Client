@@ -20,6 +20,9 @@ public sealed class CraftingRecipeRow : UIPanel
         Width = width;
         Height = HEIGHT;
 
+        //a panel keeps the clicks that land on it, so the row must let them through to the list
+        IsHitTestVisible = false;
+
         IconImage = new UIImage
         {
             X = 1,
