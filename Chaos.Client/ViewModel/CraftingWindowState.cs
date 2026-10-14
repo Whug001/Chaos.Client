@@ -195,6 +195,15 @@ public sealed class CraftingWindowState
         Changed?.Invoke();
     }
 
+    public void SetQuantity(int quantity)
+    {
+        if (QuantityMax < 1)
+            return;
+
+        Quantity = Math.Clamp(quantity, 1, QuantityMax);
+        Changed?.Invoke();
+    }
+
     public bool SetCatalyst(byte slot, string? itemName, uint count)
     {
         var index = CraftingProtocol.CatalystIndexByName(itemName);

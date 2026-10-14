@@ -35,6 +35,9 @@ public sealed class CustomTextBox : UITextBox
     /// <summary>Color of the <see cref="HintText" /> — a muted grey so it reads as a placeholder, not real input.</summary>
     public Color HintColor { get; set; } = new(110, 105, 95);
 
+    /// <summary>When true, only digit characters can be typed or pasted.</summary>
+    public bool DigitsOnly { get; init; }
+
     public CustomTextBox()
     {
         //small symmetric inset; with a ~22px box this vertically centers a 12px text row inside the frame.
@@ -66,6 +69,8 @@ public sealed class CustomTextBox : UITextBox
         if ((HintText.Length > 0) && (Text.Length == 0) && !IsFocused)
             DrawTextClipped(spriteBatch, new Vector2(ScreenX + PaddingLeft, ScreenY + PaddingTop), HintText, HintColor);
     }
+
+    protected override bool AcceptsCharacter(char c) => !DigitsOnly || char.IsDigit(c);
 
     private void EnsureFrameTexture()
     {

@@ -1,5 +1,6 @@
 using Chaos.Client.Collections;
 using Chaos.Client.Controls.Components;
+using Chaos.Client.Controls.Custom;
 using Chaos.Client.Controls.Generic;
 using Chaos.Client.Controls.Scrolling;
 using Chaos.Client.Data;
@@ -17,11 +18,17 @@ public sealed class CraftingConfirmControl : PrefabPanel, IInventoryDropTarget
 {
     public const string PREFAB = "lmanu";
 
+    //a batch is sent as one byte, so three digits always fit
+    private const int QUANTITY_MAX_DIGITS = 3;
+    private const int QUANTITY_BOX_GAP = 4;
+    private const int QUANTITY_BOX_HEIGHT = 22;
+
     private readonly UIImage Tile;
     private readonly ClickableImage CatalystImage;
     private readonly UILabel NameLabel;
     private readonly UILabel DescLabel;
     private readonly UILabel NumLabel;
+    private readonly CustomTextBox QuantityBox;
     private readonly VirtualizedRowList<CraftingIngredientInfo> IngredientList;
     private readonly Rectangle CatalystRect;
     private ushort? IngredientsRecipeId;
@@ -70,6 +77,21 @@ public sealed class CraftingConfirmControl : PrefabPanel, IInventoryDropTarget
         DescLabel = CreateLabel("DESC")!;
         DescLabel.WordWrap = true;
         NumLabel = CreateLabel("NUM", HorizontalAlignment.Center)!;
+
+        var numRect = GetRect("NUM");
+
+        QuantityBox = new CustomTextBox
+        {
+            X = numRect.X,
+            Y = numRect.Bottom + QUANTITY_BOX_GAP,
+            Width = numRect.Width,
+            Height = QUANTITY_BOX_HEIGHT,
+            MaxLength = QUANTITY_MAX_DIGITS,
+            DigitsOnly = true,
+            HintText = "Qty"
+        };
+        QuantityBox.LostFocus += _ => CommitQuantity();
+        AddChild(QuantityBox);
 
         //the art's scroll column sits inside the ingredient box, so the scroll bar covers it and the rows stop short of it
         var ingredientRect = GetRect("INGREDIENT");
@@ -141,6 +163,10 @@ public sealed class CraftingConfirmControl : PrefabPanel, IInventoryDropTarget
 
         DescLabel.Text = $"{success}\nMade: {detail.TimesMade}\nCrafting {State.Quantity} (one roll each)";
         NumLabel.Text = $"{State.Quantity} / {State.QuantityMax}";
+
+        if (!QuantityBox.IsFocused)
+            QuantityBox.Text = State.Quantity.ToString();
+
         var ingredients = State.ScaledIngredients.ToList();
 
         if (State.CatalystLine is not { } catalystLine)
@@ -171,7 +197,22 @@ public sealed class CraftingConfirmControl : PrefabPanel, IInventoryDropTarget
             return;
         }
 
+        //a single-line box lets Enter bubble up; leaving the box applies the typed number
+        if ((e.Keycode == Keycode.Enter) && QuantityBox.IsFocused)
+        {
+            ReleaseQuantityBox();
+            e.Handled = true;
+
+            return;
+        }
+
         base.OnKeyDown(e);
+    }
+
+    public override void Hide()
+    {
+        ReleaseQuantityBox();
+        base.Hide();
     }
 
     public override void Dispose()
@@ -188,8 +229,30 @@ public sealed class CraftingConfirmControl : PrefabPanel, IInventoryDropTarget
         Refresh();
     }
 
+    private void CommitQuantity()
+    {
+        if (int.TryParse(QuantityBox.Text, out var typed))
+            State.SetQuantity(typed);
+
+        Refresh();
+    }
+
+    //the dispatcher keeps its own pointer to the focused box, so blurring the box alone would leave keys going to it
+    private void ReleaseQuantityBox()
+    {
+        if (QuantityBox.IsFocused)
+            QuantityBox.IsFocused = false;
+
+        var dispatcher = InputDispatcher.Instance;
+
+        if (dispatcher?.ExplicitFocus == QuantityBox)
+            dispatcher.ClearExplicitFocus();
+    }
+
     private void Confirm()
     {
+        ReleaseQuantityBox();
+
         if (State.CraftAction() is not { } action)
             return;
 

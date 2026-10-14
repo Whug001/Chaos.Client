@@ -90,6 +90,32 @@ public sealed class CraftingWindowStateTests
     }
 
     [Test]
+    public void Typed_quantity_is_kept_within_one_and_max()
+    {
+        var state = Opened();
+        state.Select(1);
+        state.Apply(Detail(1, 20));
+
+        state.SetQuantity(12);
+        state.Quantity.Should().Be(12);
+        state.SetQuantity(999);
+        state.Quantity.Should().Be(20);
+        state.SetQuantity(0);
+        state.Quantity.Should().Be(1);
+    }
+
+    [Test]
+    public void Typed_quantity_is_ignored_when_nothing_can_be_made()
+    {
+        var state = Opened();
+        state.Select(3);
+        state.Apply(Detail(3, 0));
+
+        state.SetQuantity(5);
+        state.Quantity.Should().Be(0);
+    }
+
+    [Test]
     public void A_catalyst_stack_limits_the_quantity()
     {
         var state = Opened();
