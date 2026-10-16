@@ -1,4 +1,5 @@
 #region
+using System.Text;
 using Chaos.Client.Controls.Scrolling;
 using Chaos.Client.Utilities;
 using Microsoft.Xna.Framework;
@@ -109,6 +110,15 @@ public class UITextBox : UIElement, IVerticalScrollable
     public bool IsSelectable { get; set; } = true;
 
     public int MaxLength { get; set; } = 12;
+
+    /// <summary>
+    ///     When above zero, typed and pasted input stops once the text would exceed this many bytes in
+    ///     <see cref="ByteEncoding" />. Null encoding (default) means no byte cap is applied.
+    /// </summary>
+    public int MaxByteCount { get; set; }
+
+    /// <summary>The encoding <see cref="MaxByteCount" /> counts in.</summary>
+    public Encoding? ByteEncoding { get; set; }
 
     /// <summary>
     ///     Non-editable prefix rendered before the editable text (e.g. "Name: " for chat). Not included in <see cref="Text" />
@@ -805,6 +815,22 @@ public class UITextBox : UIElement, IVerticalScrollable
     /// </summary>
     public event TextBoxEmptyBackspaceHandler? EmptyBackspace;
 
+    private bool FitsByteCap(string text)
+        => (MaxByteCount <= 0) || (ByteEncoding is null) || (ByteEncoding.GetByteCount(text) <= MaxByteCount);
+
+    private string TrimToByteCap(string current, string insert, int insertPos)
+    {
+        while ((insert.Length > 0) && !FitsByteCap(current.Insert(insertPos, insert)))
+        {
+            insert = insert[..^1];
+
+            if ((insert.Length > 0) && char.IsHighSurrogate(insert[^1]))
+                insert = insert[..^1];
+        }
+
+        return insert;
+    }
+
     private void HandlePaste()
     {
         var clipText = Clipboard.GetText();
@@ -840,6 +866,17 @@ public class UITextBox : UIElement, IVerticalScrollable
         if (clipText.Length > available)
             clipText = clipText[..available];
 
+        clipText = TrimToByteCap(Text, clipText, CursorPosition);
+
+        if (clipText.Length == 0)
+        {
+            Text = savedText;
+            CursorPosition = savedCursor;
+            SelectionAnchor = savedAnchor;
+
+            return;
+        }
+
         var insertPos = CursorPosition;
         Text = Text.Insert(insertPos, clipText);
         CursorPosition = insertPos + clipText.Length;
@@ -870,7 +907,7 @@ public class UITextBox : UIElement, IVerticalScrollable
         if (HasSelection)
             DeleteSelection();
 
-        if (Text.Length < MaxLength)
+        if ((Text.Length < MaxLength) && FitsByteCap(Text.Insert(CursorPosition, "\n")))
         {
             var nlInsertPos = CursorPosition;
             Text = Text.Insert(nlInsertPos, "\n");
@@ -1348,7 +1385,7 @@ public class UITextBox : UIElement, IVerticalScrollable
         if (HasSelection)
             DeleteSelection();
 
-        if (Text.Length >= MaxLength)
+        if ((Text.Length >= MaxLength) || !FitsByteCap(Text.Insert(CursorPosition, c.ToString())))
             return;
 
         //capture position before mutation to avoid setter interactions

@@ -933,6 +933,26 @@ public sealed partial class WorldScreen
 
     private void HandlePaintedPortraitDisplay(PaintedPortraitDisplayArgs args) => OpenPaintedPortraitWindow(args);
 
+    /// <summary>
+    ///     The commission board. Opens the window when hidden; a display for an open window refreshes its tabs in place,
+    ///     keeping the tab and the selected row by Id.
+    /// </summary>
+    private void HandleCommissionBoardDisplay(CommissionBoardDisplayArgs args)
+    {
+        //the world screen has not built its controls yet
+        if (Root is null)
+            return;
+
+        CommissionBoardWindow ??= BuildCommissionBoardWindow();
+        WorldState.CommissionBoard.Apply(args, WorldState.PlayerName);
+
+        if (CommissionBoardWindow.Visible)
+            return;
+
+        BringToFront(CommissionBoardWindow);
+        CommissionBoardWindow.Open();
+    }
+
     private void HandlePortraitPictureReady(string hash)
     {
         if ((TooltipPortraitHash == hash)
