@@ -34,6 +34,8 @@ public sealed class PortraitCanvas
         Swatches = swatches;
     }
 
+    public static readonly Color Transparent = new(0, 0, 0, 0);
+
     public Color[] Pixels { get; }
     public Color[] Swatches { get; }
 
@@ -98,7 +100,7 @@ public sealed class PortraitCanvas
         => (x >= 0) && (y >= 0) && (x < WIDTH) && (y < HEIGHT);
 
     public Color ColorAt(int x, int y)
-        => Contains(x, y) ? Pixels[(y * WIDTH) + x] : new Color(0, 0, 0, 0);
+        => Contains(x, y) ? Pixels[(y * WIDTH) + x] : Transparent;
 
     /// <summary>Reads the exact pixel colour, including colours no swatch holds.</summary>
     public Color Pick(int x, int y)
@@ -195,13 +197,13 @@ public sealed class PortraitCanvas
         EndStep();
     }
 
-    /// <summary>Empties the whole canvas to swatch 0, as one undo step.</summary>
+    /// <summary>Empties the whole canvas to transparent, as one undo step.</summary>
     public void Clear()
     {
         BeginStep();
 
         for (var i = 0; i < Pixels.Length; i++)
-            Pixels[i] = Swatches[0];
+            Pixels[i] = Transparent;
 
         Version++;
         EndStep();

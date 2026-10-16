@@ -159,7 +159,7 @@ public sealed class PortraitCanvasTests
     }
 
     [Test]
-    public void Clear_empties_to_swatch_zero_as_one_undo_step()
+    public void Clear_empties_to_transparent_as_one_undo_step()
     {
         var canvas = PortraitCanvas.Blank();
         canvas.BeginStep();
@@ -168,7 +168,7 @@ public sealed class PortraitCanvasTests
 
         canvas.Clear();
 
-        canvas.ColorAt(5, 5).Should().Be(canvas.Swatches[0]);
+        canvas.ColorAt(5, 5).Should().Be(new Color(0, 0, 0, 0));
         canvas.Undo();
         canvas.ColorAt(5, 5).Should().Be(new Color(10, 20, 30));
     }

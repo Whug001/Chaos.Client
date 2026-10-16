@@ -585,7 +585,7 @@ public sealed class PortraitWindowControl : GuildCloakDialogBase
         }
 
         private void Stamp(int x, int y)
-            => State.Canvas.Set(x, y, Erasing ? State.Canvas.Swatches[0] : State.Current);
+            => State.Canvas.Set(x, y, Erasing ? PortraitCanvas.Transparent : State.Current);
 
         private (int X, int Y) CellAt(int screenX, int screenY)
             => ((int)Math.Floor((screenX - ScreenX) / (double)ZOOM), (int)Math.Floor((screenY - ScreenY) / (double)ZOOM));
