@@ -713,6 +713,7 @@ public sealed partial class WorldScreen : IScreen
         StatusBook.OnClose += SavePlayerFamilyList;
 
         StatusBook.OnGroupToggled += () => Game.Connection.ToggleGroup();
+        StatusBook.OnPortraitClicked += OpenPortraitWindow;
 
         StatusBook.OnProfileTextClicked += () =>
         {

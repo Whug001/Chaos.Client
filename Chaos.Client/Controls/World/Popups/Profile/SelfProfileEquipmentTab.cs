@@ -372,6 +372,7 @@ public sealed class SelfProfileEquipmentTab : PrefabPanel
 
     public event GroupToggledHandler? OnGroupToggled;
     public event ProfileTextClickedHandler? OnProfileTextClicked;
+    public event Action? OnPortraitClicked;
 
     /// <summary>
     ///     Raised when the user clicks a visibility dot. Carries the server <see cref="UserOption" /> for the slot and the new
@@ -640,6 +641,13 @@ public sealed class SelfProfileEquipmentTab : PrefabPanel
         if (PortraitTextLabel is not null && PortraitTextLabel.ContainsPoint(e.ScreenX, e.ScreenY))
         {
             OnProfileTextClicked?.Invoke();
+            e.Handled = true;
+        }
+
+        //clicking the portrait image opens the portrait window
+        if (PortraitImage is not null && PortraitImage.ContainsPoint(e.ScreenX, e.ScreenY))
+        {
+            OnPortraitClicked?.Invoke();
             e.Handled = true;
         }
     }

@@ -898,6 +898,7 @@ public sealed partial class WorldScreen
 
         StatusBook.SetPortrait(args.Picture);
         OwnPortraitPicture = args.Picture;
+        PortraitWindow?.OnOwnPicture(args.Hash, args.Picture);
 
         var name = Game.Connection.AislingName;
         var sync = new PortraitFileSync(Game.Connection.EditableProfileReplySent);

@@ -160,6 +160,7 @@ public sealed class SelfProfileTabControl : PrefabPanel, IInventoryDropTarget
             equipTab.OnUnequip += slot => OnUnequip?.Invoke(slot);
             equipTab.OnGroupToggled += () => OnGroupToggled?.Invoke();
             equipTab.OnProfileTextClicked += () => OnProfileTextClicked?.Invoke();
+            equipTab.OnPortraitClicked += () => OnPortraitClicked?.Invoke();
             equipTab.OnToggleHidden += (option, hidden) => OnToggleHidden?.Invoke(option, hidden);
             equipTab.OnTitleSelected += idx => OnTitleSelected?.Invoke(idx);
         }
@@ -210,6 +211,7 @@ public sealed class SelfProfileTabControl : PrefabPanel, IInventoryDropTarget
     public event EventMetadataClickedHandler? OnEventDetailRequested;
     public event GroupToggledHandler? OnGroupToggled;
     public event ProfileTextClickedHandler? OnProfileTextClicked;
+    public event Action? OnPortraitClicked;
 
     /// <summary>
     ///     Raised when the user toggles an equipment slot's in-world visibility on the Equipment tab. Carries the server
