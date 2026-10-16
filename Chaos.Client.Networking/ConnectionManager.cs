@@ -786,6 +786,11 @@ public sealed class ConnectionManager : IDisposable
     public event PortraitPictureHandler? OnPortraitPicture;
 
     /// <summary>
+    ///     Fired when a painted portrait display is received.
+    /// </summary>
+    public event PaintedPortraitDisplayHandler? OnPaintedPortraitDisplay;
+
+    /// <summary>
     ///     Fired when a redirect is received and the client needs to connect to a new server.
     /// </summary>
     public event RedirectReceivedHandler? OnRedirectReceived;
@@ -1198,6 +1203,28 @@ public sealed class ConnectionManager : IDisposable
             new PortraitFetchArgs
             {
                 Hash = hash
+            });
+
+    /// <summary>
+    ///     Sends the portrait window canvas picture to make a Painted Portrait item. Refusals arrive as Whispers.
+    /// </summary>
+    /// <param name="picture">The raw PNG portrait bytes.</param>
+    public void SendPaintedPortraitMake(byte[] picture)
+        => SendIfWorld(
+            new PaintedPortraitMakeArgs
+            {
+                Picture = picture
+            });
+
+    /// <summary>
+    ///     Wears a Painted Portrait item by its unique id. The item is kept.
+    /// </summary>
+    /// <param name="uniqueId">The unique id of the Painted Portrait item.</param>
+    public void SendPaintedPortraitSet(ulong uniqueId)
+        => SendIfWorld(
+            new PaintedPortraitSetArgs
+            {
+                UniqueId = uniqueId
             });
 
     /// <summary>
@@ -2006,6 +2033,7 @@ public sealed class ConnectionManager : IDisposable
         PacketHandlers[(byte)ServerOpCode.SelfProfile] = HandleSelfProfile;
         PacketHandlers[(byte)ServerOpCode.OtherProfile] = HandleOtherProfile;
         PacketHandlers[(byte)ServerOpCode.PortraitPicture] = HandlePortraitPicture;
+        PacketHandlers[(byte)ServerOpCode.PaintedPortraitDisplay] = HandlePaintedPortraitDisplay;
         PacketHandlers[(byte)ServerOpCode.WorldList] = HandleWorldList;
         PacketHandlers[(byte)ServerOpCode.WorldMap] = HandleWorldMap;
 
@@ -2784,6 +2812,12 @@ public sealed class ConnectionManager : IDisposable
     {
         var args = Client.Deserialize<PortraitPictureArgs>(in pkt);
         OnPortraitPicture?.Invoke(args);
+    }
+
+    private void HandlePaintedPortraitDisplay(ServerPacket pkt)
+    {
+        var args = Client.Deserialize<PaintedPortraitDisplayArgs>(in pkt);
+        OnPaintedPortraitDisplay?.Invoke(args);
     }
 
     private void HandleWorldList(ServerPacket pkt)

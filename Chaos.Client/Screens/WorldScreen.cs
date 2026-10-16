@@ -1106,6 +1106,7 @@ public sealed partial class WorldScreen : IScreen
         Game.Connection.OnSelfProfile -= HandleSelfProfile;
         Game.Connection.OnOtherProfile -= HandleOtherProfile;
         Game.Connection.OnPortraitPicture -= HandlePortraitPicture;
+        Game.Connection.OnPaintedPortraitDisplay -= HandlePaintedPortraitDisplay;
         Game.Connection.OnBodyAnimation -= HandleBodyAnimation;
         Game.Connection.OnAnimation -= HandleAnimation;
         Game.Connection.OnSound -= HandleSound;
@@ -1203,6 +1204,7 @@ public sealed partial class WorldScreen : IScreen
         Game.AislingRenderer.GuildCloaks.Clear();
         GuildEmblemTextures.Clear();
         College?.Transfers.Clear();
+        PortraitPictures?.Clear();
         College?.Drawings.Clear();
         College?.Tunes.Clear();
         College?.Marks.Clear();

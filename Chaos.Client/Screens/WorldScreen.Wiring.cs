@@ -75,6 +75,7 @@ public sealed partial class WorldScreen
         Game.Connection.OnSelfProfile += HandleSelfProfile;
         Game.Connection.OnOtherProfile += HandleOtherProfile;
         Game.Connection.OnPortraitPicture += HandlePortraitPicture;
+        Game.Connection.OnPaintedPortraitDisplay += HandlePaintedPortraitDisplay;
 
         //animations / effects / sound
         Game.Connection.OnBodyAnimation += HandleBodyAnimation;
@@ -150,6 +151,9 @@ public sealed partial class WorldScreen
             Game.Connection.SendExchangeInteraction(ExchangeRequestType.Cancel, Exchange.OtherUserId);
             WorldState.Exchange.Close();
         };
+
+        Exchange.ItemPortraitHovered += HandleExchangePortraitHovered;
+        Exchange.ItemPortraitUnhovered += HandleExchangePortraitUnhovered;
     }
 
     #endregion

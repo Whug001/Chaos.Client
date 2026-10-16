@@ -351,6 +351,11 @@ public delegate void OtherProfileHandler(OtherProfileArgs args);
 public delegate void PortraitPictureHandler(PortraitPictureArgs args);
 
 /// <summary>
+///     Fired when a painted portrait display is received.
+/// </summary>
+public delegate void PaintedPortraitDisplayHandler(PaintedPortraitDisplayArgs args);
+
+/// <summary>
 ///     Fired when an item is removed from the inventory pane.
 /// </summary>
 public delegate void RemoveItemFromPaneHandler(RemoveItemFromPaneArgs args);

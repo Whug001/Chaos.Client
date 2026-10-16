@@ -162,7 +162,9 @@ public sealed class Inventory
         bool stackable,
         uint count,
         int maxDurability,
-        int currentDurability)
+        int currentDurability,
+        string? portraitHash = null,
+        string? portraitPainter = null)
     {
         var index = slot - 1;
 
@@ -179,7 +181,9 @@ public sealed class Inventory
             stackable,
             count,
             maxDurability,
-            currentDurability);
+            currentDurability,
+            portraitHash,
+            portraitPainter);
         SlotChanged?.Invoke(slot);
     }
 
@@ -198,7 +202,9 @@ public sealed class Inventory
         bool Stackable,
         uint Count,
         int MaxDurability,
-        int CurrentDurability)
+        int CurrentDurability,
+        string? PortraitHash = null,
+        string? PortraitPainter = null)
     {
         internal static readonly InventorySlotData Empty = default;
 

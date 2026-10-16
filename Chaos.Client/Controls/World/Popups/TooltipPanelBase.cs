@@ -18,10 +18,10 @@ public abstract class TooltipPanelBase : UIPanel
 
     protected UILabel BodyLabel { get; }
     protected UILabel HeadingLabel { get; }
-    private UIImage BackgroundImage { get; }
+    protected UIImage BackgroundImage { get; }
 
     /// <summary>The content width the labels wrap at. Fixed for the life of the tooltip.</summary>
-    private int ContentWidth { get; }
+    protected int ContentWidth { get; }
 
     protected TooltipPanelBase(string name, int contentWidth, Color bodyColor)
     {
@@ -65,7 +65,7 @@ public abstract class TooltipPanelBase : UIPanel
         AddChild(BodyLabel);
     }
 
-    private static Texture2D CompositeBackground(int totalWidth, int totalHeight)
+    protected static Texture2D CompositeBackground(int totalWidth, int totalHeight)
     {
         var black = new SKColor(
             0,

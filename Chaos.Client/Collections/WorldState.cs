@@ -925,7 +925,9 @@ public static class WorldState
             args.Item.Stackable,
             args.Item.Count ?? 0,
             args.Item.MaxDurability,
-            args.Item.CurrentDurability);
+            args.Item.CurrentDurability,
+            args.Item.PortraitHash,
+            args.Item.PortraitPainter);
 
         connection.OnRemoveItemFromPane += args => Inventory.ClearSlot(args.Slot);
 
@@ -970,7 +972,9 @@ public static class WorldState
                             args.ExchangeIndex.Value,
                             args.ItemSprite.Value,
                             args.ItemColor ?? DisplayColor.Default,
-                            args.ItemName);
+                            args.ItemName,
+                            args.ItemPortraitHash,
+                            args.ItemPortraitPainter);
 
                     break;
 

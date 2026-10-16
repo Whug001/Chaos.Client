@@ -671,6 +671,9 @@ public sealed partial class WorldScreen
 
     private void HandleExchangeClosed(string? message)
     {
+        //closing the exchange also drops any portrait tooltip a hovered row left up.
+        HidePortraitTooltip();
+
         if (!string.IsNullOrEmpty(message))
             ExchangeResultPopup.Show(message);
     }
@@ -894,7 +897,11 @@ public sealed partial class WorldScreen
     {
         //fetched pictures are for tooltips and never touch the book or the file
         if (!args.IsOwn)
+        {
+            PortraitTransfers().OnPicture(args);
+
             return;
+        }
 
         StatusBook.SetPortrait(args.Picture);
         OwnPortraitPicture = args.Picture;
@@ -922,6 +929,22 @@ public sealed partial class WorldScreen
             default:
                 break;
         }
+    }
+
+    private void HandlePaintedPortraitDisplay(PaintedPortraitDisplayArgs args) => OpenPaintedPortraitWindow(args);
+
+    private void HandlePortraitPictureReady(string hash)
+    {
+        if ((TooltipPortraitHash == hash)
+            && ItemTooltip.Visible
+            && PortraitTransfers().TryGetTexture(hash, out var texture))
+            ItemTooltip.SetPortraitTexture(texture);
+    }
+
+    private void HandlePortraitPictureFailed(string hash)
+    {
+        if ((TooltipPortraitHash == hash) && ItemTooltip.Visible)
+            ItemTooltip.SetPortraitTexture(null);
     }
 
     private static void WritePortraitFile(string name, byte[] picture)
@@ -1650,7 +1673,7 @@ public sealed partial class WorldScreen
 
     private void HandleDisplayReadonlyNotepad(DisplayReadonlyNotepadArgs args)
     {
-        ItemTooltip.Hide();
+        HidePortraitTooltip();
 
         Notepad.ShowReadonly(
             (byte)args.NotepadType,
@@ -1661,7 +1684,7 @@ public sealed partial class WorldScreen
 
     private void HandleDisplayEditableNotepad(DisplayEditableNotepadArgs args)
     {
-        ItemTooltip.Hide();
+        HidePortraitTooltip();
 
         Notepad.ShowEditable(
             args.Slot,

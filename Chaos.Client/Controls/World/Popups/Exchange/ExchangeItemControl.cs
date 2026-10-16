@@ -19,6 +19,36 @@ public sealed class ExchangeItemControl : UIPanel
     private readonly UILabel NameLabel;
 
     /// <summary>
+    ///     The painted portrait hash for the hover tooltip, when this row shows a painted portrait.
+    /// </summary>
+    public string? PortraitHash { get; private set; }
+
+    /// <summary>
+    ///     The portrait painter for the hover tooltip, when this row shows a painted portrait.
+    /// </summary>
+    public string? PortraitPainter { get; private set; }
+
+    /// <summary>
+    ///     The displayed item name, for the hover tooltip.
+    /// </summary>
+    public string ItemName => NameLabel.Text;
+
+    /// <summary>
+    ///     Fired when a painted portrait row is hovered.
+    /// </summary>
+    public event Action<ExchangeItemControl>? PortraitHovered;
+
+    /// <summary>
+    ///     Fired when a painted portrait row is unhovered.
+    /// </summary>
+    public event Action? PortraitUnhovered;
+
+    //true while this row has reported a portrait hover that has not been unreported yet. The row can be
+    //repopulated or cleared while hovered (trade update, scroll, completion), which drops the hash that
+    //OnMouseLeave checks - so the reported state is tracked separately and any path that ends it reports.
+    private bool PortraitHoverReported;
+
+    /// <summary>
     ///     Horizontal pixel offset applied to the entire entry. Set by ExchangeControl when the horizontal scrollbar moves.
     /// </summary>
     public int HorizontalOffset
@@ -76,18 +106,44 @@ public sealed class ExchangeItemControl : UIPanel
 
     public void ClearItem()
     {
+        ClearPortraitHover();
         Icon.Texture = null;
         EntryWidth = 0;
+        PortraitHash = null;
+        PortraitPainter = null;
         Visible = false;
     }
 
-    public void SetItem(ushort sprite, DisplayColor color, string name)
+    public void SetItem(ushort sprite, DisplayColor color, string name, string? portraitHash = null, string? portraitPainter = null)
     {
+        ClearPortraitHover();
         Icon.Texture = UiRenderer.Instance!.GetItemIcon(sprite, color);
         var textWidth = TextRenderer.MeasureWidth(name);
         NameLabel.Width = textWidth;
         NameLabel.Text = name;
+        PortraitHash = portraitHash;
+        PortraitPainter = portraitPainter;
         EntryWidth = TEXT_OFFSET_X + textWidth;
         Visible = true;
+    }
+
+    public override void OnMouseEnter()
+    {
+        if (string.IsNullOrEmpty(PortraitHash))
+            return;
+
+        PortraitHoverReported = true;
+        PortraitHovered?.Invoke(this);
+    }
+
+    public override void OnMouseLeave() => ClearPortraitHover();
+
+    private void ClearPortraitHover()
+    {
+        if (!PortraitHoverReported)
+            return;
+
+        PortraitHoverReported = false;
+        PortraitUnhovered?.Invoke();
     }
 }

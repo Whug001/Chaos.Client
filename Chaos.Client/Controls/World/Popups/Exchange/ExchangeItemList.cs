@@ -23,6 +23,16 @@ internal sealed class ExchangeItemList : UIPanel, IVerticalScrollable, IHorizont
     private readonly ExchangeItemControl[] Items = new ExchangeItemControl[MAX_VISIBLE_ITEMS];
     private int ScrollOffset;
 
+    /// <summary>
+    ///     Fired with the row name, portrait hash and painter when a painted portrait row is hovered.
+    /// </summary>
+    public event Action<string, string, string?>? ItemPortraitHovered;
+
+    /// <summary>
+    ///     Fired when a painted portrait row is unhovered.
+    /// </summary>
+    public event Action? ItemPortraitUnhovered;
+
     // IVerticalScrollable — row-index units
     int IVerticalScrollable.VerticalExtent => WorldState.Exchange.GetItemCount(RightSide);
     int IVerticalScrollable.VerticalViewport => MAX_VISIBLE_ITEMS;
@@ -69,6 +79,8 @@ internal sealed class ExchangeItemList : UIPanel, IVerticalScrollable, IHorizont
             };
 
             control.SetBaseX(0);
+            control.PortraitHovered += ForwardPortraitHovered;
+            control.PortraitUnhovered += ForwardPortraitUnhovered;
             Items[i] = control;
             AddChild(control);
         }
@@ -110,7 +122,12 @@ internal sealed class ExchangeItemList : UIPanel, IVerticalScrollable, IHorizont
                 if (data.HasValue)
                 {
                     Items[i]
-                        .SetItem(data.Value.Sprite, data.Value.Color, data.Value.Name ?? string.Empty);
+                        .SetItem(
+                            data.Value.Sprite,
+                            data.Value.Color,
+                            data.Value.Name ?? string.Empty,
+                            data.Value.PortraitHash,
+                            data.Value.PortraitPainter);
 
                     continue;
                 }
@@ -120,6 +137,14 @@ internal sealed class ExchangeItemList : UIPanel, IVerticalScrollable, IHorizont
                 .ClearItem();
         }
     }
+
+    private void ForwardPortraitHovered(ExchangeItemControl row)
+    {
+        if (row.PortraitHash is { } hash)
+            ItemPortraitHovered?.Invoke(row.ItemName, hash, row.PortraitPainter);
+    }
+
+    private void ForwardPortraitUnhovered() => ItemPortraitUnhovered?.Invoke();
 
     /// <summary>
     ///     Applies a horizontal pixel offset to every item row so long names pan into view. Driven by the viewer through

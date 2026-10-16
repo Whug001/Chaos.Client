@@ -142,7 +142,9 @@ public sealed class PortraitWindowControl : GuildCloakDialogBase
         AddButton("Clear", CLEAR_WIDTH, x, BUTTONS_TOP, OnClearClicked);
         x += CLEAR_WIDTH + BUTTON_GAP;
         AddButton("Set", SET_WIDTH, x, BUTTONS_TOP, OnSetClicked);
-        x += SET_WIDTH + BUTTON_GAP + MAKE_WIDTH + BUTTON_GAP;
+        x += SET_WIDTH + BUTTON_GAP;
+        AddButton("Make", MAKE_WIDTH, x, BUTTONS_TOP, OnMakeClicked);
+        x += MAKE_WIDTH + BUTTON_GAP;
         AddButton("Remove", REMOVE_WIDTH, x, BUTTONS_TOP, OnRemoveClicked);
         x += REMOVE_WIDTH + BUTTON_GAP;
         AddButton("Close", CLOSE_WIDTH, x, BUTTONS_TOP, OnCloseClicked);
@@ -167,6 +169,9 @@ public sealed class PortraitWindowControl : GuildCloakDialogBase
 
     /// <summary>Raised with the canvas PNG bytes when Set is clicked.</summary>
     public event Action<byte[]>? SetRequested;
+
+    /// <summary>Raised with the canvas PNG bytes when Make is clicked.</summary>
+    public event Action<byte[]>? MakeRequested;
 
     /// <summary>Raised when Remove is clicked, after which the screen sends the empty set and deletes the local files.</summary>
     public event Action? RemoveRequested;
@@ -317,6 +322,14 @@ public sealed class PortraitWindowControl : GuildCloakDialogBase
         State.BeginSet(PortraitCanvas.HashOf(png));
         Status.Text = "Portrait sent.";
         SetRequested?.Invoke(png);
+    }
+
+    private void OnMakeClicked()
+    {
+        ClearStatus();
+        var png = State.Canvas.ToPng();
+        Status.Text = "Portrait sent.";
+        MakeRequested?.Invoke(png);
     }
 
     private void OnRemoveClicked()
