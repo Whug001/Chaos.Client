@@ -190,15 +190,7 @@ public sealed class PortraitWindowControl : GuildCloakDialogBase
     public void OnOwnPicture(string hash, byte[] picture)
     {
         if (State.SettleOwnPicture(hash, picture.Length) is { } status)
-        {
             Status.Text = status;
-
-            //a confirmed remove emptied the canvas in the state, so the highlight goes back to swatch 0 too
-            if (status == PortraitWindowState.RemovedMessage)
-                Swatches.Selected = 0;
-
-            RefreshControls();
-        }
     }
 
     public override void Dispose()
@@ -360,7 +352,7 @@ public sealed class PortraitWindowControl : GuildCloakDialogBase
 
         try
         {
-            if (new FileInfo(path).Length > PortraitCanvas.MAX_BYTES)
+            if (new FileInfo(path).Length > PortraitCanvas.MAX_UPLOAD_FILE_BYTES)
                 return (null, "That file is too large for a portrait.");
 
             return (await File.ReadAllBytesAsync(path), string.Empty);

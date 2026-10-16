@@ -16,8 +16,9 @@ public sealed class PortraitCanvas
     public const int WIDTH = 48;
     public const int HEIGHT = 56;
 
-    //must match the server's PortraitProtocol.MAX_BYTES; uploads over this are refused before they are read
-    public const int MAX_BYTES = 16 * 1024;
+    //Set sends the canvas re-encoded, never the uploaded file, so a real 48 x 56 file carrying editor metadata
+    //may be far over the server's 16 KiB limit; this only stops a huge file being read whole
+    public const int MAX_UPLOAD_FILE_BYTES = 1024 * 1024;
     public const int SWATCH_COUNT = 32;
     public const int MAX_UNDO = 50;
 

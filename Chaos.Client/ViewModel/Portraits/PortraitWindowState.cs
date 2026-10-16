@@ -19,8 +19,7 @@ public sealed class PortraitWindowState
     public string? PendingSetHash { get; private set; }
     public bool PendingRemove { get; private set; }
 
-    /// <summary>Returned when a remove is confirmed; the canvas was emptied, so the window can resync its swatch highlight.</summary>
-    public const string RemovedMessage = "Portrait removed.";
+    private const string RemovedMessage = "Portrait removed.";
 
     /// <summary>Takes a colour from the canvas or a swatch. Picking from the canvas returns to the pen.</summary>
     public void Pick(Color color)
@@ -65,10 +64,6 @@ public sealed class PortraitWindowState
             return null;
 
         PendingRemove = false;
-
-        //the server confirms the removal with an empty picture, so the canvas goes back to the blank it will load next open
-        Canvas.CopyFrom(PortraitCanvas.Blank());
-        Current = Canvas.Swatches[0];
 
         return RemovedMessage;
     }

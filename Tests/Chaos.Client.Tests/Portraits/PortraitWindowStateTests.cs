@@ -158,20 +158,18 @@ public sealed class PortraitWindowStateTests
     }
 
     [Test]
-    public void A_confirmed_remove_empties_the_canvas()
+    public void A_confirmed_remove_keeps_the_drawing_and_its_undo()
     {
-        var source = PortraitCanvas.Blank();
-        source.Set(2, 2, new Color(10, 20, 30));
-        var png = source.ToPng();
         var state = new PortraitWindowState();
-        state.Open(png);
+        state.Open(null);
+        state.Canvas.BeginStep();
+        state.Canvas.Set(2, 2, new Color(10, 20, 30));
+        state.Canvas.EndStep();
         state.BeginRemove();
 
-        state.SettleOwnPicture(PortraitCanvas.HashOf(png), png.Length).Should().BeNull();
-        state.Canvas.ColorAt(2, 2).Should().Be(new Color(10, 20, 30));
-
         state.SettleOwnPicture(string.Empty, 0).Should().Be("Portrait removed.");
-        state.Canvas.ColorAt(2, 2).Should().Be(new Color(0, 0, 0, 0));
-        state.Current.Should().Be(state.Canvas.Swatches[0]);
+
+        state.Canvas.ColorAt(2, 2).Should().Be(new Color(10, 20, 30));
+        state.Canvas.CanUndo.Should().BeTrue();
     }
 }
