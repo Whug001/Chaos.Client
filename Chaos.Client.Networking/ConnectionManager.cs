@@ -1165,6 +1165,9 @@ public sealed class ConnectionManager : IDisposable
     /// <param name="profileMessage">The profile text.</param>
     public void SendEditableProfile(byte[] portraitData, string profileMessage)
     {
+        if (State != ConnectionState.World)
+            return;
+
         EditableProfileReplySent = true;
 
         SendIfWorld(

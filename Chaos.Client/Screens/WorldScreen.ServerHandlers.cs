@@ -920,6 +920,9 @@ public sealed partial class WorldScreen
 
     private static void WritePortraitFile(string name, byte[] picture)
     {
+        if (!DataContext.LocalPlayerSettings.IsInitialized || string.IsNullOrEmpty(name))
+            return;
+
         try
         {
             File.WriteAllBytes(DataContext.LocalPlayerSettings.GetFilePath($"{name}.jpg"), picture);
@@ -937,6 +940,9 @@ public sealed partial class WorldScreen
 
     private static void DeletePortraitFiles(string name)
     {
+        if (!DataContext.LocalPlayerSettings.IsInitialized || string.IsNullOrEmpty(name))
+            return;
+
         try
         {
             var jpgPath = DataContext.LocalPlayerSettings.GetFilePath($"{name}.jpg");
@@ -967,14 +973,26 @@ public sealed partial class WorldScreen
         var jpgPath = DataContext.LocalPlayerSettings.GetFilePath($"{name}.jpg");
 
         if (File.Exists(jpgPath))
-            return File.ReadAllBytes(jpgPath);
+            return ReadPortraitFileOrNull(jpgPath);
 
         var noExtPath = DataContext.LocalPlayerSettings.GetFilePath(name);
 
         if (File.Exists(noExtPath))
-            return File.ReadAllBytes(noExtPath);
+            return ReadPortraitFileOrNull(noExtPath);
 
         return null;
+    }
+
+    private static byte[]? ReadPortraitFileOrNull(string path)
+    {
+        try
+        {
+            return File.Exists(path) ? File.ReadAllBytes(path) : null;
+        }
+        catch (Exception ex) when (ex is IOException or UnauthorizedAccessException)
+        {
+            return null;
+        }
     }
 
     private static string LoadProfileText()
