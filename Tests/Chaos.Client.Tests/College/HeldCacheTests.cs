@@ -71,6 +71,37 @@ public class HeldCacheTests
     }
 
     [Test]
+    public void A_hold_before_the_value_arrives_counts_nothing()
+    {
+        var released = new List<string>();
+        var cache = new HeldCache<Thing>(1, t => released.Add(t.Name));
+
+        cache.Hold("h");
+        cache.Add("h", new Thing("h"));
+        cache.Add("x", new Thing("x"));
+
+        released.Should().Equal("h");
+    }
+
+    [Test]
+    public void A_tooltip_shown_before_its_picture_loads_holds_exactly_once()
+    {
+        var released = new List<string>();
+        var cache = new HeldCache<Thing>(1, t => released.Add(t.Name));
+
+        cache.Hold("h");
+        cache.Add("h", new Thing("h"));
+        cache.Hold("h");
+        cache.Add("x", new Thing("x"));
+
+        released.Should().BeEmpty();
+
+        cache.Release("h");
+
+        released.Should().Equal("h");
+    }
+
+    [Test]
     public void Clearing_releases_everything()
     {
         var released = new List<string>();

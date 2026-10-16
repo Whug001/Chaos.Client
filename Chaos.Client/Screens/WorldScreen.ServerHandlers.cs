@@ -938,7 +938,12 @@ public sealed partial class WorldScreen
         if ((TooltipPortraitHash == hash)
             && ItemTooltip.Visible
             && PortraitTransfers().TryGetTexture(hash, out var texture))
+        {
+            //the pre-load Hold was a no-op while the texture was missing, so hold the arrived texture now;
+            //HidePortraitTooltip releases exactly this one hold
+            PortraitTransfers().Hold(hash);
             ItemTooltip.SetPortraitTexture(texture);
+        }
     }
 
     private void HandlePortraitPictureFailed(string hash)

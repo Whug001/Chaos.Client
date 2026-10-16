@@ -32,6 +32,7 @@ public sealed class ItemTooltipControl : TooltipPanelBase
         PainterLabel = new UILabel
         {
             Name = "PortraitPainter",
+            X = PADDING,
             Width = MAX_CONTENT_WIDTH,
             Height = TextRenderer.CHAR_HEIGHT,
             PaddingLeft = 0,

@@ -80,6 +80,15 @@ public sealed class ExchangePortraitTests
     }
 
     [Test]
+    public void Row_children_are_not_hit_testable()
+    {
+        var row = new ExchangeItemControl();
+
+        row.Children.Should().NotBeEmpty();
+        row.Children.Should().OnlyContain(child => !child.IsHitTestVisible);
+    }
+
+    [Test]
     public void Rows_without_a_portrait_report_nothing()
     {
         var row = new ExchangeItemControl();

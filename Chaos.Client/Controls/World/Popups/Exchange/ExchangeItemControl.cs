@@ -75,6 +75,7 @@ public sealed class ExchangeItemControl : UIPanel
         Icon = new UIImage
         {
             Name = "Icon",
+            IsHitTestVisible = false,
             Width = ICON_SIZE,
             Height = ICON_SIZE
         };
@@ -84,6 +85,7 @@ public sealed class ExchangeItemControl : UIPanel
         NameLabel = new UILabel
         {
             Name = "ItemName",
+            IsHitTestVisible = false,
             X = TEXT_OFFSET_X,
             Y = (Height - TextRenderer.CHAR_HEIGHT) / 2,
             Width = 200,
