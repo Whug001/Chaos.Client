@@ -37,6 +37,10 @@ public sealed class PortraitWindowControl : GuildCloakDialogBase
     private const int PREVIEW_Y = PREVIEW_LABEL_Y + TextRenderer.CHAR_HEIGHT + 2;
     private const int BUTTONS_TOP = PREVIEW_Y + PortraitCanvas.HEIGHT + 8;
     private const int STATUS_TOP = BUTTONS_TOP + CustomButton.HEIGHT + 6;
+    private const int STATUS_LINES = 2;
+
+    //a wrapped status keeps its 1px top and bottom label padding
+    private const int STATUS_HEIGHT = (STATUS_LINES * TextRenderer.CHAR_HEIGHT) + 2;
     private const int UPLOAD_WIDTH = 62;
     private const int CLEAR_WIDTH = 52;
     private const int SET_WIDTH = 48;
@@ -59,6 +63,7 @@ public sealed class PortraitWindowControl : GuildCloakDialogBase
     private readonly CustomButton PickButton;
     private readonly StageColorPicker Picker;
     private readonly CustomButton PickerCancel;
+    private readonly UILabel PreviewLabel;
     private readonly CustomButton RedoButton;
     private readonly PortraitWindowState State = new();
     private readonly UILabel Status;
@@ -66,8 +71,8 @@ public sealed class PortraitWindowControl : GuildCloakDialogBase
     private readonly CustomButton UndoButton;
 
     private int EditingSwatch = -1;
-    private bool PendingRemove;
-    private string? PendingSetHash;
+    private int OpenGeneration;
+    private int PickingGeneration;
     private Task<(byte[]? Bytes, string Error)>? Picking;
     private Texture2D? Preview;
     private Color[]? PreviewColors;
@@ -81,7 +86,7 @@ public sealed class PortraitWindowControl : GuildCloakDialogBase
         Visible = false;
         UsesControlStack = true;
         Width = WIDTH;
-        Height = STATUS_TOP + TextRenderer.CHAR_HEIGHT + 8 + BORDER_BOTTOM_HEIGHT;
+        Height = STATUS_TOP + STATUS_HEIGHT + 8 + BORDER_BOTTOM_HEIGHT;
         this.CenterOnScreen();
 
         OkButton = CreateCloseButton(OnCloseClicked, OK_RIGHT_MARGIN, OK_BOTTOM_MARGIN);
@@ -129,7 +134,7 @@ public sealed class PortraitWindowControl : GuildCloakDialogBase
         Swatches.EditRequested += OpenPicker;
         AddChild(Swatches);
 
-        Caption("Preview", RIGHT_X, PREVIEW_LABEL_Y, PortraitCanvas.WIDTH, color: LegendColors.Gray);
+        PreviewLabel = Caption("Preview", RIGHT_X, PREVIEW_LABEL_Y, PortraitCanvas.WIDTH, color: LegendColors.Gray);
 
         var x = LEFT;
         AddButton("Upload", UPLOAD_WIDTH, x, BUTTONS_TOP, OnUploadClicked);
@@ -143,6 +148,9 @@ public sealed class PortraitWindowControl : GuildCloakDialogBase
         AddButton("Close", CLOSE_WIDTH, x, BUTTONS_TOP, OnCloseClicked);
 
         Status = Caption(string.Empty, LEFT, STATUS_TOP, WIDTH - (2 * LEFT));
+        Status.WordWrap = true;
+        Status.VerticalAlignment = VerticalAlignment.Top;
+        Status.Height = STATUS_HEIGHT;
 
         Picker = new StageColorPicker
         {
@@ -166,26 +174,30 @@ public sealed class PortraitWindowControl : GuildCloakDialogBase
     /// <summary>Loads the own-portrait bytes onto the canvas and refills the swatches; empty or null loads a blank canvas.</summary>
     public void Open(byte[]? ownPicture)
     {
+        OpenGeneration++;
         State.Open(ownPicture);
         Swatches.Selected = 0;
         ClosePicker();
+        Status.Text = string.Empty;
         RefreshControls();
         Show();
     }
 
+    /// <summary>Whether a Remove is still waiting for the server's empty echo; the screen skips the file sync while true.</summary>
+    public bool IsRemovePending => State.PendingRemove;
+
     /// <summary>Answers the pending Set or Remove once the owner's portrait picture arrives back.</summary>
     public void OnOwnPicture(string hash, byte[] picture)
     {
-        if (PendingSetHash is not null)
+        if (State.SettleOwnPicture(hash, picture.Length) is { } status)
         {
-            Status.Text = (picture.Length > 0) && string.Equals(hash, PendingSetHash, StringComparison.Ordinal)
-                ? "Portrait set."
-                : string.Empty;
-            PendingSetHash = null;
-        } else if (PendingRemove)
-        {
-            Status.Text = picture.Length == 0 ? "Portrait removed." : string.Empty;
-            PendingRemove = false;
+            Status.Text = status;
+
+            //a confirmed remove emptied the canvas in the state, so the highlight goes back to swatch 0 too
+            if (status == PortraitWindowState.RemovedMessage)
+                Swatches.Selected = 0;
+
+            RefreshControls();
         }
     }
 
@@ -198,6 +210,8 @@ public sealed class PortraitWindowControl : GuildCloakDialogBase
 
     public override void Draw(SpriteBatch spriteBatch)
     {
+        //the actual-size preview sits under the colour picker, so both hide while a swatch colour is picked
+        PreviewLabel.Visible = !Picker.Visible;
         base.Draw(spriteBatch);
 
         if (!Visible)
@@ -206,7 +220,7 @@ public sealed class PortraitWindowControl : GuildCloakDialogBase
         if (PreviewVersion != State.Canvas.Version)
             RebuildPreview();
 
-        if (Preview is not null)
+        if ((Preview is not null) && !Picker.Visible)
             DrawTexture(spriteBatch, Preview, new Vector2(ScreenX + RIGHT_X, ScreenY + PREVIEW_Y), Color.White);
     }
 
@@ -272,7 +286,13 @@ public sealed class PortraitWindowControl : GuildCloakDialogBase
         RedoButton.Enabled = State.Canvas.CanRedo;
 
         CurrentBox.BackgroundColor = ToPremultiplied(State.Current);
-        CurrentHex.Text = $"#{State.Current.R:X2}{State.Current.G:X2}{State.Current.B:X2}";
+        var current = State.Current;
+        CurrentHex.Text = current.A switch
+        {
+            0 => "Clear",
+            255 => $"#{current.R:X2}{current.G:X2}{current.B:X2}",
+            _ => $"#{current.R:X2}{current.G:X2}{current.B:X2} a{current.A}"
+        };
     }
 
     private CustomButton ToolButton(string caption, int y, Action onClick)
@@ -302,8 +322,7 @@ public sealed class PortraitWindowControl : GuildCloakDialogBase
     {
         ClearStatus();
         var png = State.Canvas.ToPng();
-        PendingSetHash = PortraitCanvas.HashOf(png);
-        PendingRemove = false;
+        State.BeginSet(PortraitCanvas.HashOf(png));
         Status.Text = "Portrait sent.";
         SetRequested?.Invoke(png);
     }
@@ -311,8 +330,7 @@ public sealed class PortraitWindowControl : GuildCloakDialogBase
     private void OnRemoveClicked()
     {
         ClearStatus();
-        PendingSetHash = null;
-        PendingRemove = true;
+        State.BeginRemove();
         Status.Text = "Portrait sent.";
         RemoveRequested?.Invoke();
     }
@@ -328,6 +346,7 @@ public sealed class PortraitWindowControl : GuildCloakDialogBase
             return;
 
         var owner = Sdl.GetWin32Window(GameWindow);
+        PickingGeneration = OpenGeneration;
         Picking = Task.Run(() => PickAndReadAsync(owner));
     }
 
@@ -341,6 +360,9 @@ public sealed class PortraitWindowControl : GuildCloakDialogBase
 
         try
         {
+            if (new FileInfo(path).Length > PortraitCanvas.MAX_BYTES)
+                return (null, "That file is too large for a portrait.");
+
             return (await File.ReadAllBytesAsync(path), string.Empty);
         } catch (Exception ex) when (ex is IOException or UnauthorizedAccessException)
         {
@@ -358,8 +380,8 @@ public sealed class PortraitWindowControl : GuildCloakDialogBase
         //reading Exception marks a fault observed
         var failed = done.Exception is not null || !done.IsCompletedSuccessfully;
 
-        //a file chosen for a window that has since closed is dropped
-        if (!Visible)
+        //a file chosen for a window that has since closed, or been reopened, is dropped
+        if (!Visible || (PickingGeneration != OpenGeneration))
             return;
 
         if (failed)
@@ -440,7 +462,7 @@ public sealed class PortraitWindowControl : GuildCloakDialogBase
         public const int ZOOM = 4;
 
         private static readonly Color GridLine = new(0, 0, 0, 50);
-        private static readonly Color MirrorLine = new(255, 255, 255, 150);
+        private static readonly Color MirrorLine = Color.White * (150 / 255f);
 
         private readonly PortraitWindowState State;
         private bool Erasing;

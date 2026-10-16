@@ -17,6 +17,15 @@ public sealed partial class WorldScreen
             return;
 
         PortraitWindow ??= BuildPortraitWindow();
+
+        //already open: just come to the front, keeping the drawing and its undo history
+        if (PortraitWindow.Visible)
+        {
+            BringToFront(PortraitWindow);
+
+            return;
+        }
+
         BringToFront(PortraitWindow);
         PortraitWindow.Open(OwnPortraitPicture);
     }

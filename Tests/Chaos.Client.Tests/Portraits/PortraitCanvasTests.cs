@@ -128,6 +128,37 @@ public sealed class PortraitCanvasTests
     }
 
     [Test]
+    public void Fill_with_mirror_paints_both_sides()
+    {
+        var canvas = PortraitCanvas.Blank();
+        canvas.Mirror = true;
+        var barrier = new Color(200, 10, 10);
+        var fill = new Color(10, 20, 30);
+
+        for (var y = 0; y < PortraitCanvas.HEIGHT; y++)
+            canvas.Set(10, y, barrier);
+
+        canvas.Fill(0, 0, fill);
+
+        canvas.ColorAt(0, 0).Should().Be(fill);
+        canvas.ColorAt(PortraitCanvas.WIDTH - 1, 0).Should().Be(fill);
+        canvas.ColorAt(10, 0).Should().Be(barrier);
+        canvas.ColorAt(20, 0).Should().Be(new Color(0, 0, 0, 0));
+    }
+
+    [Test]
+    public void An_upload_undoes_as_one_step()
+    {
+        var canvas = PortraitCanvas.Blank();
+        canvas.LoadUpload(PngBytes(48, 56, paint: (1, 1, new SKColor(200, 10, 10)))).Should().Be(string.Empty);
+
+        canvas.Undo();
+
+        canvas.ColorAt(1, 1).Should().Be(new Color(0, 0, 0, 0));
+        canvas.CanRedo.Should().BeTrue();
+    }
+
+    [Test]
     public void Clear_empties_to_swatch_zero_as_one_undo_step()
     {
         var canvas = PortraitCanvas.Blank();

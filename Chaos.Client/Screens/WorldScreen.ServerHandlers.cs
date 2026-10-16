@@ -900,6 +900,11 @@ public sealed partial class WorldScreen
         OwnPortraitPicture = args.Picture;
         PortraitWindow?.OnOwnPicture(args.Hash, args.Picture);
 
+        //a Set's late reply landing after Remove was clicked must not rewrite the files Remove deleted, nor
+        //leave them behind for the empty echo's delete to back up; the window stays settled by OnOwnPicture above
+        if ((PortraitWindow?.IsRemovePending == true) && (args.Picture.Length > 0))
+            return;
+
         var name = Game.Connection.AislingName;
         var sync = new PortraitFileSync(Game.Connection.EditableProfileReplySent);
 

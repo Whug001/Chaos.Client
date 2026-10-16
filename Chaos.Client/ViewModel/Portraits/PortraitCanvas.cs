@@ -15,6 +15,9 @@ public sealed class PortraitCanvas
     //must match the server's PortraitProtocol.WIDTH/HEIGHT; the game never resizes
     public const int WIDTH = 48;
     public const int HEIGHT = 56;
+
+    //must match the server's PortraitProtocol.MAX_BYTES; uploads over this are refused before they are read
+    public const int MAX_BYTES = 16 * 1024;
     public const int SWATCH_COUNT = 32;
     public const int MAX_UNDO = 50;
 

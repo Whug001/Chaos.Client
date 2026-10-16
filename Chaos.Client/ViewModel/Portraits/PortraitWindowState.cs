@@ -16,6 +16,11 @@ public sealed class PortraitWindowState
     public PortraitTool Tool { get; set; } = PortraitTool.Pen;
     public Color Current { get; private set; } = Color.White;
     public bool IsDirty => Canvas.IsDirty;
+    public string? PendingSetHash { get; private set; }
+    public bool PendingRemove { get; private set; }
+
+    /// <summary>Returned when a remove is confirmed; the canvas was emptied, so the window can resync its swatch highlight.</summary>
+    public const string RemovedMessage = "Portrait removed.";
 
     /// <summary>Takes a colour from the canvas or a swatch. Picking from the canvas returns to the pen.</summary>
     public void Pick(Color color)
@@ -29,6 +34,45 @@ public sealed class PortraitWindowState
     public void MarkClean()
         => Canvas.MarkClean();
 
+    public void BeginSet(string hash)
+    {
+        PendingSetHash = hash;
+        PendingRemove = false;
+    }
+
+    public void BeginRemove()
+    {
+        PendingSetHash = null;
+        PendingRemove = true;
+    }
+
+    /// <summary>Answers a returning own picture: the status text, or null when the status stays as it is.</summary>
+    public string? SettleOwnPicture(string hash, int pictureLength)
+    {
+        if (PendingSetHash is not null)
+        {
+            var set = (pictureLength > 0) && string.Equals(hash, PendingSetHash, StringComparison.Ordinal);
+            PendingSetHash = null;
+
+            return set ? "Portrait set." : string.Empty;
+        }
+
+        if (!PendingRemove)
+            return null;
+
+        //a non-empty picture here is an earlier Set landing after Remove was clicked; the Remove is still due
+        if (pictureLength > 0)
+            return null;
+
+        PendingRemove = false;
+
+        //the server confirms the removal with an empty picture, so the canvas goes back to the blank it will load next open
+        Canvas.CopyFrom(PortraitCanvas.Blank());
+        Current = Canvas.Swatches[0];
+
+        return RemovedMessage;
+    }
+
     /// <summary>Loads the own-portrait bytes onto the canvas and refills the swatches; empty or null loads a blank canvas.</summary>
     public void Open(byte[]? picture)
     {
@@ -40,5 +84,11 @@ public sealed class PortraitWindowState
             Canvas.CopyFrom(PortraitCanvas.Blank());
 
         Canvas.MarkClean();
+        PendingSetHash = null;
+        PendingRemove = false;
+
+        //a fresh session starts from swatch 0 with the pen, matching the window's swatch highlight
+        Tool = PortraitTool.Pen;
+        Current = Canvas.Swatches[0];
     }
 }
