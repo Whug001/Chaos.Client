@@ -1,3 +1,4 @@
+using System.Text;
 using Chaos.Client.Controls.Components;
 using Chaos.Client.Definitions;
 using FluentAssertions;
@@ -13,12 +14,25 @@ namespace Chaos.Client.Tests;
 [NotInParallel]
 public class UITextBoxTests
 {
+    static UITextBoxTests() => Encoding.RegisterProvider(CodePagesEncodingProvider.Instance);
+
     private static UITextBox FocusedBox()
         => new()
         {
             Width = 400,
             Height = 20,
             IsFocused = true
+        };
+
+    private static UITextBox ByteCappedBox()
+        => new()
+        {
+            Width = 5000,
+            Height = 20,
+            IsFocused = true,
+            MaxLength = 300,
+            MaxByteCount = 255,
+            ByteEncoding = Encoding.GetEncoding(949)
         };
 
     private static void Type(UITextBox box, string text)
@@ -59,5 +73,35 @@ public class UITextBoxTests
 
         box.Text.Should().Be("1");
         box.CursorPosition.Should().Be(1);
+    }
+
+    [Test]
+    public void TypingStopsOnceTheTextWouldExceedTheByteCap()
+    {
+        var box = ByteCappedBox();
+        Type(box, new string('a', 255));
+
+        box.Text.Length.Should().Be(255);
+
+        Type(box, "b");
+
+        box.Text.Length.Should().Be(255);
+    }
+
+    [Test]
+    public void TypingCountsKoreanAsTwoBytes()
+    {
+        var box = ByteCappedBox();
+        Type(box, new string('가', 127));
+
+        box.Text.Length.Should().Be(127);
+
+        Type(box, "가");
+
+        box.Text.Length.Should().Be(127);
+
+        Type(box, "a");
+
+        box.Text.Should().EndWith("a");
     }
 }

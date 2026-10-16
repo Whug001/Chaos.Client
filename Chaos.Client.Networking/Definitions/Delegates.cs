@@ -512,6 +512,9 @@ public delegate void ArenaHostDisplayHandler(ArenaHostDisplayArgs args);
 /// <summary>Handles the crafting windows opening, refreshing, showing progress or closing.</summary>
 public delegate void CraftingDisplayHandler(CraftingDisplayArgs args);
 
+/// <summary>Handles the commission board window opening or refreshing.</summary>
+public delegate void CommissionBoardDisplayHandler(CommissionBoardDisplayArgs args);
+
 /// <summary>Handles a Mileth College window opening, refreshing or getting an answer, or a picture part arriving.</summary>
 public delegate void CollegeDisplayHandler(CollegeDisplayArgs args);
 

@@ -8,6 +8,7 @@ using Chaos.Client.Networking;
 using Chaos.Client.Rendering;
 using Chaos.Client.Systems;
 using Chaos.Client.ViewModel;
+using Chaos.Client.ViewModel.CommissionBoard;
 using Chaos.DarkAges.Definitions;
 using Chaos.Extensions.Common;
 using Chaos.Geometry;
@@ -183,6 +184,9 @@ public static class WorldState
 
     /// <summary>The crafting windows' state.</summary>
     public static CraftingWindowState Crafting { get; } = new();
+
+    /// <summary>The commission board window's state. Server-owned like the quest log: survives map changes, cleared on logout.</summary>
+    public static CommissionBoardState CommissionBoard { get; } = new();
 
     /// <summary>
     ///     Authoritative poker table state (table properties, seat roster, board, pot, whose turn it is, legal
@@ -508,6 +512,7 @@ public static class WorldState
         Lockpick.Clear();
         QuestLog.Clear();
         Crafting.Clear();
+        CommissionBoard.Clear();
         PokerTable.Clear();
         BeautyShop.Clear();
     }
