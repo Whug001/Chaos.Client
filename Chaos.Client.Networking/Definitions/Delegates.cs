@@ -346,6 +346,11 @@ public delegate void MetaDataHandler(MetaDataArgs args);
 public delegate void OtherProfileHandler(OtherProfileArgs args);
 
 /// <summary>
+///     Fired when a portrait picture is received.
+/// </summary>
+public delegate void PortraitPictureHandler(PortraitPictureArgs args);
+
+/// <summary>
 ///     Fired when an item is removed from the inventory pane.
 /// </summary>
 public delegate void RemoveItemFromPaneHandler(RemoveItemFromPaneArgs args);

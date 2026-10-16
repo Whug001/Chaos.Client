@@ -522,6 +522,16 @@ public sealed class SelfProfileTabControl : PrefabPanel, IInventoryDropTarget
     }
 
     /// <summary>
+    ///     Sets the own-portrait picture on the equipment tab page. Empty bytes clear the image.
+    /// </summary>
+    public void SetPortrait(byte[]? portraitData)
+    {
+        var equipPage = GetOrCreateEquipmentPage();
+
+        equipPage?.SetPortrait(portraitData);
+    }
+
+    /// <summary>
     ///     Sets the profile text on the equipment tab's editable text box.
     /// </summary>
     public void SetProfileText(string text)

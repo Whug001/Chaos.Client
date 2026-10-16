@@ -13,6 +13,7 @@ using Chaos.Client.Networking.Definitions;
 using Chaos.Client.Rendering;
 using Chaos.Client.Rendering.Models;
 using Chaos.Client.Systems;
+using Chaos.Client.Systems.Portraits;
 using Chaos.Client.ViewModel;
 using Chaos.DarkAges.Definitions;
 using Chaos.Extensions.Common;
@@ -889,10 +890,79 @@ public sealed partial class WorldScreen
 
     private void HandleEditableProfileRequest() => Game.Connection.SendEditableProfile(PlayerPortrait, StatusBook.GetProfileText());
 
+    private void HandlePortraitPicture(PortraitPictureArgs args)
+    {
+        //fetched pictures are for tooltips and never touch the book or the file
+        if (!args.IsOwn)
+            return;
+
+        StatusBook.SetPortrait(args.Picture);
+        OwnPortraitPicture = args.Picture;
+
+        var name = Game.Connection.AislingName;
+        var sync = new PortraitFileSync(Game.Connection.EditableProfileReplySent);
+
+        switch (sync.Decide(args, LoadExistingPortraitFile(name)))
+        {
+            case PortraitFileAction.Write:
+                WritePortraitFile(name, args.Picture);
+
+                break;
+            case PortraitFileAction.Delete:
+                DeletePortraitFiles(name);
+
+                break;
+            case PortraitFileAction.None:
+            default:
+                break;
+        }
+    }
+
+    private static void WritePortraitFile(string name, byte[] picture)
+    {
+        try
+        {
+            File.WriteAllBytes(DataContext.LocalPlayerSettings.GetFilePath($"{name}.jpg"), picture);
+
+            var noExtPath = DataContext.LocalPlayerSettings.GetFilePath(name);
+
+            if (File.Exists(noExtPath))
+                File.Delete(noExtPath);
+        }
+        catch (Exception ex) when (ex is IOException or UnauthorizedAccessException)
+        {
+            //a locked portrait file must never crash the client
+        }
+    }
+
+    private static void DeletePortraitFiles(string name)
+    {
+        try
+        {
+            var jpgPath = DataContext.LocalPlayerSettings.GetFilePath($"{name}.jpg");
+
+            if (File.Exists(jpgPath))
+                File.Delete(jpgPath);
+
+            var noExtPath = DataContext.LocalPlayerSettings.GetFilePath(name);
+
+            if (File.Exists(noExtPath))
+                File.Delete(noExtPath);
+        }
+        catch (Exception ex) when (ex is IOException or UnauthorizedAccessException)
+        {
+            //a locked portrait file must never crash the client
+        }
+    }
+
     private static byte[] LoadPortraitFile(string name)
+        => LoadExistingPortraitFile(name) ?? [];
+
+    //null when neither portrait file exists, so the sync decision can tell a missing file from an empty one.
+    private static byte[]? LoadExistingPortraitFile(string name)
     {
         if (!DataContext.LocalPlayerSettings.IsInitialized || string.IsNullOrEmpty(name))
-            return [];
+            return null;
 
         var jpgPath = DataContext.LocalPlayerSettings.GetFilePath($"{name}.jpg");
 
@@ -904,7 +974,7 @@ public sealed partial class WorldScreen
         if (File.Exists(noExtPath))
             return File.ReadAllBytes(noExtPath);
 
-        return [];
+        return null;
     }
 
     private static string LoadProfileText()

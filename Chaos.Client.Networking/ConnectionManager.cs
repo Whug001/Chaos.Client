@@ -60,6 +60,13 @@ public sealed class ConnectionManager : IDisposable
     public string ServerName { get; set; } = string.Empty;
 
     /// <summary>
+    ///     True once the login EditableProfile reply has been sent this world session. The portrait file sync reads
+    ///     this so the character-folder file is only written from own-portrait pictures that arrive after the reply.
+    ///     Reset whenever a new world session starts.
+    /// </summary>
+    public bool EditableProfileReplySent { get; private set; }
+
+    /// <summary>
     ///     The current phase of the connection lifecycle. Fires <see cref="StateChanged" /> on transitions.
     /// </summary>
     public ConnectionState State
@@ -313,6 +320,10 @@ public sealed class ConnectionManager : IDisposable
         Client.Crypto = new Crypto(redirect.Seed, redirect.Key, keySaltSeed);
         Client.SetSequence(0);
         EntryState = WorldEntryState.None;
+        //a new world session never inherits the previous character's reply state
+        if (redirect.TargetState == ConnectionState.World)
+            EditableProfileReplySent = false;
+
         PendingTargetState = redirect.TargetState;
 
         try
@@ -770,6 +781,11 @@ public sealed class ConnectionManager : IDisposable
     public event OtherProfileHandler? OnOtherProfile;
 
     /// <summary>
+    ///     Fired when a portrait picture is received.
+    /// </summary>
+    public event PortraitPictureHandler? OnPortraitPicture;
+
+    /// <summary>
     ///     Fired when a redirect is received and the client needs to connect to a new server.
     /// </summary>
     public event RedirectReceivedHandler? OnRedirectReceived;
@@ -1148,11 +1164,37 @@ public sealed class ConnectionManager : IDisposable
     /// <param name="portraitData">The raw portrait image bytes.</param>
     /// <param name="profileMessage">The profile text.</param>
     public void SendEditableProfile(byte[] portraitData, string profileMessage)
-        => SendIfWorld(
+    {
+        EditableProfileReplySent = true;
+
+        SendIfWorld(
             new EditableProfileArgs
             {
                 PortraitData = portraitData,
                 ProfileMessage = profileMessage
+            });
+    }
+
+    /// <summary>
+    ///     Sends the player's portrait bytes to the server. Empty removes the portrait.
+    /// </summary>
+    /// <param name="picture">The raw PNG or JPEG portrait bytes.</param>
+    public void SendPortraitSet(byte[] picture)
+        => SendIfWorld(
+            new PortraitSetArgs
+            {
+                Picture = picture
+            });
+
+    /// <summary>
+    ///     Asks the server for one portrait picture by hash, for profile tooltips.
+    /// </summary>
+    /// <param name="hash">The 64-char hash of the portrait picture.</param>
+    public void SendPortraitFetch(string hash)
+        => SendIfWorld(
+            new PortraitFetchArgs
+            {
+                Hash = hash
             });
 
     /// <summary>
@@ -1960,6 +2002,7 @@ public sealed class ConnectionManager : IDisposable
         PacketHandlers[(byte)ServerOpCode.EditableProfileRequest] = HandleEditableProfileRequest;
         PacketHandlers[(byte)ServerOpCode.SelfProfile] = HandleSelfProfile;
         PacketHandlers[(byte)ServerOpCode.OtherProfile] = HandleOtherProfile;
+        PacketHandlers[(byte)ServerOpCode.PortraitPicture] = HandlePortraitPicture;
         PacketHandlers[(byte)ServerOpCode.WorldList] = HandleWorldList;
         PacketHandlers[(byte)ServerOpCode.WorldMap] = HandleWorldMap;
 
@@ -2732,6 +2775,12 @@ public sealed class ConnectionManager : IDisposable
     {
         var args = Client.Deserialize<OtherProfileArgs>(in pkt);
         OnOtherProfile?.Invoke(args);
+    }
+
+    private void HandlePortraitPicture(ServerPacket pkt)
+    {
+        var args = Client.Deserialize<PortraitPictureArgs>(in pkt);
+        OnPortraitPicture?.Invoke(args);
     }
 
     private void HandleWorldList(ServerPacket pkt)

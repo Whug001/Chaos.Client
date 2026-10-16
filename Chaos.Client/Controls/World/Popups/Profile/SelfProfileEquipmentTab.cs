@@ -5,6 +5,7 @@ using Chaos.Client.Data;
 using Chaos.DarkAges.Definitions;
 using Microsoft.Xna.Framework;
 using Microsoft.Xna.Framework.Graphics;
+using SkiaSharp;
 #endregion
 
 namespace Chaos.Client.Controls.World.Popups.Profile;
@@ -69,6 +70,7 @@ public sealed class SelfProfileEquipmentTab : PrefabPanel
     private readonly UIImage? PaperdollImage;
 
     //portrait and profile text
+    private readonly UIImage? PortraitImage;
     private readonly UILabel? PortraitTextLabel;
 
     //equipment slot rendering: maps equipmentslot to its visual state
@@ -204,7 +206,7 @@ public sealed class SelfProfileEquipmentTab : PrefabPanel
         PaperdollImage = CreateImage("HumanImage");
 
         //portrait and profile text
-        CreateImage("Portrait");
+        PortraitImage = CreateImage("Portrait");
         PortraitTextLabel = CreateLabel("PortraitText");
 
         if (PortraitTextLabel is not null)
@@ -467,6 +469,26 @@ public sealed class SelfProfileEquipmentTab : PrefabPanel
         ClanTitleLabel?.Text = clanTitle;
         TitleLabel?.ForegroundColor = LegendColors.White;
         TitleLabel?.Text = title;
+    }
+
+    /// <summary>
+    ///     Sets the own-portrait picture. Empty bytes clear the image.
+    /// </summary>
+    public void SetPortrait(byte[]? portraitData)
+    {
+        if (PortraitImage is null)
+            return;
+
+        PortraitImage.Texture?.Dispose();
+        PortraitImage.Texture = null;
+
+        if (portraitData is { Length: > 0 })
+        {
+            using var skImage = SKImage.FromEncodedData(portraitData);
+
+            if (skImage is not null)
+                PortraitImage.Texture = TextureConverter.ToTexture2D(skImage);
+        }
     }
 
     /// <summary>

@@ -74,6 +74,7 @@ public sealed partial class WorldScreen
         Game.Connection.OnEditableProfileRequest += HandleEditableProfileRequest;
         Game.Connection.OnSelfProfile += HandleSelfProfile;
         Game.Connection.OnOtherProfile += HandleOtherProfile;
+        Game.Connection.OnPortraitPicture += HandlePortraitPicture;
 
         //animations / effects / sound
         Game.Connection.OnBodyAnimation += HandleBodyAnimation;
