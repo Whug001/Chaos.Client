@@ -209,6 +209,29 @@ public sealed class KeyBindingTable
                 Chords[(int)action, slot] = DefaultChord(action, slot);
     }
 
+    /// <summary>
+    ///     Puts only <paramref name="actions" /> back to their default keys. A default key another action has taken since
+    ///     is taken back from it, as <see cref="Bind" /> would, so no key ends up on two actions.
+    /// </summary>
+    public void ResetToDefaults(IEnumerable<GameAction> actions)
+    {
+        var reset = actions.ToHashSet();
+
+        foreach (var action in reset)
+            for (var slot = 0; slot < SLOTS; slot++)
+            {
+                var chord = DefaultChord(action, slot);
+
+                if (chord != KeyChord.None)
+                    foreach (var other in GameActions.All)
+                        for (var otherSlot = 0; otherSlot < SLOTS; otherSlot++)
+                            if (!reset.Contains(other) && (Chords[(int)other, otherSlot] == chord) && SameScope(action, other))
+                                Chords[(int)other, otherSlot] = KeyChord.None;
+
+                Chords[(int)action, slot] = chord;
+            }
+    }
+
     public void CopyFrom(KeyBindingTable other) => Array.Copy(other.Chords, Chords, Chords.Length);
 
     /// <summary>One "Bind.Action : Primary, Secondary" line per action, for the settings file.</summary>

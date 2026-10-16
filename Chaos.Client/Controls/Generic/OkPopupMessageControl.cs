@@ -1,5 +1,6 @@
 #region
 using Chaos.Client.Controls.Components;
+using Chaos.Client.Controls.Custom;
 using Chaos.Client.Data;
 using Chaos.Client.Extensions;
 using Chaos.Client.Utilities;
@@ -10,7 +11,7 @@ namespace Chaos.Client.Controls.Generic;
 
 /// <summary>
 ///     A popup message dialog with DlgBack2.spf tiled background (clipped to interior height), dlgframe.epf 16×16 border,
-///     and butt001.epf OK (+ optional Cancel) button.
+///     and butt001.epf OK (+ optional Cancel) button, or framed Yes and No buttons for a question.
 /// </summary>
 public sealed class OkPopupMessageControl : UIPanel
 {
@@ -32,11 +33,13 @@ public sealed class OkPopupMessageControl : UIPanel
 
     private readonly UILabel MessageLabel;
 
-    public UIButton? CancelButton { get; }
-    public UIButton OkButton { get; }
+    //what Enter/Space and Escape press: the OK (or Yes) button, and the Cancel (or No) button when there is one
+    private readonly Action PressOk;
+    private readonly Action? PressCancel;
 
     /// <param name="extraLines">Text rows to add above the default height, for messages longer than three lines.</param>
-    public OkPopupMessageControl(bool showCancel = false, int extraLines = 0)
+    /// <param name="yesNo">Yes and No buttons instead of OK and Cancel, for questions; Yes raises OnOk and No OnCancel.</param>
+    public OkPopupMessageControl(bool showCancel = false, int extraLines = 0, bool yesNo = false)
     {
         Visible = false;
         UsesControlStack = true;
@@ -79,46 +82,76 @@ public sealed class OkPopupMessageControl : UIPanel
         var okHeight = okNormalTex.Height;
         var buttonY = totalHeight - borderSize - okHeight - BUTTON_MARGIN + 5;
         var rightButtonX = totalWidth - borderSize - BUTTON_MARGIN + 4;
-        int okX;
 
-        //cancel button (optional) — positioned on the right
-        if (showCancel)
+        //butt001.epf has no Yes or No faces, so a question gets framed text buttons the same width, set in the same place
+        if (yesNo)
         {
-            var cancelNormalTex = cache.GetEpfTexture("butt001.epf", CANCEL_NORMAL);
-            var cancelPressedTex = cache.GetEpfTexture("butt001.epf", CANCEL_PRESSED);
-
-            var cancelWidth = cancelNormalTex.Width;
-
-            CancelButton = new UIButton
+            var noButton = new CustomButton("No", okWidth)
             {
-                Name = "Cancel",
-                X = rightButtonX - cancelWidth,
-                Y = buttonY,
-                Width = cancelWidth,
-                Height = cancelNormalTex.Height,
-                NormalTexture = cancelNormalTex,
-                PressedTexture = cancelPressedTex
+                Name = "No",
+                X = rightButtonX - okWidth,
+                Y = buttonY + ((okHeight - CustomButton.HEIGHT) / 2)
             };
-            CancelButton.Clicked += () => OnCancel?.Invoke();
-            AddChild(CancelButton);
+            noButton.Clicked += () => OnCancel?.Invoke();
+            AddChild(noButton);
 
-            okX = CancelButton.X - okWidth - BUTTON_MARGIN;
+            var yesButton = new CustomButton("Yes", okWidth)
+            {
+                Name = "Yes",
+                X = noButton.X - okWidth - BUTTON_MARGIN - 4,
+                Y = noButton.Y
+            };
+            yesButton.Clicked += () => OnOk?.Invoke();
+            AddChild(yesButton);
+
+            PressOk = () => OnOk?.Invoke();
+            PressCancel = () => OnCancel?.Invoke();
         } else
-            okX = rightButtonX - okWidth;
-
-        //ok button — left of cancel, or slides right when cancel absent
-        OkButton = new UIButton
         {
-            Name = "OK",
-            X = okX,
-            Y = buttonY,
-            Width = okWidth,
-            Height = okHeight,
-            NormalTexture = okNormalTex,
-            PressedTexture = okPressedTex
-        };
-        OkButton.Clicked += () => OnOk?.Invoke();
-        AddChild(OkButton);
+            int okX;
+
+            //cancel button (optional) — positioned on the right
+            if (showCancel)
+            {
+                var cancelNormalTex = cache.GetEpfTexture("butt001.epf", CANCEL_NORMAL);
+                var cancelPressedTex = cache.GetEpfTexture("butt001.epf", CANCEL_PRESSED);
+
+                var cancelWidth = cancelNormalTex.Width;
+
+                var cancelButton = new UIButton
+                {
+                    Name = "Cancel",
+                    X = rightButtonX - cancelWidth,
+                    Y = buttonY,
+                    Width = cancelWidth,
+                    Height = cancelNormalTex.Height,
+                    NormalTexture = cancelNormalTex,
+                    PressedTexture = cancelPressedTex
+                };
+                cancelButton.Clicked += () => OnCancel?.Invoke();
+                AddChild(cancelButton);
+
+                okX = cancelButton.X - okWidth - BUTTON_MARGIN;
+                PressCancel = cancelButton.PerformClick;
+            } else
+                okX = rightButtonX - okWidth;
+
+            //ok button — left of cancel, or slides right when cancel absent
+            var okButton = new UIButton
+            {
+                Name = "OK",
+                X = okX,
+                Y = buttonY,
+                Width = okWidth,
+                Height = okHeight,
+                NormalTexture = okNormalTex,
+                PressedTexture = okPressedTex
+            };
+            okButton.Clicked += () => OnOk?.Invoke();
+            AddChild(okButton);
+
+            PressOk = okButton.PerformClick;
+        }
 
         MessageLabel = new UILabel
         {
@@ -155,15 +188,11 @@ public sealed class OkPopupMessageControl : UIPanel
     {
         if (e.Keycode is Keycode.Enter or Keycode.Space)
         {
-            OkButton.PerformClick();
+            PressOk();
             e.Handled = true;
         } else if (e.Keycode == Keycode.Escape)
         {
-            if (CancelButton is not null)
-                CancelButton.PerformClick();
-            else
-                OkButton.PerformClick();
-
+            (PressCancel ?? PressOk)();
             e.Handled = true;
         }
     }

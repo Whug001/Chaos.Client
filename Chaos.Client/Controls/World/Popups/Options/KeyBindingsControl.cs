@@ -1,6 +1,7 @@
 #region
 using Chaos.Client.Controls.Components;
 using Chaos.Client.Controls.Custom;
+using Chaos.Client.Controls.Generic;
 using Chaos.Client.Controls.World.Popups.GuildCloak;
 using Chaos.Client.Definitions;
 using Chaos.Client.Extensions;
@@ -60,6 +61,11 @@ public sealed class KeyBindingsControl : GuildCloakDialogBase
     private readonly CustomButton PrevPageButton;
     private readonly Row[] Rows = new Row[PAGE_SIZE];
     private readonly UILabel StatusLabel;
+
+    //the Are you sure? question for Reset All and Reset Page, and the reset it is asking about
+    private readonly OkPopupMessageControl ConfirmPopup;
+    private readonly UIPanel ConfirmShade;
+    private Action? PendingReset;
 
     private GameActionCategory Category = GameActionCategory.Movement;
 
@@ -144,7 +150,36 @@ public sealed class KeyBindingsControl : GuildCloakDialogBase
             color: LegendColors.Gray);
 
         StatusLabel = Caption(HINT, LEFT, statusTop, Width - (2 * LEFT), color: LegendColors.Gray);
-        AddButton("Reset All", RESET_WIDTH, LEFT, resetTop, ResetAll);
+        AddButton("Reset All", RESET_WIDTH, LEFT, resetTop, () => Confirm("This puts every key back to its default. Are you sure?", ResetAll));
+        AddButton("Reset Page", RESET_WIDTH, LEFT + RESET_WIDTH + GAP, resetTop, () => Confirm($"This puts the {PageName} keys back to their defaults. Are you sure?", ResetPage));
+
+        //covers the window while the question is up, so nothing behind it can be clicked
+        ConfirmShade = new UIPanel
+        {
+            Name = "ConfirmShade",
+            Width = Width,
+            Height = Height,
+            ZIndex = 100,
+            Visible = false
+        };
+        AddChild(ConfirmShade);
+
+        ConfirmPopup = new OkPopupMessageControl(yesNo: true)
+        {
+            Name = "ConfirmReset"
+        };
+        ConfirmPopup.X = (Width - ConfirmPopup.Width) / 2;
+        ConfirmPopup.Y = (Height - ConfirmPopup.Height) / 2;
+        ConfirmShade.AddChild(ConfirmPopup);
+
+        ConfirmPopup.OnOk += () =>
+        {
+            var reset = PendingReset;
+            CloseConfirm();
+            reset?.Invoke();
+        };
+
+        ConfirmPopup.OnCancel += CloseConfirm;
 
         Refresh();
     }
@@ -182,6 +217,7 @@ public sealed class KeyBindingsControl : GuildCloakDialogBase
         if (!Visible)
             return;
 
+        CloseConfirm();
         CancelCapture();
         HotbarPicker.Close();
         base.Hide();
@@ -320,6 +356,40 @@ public sealed class KeyBindingsControl : GuildCloakDialogBase
         Changed = true;
         SetStatus("Every key is back to its default.", LegendColors.White);
         Refresh();
+    }
+
+    /// <summary>Puts back only the page shown: the category's actions, or on the Hotbars page the picked bar's slots.</summary>
+    private void ResetPage()
+    {
+        CancelCapture();
+        KeyBindings.Current.ResetToDefaults(Actions);
+        Changed = true;
+        SetStatus($"The {PageName} keys are back to their defaults.", LegendColors.White);
+        Refresh();
+    }
+
+    /// <summary>The page's name for messages: the category's, or the picked bar's on the Hotbars page.</summary>
+    private string PageName
+        => Category == GameActionCategory.Hotbars ? $"Hotbar {HotbarBar + 1}" : GameActions.CategoryName(Category);
+
+    /// <summary>Asks <paramref name="question" /> over the window, and runs <paramref name="reset" /> only on Yes.</summary>
+    private void Confirm(string question, Action reset)
+    {
+        CancelCapture();
+        HotbarPicker.Close();
+        PendingReset = reset;
+        ConfirmShade.Visible = true;
+        ConfirmPopup.Show(question);
+    }
+
+    private void CloseConfirm()
+    {
+        if (!ConfirmShade.Visible)
+            return;
+
+        PendingReset = null;
+        ConfirmPopup.Hide();
+        ConfirmShade.Visible = false;
     }
 
     private void SetStatus(string text, Microsoft.Xna.Framework.Color color)

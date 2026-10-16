@@ -366,4 +366,34 @@ public class KeyBindingTableTests
 
         await Task.CompletedTask;
     }
+
+    [Test]
+    public async Task Resetting_some_actions_leaves_the_rest_alone()
+    {
+        var table = new KeyBindingTable();
+        table.Bind(GameAction.MoveUp, 0, Key(Scancode.Q));
+        table.Bind(GameAction.Inventory, 0, Key(Scancode.W));
+
+        table.ResetToDefaults([GameAction.MoveUp]);
+
+        table.Get(GameAction.MoveUp, 0).Should().Be(Key(Scancode.Up));
+        table.Get(GameAction.Inventory, 0).Should().Be(Key(Scancode.W));
+
+        await Task.CompletedTask;
+    }
+
+    [Test]
+    public async Task Resetting_some_actions_takes_their_keys_back()
+    {
+        var table = new KeyBindingTable();
+        table.Bind(GameAction.Inventory, 0, Key(Scancode.Up));
+
+        table.ResetToDefaults([GameAction.MoveUp]);
+
+        table.Get(GameAction.MoveUp, 0).Should().Be(Key(Scancode.Up));
+        table.Get(GameAction.Inventory, 0).Should().Be(KeyChord.None);
+        table.Find(Key(Scancode.Up)).Should().Be(GameAction.MoveUp);
+
+        await Task.CompletedTask;
+    }
 }
