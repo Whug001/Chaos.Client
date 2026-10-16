@@ -30,12 +30,26 @@ public sealed partial class WorldScreen
     {
         Game.Connection.UseItem(slot);
         HoveredInventorySlot = null;
-        ItemTooltip.Hide();
+        HidePortraitTooltip();
     }
 
     private void HandleInventoryHoverEnter(PanelSlot slot)
     {
         HoveredInventorySlot = slot;
+
+        ref readonly var data = ref WorldState.Inventory.GetSlot(slot.Slot);
+
+        if (!string.IsNullOrEmpty(data.PortraitHash))
+        {
+            ShowPortraitTooltip(
+                slot.SlotName ?? string.Empty,
+                slot.CurrentDurability,
+                slot.MaxDurability,
+                data.PortraitHash,
+                data.PortraitPainter);
+
+            return;
+        }
 
         ItemTooltip.Show(
             slot.SlotName ?? string.Empty,
@@ -48,7 +62,7 @@ public sealed partial class WorldScreen
     private void HandleInventoryHoverExit()
     {
         HoveredInventorySlot = null;
-        ItemTooltip.Hide();
+        HidePortraitTooltip();
     }
 
     /// <summary>

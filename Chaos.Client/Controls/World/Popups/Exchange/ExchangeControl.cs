@@ -157,6 +157,11 @@ public sealed class ExchangeControl : PrefabPanel, IInventoryDropTarget
         WorldState.Exchange.GoldSet += OnExchangeGoldSet;
         WorldState.Exchange.OtherAccepted += OnExchangeOtherAccepted;
         WorldState.Exchange.Closed += OnExchangeClosed;
+
+        MyItemList.ItemPortraitHovered += (name, hash, painter) => ItemPortraitHovered?.Invoke(name, hash, painter);
+        MyItemList.ItemPortraitUnhovered += () => ItemPortraitUnhovered?.Invoke();
+        YourItemList.ItemPortraitHovered += (name, hash, painter) => ItemPortraitHovered?.Invoke(name, hash, painter);
+        YourItemList.ItemPortraitUnhovered += () => ItemPortraitUnhovered?.Invoke();
     }
 
     public override void Dispose()
@@ -169,6 +174,26 @@ public sealed class ExchangeControl : PrefabPanel, IInventoryDropTarget
 
         base.Dispose();
     }
+
+    public override void Hide()
+    {
+        //a hide without a close still ends any reported portrait hover through the unhovered path,
+        //so a portrait tooltip from this window cannot stay up after it closes.
+        if (Visible)
+            ItemPortraitUnhovered?.Invoke();
+
+        base.Hide();
+    }
+
+    /// <summary>
+    ///     Fired with the row name, portrait hash and painter when a painted portrait row is hovered.
+    /// </summary>
+    public event Action<string, string, string?>? ItemPortraitHovered;
+
+    /// <summary>
+    ///     Fired when a painted portrait row is unhovered.
+    /// </summary>
+    public event Action? ItemPortraitUnhovered;
 
     public event CancelHandler? OnCancel;
 

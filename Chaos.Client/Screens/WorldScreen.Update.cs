@@ -318,7 +318,7 @@ public sealed partial class WorldScreen
             && (OtherProfile.Visible || NpcSession.Visible || FindVisibleModal() is not null))
         {
             HoveredInventorySlot = null;
-            ItemTooltip.Hide();
+            HidePortraitTooltip();
         }
 
         //── track which entity the mouse is hovering over ──

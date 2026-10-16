@@ -13,6 +13,7 @@ using Chaos.Client.Networking.Definitions;
 using Chaos.Client.Rendering;
 using Chaos.Client.Rendering.Models;
 using Chaos.Client.Systems;
+using Chaos.Client.Systems.Portraits;
 using Chaos.Client.ViewModel;
 using Chaos.DarkAges.Definitions;
 using Chaos.Extensions.Common;
@@ -670,6 +671,9 @@ public sealed partial class WorldScreen
 
     private void HandleExchangeClosed(string? message)
     {
+        //closing the exchange also drops any portrait tooltip a hovered row left up.
+        HidePortraitTooltip();
+
         if (!string.IsNullOrEmpty(message))
             ExchangeResultPopup.Show(message);
     }
@@ -889,22 +893,148 @@ public sealed partial class WorldScreen
 
     private void HandleEditableProfileRequest() => Game.Connection.SendEditableProfile(PlayerPortrait, StatusBook.GetProfileText());
 
-    private static byte[] LoadPortraitFile(string name)
+    private void HandlePortraitPicture(PortraitPictureArgs args)
+    {
+        //fetched pictures are for tooltips and never touch the book or the file
+        if (!args.IsOwn)
+        {
+            PortraitTransfers().OnPicture(args);
+
+            return;
+        }
+
+        StatusBook.SetPortrait(args.Picture);
+        OwnPortraitPicture = args.Picture;
+        PortraitWindow?.OnOwnPicture(args.Hash, args.Picture);
+
+        //a Set's late reply landing after Remove was clicked must not rewrite the files Remove deleted, nor
+        //leave them behind for the empty echo's delete to back up; the window stays settled by OnOwnPicture above
+        if ((PortraitWindow?.IsRemovePending == true) && (args.Picture.Length > 0))
+            return;
+
+        var name = Game.Connection.AislingName;
+        var sync = new PortraitFileSync(Game.Connection.EditableProfileReplySent);
+
+        switch (sync.Decide(args, LoadExistingPortraitFile(name)))
+        {
+            case PortraitFileAction.Write:
+                WritePortraitFile(name, args.Picture);
+
+                break;
+            case PortraitFileAction.Delete:
+                DeletePortraitFiles(name);
+
+                break;
+            case PortraitFileAction.None:
+            default:
+                break;
+        }
+    }
+
+    private void HandlePaintedPortraitDisplay(PaintedPortraitDisplayArgs args) => OpenPaintedPortraitWindow(args);
+
+    private void HandlePortraitPictureReady(string hash)
+    {
+        if ((TooltipPortraitHash == hash)
+            && ItemTooltip.Visible
+            && PortraitTransfers().TryGetTexture(hash, out var texture))
+        {
+            //the pre-load Hold was a no-op while the texture was missing, so hold the arrived texture now;
+            //HidePortraitTooltip releases exactly this one hold
+            PortraitTransfers().Hold(hash);
+            ItemTooltip.SetPortraitTexture(texture);
+        }
+    }
+
+    private void HandlePortraitPictureFailed(string hash)
+    {
+        if ((TooltipPortraitHash == hash) && ItemTooltip.Visible)
+            ItemTooltip.SetPortraitTexture(null);
+    }
+
+    private static void WritePortraitFile(string name, byte[] picture)
     {
         if (!DataContext.LocalPlayerSettings.IsInitialized || string.IsNullOrEmpty(name))
-            return [];
+            return;
+
+        try
+        {
+            var jpgPath = DataContext.LocalPlayerSettings.GetFilePath($"{name}.jpg");
+            var noExtPath = DataContext.LocalPlayerSettings.GetFilePath(name);
+            var sourceFileName = PortraitFileSync.BackupSourceFileName(name, File.Exists(jpgPath), File.Exists(noExtPath));
+
+            if (sourceFileName is not null)
+                File.Move(DataContext.LocalPlayerSettings.GetFilePath(sourceFileName), DataContext.LocalPlayerSettings.GetFilePath($"{name}.old.jpg"), true);
+
+            File.WriteAllBytes(jpgPath, picture);
+
+            if (File.Exists(noExtPath))
+                File.Delete(noExtPath);
+        }
+        catch (Exception ex) when (ex is IOException or UnauthorizedAccessException)
+        {
+            //a locked portrait file must never crash the client
+        }
+    }
+
+    private static void DeletePortraitFiles(string name)
+    {
+        if (!DataContext.LocalPlayerSettings.IsInitialized || string.IsNullOrEmpty(name))
+            return;
+
+        try
+        {
+            var jpgPath = DataContext.LocalPlayerSettings.GetFilePath($"{name}.jpg");
+            var noExtPath = DataContext.LocalPlayerSettings.GetFilePath(name);
+            var sourceFileName = PortraitFileSync.BackupSourceFileName(name, File.Exists(jpgPath), File.Exists(noExtPath));
+
+            if (sourceFileName is not null)
+                File.Move(DataContext.LocalPlayerSettings.GetFilePath(sourceFileName), DataContext.LocalPlayerSettings.GetFilePath($"{name}.old.jpg"), true);
+
+            if (File.Exists(jpgPath))
+                File.Delete(jpgPath);
+
+            if (File.Exists(noExtPath))
+                File.Delete(noExtPath);
+        }
+        catch (Exception ex) when (ex is IOException or UnauthorizedAccessException)
+        {
+            //a locked portrait file must never crash the client
+        }
+    }
+
+    private static byte[] LoadPortraitFile(string name)
+        => LoadExistingPortraitFile(name) ?? [];
+
+    //null when neither portrait file exists, so the sync decision can tell a missing file from an empty one.
+    private static byte[]? LoadExistingPortraitFile(string name)
+    {
+        if (!DataContext.LocalPlayerSettings.IsInitialized || string.IsNullOrEmpty(name))
+            return null;
 
         var jpgPath = DataContext.LocalPlayerSettings.GetFilePath($"{name}.jpg");
 
         if (File.Exists(jpgPath))
-            return File.ReadAllBytes(jpgPath);
+            return ReadPortraitFileOrNull(jpgPath);
 
         var noExtPath = DataContext.LocalPlayerSettings.GetFilePath(name);
 
         if (File.Exists(noExtPath))
-            return File.ReadAllBytes(noExtPath);
+            return ReadPortraitFileOrNull(noExtPath);
 
-        return [];
+        return null;
+    }
+
+    private static byte[]? ReadPortraitFileOrNull(string path)
+    {
+        try
+        {
+            return File.Exists(path) ? File.ReadAllBytes(path) : null;
+        }
+        catch (Exception ex) when (ex is IOException or UnauthorizedAccessException)
+        {
+            return null;
+        }
     }
 
     private static string LoadProfileText()
@@ -1548,7 +1678,7 @@ public sealed partial class WorldScreen
 
     private void HandleDisplayReadonlyNotepad(DisplayReadonlyNotepadArgs args)
     {
-        ItemTooltip.Hide();
+        HidePortraitTooltip();
 
         Notepad.ShowReadonly(
             (byte)args.NotepadType,
@@ -1559,7 +1689,7 @@ public sealed partial class WorldScreen
 
     private void HandleDisplayEditableNotepad(DisplayEditableNotepadArgs args)
     {
-        ItemTooltip.Hide();
+        HidePortraitTooltip();
 
         Notepad.ShowEditable(
             args.Slot,

@@ -292,6 +292,11 @@ public sealed partial class WorldScreen : IScreen
     private bool LastLeftClickWasCast;
     private bool PendingLoginSwitch;
     private byte[] PlayerPortrait = [];
+
+    /// <summary>
+    ///     Gets the latest own-portrait bytes from the server. Kept for the portrait window. Empty when none.
+    /// </summary>
+    public byte[] OwnPortraitPicture { get; private set; } = [];
     private SelfProfileTextEditorControl SelfProfileTextEditor = null!;
     private Direction? QueuedWalkDirection;
     private bool RedirectInProgress;
@@ -708,6 +713,7 @@ public sealed partial class WorldScreen : IScreen
         StatusBook.OnClose += SavePlayerFamilyList;
 
         StatusBook.OnGroupToggled += () => Game.Connection.ToggleGroup();
+        StatusBook.OnPortraitClicked += OpenPortraitWindow;
 
         StatusBook.OnProfileTextClicked += () =>
         {
@@ -1099,6 +1105,8 @@ public sealed partial class WorldScreen : IScreen
         Game.Connection.OnEditableProfileRequest -= HandleEditableProfileRequest;
         Game.Connection.OnSelfProfile -= HandleSelfProfile;
         Game.Connection.OnOtherProfile -= HandleOtherProfile;
+        Game.Connection.OnPortraitPicture -= HandlePortraitPicture;
+        Game.Connection.OnPaintedPortraitDisplay -= HandlePaintedPortraitDisplay;
         Game.Connection.OnBodyAnimation -= HandleBodyAnimation;
         Game.Connection.OnAnimation -= HandleAnimation;
         Game.Connection.OnSound -= HandleSound;
@@ -1196,6 +1204,7 @@ public sealed partial class WorldScreen : IScreen
         Game.AislingRenderer.GuildCloaks.Clear();
         GuildEmblemTextures.Clear();
         College?.Transfers.Clear();
+        PortraitPictures?.Clear();
         College?.Drawings.Clear();
         College?.Tunes.Clear();
         College?.Marks.Clear();

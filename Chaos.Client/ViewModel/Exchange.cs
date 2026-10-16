@@ -46,7 +46,9 @@ public sealed class Exchange
         byte exchangeIndex,
         ushort sprite,
         DisplayColor color,
-        string? name)
+        string? name,
+        string? portraitHash = null,
+        string? portraitPainter = null)
     {
         //server sends 1-based indices
         var index = exchangeIndex - 1;
@@ -59,7 +61,7 @@ public sealed class Exchange
         while (items.Count <= index)
             items.Add(null);
 
-        items[index] = new ExchangeItemData(sprite, color, name);
+        items[index] = new ExchangeItemData(sprite, color, name, portraitHash, portraitPainter);
 
         ItemAdded?.Invoke(rightSide, (byte)index);
     }
@@ -153,5 +155,10 @@ public sealed class Exchange
     /// </summary>
     public event ExchangeStartedHandler? Started;
 
-    public readonly record struct ExchangeItemData(ushort Sprite, DisplayColor Color, string? Name);
+    public readonly record struct ExchangeItemData(
+        ushort Sprite,
+        DisplayColor Color,
+        string? Name,
+        string? PortraitHash = null,
+        string? PortraitPainter = null);
 }
