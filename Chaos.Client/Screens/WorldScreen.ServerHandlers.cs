@@ -925,9 +925,14 @@ public sealed partial class WorldScreen
 
         try
         {
-            File.WriteAllBytes(DataContext.LocalPlayerSettings.GetFilePath($"{name}.jpg"), picture);
-
+            var jpgPath = DataContext.LocalPlayerSettings.GetFilePath($"{name}.jpg");
             var noExtPath = DataContext.LocalPlayerSettings.GetFilePath(name);
+            var sourceFileName = PortraitFileSync.BackupSourceFileName(name, File.Exists(jpgPath), File.Exists(noExtPath));
+
+            if (sourceFileName is not null)
+                File.Move(DataContext.LocalPlayerSettings.GetFilePath(sourceFileName), DataContext.LocalPlayerSettings.GetFilePath($"{name}.old.jpg"), true);
+
+            File.WriteAllBytes(jpgPath, picture);
 
             if (File.Exists(noExtPath))
                 File.Delete(noExtPath);
@@ -946,11 +951,14 @@ public sealed partial class WorldScreen
         try
         {
             var jpgPath = DataContext.LocalPlayerSettings.GetFilePath($"{name}.jpg");
+            var noExtPath = DataContext.LocalPlayerSettings.GetFilePath(name);
+            var sourceFileName = PortraitFileSync.BackupSourceFileName(name, File.Exists(jpgPath), File.Exists(noExtPath));
+
+            if (sourceFileName is not null)
+                File.Move(DataContext.LocalPlayerSettings.GetFilePath(sourceFileName), DataContext.LocalPlayerSettings.GetFilePath($"{name}.old.jpg"), true);
 
             if (File.Exists(jpgPath))
                 File.Delete(jpgPath);
-
-            var noExtPath = DataContext.LocalPlayerSettings.GetFilePath(name);
 
             if (File.Exists(noExtPath))
                 File.Delete(noExtPath);

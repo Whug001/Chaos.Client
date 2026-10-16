@@ -21,6 +21,9 @@ public sealed class PortraitFileSync(bool loginReplySent)
     public static bool ShouldWrite(byte[] fileBytes, byte[] incoming)
         => (incoming is { Length: > 0 }) && !fileBytes.SequenceEqual(incoming);
 
+    public static string? BackupSourceFileName(string name, bool jpgExists, bool extensionlessExists)
+        => jpgExists ? $"{name}.jpg" : extensionlessExists ? name : null;
+
     public bool ShouldSync(PortraitPictureArgs args, byte[]? fileBytes)
         => Decide(args, fileBytes) == PortraitFileAction.Write;
 

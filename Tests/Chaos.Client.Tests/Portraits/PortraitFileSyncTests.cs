@@ -63,4 +63,23 @@ public sealed class PortraitFileSyncTests
         var sync = new PortraitFileSync(loginReplySent: true);
         sync.Decide(new PortraitPictureArgs { IsOwn = true, Hash = "aa", Picture = [1, 2, 3] }, fileBytes: null).Should().Be(PortraitFileAction.Write);
     }
+
+    [Test]
+    public void A_present_jpg_is_backed_up()
+    {
+        PortraitFileSync.BackupSourceFileName("name", jpgExists: true, extensionlessExists: false).Should().Be("name.jpg");
+        PortraitFileSync.BackupSourceFileName("name", jpgExists: true, extensionlessExists: true).Should().Be("name.jpg");
+    }
+
+    [Test]
+    public void An_extensionless_file_is_backed_up_when_no_jpg_exists()
+    {
+        PortraitFileSync.BackupSourceFileName("name", jpgExists: false, extensionlessExists: true).Should().Be("name");
+    }
+
+    [Test]
+    public void No_portrait_file_needs_no_backup()
+    {
+        PortraitFileSync.BackupSourceFileName("name", jpgExists: false, extensionlessExists: false).Should().BeNull();
+    }
 }
