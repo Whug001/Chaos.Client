@@ -30,7 +30,8 @@ public sealed class LobbyLoginScreen : IScreen
 
     //shown once the screen has loaded; set when this screen replaced one whose connection dropped
     private readonly string? StartMessage;
-    private bool _autoLoginAttempted;
+    //static so a rebuilt login screen does not log in again — auto-login runs at most once per run
+    private static bool AutoLoginAttempted;
     private bool AwaitingCharFinalize;
 
     //the lobby or login server was reached. A later drop is a lost connection rather than a failed connect, which
@@ -393,10 +394,10 @@ public sealed class LobbyLoginScreen : IScreen
 
     /// <summary>If launched from a Quick Launch card, fill the login fields and (when a password
     /// was provided) submit, reusing the normal OnLoginOkClicked → LoginArgs packet path. Runs at
-    /// most once, only when the login screen is ready to accept input. The EULA is never auto-accepted.</summary>
+    /// most once per run, only when the login screen is ready to accept input. The EULA is never auto-accepted.</summary>
     private void TryAutoLogin()
     {
-        if (_autoLoginAttempted)
+        if (AutoLoginAttempted)
             return;
 
         var decision = AutoLoginDecision.Decide(GlobalSettings.AutoUsername, GlobalSettings.AutoPassword);
@@ -404,12 +405,12 @@ public sealed class LobbyLoginScreen : IScreen
         if (!decision.ShouldFill)
             return;
 
-        // Not ready to act yet (still connecting / another panel open) — leave _autoLoginAttempted
+        // Not ready to act yet (still connecting / another panel open) — leave AutoLoginAttempted
         // unset so a later EnableButtons() retries.
         if (Connecting || LoginControl.Visible || PasswordChangeControl.Visible)
             return;
 
-        _autoLoginAttempted = true;
+        AutoLoginAttempted = true;
 
         LoginControl.Show();
         StartPanel.SetButtonsEnabled(false);
@@ -663,7 +664,7 @@ public sealed class LobbyLoginScreen : IScreen
         // Card auto-login: accept the notice on the user's behalf so a card launch is fully
         // hands-off (no manual OK click). Only fires when launched from a Quick Launch card
         // (DA_AUTO_USERNAME set); a normal manual login still shows the notice and waits for OK.
-        if (Chaos.Client.Systems.AutoLoginDecision.Decide(GlobalSettings.AutoUsername, GlobalSettings.AutoPassword).ShouldFill)
+        if (!AutoLoginAttempted && Chaos.Client.Systems.AutoLoginDecision.Decide(GlobalSettings.AutoUsername, GlobalSettings.AutoPassword).ShouldFill)
             OnLoginAccepted();
     }
 
