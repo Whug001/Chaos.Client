@@ -671,6 +671,9 @@ public sealed class ConnectionManager : IDisposable
     /// <summary>Fired when the server opens or refreshes the commission board window.</summary>
     public event CommissionBoardDisplayHandler? OnCommissionBoardDisplay;
 
+    /// <summary>Fired when the server sends the card windows a binder snapshot, an opened pack, or close.</summary>
+    public event TcgCollectionDisplayHandler? OnTcgCollectionDisplay;
+
     /// <summary>Fired when the server sends one season of the Endless Tower leaderboard.</summary>
     public event TowerLeaderboardHandler? OnTowerLeaderboard;
 
@@ -1549,6 +1552,9 @@ public sealed class ConnectionManager : IDisposable
     /// <summary>A commission board window action. The server checks the request, the role and every cap again.</summary>
     public void SendCommissionBoardAction(CommissionBoardActionArgs args) => SendIfWorld(args);
 
+    /// <summary>A card binder window request. The server checks the player, the binder and every rule again.</summary>
+    public void SendTcgCollectionAction(TcgCollectionActionArgs args) => SendIfWorld(args);
+
     /// <summary>Sends a Mileth College window action. The server checks every rule again.</summary>
     public void SendCollegeAction(CollegeActionArgs args) => SendIfWorld(args);
 
@@ -1982,6 +1988,7 @@ public sealed class ConnectionManager : IDisposable
         PacketHandlers[(byte)ServerOpCode.ArenaHostDisplay] = HandleArenaHostDisplay;
         PacketHandlers[(byte)ServerOpCode.CraftingDisplay] = HandleCraftingDisplay;
         PacketHandlers[(byte)ServerOpCode.CommissionBoardDisplay] = HandleCommissionBoardDisplay;
+        PacketHandlers[(byte)ServerOpCode.TcgCollectionDisplay] = HandleTcgCollectionDisplay;
         PacketHandlers[(byte)ServerOpCode.TowerLeaderboard] = HandleTowerLeaderboard;
         PacketHandlers[(byte)ServerOpCode.CollegeDisplay] = HandleCollegeDisplay;
         PacketHandlers[(byte)ServerOpCode.TownContestDisplay] = HandleTownContestDisplay;
@@ -2558,6 +2565,12 @@ public sealed class ConnectionManager : IDisposable
     {
         var args = Client.Deserialize<CommissionBoardDisplayArgs>(in pkt);
         OnCommissionBoardDisplay?.Invoke(args);
+    }
+
+    private void HandleTcgCollectionDisplay(ServerPacket pkt)
+    {
+        var args = Client.Deserialize<TcgCollectionDisplayArgs>(in pkt);
+        OnTcgCollectionDisplay?.Invoke(args);
     }
 
     private void HandleTownContestDisplay(ServerPacket pkt)

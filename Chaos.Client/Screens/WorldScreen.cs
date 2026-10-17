@@ -821,10 +821,10 @@ public sealed partial class WorldScreen : IScreen
             ZIndex = 3
         };
 
-        //above the ability popup it explains, or it would be drawn underneath the words it is pointing at
+        //above the ability popup it explains and the card windows (the pack reveal is ZIndex 4), or it would be drawn underneath the words it is pointing at
         KeywordTooltip = new KeywordTooltipControl
         {
-            ZIndex = 4
+            ZIndex = 5
         };
 
         Market = new MarketControl
@@ -915,6 +915,7 @@ public sealed partial class WorldScreen : IScreen
         WireArenaHost();
         WireCrafting();
         WireCommissionBoard();
+        WireTcg();
         WireTowerLeaderboard();
         WireCollege();
         WireHotbars();
@@ -1161,6 +1162,7 @@ public sealed partial class WorldScreen : IScreen
         UnwireArenaHost();
         UnwireCrafting();
         UnwireCommissionBoard();
+        UnwireTcg();
         UnwireTowerLeaderboard();
         UnwireCollege();
         UnwireHotbars();

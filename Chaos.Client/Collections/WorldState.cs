@@ -188,6 +188,9 @@ public static class WorldState
     /// <summary>The commission board window's state. Server-owned like the quest log: survives map changes, cleared on logout.</summary>
     public static CommissionBoardState CommissionBoard { get; } = new();
 
+    /// <summary>The card binder's last snapshot and what the card windows show. Cleared on logout.</summary>
+    public static TcgCollectionState TcgCollection { get; } = new();
+
     /// <summary>
     ///     Authoritative poker table state (table properties, seat roster, board, pot, whose turn it is, legal
     ///     actions).
@@ -513,6 +516,7 @@ public static class WorldState
         QuestLog.Clear();
         Crafting.Clear();
         CommissionBoard.Clear();
+        TcgCollection.Clear();
         PokerTable.Clear();
         BeautyShop.Clear();
     }

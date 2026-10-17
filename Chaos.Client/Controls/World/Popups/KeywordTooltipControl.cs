@@ -1,6 +1,7 @@
 #region
 using Chaos.Client.Controls.Components;
 using Chaos.Client.Data;
+using Chaos.DarkAges.Definitions;
 #endregion
 
 namespace Chaos.Client.Controls.World.Popups;
@@ -46,6 +47,22 @@ public sealed class KeywordTooltipControl : TooltipPanelBase
                 explanation!,
                 mouseX,
                 mouseY);
+
+            return;
+        }
+
+        Hide();
+    }
+
+    /// <summary>
+    ///     Explains a card keyword under the cursor, or hides. Card keywords come from <c>TcgKeywordText</c>, not the
+    ///     glossary, so a card's "Guard" never takes an ability's meaning or the other way round.
+    /// </summary>
+    public void TrackCardHover(int mouseX, int mouseY, string keyword)
+    {
+        if (TcgKeywordText.ExplanationOf(keyword) is { } explanation)
+        {
+            Show(keyword, explanation, mouseX, mouseY);
 
             return;
         }
