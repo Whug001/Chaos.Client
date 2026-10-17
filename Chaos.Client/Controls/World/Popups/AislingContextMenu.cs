@@ -8,7 +8,7 @@ namespace Chaos.Client.Controls.World.Popups;
 
 /// <summary>
 ///     A popup menu that appears when Ctrl+clicking a non-self aisling. Uses popupbox.epf as background. Top row shows the
-///     player's name, bottom 3 rows are clickable options: info, group request, whisper.
+///     player's name, bottom 4 rows are clickable options: info, group request, whisper, card challenge.
 /// </summary>
 public sealed class AislingContextMenu : UIPanel
 {
@@ -22,17 +22,22 @@ public sealed class AislingContextMenu : UIPanel
     private static readonly Color BOX_FILL = new Color(68, 68, 68) * (140 / 255f);
     private static readonly Color BOX_HOVER = new Color(187, 187, 187) * (160 / 255f);
 
+    private const int OPTION_COUNT = 4;
+
+    private static Texture2D? TallFrame;
+
     private static readonly string[] OPTION_LABELS =
     [
         "info",
         "group request",
-        "whisper"
+        "whisper",
+        "card challenge"
     ];
 
     private readonly UIImage FrameImage;
     private readonly UIPanel HoverOverlay;
     private readonly UILabel NameLabel;
-    private readonly Action[] OptionCallbacks = new Action[3];
+    private readonly Action[] OptionCallbacks = new Action[OPTION_COUNT];
     private readonly UILabel[] OptionLabels;
     private int HoveredIndex = -1;
 
@@ -79,9 +84,9 @@ public sealed class AislingContextMenu : UIPanel
 
         AddChild(NameLabel);
 
-        OptionLabels = new UILabel[3];
+        OptionLabels = new UILabel[OPTION_COUNT];
 
-        for (var i = 0; i < 3; i++)
+        for (var i = 0; i < OPTION_COUNT; i++)
         {
             OptionLabels[i] = new UILabel
             {
@@ -100,6 +105,29 @@ public sealed class AislingContextMenu : UIPanel
         }
     }
 
+    //popupbox.epf only fits 3 rows; repeat its middle band once to fit a 4th
+    private static Texture2D BuildTallFrame(Texture2D source)
+    {
+        var width = source.Width;
+        var height = source.Height;
+        var pixels = new Color[width * height];
+        source.GetData(pixels);
+
+        var tall = new Color[width * (height + BOX_HEIGHT)];
+
+        for (var y = 0; y < height + BOX_HEIGHT; y++)
+        {
+            //rows 0-63 stay put; everything from row 50 down moves 14 px lower
+            var from = y < 64 ? y : y - BOX_HEIGHT;
+            Array.Copy(pixels, from * width, tall, y * width, width);
+        }
+
+        var texture = new Texture2D(source.GraphicsDevice, width, height + BOX_HEIGHT);
+        texture.SetData(tall);
+
+        return texture;
+    }
+
     private Texture2D? GetFrameTexture()
     {
         if (FrameImage.Texture is not null)
@@ -113,7 +141,9 @@ public sealed class AislingContextMenu : UIPanel
         if (frameCount <= 0)
             return null;
 
-        var texture = UiRenderer.Instance.GetEpfTexture(EPF_FILE, 0);
+        var original = UiRenderer.Instance.GetEpfTexture(EPF_FILE, 0);
+        TallFrame ??= BuildTallFrame(original);
+        var texture = TallFrame;
         FrameImage.Texture = texture;
         FrameImage.Width = texture.Width;
         FrameImage.Height = texture.Height;
@@ -136,7 +166,8 @@ public sealed class AislingContextMenu : UIPanel
         string name,
         Action onInfo,
         Action onGroupRequest,
-        Action onWhisper)
+        Action onWhisper,
+        Action onChallenge)
     {
         var bg = GetFrameTexture();
 
@@ -148,6 +179,7 @@ public sealed class AislingContextMenu : UIPanel
         OptionCallbacks[0] = onInfo;
         OptionCallbacks[1] = onGroupRequest;
         OptionCallbacks[2] = onWhisper;
+        OptionCallbacks[3] = onChallenge;
 
         X = screenX;
         Y = screenY;
@@ -182,7 +214,7 @@ public sealed class AislingContextMenu : UIPanel
         if (localX is >= BOX_X and < BOX_X + BOX_WIDTH && (localY >= optionsStartY))
         {
             var index = (localY - optionsStartY) / BOX_HEIGHT;
-            HoveredIndex = index is >= 0 and < 3 ? index : -1;
+            HoveredIndex = index is >= 0 and < OPTION_COUNT ? index : -1;
         } else
             HoveredIndex = -1;
 
@@ -210,7 +242,7 @@ public sealed class AislingContextMenu : UIPanel
             return;
         }
 
-        if (HoveredIndex is >= 0 and < 3)
+        if (HoveredIndex is >= 0 and < OPTION_COUNT)
         {
             OptionCallbacks[HoveredIndex]();
             Hide();

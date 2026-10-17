@@ -1809,7 +1809,8 @@ public sealed partial class WorldScreen
                 name,
                 () => Game.Connection.ClickEntity(id),
                 () => Game.Connection.SendGroupInvite(ClientGroupSwitch.TryInvite, name),
-                () => WorldHud.ChatInput.FocusWhisper(name));
+                () => WorldHud.ChatInput.FocusWhisper(name),
+                () => Game.Connection.SendTcgAction(TcgChallengeState.StartAction(name)));
         }
     }
 

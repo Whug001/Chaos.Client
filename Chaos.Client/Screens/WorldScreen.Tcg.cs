@@ -150,6 +150,7 @@ public sealed partial class WorldScreen
     private void UnwireTcg()
     {
         Game.Connection.OnTcgCollectionDisplay -= HandleTcgCollectionDisplay;
+        Game.Connection.OnTcgDisplay -= OnTcgDisplay;
 
         if (TcgBinderWindow is not null)
         {
@@ -162,5 +163,9 @@ public sealed partial class WorldScreen
             TcgDeckBuilderWindow.ActionRequested -= SendTcgCollectionAction;
     }
 
-    private void WireTcg() => Game.Connection.OnTcgCollectionDisplay += HandleTcgCollectionDisplay;
+    private void WireTcg()
+    {
+        Game.Connection.OnTcgCollectionDisplay += HandleTcgCollectionDisplay;
+        Game.Connection.OnTcgDisplay += OnTcgDisplay;
+    }
 }

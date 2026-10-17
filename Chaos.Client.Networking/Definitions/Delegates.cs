@@ -518,6 +518,9 @@ public delegate void CommissionBoardDisplayHandler(CommissionBoardDisplayArgs ar
 /// <summary>Handles a card binder snapshot, an opened pack, or the card windows closing.</summary>
 public delegate void TcgCollectionDisplayHandler(TcgCollectionDisplayArgs args);
 
+/// <summary>Handles a card challenge, an offer, or the challenge windows closing.</summary>
+public delegate void TcgDisplayHandler(TcgDisplayArgs args);
+
 /// <summary>Handles a Mileth College window opening, refreshing or getting an answer, or a picture part arriving.</summary>
 public delegate void CollegeDisplayHandler(CollegeDisplayArgs args);
 

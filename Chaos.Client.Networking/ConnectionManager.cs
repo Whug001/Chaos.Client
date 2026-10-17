@@ -674,6 +674,9 @@ public sealed class ConnectionManager : IDisposable
     /// <summary>Fired when the server sends the card windows a binder snapshot, an opened pack, or close.</summary>
     public event TcgCollectionDisplayHandler? OnTcgCollectionDisplay;
 
+    /// <summary>Fired when the server sends a card challenge, an offer, or the challenge windows closing.</summary>
+    public event TcgDisplayHandler? OnTcgDisplay;
+
     /// <summary>Fired when the server sends one season of the Endless Tower leaderboard.</summary>
     public event TowerLeaderboardHandler? OnTowerLeaderboard;
 
@@ -1555,6 +1558,9 @@ public sealed class ConnectionManager : IDisposable
     /// <summary>A card binder window request. The server checks the player, the binder and every rule again.</summary>
     public void SendTcgCollectionAction(TcgCollectionActionArgs args) => SendIfWorld(args);
 
+    /// <summary>A card match or challenge request. The server checks every rule again.</summary>
+    public void SendTcgAction(TcgActionArgs args) => SendIfWorld(args);
+
     /// <summary>Sends a Mileth College window action. The server checks every rule again.</summary>
     public void SendCollegeAction(CollegeActionArgs args) => SendIfWorld(args);
 
@@ -1989,6 +1995,7 @@ public sealed class ConnectionManager : IDisposable
         PacketHandlers[(byte)ServerOpCode.CraftingDisplay] = HandleCraftingDisplay;
         PacketHandlers[(byte)ServerOpCode.CommissionBoardDisplay] = HandleCommissionBoardDisplay;
         PacketHandlers[(byte)ServerOpCode.TcgCollectionDisplay] = HandleTcgCollectionDisplay;
+        PacketHandlers[(byte)ServerOpCode.TcgDisplay] = HandleTcgDisplay;
         PacketHandlers[(byte)ServerOpCode.TowerLeaderboard] = HandleTowerLeaderboard;
         PacketHandlers[(byte)ServerOpCode.CollegeDisplay] = HandleCollegeDisplay;
         PacketHandlers[(byte)ServerOpCode.TownContestDisplay] = HandleTownContestDisplay;
@@ -2571,6 +2578,12 @@ public sealed class ConnectionManager : IDisposable
     {
         var args = Client.Deserialize<TcgCollectionDisplayArgs>(in pkt);
         OnTcgCollectionDisplay?.Invoke(args);
+    }
+
+    private void HandleTcgDisplay(ServerPacket pkt)
+    {
+        var args = Client.Deserialize<TcgDisplayArgs>(in pkt);
+        OnTcgDisplay?.Invoke(args);
     }
 
     private void HandleTownContestDisplay(ServerPacket pkt)
