@@ -19,7 +19,7 @@ public sealed class TcgDeckDraftTests
     };
 
     private static TcgCatalogCardView Card(string key, string name, int generic)
-        => new(key, name, TcgElement.Fire, TcgRarity.Common, TcgCardType.Creature, (byte)generic, 0, 0, 0, 0, 1, 1, TcgKeyword.None, string.Empty, TcgArtKind.None, 0);
+        => new(key, name, TcgElement.Fire, TcgRarity.Common, TcgCardType.Creature, (byte)generic, 0, 0, 0, 0, 1, 1, TcgKeyword.None, string.Empty, TcgArtKind.None, 0, TcgTargetKind.None);
 
     private static TcgCatalogCardView? Lookup(string key) => Catalog.GetValueOrDefault(key);
 

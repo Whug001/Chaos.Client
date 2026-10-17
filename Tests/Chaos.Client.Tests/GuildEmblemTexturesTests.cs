@@ -5,6 +5,7 @@ using Microsoft.Xna.Framework;
 
 namespace Chaos.Client.Tests;
 
+[NotInParallel]
 public class GuildEmblemTexturesTests
 {
     [Test]

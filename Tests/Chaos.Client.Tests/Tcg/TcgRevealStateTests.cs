@@ -11,7 +11,7 @@ public sealed class TcgRevealStateTests
         => new()
         {
             Kind = TcgCollectionDisplayKind.PackOpened,
-            Cards = [..cards.Select(card => card.Key).Distinct().Select(key => new TcgCatalogCardView(key, key, TcgElement.Fire, TcgRarity.Common, TcgCardType.Creature, 1, 0, 0, 0, 0, 1, 1, TcgKeyword.None, string.Empty, TcgArtKind.None, 0))],
+            Cards = [..cards.Select(card => card.Key).Distinct().Select(key => new TcgCatalogCardView(key, key, TcgElement.Fire, TcgRarity.Common, TcgCardType.Creature, 1, 0, 0, 0, 0, 1, 1, TcgKeyword.None, string.Empty, TcgArtKind.None, 0, TcgTargetKind.None))],
             Pack = [..cards]
         };
 

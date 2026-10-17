@@ -382,6 +382,8 @@ public sealed partial class WorldScreen
                 RememberTranslatableLine(args.LineId, TranslatedLineKind.Whisper, 0, false, TextColors.Whisper, args.Message);
                 WorldState.Chat.AddOrangeBarMessage(whisper.DisplayText, TextColors.Whisper);
                 SystemMessagePane.AddMessage(whisper.DisplayText, TextColors.Whisper);
+                if (TcgMatchOpen)
+                    TcgMatchWindow!.AcceptWhisper(args.Message, whisper.DisplayText);
 
                 break;
 

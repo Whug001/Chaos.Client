@@ -60,12 +60,14 @@ public sealed partial class WorldScreen
                 break;
 
             case TcgDisplayType.Update:
-                //the match window arrives in sub-project 2b
                 HideTcgChallengeWindows();
+                ShowTcgMatch(args);
 
                 break;
 
             case TcgDisplayType.Close:
+                EndTcgMatch(args);
+
                 if (!string.IsNullOrEmpty(args.Reason))
                     WorldState.Chat.AddOrangeBarMessage(args.Reason);
 

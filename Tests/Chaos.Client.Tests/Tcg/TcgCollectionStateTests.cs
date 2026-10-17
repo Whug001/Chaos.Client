@@ -25,7 +25,8 @@ public sealed class TcgCollectionStateTests
             TcgKeyword.None,
             string.Empty,
             TcgArtKind.None,
-            0);
+            0,
+            TcgTargetKind.None);
 
     private static TcgCollectionDisplayArgs Snapshot(
         IEnumerable<TcgCatalogCardView> cards,

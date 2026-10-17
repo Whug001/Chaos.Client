@@ -758,7 +758,7 @@ public static class AnimationSystem
         if (count == 0)
             return (info.WalkFrameIndex, 0, false);
 
-        var dirOffset = (info.WalkFrameIndex + (count * 2) - 1) >= info.TotalFrameCount ? 0 : count;
+        var dirOffset = CreatureDirectionOffset(info.WalkFrameIndex, count, info.TotalFrameCount);
 
         return direction switch
         {
@@ -769,6 +769,38 @@ public static class AnimationSystem
             _               => (info.WalkFrameIndex, count, false)
         };
     }
+
+    /// <summary>
+    ///     Returns the whole attack cycle — start frame, frame count, and flip flag — for a creature sprite facing the
+    ///     given direction. The attack companion to <see cref="GetCreatureWalkCycle" />: the same two-group frame
+    ///     layout and single-direction fallback, over the sprite's Attack1 block. Returns a count of 0 when the sprite
+    ///     defines no attack frames at all; callers must treat that as "do not animate" rather than indexing into it.
+    /// </summary>
+    public static (int StartFrame, int FrameCount, bool Flip) GetCreatureAttackCycle(in CreatureAnimInfo info, Direction direction)
+    {
+        var count = info.AttackFrameCount;
+
+        if (count == 0)
+            return (info.AttackFrameIndex, 0, false);
+
+        var dirOffset = CreatureDirectionOffset(info.AttackFrameIndex, count, info.TotalFrameCount);
+
+        return direction switch
+        {
+            Direction.Up => (info.AttackFrameIndex, count, false),
+            Direction.Right => (info.AttackFrameIndex + dirOffset, count, false),
+            Direction.Down => (info.AttackFrameIndex + dirOffset, count, true),
+            Direction.Left => (info.AttackFrameIndex, count, true),
+            _ => (info.AttackFrameIndex, count, false)
+        };
+    }
+
+    /// <summary>
+    ///     The second direction group's offset within an animation block, or 0 when the sprite defines only one group
+    ///     and every direction reuses the base frames. Checked against the block's last frame, the strictest case.
+    /// </summary>
+    private static int CreatureDirectionOffset(int start, int count, int total)
+        => (start + (count * 2) - 1) >= total ? 0 : count;
 
     /// <summary>
     ///     Computes the starting visual offset for a walk animation. The entity has already moved to the new tile; this offset
