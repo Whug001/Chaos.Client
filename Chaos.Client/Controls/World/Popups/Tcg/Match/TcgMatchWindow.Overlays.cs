@@ -204,6 +204,44 @@ public sealed partial class TcgMatchWindow
         return y + TcgCardFace.HEIGHT + 4;
     }
 
+    private const int HINT_WIDTH = 384;
+    private const int HINT_MAX_LINES = 3;
+
+    /// <summary>
+    ///     Where the hint banner goes. During the redraw phase the redraw cards fill the board, so the banner moves below
+    ///     the redraw overlay instead of dimming under it.
+    /// </summary>
+    public static Rectangle HintBannerRect(TcgDisplayArgs? board, int height)
+    {
+        var y = ((board is not null) && (board.Phase == TcgPhase.Redraw) && (board.Players.Count >= 2))
+            ? RedrawOverlay.Bottom + 4
+            : TcgMatchLayout.OpponentStrip.Bottom + 4;
+
+        return new Rectangle((TcgMatchLayout.Board.Width - HINT_WIDTH) / 2, y, HINT_WIDTH, height);
+    }
+
+    private void DrawHintBanner(SpriteBatch batch)
+    {
+        if (string.IsNullOrEmpty(State.Hint))
+            return;
+
+        var lines = TextRenderer.WrapLines(State.Hint, HINT_WIDTH - 16).Take(HINT_MAX_LINES).ToList();
+
+        if (lines.Count == 0)
+            return;
+
+        var height = (lines.Count * (TextRenderer.CHAR_HEIGHT + 2)) + 8;
+        var at = ToScreen(HintBannerRect(State.Latest, height));
+
+        UIElement.DrawBorderedRect(batch, at, BoxBack, LegendColors.Gold);
+
+        for (var i = 0; i < lines.Count; i++)
+        {
+            var x = at.X + ((at.Width - TextRenderer.MeasureWidth(lines[i])) / 2);
+            DrawTextClipped(batch, new Vector2(x, at.Y + 4 + (i * (TextRenderer.CHAR_HEIGHT + 2))), lines[i], Color.White, false);
+        }
+    }
+
     private void DrawRedraw(SpriteBatch batch)
     {
         if ((State.Latest is not { } latest) || (latest.Phase != TcgPhase.Redraw) || (latest.Players.Count < 2))

@@ -211,6 +211,7 @@ public sealed partial class TcgMatchWindow : UIPanel
         DrawTargeting(spriteBatch);
         DrawConcede(spriteBatch);
         DrawRedraw(spriteBatch);
+        DrawHintBanner(spriteBatch);
         DrawEndBanner(spriteBatch);
 
         base.Draw(spriteBatch);

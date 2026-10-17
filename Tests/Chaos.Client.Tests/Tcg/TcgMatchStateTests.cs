@@ -142,6 +142,41 @@ public sealed class TcgMatchStateTests
     }
 
     [Test]
+    public void Reads_the_hint_from_the_update()
+    {
+        var state = new TcgMatchState();
+        var update = Update();
+        update.Hint = "Attack with your owl.";
+
+        state.Apply(update, T0, k => k);
+
+        state.Hint.Should().Be("Attack with your owl.");
+    }
+
+    [Test]
+    public void An_update_without_a_hint_leaves_hint_empty()
+    {
+        var state = new TcgMatchState();
+
+        state.Apply(Update(), T0, k => k);
+
+        state.Hint.Should().BeEmpty();
+    }
+
+    [Test]
+    public void A_later_update_without_a_hint_clears_it()
+    {
+        var state = new TcgMatchState();
+        var hinted = Update();
+        hinted.Hint = "Block with your wall.";
+        state.Apply(hinted, T0, k => k);
+
+        state.Apply(Update(), T0.AddSeconds(1), k => k);
+
+        state.Hint.Should().BeEmpty();
+    }
+
+    [Test]
     public void Ending_records_the_outcome_and_stakes()
     {
         var state = new TcgMatchState();

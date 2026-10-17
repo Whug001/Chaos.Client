@@ -18,6 +18,7 @@ public sealed class TcgMatchState
     public DateTime ReceivedAt { get; private set; }
     public bool ManaPlacedThisTurn { get; private set; }
     public TcgMatchEnd? Ended { get; private set; }
+    public string Hint { get; private set; } = string.Empty;
     public IReadOnlyList<string> Log => LogLines;
     public string OpponentName => Latest is null ? string.Empty : Latest.Players[(int)TcgMatchRules.Other(Latest.YourSeat)].Name;
 
@@ -32,6 +33,7 @@ public sealed class TcgMatchState
 
         Latest = update;
         ReceivedAt = now;
+        Hint = update.Hint ?? string.Empty;
 
         foreach (var e in update.Events)
         {
@@ -112,6 +114,7 @@ public sealed class TcgMatchState
     {
         Latest = null;
         Ended = null;
+        Hint = string.Empty;
         ManaPlacedThisTurn = false;
         RedrawDone = false;
         LogLines.Clear();
