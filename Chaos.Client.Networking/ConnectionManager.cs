@@ -674,6 +674,9 @@ public sealed class ConnectionManager : IDisposable
     /// <summary>Fired when the server sends the card windows a binder snapshot, an opened pack, or close.</summary>
     public event TcgCollectionDisplayHandler? OnTcgCollectionDisplay;
 
+    /// <summary>Fired when the server sends a ranked queue update, a ready check, ranked info, or a ranked result.</summary>
+    public event TcgRankedDisplayHandler? OnTcgRankedDisplay;
+
     /// <summary>Fired when the server sends a card challenge, an offer, or the challenge windows closing.</summary>
     public event TcgDisplayHandler? OnTcgDisplay;
 
@@ -1995,6 +1998,7 @@ public sealed class ConnectionManager : IDisposable
         PacketHandlers[(byte)ServerOpCode.CraftingDisplay] = HandleCraftingDisplay;
         PacketHandlers[(byte)ServerOpCode.CommissionBoardDisplay] = HandleCommissionBoardDisplay;
         PacketHandlers[(byte)ServerOpCode.TcgCollectionDisplay] = HandleTcgCollectionDisplay;
+        PacketHandlers[(byte)ServerOpCode.TcgRankedDisplay] = HandleTcgRankedDisplay;
         PacketHandlers[(byte)ServerOpCode.TcgDisplay] = HandleTcgDisplay;
         PacketHandlers[(byte)ServerOpCode.TowerLeaderboard] = HandleTowerLeaderboard;
         PacketHandlers[(byte)ServerOpCode.CollegeDisplay] = HandleCollegeDisplay;
@@ -2578,6 +2582,12 @@ public sealed class ConnectionManager : IDisposable
     {
         var args = Client.Deserialize<TcgCollectionDisplayArgs>(in pkt);
         OnTcgCollectionDisplay?.Invoke(args);
+    }
+
+    private void HandleTcgRankedDisplay(ServerPacket pkt)
+    {
+        var args = Client.Deserialize<TcgRankedDisplayArgs>(in pkt);
+        OnTcgRankedDisplay?.Invoke(args);
     }
 
     private void HandleTcgDisplay(ServerPacket pkt)

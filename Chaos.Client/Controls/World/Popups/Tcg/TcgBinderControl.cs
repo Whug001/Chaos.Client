@@ -45,12 +45,12 @@ public sealed class TcgBinderControl : FramedDialogPanelBase
     private const int OK_RIGHT_MARGIN = 20;
     private const int PAGER_TOP = 334;
     private const int RENAME_TOP = DECK_BUTTONS_TOP + BUTTON_HEIGHT + 8;
-    private const int TAB_STEP = 56;
+    private const int TAB_STEP = 52;
     private const int TAB_TOP = 26;
-    private const int TAB_WIDTH = 52;
+    private const int TAB_WIDTH = 48;
     private const int TITLE_TOP = 8;
 
-    private static readonly string[] TabNames = ["All", "Fire", "Water", "Wind", "Earth", "Neutral", "Decks"];
+    private static readonly string[] TabNames = ["All", "Fire", "Water", "Wind", "Earth", "Neutral", "Decks", "Ranked"];
 
     private readonly CustomButton BreakButton;
     private readonly TcgChoicePanel Choice;
@@ -62,6 +62,7 @@ public sealed class TcgBinderControl : FramedDialogPanelBase
     private readonly TcgCardFace DetailFace;
     private readonly UILabel DustLabel;
     private readonly CustomButton EditDeckButton;
+    private readonly CustomButton FindMatchButton;
     private readonly TcgCardFace[] Faces = new TcgCardFace[TcgCollectionState.PAGE_SIZE];
     private readonly UILabel FoilLabel;
     private readonly UILabel HintLabel;
@@ -80,6 +81,15 @@ public sealed class TcgBinderControl : FramedDialogPanelBase
     private readonly CustomButton RenameDeckButton;
     private readonly UILabel RenameLabel;
     private readonly CustomButton RenameSaveButton;
+    private readonly UILabel RankedBestLabel;
+    private readonly UIPanel RankedPointsBar;
+    private readonly UIPanel RankedPointsFill;
+    private readonly UILabel RankedPointsLabel;
+    private readonly UILabel RankedRecentLabel;
+    private readonly UILabel RankedSeasonLabel;
+    private readonly UILabel RankedStepLabel;
+    private readonly UILabel RankedTopTitle;
+    private readonly UILabel[] RankedTopRows = new UILabel[TcgRankedState.LEADERBOARD_SIZE];
     private readonly CustomButton[] TabButtons = new CustomButton[TabNames.Length];
     private bool ClosedByServer;
     private string? RenamingDeck;
@@ -132,7 +142,7 @@ public sealed class TcgBinderControl : FramedDialogPanelBase
 
         AddChild(OwnedOnlyBox);
 
-        DustLabel = Label(500, TAB_TOP + 5, 100, string.Empty, LegendColors.Gold, HorizontalAlignment.Right);
+        DustLabel = Label(524, TAB_TOP + 5, 76, string.Empty, LegendColors.Gold, HorizontalAlignment.Right);
         AddChild(DustLabel);
 
         for (var i = 0; i < Faces.Length; i++)
@@ -222,7 +232,8 @@ public sealed class TcgBinderControl : FramedDialogPanelBase
         EditDeckButton = Button("Edit", LEFT + DECK_BUTTON_STEP, DECK_BUTTONS_TOP, DECK_BUTTON_WIDTH, EditSelectedDeck);
         RenameDeckButton = Button("Rename", LEFT + (2 * DECK_BUTTON_STEP), DECK_BUTTONS_TOP, DECK_BUTTON_WIDTH, StartRename);
         DeleteDeckButton = Button("Delete", LEFT + (3 * DECK_BUTTON_STEP), DECK_BUTTONS_TOP, DECK_BUTTON_WIDTH, DeleteSelectedDeck);
-        DeckButtons = [NewDeckButton, EditDeckButton, RenameDeckButton, DeleteDeckButton];
+        FindMatchButton = Button("Find match", LEFT + (4 * DECK_BUTTON_STEP), DECK_BUTTONS_TOP, DECK_BUTTON_WIDTH, FindMatch);
+        DeckButtons = [NewDeckButton, EditDeckButton, RenameDeckButton, DeleteDeckButton, FindMatchButton];
 
         RenameLabel = Label(LEFT, RENAME_TOP + 5, 60, "New name", LegendColors.White);
         AddChild(RenameLabel);
@@ -246,6 +257,29 @@ public sealed class TcgBinderControl : FramedDialogPanelBase
         MessageLabel = Label(LEFT, MESSAGE_TOP, CONTENT_WIDTH, string.Empty, LegendColors.Orange);
         AddChild(MessageLabel);
 
+        RankedStepLabel = Label(LEFT, GRID_TOP, CONTENT_WIDTH, string.Empty, LegendColors.Gold);
+        AddChild(RankedStepLabel);
+        RankedPointsBar = new UIPanel { X = LEFT, Y = GRID_TOP + 18, Width = CONTENT_WIDTH / 2, Height = 10, BackgroundColor = new Color(28, 20, 12), BorderColor = LegendColors.Gold, IsHitTestVisible = false };
+        RankedPointsFill = new UIPanel { X = 1, Y = 1, Width = 0, Height = 8, BackgroundColor = LegendColors.Gold, IsHitTestVisible = false };
+        RankedPointsLabel = Label(LEFT + (CONTENT_WIDTH / 2) + 6, GRID_TOP + 18, CONTENT_WIDTH - (CONTENT_WIDTH / 2) - 6, string.Empty, LegendColors.Gold);
+        RankedPointsBar.AddChild(RankedPointsFill);
+        AddChild(RankedPointsBar);
+        AddChild(RankedPointsLabel);
+        RankedBestLabel = Label(LEFT, GRID_TOP + 38, CONTENT_WIDTH, string.Empty, LegendColors.White);
+        AddChild(RankedBestLabel);
+        RankedSeasonLabel = Label(LEFT, GRID_TOP + 56, CONTENT_WIDTH, string.Empty, LegendColors.White);
+        AddChild(RankedSeasonLabel);
+        RankedRecentLabel = Label(LEFT, GRID_TOP + 74, CONTENT_WIDTH, string.Empty, LegendColors.White);
+        AddChild(RankedRecentLabel);
+        RankedTopTitle = Label(LEFT, GRID_TOP + 98, CONTENT_WIDTH, "Top 10", LegendColors.Gold);
+        AddChild(RankedTopTitle);
+
+        for (var i = 0; i < RankedTopRows.Length; i++)
+        {
+            RankedTopRows[i] = Label(LEFT, GRID_TOP + 116 + (i * 18), CONTENT_WIDTH, string.Empty, LegendColors.White);
+            AddChild(RankedTopRows[i]);
+        }
+
         //last, so it draws over everything and swallows clicks meant for what is behind it
         Choice = new TcgChoicePanel(PANEL_WIDTH, PANEL_HEIGHT);
         AddChild(Choice);
@@ -255,6 +289,12 @@ public sealed class TcgBinderControl : FramedDialogPanelBase
 
     /// <summary>Every request to send, including Close when the player closes the window.</summary>
     public event Action<TcgCollectionActionArgs>? ActionRequested;
+
+    /// <summary>Find match on the Decks tab: the name of the deck to queue with.</summary>
+    public event Action<string>? FindMatchClicked;
+
+    /// <summary>The Ranked tab was opened: the server ladder info is needed.</summary>
+    public event Action? RankedTabOpened;
 
     /// <summary>The window was hidden, by the player or the server. The deck builder closes with it.</summary>
     public event Action? Closed;
@@ -332,18 +372,31 @@ public sealed class TcgBinderControl : FramedDialogPanelBase
             return;
 
         var decksTab = State.Tab == TcgBinderTab.Decks;
+        var rankedTab = State.Tab == TcgBinderTab.Ranked;
+        var cardsTab = !decksTab && !rankedTab;
 
         for (var i = 0; i < TabButtons.Length; i++)
             TabButtons[i].Selected = (TcgBinderTab)i == State.Tab;
 
-        OwnedOnlyBox.Visible = !decksTab;
+        OwnedOnlyBox.Visible = cardsTab;
         OwnedOnlyBox.Checked = State.OwnedOnly;
         DustLabel.Text = $"Dust: {State.Dust:N0}";
         MessageLabel.Text = State.Message;
+        MessageLabel.Visible = !rankedTab;
 
-        RefreshGrid(decksTab);
-        RefreshDetail(decksTab);
+        RefreshGrid(decksTab || rankedTab);
+        RefreshDetail(decksTab || rankedTab);
         RefreshDecks(decksTab);
+        RefreshRanked(rankedTab);
+    }
+
+    public override void Update(GameTime gameTime)
+    {
+        base.Update(gameTime);
+
+        //the queue mode changes outside the binder, so re-check the button every frame
+        if (Visible && (State.Tab == TcgBinderTab.Decks))
+            FindMatchButton.Enabled = (SelectedDeckView() is { } selected) && WorldState.TcgRanked.CanFindMatch(selected.Status);
     }
 
     private CustomButton Button(string caption, int x, int y, int width, ClickedHandler onClick)
@@ -393,6 +446,12 @@ public sealed class TcgBinderControl : FramedDialogPanelBase
                 SelectedDeck = null;
                 Request(TcgCollectionState.DeleteAction(deck.Name));
             });
+    }
+
+    private void FindMatch()
+    {
+        if (SelectedDeckView() is { } deck)
+            FindMatchClicked?.Invoke(deck.Name);
     }
 
     private void EditSelectedDeck()
@@ -565,12 +624,57 @@ public sealed class TcgBinderControl : FramedDialogPanelBase
         EditDeckButton.Enabled = SelectedDeck is not null;
         RenameDeckButton.Enabled = SelectedDeck is not null;
         DeleteDeckButton.Enabled = SelectedDeck is not null;
+        FindMatchButton.Enabled = (SelectedDeckView() is { } selected) && WorldState.TcgRanked.CanFindMatch(selected.Status);
 
         var renaming = shown && (RenamingDeck is not null);
         RenameLabel.Visible = renaming;
         RenameBox.Visible = renaming;
         RenameSaveButton.Visible = renaming;
         RenameCancelButton.Visible = renaming;
+    }
+
+    private void RefreshRanked(bool shown)
+    {
+        var info = WorldState.TcgRanked.Info;
+
+        RankedStepLabel.Visible = shown;
+        RankedPointsLabel.Visible = shown && (info is not null);
+        RankedPointsBar.Visible = shown && (info is not null);
+        RankedBestLabel.Visible = shown && (info is not null);
+        RankedSeasonLabel.Visible = shown && (info is not null);
+        RankedRecentLabel.Visible = shown && (info is not null);
+        RankedTopTitle.Visible = shown && (info is not null);
+
+        foreach (var row in RankedTopRows)
+            row.Visible = false;
+
+        if (!shown)
+            return;
+
+        if (info is null)
+        {
+            RankedStepLabel.Text = "Loading...";
+
+            return;
+        }
+
+        RankedStepLabel.Text = TcgRankedState.StepName(info.Step);
+        RankedPointsLabel.Text = TcgRankedState.PointsText(info.Step, info.Points, info.LeaderboardPosition);
+        var full = (info.Step >= TcgRankedState.TOP_STEP) && (info.Points >= TcgRankedState.STEP_POINTS);
+        var fraction = full ? 1.0 : Math.Clamp((double)info.Points / TcgRankedState.STEP_POINTS, 0.0, 1.0);
+        RankedPointsFill.Width = (int)Math.Round((RankedPointsBar.Width - 2) * fraction);
+        RankedBestLabel.Text = $"Best this season: {TcgRankedState.StepName(info.BestStep)}";
+        RankedSeasonLabel.Text = $"Season {info.Season} ends {DateTimeOffset.FromUnixTimeSeconds(info.SeasonEndUnix).UtcDateTime:yyyy-MM-dd}";
+        RankedRecentLabel.Text = string.IsNullOrEmpty(info.Recent) ? "Recent: -" : $"Recent: {string.Join(" ", info.Recent.ToCharArray())}";
+
+        for (var i = 0; i < RankedTopRows.Length; i++)
+        {
+            if (i >= info.Top.Count)
+                break;
+
+            RankedTopRows[i].Visible = true;
+            RankedTopRows[i].Text = $"#{i + 1} {info.Top[i]}";
+        }
     }
 
     private void RefreshDetail(bool decksTab)
@@ -676,6 +780,9 @@ public sealed class TcgBinderControl : FramedDialogPanelBase
         RenameBox.IsFocused = false;
         State.SetTab(tab);
         Refresh();
+
+        if (tab == TcgBinderTab.Ranked)
+            RankedTabOpened?.Invoke();
     }
 
     private void StartRename()

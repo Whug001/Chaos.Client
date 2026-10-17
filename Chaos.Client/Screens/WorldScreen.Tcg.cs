@@ -51,6 +51,8 @@ public sealed partial class WorldScreen
         binder.ActionRequested += SendTcgCollectionAction;
         binder.EditDeckRequested += OpenTcgDeckBuilder;
         binder.Closed += OnTcgBinderClosed;
+        binder.FindMatchClicked += SendTcgRankedJoin;
+        binder.RankedTabOpened += SendTcgRankedInfo;
         builder.ActionRequested += SendTcgCollectionAction;
 
         Root!.AddChild(binder);
@@ -147,16 +149,23 @@ public sealed partial class WorldScreen
 
     private void SendTcgCollectionAction(TcgCollectionActionArgs args) => Game.Connection.SendTcgCollectionAction(args);
 
+    private void SendTcgRankedJoin(string deckName) => Game.Connection.SendTcgAction(TcgRankedState.JoinAction(deckName));
+
+    private void SendTcgRankedInfo() => Game.Connection.SendTcgAction(TcgRankedState.InfoAction());
+
     private void UnwireTcg()
     {
         Game.Connection.OnTcgCollectionDisplay -= HandleTcgCollectionDisplay;
         Game.Connection.OnTcgDisplay -= OnTcgDisplay;
+        UnwireTcgRanked();
 
         if (TcgBinderWindow is not null)
         {
             TcgBinderWindow.ActionRequested -= SendTcgCollectionAction;
             TcgBinderWindow.EditDeckRequested -= OpenTcgDeckBuilder;
             TcgBinderWindow.Closed -= OnTcgBinderClosed;
+            TcgBinderWindow.FindMatchClicked -= SendTcgRankedJoin;
+            TcgBinderWindow.RankedTabOpened -= SendTcgRankedInfo;
         }
 
         if (TcgDeckBuilderWindow is not null)
@@ -167,5 +176,6 @@ public sealed partial class WorldScreen
     {
         Game.Connection.OnTcgCollectionDisplay += HandleTcgCollectionDisplay;
         Game.Connection.OnTcgDisplay += OnTcgDisplay;
+        WireTcgRanked();
     }
 }

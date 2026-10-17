@@ -15,7 +15,8 @@ public enum TcgBinderTab : byte
     Wind,
     Earth,
     Neutral,
-    Decks
+    Decks,
+    Ranked
 }
 
 /// <summary>
@@ -202,7 +203,7 @@ public sealed class TcgCollectionState
     /// <summary>The cards a tab shows, sorted. The Decks tab shows no cards.</summary>
     public IReadOnlyList<TcgCatalogCardView> Filter(TcgBinderTab tab, bool ownedOnly)
     {
-        if (tab == TcgBinderTab.Decks)
+        if (tab is TcgBinderTab.Decks or TcgBinderTab.Ranked)
             return [];
 
         var element = ElementOf(tab);

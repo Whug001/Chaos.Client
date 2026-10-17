@@ -191,6 +191,9 @@ public static class WorldState
     /// <summary>The card binder's last snapshot and what the card windows show. Cleared on logout.</summary>
     public static TcgCollectionState TcgCollection { get; } = new();
 
+    /// <summary>The ranked queue's mode plus the last ranked info snapshot. Cleared on logout.</summary>
+    public static TcgRankedState TcgRanked { get; } = new();
+
     /// <summary>
     ///     Authoritative poker table state (table properties, seat roster, board, pot, whose turn it is, legal
     ///     actions).
@@ -517,6 +520,7 @@ public static class WorldState
         Crafting.Clear();
         CommissionBoard.Clear();
         TcgCollection.Clear();
+        TcgRanked.Clear();
         PokerTable.Clear();
         BeautyShop.Clear();
     }
