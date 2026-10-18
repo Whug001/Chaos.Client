@@ -458,6 +458,7 @@ public sealed class TcgMatchInputTests
         input.Sync(board);
 
         input.IncomingDamage(board).Should().Be(0);
+        input.IncomingDamageText(board).Should().Be("Phased");
     }
 
     [Test]

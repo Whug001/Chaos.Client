@@ -351,7 +351,10 @@ public sealed class TcgMatchInput(Func<string, TcgCatalogCardView?> lookup)
     public string IncomingDamageText(TcgDisplayArgs board) => IncomingDamageText(board, IncomingDamage(board));
 
     public string IncomingDamageText(TcgDisplayArgs board, int damage)
-        => (board.Attackers.Count > 0) && (damage == 0) ? "All blocked" : $"Incoming: {damage} damage";
+        => (board.Attackers.Count > 0) && (damage == 0) ? (IsShielded(board) ? "Phased" : "All blocked") : $"Incoming: {damage} damage";
+
+    private static bool IsShielded(TcgDisplayArgs board)
+        => (board.Players.Count > (int)board.YourSeat) && board.Players[(int)board.YourSeat].Shielded;
 
     private bool HasKeyword(string key, TcgKeyword keyword) => lookup(key) is { } card && ((card.Keywords & keyword) != 0);
 

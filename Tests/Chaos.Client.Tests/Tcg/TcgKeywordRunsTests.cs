@@ -27,4 +27,8 @@ public sealed class TcgKeywordRunsTests
     [Test]
     public void Empty_line_has_no_runs()
         => TcgKeywordRuns.Find(string.Empty).Should().BeEmpty();
+
+    [Test]
+    public void Phased_is_a_hoverable_term()
+        => TcgKeywordRuns.Find("you become Phased.").Should().Equal(new TcgKeywordRun(11, 6, "Phased"));
 }

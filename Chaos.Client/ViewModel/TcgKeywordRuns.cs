@@ -13,8 +13,7 @@ public readonly record struct TcgKeywordRun(int Index, int Length, string Name);
 public static class TcgKeywordRuns
 {
     //longest first, so a name that is part of a longer one can never claim the longer one's text
-    private static readonly string[] Names = TcgKeywordText.All
-                                                           .Select(entry => entry.Name)
+    private static readonly string[] Names = TcgKeywordText.HoverableNames
                                                            .OrderByDescending(name => name.Length)
                                                            .ToArray();
 
