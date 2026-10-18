@@ -49,8 +49,10 @@ public sealed partial class TcgMatchWindow
     private void DrawTimers(SpriteBatch batch, DateTime now)
     {
         var at = At(TcgMatchLayout.Timers);
-        DrawTextClipped(batch, new Vector2(at.X, at.Y), ClockText(State.TurnSecondsLeft(now)), Color.White, false);
-        DrawTextClipped(batch, new Vector2(at.X, at.Y + 14), $"+{ClockText(State.ReserveSecondsLeft(now))}", Color.White, false);
+        var lines = State.TimerLines(now);
+
+        for (var i = 0; i < lines.Count; i++)
+            DrawTextClipped(batch, new Vector2(at.X, at.Y + (14 * i)), lines[i].Text, lines[i].Urgent ? Color.Red : Color.White, false);
     }
 
     private void DrawPhaseLine(SpriteBatch batch, TcgDisplayArgs latest)
@@ -125,6 +127,4 @@ public sealed partial class TcgMatchWindow
 
         return Math.Clamp(frame, 0, TcgMatchArt.HOURGLASS_FRAMES - 1);
     }
-
-    private static string ClockText(int seconds) => $"{seconds / 60}:{seconds % 60:00}";
 }

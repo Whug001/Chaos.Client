@@ -7,6 +7,9 @@ namespace Chaos.Client.ViewModel;
 
 public sealed record TcgMatchEnd(TcgEndOutcome Outcome, string ReasonText, string StakesText, string WinnerName = "");
 
+/// <summary>One timer line for the match column: the M:SS text, and whether it draws red (5 s or less left).</summary>
+public readonly record struct TcgTimerLine(string Text, bool Urgent);
+
 /// <summary>The newest match Update plus what the client works out from the stream of Updates.</summary>
 public sealed class TcgMatchState
 {
@@ -95,6 +98,32 @@ public sealed class TcgMatchState
             : TcgMatchText.StakesResult(outcome, Latest.Stakes, Latest.StakeGold, Latest.Ante, you, cardName, close.Winner, winnerName);
 
         Ended = new TcgMatchEnd(outcome, TcgMatchText.EndReasonText(close.EndReason), stakes, winnerName);
+    }
+
+    public static string ClockText(int seconds) => $"{seconds / 60}:{seconds % 60:00}";
+
+    /// <summary>
+    ///     True when the column shows the decision countdown instead of the turn + reserve clocks: the viewer has a
+    ///     Block, DamageOrder or Respond decision. Main keeps the turn + reserve lines.
+    /// </summary>
+    public bool ShowsDecisionCountdown()
+        => Latest is { Spectating: false, Decision: TcgDecision.Block or TcgDecision.DamageOrder or TcgDecision.Respond }
+            && (Latest.Decider == Latest.YourSeat);
+
+    /// <summary>
+    ///     The timer lines for the column: the decision countdown (urgent at 5 s or less) while the viewer decides a
+    ///     Block, DamageOrder or Respond, otherwise the turn clock plus the reserve clock.
+    /// </summary>
+    public IReadOnlyList<TcgTimerLine> TimerLines(DateTime now)
+    {
+        if (ShowsDecisionCountdown())
+        {
+            var left = DecisionSecondsLeft(now);
+
+            return [new TcgTimerLine(ClockText(left), left <= 5)];
+        }
+
+        return [new TcgTimerLine(ClockText(TurnSecondsLeft(now)), false), new TcgTimerLine($"+{ClockText(ReserveSecondsLeft(now))}", false)];
     }
 
     public int DecisionSecondsLeft(DateTime now) => Latest is null ? 0 : SecondsLeft(Latest.DecisionMs, now);

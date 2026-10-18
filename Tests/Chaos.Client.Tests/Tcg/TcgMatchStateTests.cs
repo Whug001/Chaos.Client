@@ -265,4 +265,76 @@ public sealed class TcgMatchStateTests
 
         state.NeedsRedraw.Should().BeFalse();
     }
+
+    [Test]
+    [Arguments(TcgDecision.Block)]
+    [Arguments(TcgDecision.DamageOrder)]
+    [Arguments(TcgDecision.Respond)]
+    public void Your_block_order_or_response_shows_its_own_countdown(TcgDecision decision)
+    {
+        var state = new TcgMatchState();
+        var board = Update();
+        board.Decision = decision;
+        board.Decider = TcgSeat.A;
+
+        state.Apply(board, T0, k => k);
+
+        state.ShowsDecisionCountdown().Should().BeTrue();
+        state.TimerLines(T0.AddSeconds(5)).Should().Equal(new TcgTimerLine("0:25", false));
+    }
+
+    [Test]
+    public void The_decision_countdown_turns_urgent_at_five_seconds()
+    {
+        var state = new TcgMatchState();
+        var board = Update();
+        board.Decision = TcgDecision.Block;
+        board.Decider = TcgSeat.A;
+
+        state.Apply(board, T0, k => k);
+
+        state.TimerLines(T0.AddSeconds(24)).Should().Equal(new TcgTimerLine("0:06", false));
+        state.TimerLines(T0.AddSeconds(25)).Should().Equal(new TcgTimerLine("0:05", true));
+        state.TimerLines(T0.AddSeconds(29)).Should().Equal(new TcgTimerLine("0:01", true));
+    }
+
+    [Test]
+    public void The_opponents_block_keeps_the_turn_and_reserve_clocks()
+    {
+        var state = new TcgMatchState();
+        var board = Update();
+        board.Decision = TcgDecision.Block;
+        board.Decider = TcgSeat.B;
+
+        state.Apply(board, T0, k => k);
+
+        state.ShowsDecisionCountdown().Should().BeFalse();
+        state.TimerLines(T0.AddSeconds(4)).Should().Equal(new TcgTimerLine("0:10", false), new TcgTimerLine("+2:00", false));
+    }
+
+    [Test]
+    public void A_watched_block_keeps_the_turn_and_reserve_clocks()
+    {
+        var state = new TcgMatchState();
+        var board = Update();
+        board.Decision = TcgDecision.Block;
+        board.Decider = TcgSeat.A;
+        board.Spectating = true;
+
+        state.Apply(board, T0, k => k);
+
+        state.ShowsDecisionCountdown().Should().BeFalse();
+        state.TimerLines(T0.AddSeconds(4)).Should().Equal(new TcgTimerLine("0:10", false), new TcgTimerLine("+2:00", false));
+    }
+
+    [Test]
+    public void Your_main_decision_keeps_the_turn_and_reserve_clocks()
+    {
+        var state = new TcgMatchState();
+
+        state.Apply(Update(), T0, k => k);
+
+        state.ShowsDecisionCountdown().Should().BeFalse();
+        state.TimerLines(T0.AddSeconds(4)).Should().Equal(new TcgTimerLine("0:06", false), new TcgTimerLine("+2:00", false));
+    }
 }

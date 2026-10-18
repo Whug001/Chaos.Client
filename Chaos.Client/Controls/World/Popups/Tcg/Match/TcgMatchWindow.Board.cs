@@ -178,6 +178,11 @@ public sealed partial class TcgMatchWindow
             if (CreatureOutlined(view))
                 DrawAttackerOutline(batch, slot);
 
+            var choice = TcgCreatureBorders.ForCreature(board, Input, view, Catalog.Get);
+
+            if (choice.Border != TcgCreatureBorder.None)
+                DrawSelectionBorder(batch, slot, choice.Border, choice.Mode);
+
             if (yours && ReadyGlow(board, Input, view, HoverCreatureId, Catalog.Get) is var glow && (glow != TcgReadyGlow.None))
                 DrawReadyGlow(batch, feet, glow == TcgReadyGlow.Attack ? LegendColors.Gold : BlockGlow, clockMs);
 

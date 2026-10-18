@@ -253,6 +253,22 @@ public sealed partial class TcgMatchWindow
             UIElement.DrawBorder(batch, at, LegendColors.Gold);
     }
 
+    private void DrawSelectionBorder(SpriteBatch batch, Point feet, TcgCreatureBorder border, TcgSelectionMode mode)
+    {
+        var at = ToScreen(new Rectangle(feet.X - 24, feet.Y - 48, 48, 48));
+        var color = mode == TcgSelectionMode.Block ? BlockGlow : LegendColors.Gold;
+
+        if (border == TcgCreatureBorder.Selected)
+        {
+            UIElement.DrawBorder(batch, at, color);
+            at.Inflate(-1, -1);
+
+            if ((at.Width > 0) && (at.Height > 0))
+                UIElement.DrawBorder(batch, at, color);
+        } else
+            UIElement.DrawBorder(batch, at, color * 0.45f);
+    }
+
     private Rectangle ToScreen(Rectangle local) => new(ScreenX + local.X, ScreenY + local.Y, local.Width, local.Height);
 
     public static bool HandleCombatClick(TcgDisplayArgs board, TcgDisplayArgs latest, TcgMatchInput input, int x, int y)

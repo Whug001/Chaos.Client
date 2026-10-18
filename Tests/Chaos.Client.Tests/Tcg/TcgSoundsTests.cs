@@ -81,4 +81,65 @@ public sealed class TcgSoundsTests
     {
         TcgSounds.ForOutcome(outcome).Should().Be(sound);
     }
+
+    private static TcgDisplayArgs Board(TcgDecision decision, TcgSeat decider, bool spectating = false)
+        => new()
+        {
+            Type = TcgDisplayType.Update,
+            Decision = decision,
+            Decider = decider,
+            YourSeat = TcgSeat.A,
+            Spectating = spectating
+        };
+
+    [Test]
+    [Arguments(TcgDecision.Redraw)]
+    [Arguments(TcgDecision.Main)]
+    [Arguments(TcgDecision.Respond)]
+    [Arguments(TcgDecision.Block)]
+    [Arguments(TcgDecision.DamageOrder)]
+    public void Your_decision_ticks_in_its_last_five_seconds(TcgDecision decision)
+    {
+        var board = Board(decision, TcgSeat.A);
+
+        foreach (var second in new[] { 5, 4, 3, 2, 1 })
+            TcgSounds.ShouldTickDecision(board, second, null).Should().BeTrue(second.ToString());
+    }
+
+    [Test]
+    [Arguments(0)]
+    [Arguments(6)]
+    [Arguments(30)]
+    public void Outside_the_last_five_seconds_stays_silent(int second)
+    {
+        TcgSounds.ShouldTickDecision(Board(TcgDecision.Block, TcgSeat.A), second, null).Should().BeFalse();
+    }
+
+    [Test]
+    public void The_opponents_decision_stays_silent()
+    {
+        TcgSounds.ShouldTickDecision(Board(TcgDecision.Block, TcgSeat.B), 3, null).Should().BeFalse();
+    }
+
+    [Test]
+    public void Spectators_never_hear_the_tick()
+    {
+        TcgSounds.ShouldTickDecision(Board(TcgDecision.Block, TcgSeat.A, spectating: true), 3, null).Should().BeFalse();
+    }
+
+    [Test]
+    public void No_decision_means_no_tick()
+    {
+        TcgSounds.ShouldTickDecision(Board(TcgDecision.None, TcgSeat.A), 3, null).Should().BeFalse();
+    }
+
+    [Test]
+    public void Each_second_ticks_only_once()
+    {
+        var board = Board(TcgDecision.Block, TcgSeat.A);
+
+        TcgSounds.ShouldTickDecision(board, 5, null).Should().BeTrue();
+        TcgSounds.ShouldTickDecision(board, 5, 5).Should().BeFalse();
+        TcgSounds.ShouldTickDecision(board, 4, 5).Should().BeTrue();
+    }
 }

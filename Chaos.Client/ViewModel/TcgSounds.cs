@@ -25,6 +25,7 @@ public static class TcgSounds
     public const int VICTORY = 198;
     public const int DEFEAT = 199;
     public const int BELL = 200;
+    public const int COUNTDOWN_TICK = 201;
 
     /// <summary>The sound for an event when the animation queue reaches it.</summary>
     public static int? ForQueuedEvent(TcgEventView e)
@@ -60,4 +61,17 @@ public static class TcgSounds
             TcgEndOutcome.Defeat  => DEFEAT,
             _                     => BELL
         };
+
+    /// <summary>
+    ///     True when the window should play the countdown tick this frame: the viewer (not a spectator) is the decider
+    ///     of a live decision with 5 s or less left, and that second has not ticked yet. The window passes back the
+    ///     second it ticked as <paramref name="lastTickedSecond" />, and clears it when a new decision arrives.
+    /// </summary>
+    public static bool ShouldTickDecision(TcgDisplayArgs board, int secondsLeft, int? lastTickedSecond)
+        => !board.Spectating
+            && (board.Decision != TcgDecision.None)
+            && (board.Decider == board.YourSeat)
+            && (secondsLeft >= 1)
+            && (secondsLeft <= 5)
+            && (lastTickedSecond != secondsLeft);
 }

@@ -26,6 +26,7 @@ public sealed partial class TcgMatchWindow : UIPanel
     private readonly TcgCollectionState Catalog;
     private readonly SoundSystem Sounds;
     private TcgEventView? LastSoundEvent;
+    private int? LastTickSecond;
     private readonly CustomTextBox SayBox;
 
     private int HoverHandId;
@@ -140,9 +141,17 @@ public sealed partial class TcgMatchWindow : UIPanel
 
     public void ShowMatch(TcgDisplayArgs update)
     {
-        var previousId = State.Latest?.MatchId;
+        var previous = State.Latest;
+        var previousId = previous?.MatchId;
         var wasVisible = Visible;
         var isNew = !string.Equals(previousId, update.MatchId, StringComparison.Ordinal);
+
+        if ((previous is null)
+            || !string.Equals(previous.MatchId, update.MatchId, StringComparison.Ordinal)
+            || (previous.Decision != update.Decision)
+            || (previous.Decider != update.Decider))
+            LastTickSecond = null;
+
         State.Apply(update, DateTime.UtcNow, CardName);
         SayBox.Visible = !State.Spectating;
 
@@ -207,6 +216,7 @@ public sealed partial class TcgMatchWindow : UIPanel
         TurnBannerSeenBoard = null;
         TurnBannerElapsedMs = 0;
         LastSoundEvent = null;
+        LastTickSecond = null;
         State.Reset();
         Queue.Clear(null);
         Input.Cancel();
@@ -220,6 +230,7 @@ public sealed partial class TcgMatchWindow : UIPanel
     {
         Queue.Advance(gameTime.ElapsedGameTime.TotalMilliseconds);
         PlayQueuedSound();
+        SyncDecisionTick();
         SyncTurnBanner(gameTime.ElapsedGameTime.TotalMilliseconds);
         SyncCardMenu();
         SyncResponseBigCard();
@@ -239,6 +250,21 @@ public sealed partial class TcgMatchWindow : UIPanel
 
         if (Visible && (current is not null) && TcgSounds.ForQueuedEvent(current) is { } sound)
             Sounds.PlaySound(sound);
+    }
+
+    //one tick per second for the last five seconds of the viewer's own decision, never for watchers or the opponent
+    private void SyncDecisionTick()
+    {
+        if (!Visible || (State.Latest is null))
+            return;
+
+        var left = State.DecisionSecondsLeft(DateTime.UtcNow);
+
+        if (TcgSounds.ShouldTickDecision(State.Latest, left, LastTickSecond))
+        {
+            Sounds.PlaySound(TcgSounds.COUNTDOWN_TICK);
+            LastTickSecond = left;
+        }
     }
 
     public override void Draw(SpriteBatch spriteBatch)
