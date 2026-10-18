@@ -78,6 +78,9 @@ public sealed partial class TcgMatchWindow
         bool needsRedraw,
         Func<string, TcgCatalogCardView?> lookup)
     {
+        if (input.Mode == TcgInputMode.Targeting)
+            return "Click a target. Esc cancels.";
+
         if (input.Mode == TcgInputMode.Blocking)
             return HasGuardProblem(board, input.Blocks, lookup) ? "A Guard creature must block." : "Click or drag your creatures onto attackers to block, then Confirm.";
 

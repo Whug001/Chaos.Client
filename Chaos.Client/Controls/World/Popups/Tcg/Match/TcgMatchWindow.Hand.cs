@@ -261,10 +261,13 @@ public sealed partial class TcgMatchWindow
         }
     }
 
-    private static Rectangle? TargetRect(TcgDisplayArgs board, int id)
+    public static Rectangle? TargetRect(TcgDisplayArgs board, int id)
     {
         if (id < 0)
             return id == TcgMatchRules.PlayerTarget(board.YourSeat) ? TcgMatchLayout.YourSeal : TcgMatchLayout.OpponentSeal;
+
+        if ((board.Stack.Count > 0) && (board.Stack[^1].CardId == id))
+            return TcgMatchLayout.BigCard;
 
         foreach (var yours in new[] { true, false })
         {
