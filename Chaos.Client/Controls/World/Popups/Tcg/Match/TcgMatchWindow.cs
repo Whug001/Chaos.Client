@@ -4,6 +4,7 @@ using Chaos.Client.Controls.Components;
 using Chaos.Client.Controls.Custom;
 using Chaos.Client.Controls.World.Popups.Tcg;
 using Chaos.Client.Rendering;
+using Chaos.Client.Systems;
 using Chaos.Client.ViewModel;
 using Chaos.DarkAges.Definitions;
 using Chaos.Networking.Entities.Client;
@@ -23,6 +24,8 @@ public sealed partial class TcgMatchWindow : UIPanel
 {
     private readonly CreatureRenderer Creatures;
     private readonly TcgCollectionState Catalog;
+    private readonly SoundSystem Sounds;
+    private TcgEventView? LastSoundEvent;
     private readonly CustomTextBox SayBox;
 
     private int HoverHandId;
@@ -30,10 +33,11 @@ public sealed partial class TcgMatchWindow : UIPanel
     private string? HoverKey;
     private TcgPrinting HoverPrinting;
 
-    public TcgMatchWindow(CreatureRenderer creatures, TcgCollectionState catalog)
+    public TcgMatchWindow(CreatureRenderer creatures, TcgCollectionState catalog, SoundSystem sounds)
     {
         Creatures = creatures;
         Catalog = catalog;
+        Sounds = sounds;
         X = 0;
         Y = 0;
         Width = 640;
@@ -152,7 +156,10 @@ public sealed partial class TcgMatchWindow : UIPanel
         } else if (!wasVisible)
             Queue.Clear(update);
         else
+        {
             Queue.Enqueue(update);
+            PlayAppliedSounds(update);
+        }
 
         Input.Sync(update);
 
@@ -163,10 +170,21 @@ public sealed partial class TcgMatchWindow : UIPanel
         }
     }
 
+    //only on a live update of an open match, so reopening the window or starting a match makes no burst of old sounds
+    private void PlayAppliedSounds(TcgDisplayArgs update)
+    {
+        foreach (var e in update.Events)
+            if (TcgSounds.ForAppliedEvent(e) is { } sound)
+                Sounds.PlaySound(sound);
+    }
+
     public void EndMatch(TcgDisplayArgs close)
     {
         State.End(close, CardName);
         Queue.Clear(State.Latest);
+
+        if (Visible && State.Ended is { } ended)
+            Sounds.PlaySound(TcgSounds.ForOutcome(ended.Outcome));
     }
 
     public void Hide()
@@ -188,6 +206,7 @@ public sealed partial class TcgMatchWindow : UIPanel
         TurnBannerBoard = null;
         TurnBannerSeenBoard = null;
         TurnBannerElapsedMs = 0;
+        LastSoundEvent = null;
         State.Reset();
         Queue.Clear(null);
         Input.Cancel();
@@ -200,11 +219,26 @@ public sealed partial class TcgMatchWindow : UIPanel
     public override void Update(GameTime gameTime)
     {
         Queue.Advance(gameTime.ElapsedGameTime.TotalMilliseconds);
+        PlayQueuedSound();
         SyncTurnBanner(gameTime.ElapsedGameTime.TotalMilliseconds);
         SyncCardMenu();
         SyncResponseBigCard();
 
         base.Update(gameTime);
+    }
+
+    //TcgEventView is a record, so equal events in a row still differ by reference; events skipped by catch-up are never Current and stay silent
+    private void PlayQueuedSound()
+    {
+        var current = Queue.Current;
+
+        if (ReferenceEquals(current, LastSoundEvent))
+            return;
+
+        LastSoundEvent = current;
+
+        if (Visible && (current is not null) && TcgSounds.ForQueuedEvent(current) is { } sound)
+            Sounds.PlaySound(sound);
     }
 
     public override void Draw(SpriteBatch spriteBatch)

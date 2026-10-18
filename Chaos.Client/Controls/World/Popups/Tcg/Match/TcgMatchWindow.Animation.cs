@@ -297,6 +297,9 @@ public sealed partial class TcgMatchWindow
                 TurnBanner = started;
                 TurnBannerBoard = shown;
                 TurnBannerElapsedMs = 0;
+
+                if (Visible && TcgSounds.ForTurnStart(started, shown!.YourSeat, shown.Spectating) is { } sound)
+                    Sounds.PlaySound(sound);
             }
         }
 

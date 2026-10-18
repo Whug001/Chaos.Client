@@ -36,8 +36,13 @@ public sealed partial class WorldScreen
 
         EnsureTcgQueueBar();
 
+        var wasReadyCheck = WorldState.TcgRanked.Mode == TcgQueueMode.ReadyCheck;
+
         if (WorldState.TcgRanked.Apply(args, DateTime.UtcNow) is { } message)
             WorldState.Chat.AddOrangeBarMessage(message);
+
+        if (!wasReadyCheck && (WorldState.TcgRanked.Mode == TcgQueueMode.ReadyCheck))
+            Game.SoundSystem.PlaySound(TcgSounds.BELL);
 
         if ((TcgBinderWindow is not null) && TcgBinderWindow.Visible)
             TcgBinderWindow.Refresh();

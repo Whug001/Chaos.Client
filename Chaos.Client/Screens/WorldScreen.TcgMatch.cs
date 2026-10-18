@@ -55,7 +55,7 @@ public sealed partial class WorldScreen
         if (TcgMatchWindow is not null)
             return;
 
-        TcgMatchWindow = new TcgMatchWindow(Game.CreatureRenderer, WorldState.TcgCollection);
+        TcgMatchWindow = new TcgMatchWindow(Game.CreatureRenderer, WorldState.TcgCollection, Game.SoundSystem);
         Root!.AddChild(TcgMatchWindow);
         TcgMatchWindow.Action += args => Game.Connection.SendTcgAction(args);
         TcgMatchWindow.SpectateStopped += () => Game.Connection.SendTcgAction(new TcgActionArgs { Type = TcgActionType.StopSpectate });
