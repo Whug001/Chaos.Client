@@ -212,7 +212,9 @@ public sealed class GroupMembersState
     /// <remarks>
     ///     Mirrors the <c>DisplayAisling</c> mapping in <see cref="WorldState" />, including the ghost body-colour
     ///     substitution, and shares its body-sprite lookup rather than repeating the table. The fields the packet
-    ///     leaves out -- boots, pants, weapon, shield -- are all below a head-and-shoulders crop, so they default.
+    ///     leaves out -- boots, weapon, shield -- are below a head-and-shoulders crop, so they default. Pants
+    ///     come straight from the packet: short armor leaves them in view, so the server sends them and the
+    ///     portrait matches the world sprite even when the member is off screen.
     ///     <para />
     ///     The three accessory layers are deliberately dropped, which is where helmets, overhelms and every other
     ///     piece of headwear are drawn. They are the layers that sit on top of the head, and at a portrait this
@@ -237,6 +239,7 @@ public sealed class GroupMembersState
             ArmorSprite = member.ArmorSprite,
             ArmorColor = DisplayColor.Default,
             OvercoatSprite = member.OvercoatSprite,
-            OvercoatColor = member.OvercoatColor
+            OvercoatColor = member.OvercoatColor,
+            PantsColor = member.PantsColor
         };
 }
