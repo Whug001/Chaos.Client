@@ -1,5 +1,6 @@
 #region
 using Chaos.Client.ViewModel;
+using Chaos.DarkAges.Definitions;
 using Chaos.Networking.Entities.Server;
 using Microsoft.Xna.Framework;
 using Microsoft.Xna.Framework.Graphics;
@@ -55,9 +56,13 @@ public sealed partial class TcgMatchWindow
     private void DrawPhaseLine(SpriteBatch batch, TcgDisplayArgs latest)
     {
         var at = At(TcgMatchLayout.PhaseLine);
+        TcgSeat? you = latest.Spectating ? null : latest.YourSeat;
+        var activeName = latest.Players.Count > (int)latest.ActiveSeat
+            ? latest.Players[(int)latest.ActiveSeat].Name
+            : State.OpponentName;
         var line = Fit(
             PhaseOverride(latest, Input, State.OpponentName, State.NeedsRedraw, Catalog.Get)
-            ?? TcgMatchText.PhaseLine(latest.Phase, latest.ActiveSeat, latest.YourSeat, State.OpponentName),
+            ?? TcgMatchText.PhaseLine(latest.Phase, latest.ActiveSeat, you, State.OpponentName, activeName),
             at.Width);
         DrawTextClipped(batch, new Vector2(at.X, at.Y), line, LegendColors.Gold, false);
     }

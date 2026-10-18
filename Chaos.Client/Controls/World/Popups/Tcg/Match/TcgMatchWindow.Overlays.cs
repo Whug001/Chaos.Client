@@ -148,7 +148,7 @@ public sealed partial class TcgMatchWindow
             DrawRectClipped(batch, at, BoxBack);
 
         var y = TcgMatchLayout.Banner.Bottom + 4;
-        y = DrawCentredBannerLine(batch, TcgMatchText.BannerText(ended.Outcome), y);
+        y = DrawCentredBannerLine(batch, TcgMatchText.BannerText(ended.Outcome, ended.WinnerName), y);
 
         y = DrawCentredBannerLine(batch, ended.ReasonText, y);
 

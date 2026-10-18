@@ -1781,7 +1781,7 @@ public sealed partial class WorldScreen
         if (entity is { Type: ClientEntityType.Aisling } && (entity.Id != Game.Connection.AislingId)
             && TcgBattleMarks.Contains(entity.Id) && !TcgMatchOpen)
         {
-            AskSpectate(entity.Name);
+            AskSpectate(entity.Name, tileX, tileY);
 
             return;
         }

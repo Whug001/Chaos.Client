@@ -9,12 +9,13 @@ public enum TcgEndOutcome : byte
 {
     Victory,
     Defeat,
-    Draw
+    Draw,
+    Watched
 }
 
 public static class TcgMatchText
 {
-    public static string PhaseLine(TcgPhase phase, TcgSeat active, TcgSeat you, string opponent)
+    public static string PhaseLine(TcgPhase phase, TcgSeat active, TcgSeat? you, string opponent, string? activeName = null)
     {
         var name = phase switch
         {
@@ -28,13 +29,16 @@ public static class TcgMatchText
         if (name is null)
             return phase == TcgPhase.Redraw ? "Redraw" : "Match over";
 
+        if (you is null)
+            return $"{name}, {(activeName ?? opponent)}'s turn";
+
         return active == you ? $"{name}, your turn" : $"{name}, {opponent}'s turn";
     }
 
     /// <summary>One log line for an event, or null when the event is bookkeeping the player doesn't need to read.</summary>
-    public static string? LogLine(TcgEventView e, TcgSeat you, IReadOnlyList<string> names, Func<string, string> cardName)
+    public static string? LogLine(TcgEventView e, TcgSeat? you, IReadOnlyList<string> names, Func<string, string> cardName)
     {
-        var mine = e.Seat == you;
+        var mine = you.HasValue && (e.Seat == you.Value);
         var who = mine ? "You" : names[(int)e.Seat];
         var card = string.IsNullOrEmpty(e.Key) ? "a card" : cardName(e.Key);
 
@@ -95,12 +99,13 @@ public static class TcgMatchText
             _                       => "The match ended."
         };
 
-    public static string BannerText(TcgEndOutcome outcome)
+    public static string BannerText(TcgEndOutcome outcome, string? winnerName = null)
         => outcome switch
         {
             TcgEndOutcome.Victory => "Victory",
             TcgEndOutcome.Defeat  => "Defeat",
-            _                     => "Draw"
+            TcgEndOutcome.Watched => string.IsNullOrEmpty(winnerName) ? "Match over" : $"{winnerName} wins!",
+            _                     => "A draw."
         };
 
     public static string StakesResult(
@@ -109,7 +114,9 @@ public static class TcgMatchText
         int gold,
         IReadOnlyList<TcgAnteView> ante,
         TcgSeat you,
-        Func<string, string> cardName)
+        Func<string, string> cardName,
+        TcgSeat? winner = null,
+        string? winnerName = null)
     {
         if (stakes == TcgStakes.None)
             return string.Empty;
@@ -118,10 +125,29 @@ public static class TcgMatchText
             return "Both stakes were returned.";
 
         if (stakes == TcgStakes.Gold)
+        {
+            if (outcome == TcgEndOutcome.Watched)
+                return string.IsNullOrEmpty(winnerName) ? string.Empty : $"{winnerName} won {gold * 2L:N0} gold.";
+
             return outcome == TcgEndOutcome.Victory ? $"You won {gold * 2L:N0} gold." : $"You lost {gold:N0} gold.";
+        }
 
         string Describe(TcgAnteView card)
             => card.Printing == TcgPrinting.Normal ? cardName(card.Key) : $"{cardName(card.Key)} ({card.Printing.Label.ToLowerInvariant()})";
+
+        if (outcome == TcgEndOutcome.Watched)
+        {
+            if (string.IsNullOrEmpty(winnerName) || (winner is null))
+                return string.Empty;
+
+            var won = ante.FirstOrDefault(card => card.Seat != winner);
+            var kept = ante.FirstOrDefault(card => card.Seat == winner);
+
+            if (won is null)
+                return string.Empty;
+
+            return kept is null ? $"{winnerName} won {Describe(won)}." : $"{winnerName} won {Describe(won)} and kept {Describe(kept)}.";
+        }
 
         var yours = ante.FirstOrDefault(card => card.Seat == you);
         var theirs = ante.FirstOrDefault(card => card.Seat != you);

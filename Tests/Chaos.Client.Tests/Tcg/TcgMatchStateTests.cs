@@ -204,4 +204,65 @@ public sealed class TcgMatchStateTests
         state.Ended.StakesText.Should().Be("You lost 1,000 gold.");
         state.Ended.ReasonText.Should().Be("A player conceded.");
     }
+
+    [Test]
+    public void A_watcher_end_names_the_winner_instead_of_victory_or_defeat()
+    {
+        var state = new TcgMatchState();
+        var board = Update();
+        board.Spectating = true;
+        board.Stakes = TcgStakes.Gold;
+        board.StakeGold = 1000;
+        state.Apply(board, T0, k => k);
+
+        state.End(new TcgDisplayArgs { Type = TcgDisplayType.Close, HasWinner = true, Winner = TcgSeat.B, EndReason = TcgEndReason.Concede }, k => k);
+
+        state.Ended!.Outcome.Should().Be(TcgEndOutcome.Watched);
+        state.Ended.WinnerName.Should().Be("Bo");
+        TcgMatchText.BannerText(state.Ended.Outcome, state.Ended.WinnerName).Should().Be("Bo wins!");
+        state.Ended.StakesText.Should().Be("Bo won 2,000 gold.");
+        state.Ended.StakesText.Should().NotContain("You");
+    }
+
+    [Test]
+    public void A_watcher_draw_stays_a_draw()
+    {
+        var state = new TcgMatchState();
+        var board = Update();
+        board.Spectating = true;
+        state.Apply(board, T0, k => k);
+
+        state.End(new TcgDisplayArgs { Type = TcgDisplayType.Close, HasWinner = false, EndReason = TcgEndReason.Draw }, k => k);
+
+        state.Ended!.Outcome.Should().Be(TcgEndOutcome.Draw);
+        TcgMatchText.BannerText(state.Ended.Outcome, state.Ended.WinnerName).Should().Be("A draw.");
+    }
+
+    [Test]
+    public void A_watcher_log_uses_names_never_you()
+    {
+        static string Name(string key) => key == "bolt" ? "Bolt" : key;
+        var state = new TcgMatchState();
+        var board = Update(
+            new TcgEventView(TcgEventType.CardCast, TcgSeat.A, 4, 0, 0, "bolt"),
+            new TcgEventView(TcgEventType.CardDrawn, TcgSeat.B, 1, 0, 0, "bolt"));
+        board.Spectating = true;
+
+        state.Apply(board, T0, Name);
+
+        state.Log.Should().ContainSingle().Which.Should().Be("Ana cast Bolt.");
+    }
+
+    [Test]
+    public void A_watcher_is_never_offered_a_redraw()
+    {
+        var state = new TcgMatchState();
+        var redraw = Update();
+        redraw.Phase = TcgPhase.Redraw;
+        redraw.Spectating = true;
+
+        state.Apply(redraw, T0, k => k);
+
+        state.NeedsRedraw.Should().BeFalse();
+    }
 }

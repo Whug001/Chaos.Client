@@ -68,4 +68,47 @@ public sealed class TcgMatchTextTests
     [Arguments(TcgEndReason.Draw, "Both players fell together.")]
     public void Explains_why_the_match_ended(TcgEndReason reason, string expected)
         => TcgMatchText.EndReasonText(reason).Should().Be(expected);
+
+    [Test]
+    public void Names_both_seats_for_a_watcher_phase_line()
+    {
+        TcgMatchText.PhaseLine(TcgPhase.Main1, TcgSeat.A, null, "Bo", "Ana").Should().Be("Main phase 1, Ana's turn");
+        TcgMatchText.PhaseLine(TcgPhase.Main1, TcgSeat.B, null, "Bo", "Bo").Should().Be("Main phase 1, Bo's turn");
+    }
+
+    [Test]
+    public void Logs_every_cast_with_names_for_a_watcher()
+        => TcgMatchText.LogLine(new TcgEventView(TcgEventType.CardCast, TcgSeat.A, 4, 0, 0, "bolt"), null, ["Ana", "Bo"], Name)
+                       .Should().Be("Ana cast Bolt.");
+
+    [Test]
+    public void Logs_damage_with_names_for_a_watcher()
+        => TcgMatchText.LogLine(new TcgEventView(TcgEventType.PlayerDamaged, TcgSeat.A, 4, -1, 3, ""), null, ["Ana", "Bo"], Name)
+                       .Should().Be("Ana takes 3 damage.");
+
+    [Test]
+    public void Hides_draws_from_a_watcher()
+        => TcgMatchText.LogLine(new TcgEventView(TcgEventType.CardDrawn, TcgSeat.A, 1, 0, 0, "bolt"), null, ["Ana", "Bo"], Name)
+                       .Should().BeNull();
+
+    [Test]
+    public void Names_the_watched_winner_on_the_banner()
+    {
+        TcgMatchText.BannerText(TcgEndOutcome.Watched, "Bo").Should().Be("Bo wins!");
+        TcgMatchText.BannerText(TcgEndOutcome.Draw).Should().Be("A draw.");
+    }
+
+    [Test]
+    public void Names_the_watched_winner_in_the_gold_stakes()
+        => TcgMatchText.StakesResult(TcgEndOutcome.Watched, TcgStakes.Gold, 2000, [], TcgSeat.A, Name, TcgSeat.B, "Bo")
+                       .Should().Be("Bo won 4,000 gold.");
+
+    [Test]
+    public void Names_the_watched_winner_in_the_ante_stakes()
+    {
+        List<TcgAnteView> ante = [new(TcgSeat.A, "bear", false), new(TcgSeat.B, "bolt", true)];
+
+        TcgMatchText.StakesResult(TcgEndOutcome.Watched, TcgStakes.Ante, 0, ante, TcgSeat.A, Name, TcgSeat.B, "Bo")
+                     .Should().Be("Bo won bear and kept Bolt (foil).");
+    }
 }

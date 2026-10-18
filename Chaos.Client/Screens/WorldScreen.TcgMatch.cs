@@ -19,10 +19,11 @@ public sealed partial class WorldScreen
     private bool TcgMatchArtWarned;
     private OkPopupMessageControl? TcgSpectatePrompt;
     private string? TcgSpectateTarget;
+    private (int TileX, int TileY)? TcgSpectateTile;
 
     private bool TcgMatchOpen => TcgMatchWindow?.Visible ?? false;
 
-    private void AskSpectate(string name)
+    private void AskSpectate(string name, int tileX, int tileY)
     {
         if (TcgSpectatePrompt is null)
         {
@@ -35,10 +36,17 @@ public sealed partial class WorldScreen
                 if (TcgSpectateTarget is { } target)
                     Game.Connection.SendTcgAction(new TcgActionArgs { Type = TcgActionType.Spectate, TargetName = target });
             };
-            TcgSpectatePrompt.OnCancel += () => TcgSpectatePrompt.Hide();
+            TcgSpectatePrompt.OnCancel += () =>
+            {
+                TcgSpectatePrompt.Hide();
+
+                if ((TcgSpectateTile is { } tile) && IsTileOnMap(tile.TileX, tile.TileY))
+                    Game.Connection.ClickTile(tile.TileX, tile.TileY);
+            };
         }
 
         TcgSpectateTarget = name;
+        TcgSpectateTile = (tileX, tileY);
         TcgSpectatePrompt.Show("Watch this card battle?");
     }
 

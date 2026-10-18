@@ -5,7 +5,7 @@ using Chaos.Networking.Entities.Server;
 
 namespace Chaos.Client.ViewModel;
 
-public sealed record TcgMatchEnd(TcgEndOutcome Outcome, string ReasonText, string StakesText);
+public sealed record TcgMatchEnd(TcgEndOutcome Outcome, string ReasonText, string StakesText, string WinnerName = "");
 
 /// <summary>The newest match Update plus what the client works out from the stream of Updates.</summary>
 public sealed class TcgMatchState
@@ -24,7 +24,7 @@ public sealed class TcgMatchState
 
     private bool RedrawDone;
 
-    public bool NeedsRedraw => Latest is { Phase: TcgPhase.Redraw } && !RedrawDone;
+    public bool NeedsRedraw => !Spectating && (Latest is { Phase: TcgPhase.Redraw }) && !RedrawDone;
 
     public bool Spectating => Latest?.Spectating ?? false;
 
@@ -46,7 +46,9 @@ public sealed class TcgMatchState
             else if ((e.Type == TcgEventType.Redrew) && (e.Seat == update.YourSeat))
                 RedrawDone = true;
 
-            if (TcgMatchText.LogLine(e, update.YourSeat, update.Players.Select(p => p.Name).ToList(), cardName) is { } line)
+            TcgSeat? you = update.Spectating ? null : update.YourSeat;
+
+            if (TcgMatchText.LogLine(e, you, update.Players.Select(p => p.Name).ToList(), cardName) is { } line)
                 AddLog(line);
         }
 
@@ -71,16 +73,28 @@ public sealed class TcgMatchState
     public void End(TcgDisplayArgs close, Func<string, string> cardName)
     {
         var you = Latest?.YourSeat ?? TcgSeat.A;
+        var spectating = Latest?.Spectating ?? close.Spectating;
+        var draw = !close.HasWinner || (close.EndReason == TcgEndReason.Draw);
 
-        var outcome = !close.HasWinner || (close.EndReason == TcgEndReason.Draw)
-            ? TcgEndOutcome.Draw
-            : close.Winner == you ? TcgEndOutcome.Victory : TcgEndOutcome.Defeat;
+        TcgEndOutcome outcome;
+        string winnerName = string.Empty;
+
+        if (draw)
+            outcome = TcgEndOutcome.Draw;
+        else if (spectating)
+        {
+            outcome = TcgEndOutcome.Watched;
+
+            if ((Latest is not null) && (Latest.Players.Count > (int)close.Winner))
+                winnerName = Latest.Players[(int)close.Winner].Name;
+        } else
+            outcome = close.Winner == you ? TcgEndOutcome.Victory : TcgEndOutcome.Defeat;
 
         var stakes = Latest is null
             ? string.Empty
-            : TcgMatchText.StakesResult(outcome, Latest.Stakes, Latest.StakeGold, Latest.Ante, you, cardName);
+            : TcgMatchText.StakesResult(outcome, Latest.Stakes, Latest.StakeGold, Latest.Ante, you, cardName, close.Winner, winnerName);
 
-        Ended = new TcgMatchEnd(outcome, TcgMatchText.EndReasonText(close.EndReason), stakes);
+        Ended = new TcgMatchEnd(outcome, TcgMatchText.EndReasonText(close.EndReason), stakes, winnerName);
     }
 
     public int DecisionSecondsLeft(DateTime now) => Latest is null ? 0 : SecondsLeft(Latest.DecisionMs, now);

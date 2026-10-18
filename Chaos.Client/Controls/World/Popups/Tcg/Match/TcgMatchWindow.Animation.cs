@@ -108,11 +108,12 @@ public sealed partial class TcgMatchWindow
     public static bool IsFoilAnte(TcgDisplayArgs board, string? key)
         => !string.IsNullOrEmpty(key) && board.Ante.Any(ante => ante.Foil && (ante.Key == key));
 
-    /// <summary>tcgbanner.spf frame for an outcome: Victory 0, Defeat 1, Draw 2.</summary>
+    /// <summary>tcgbanner.spf frame for an outcome: Victory 0, Defeat 1, Draw 2. A watched win uses the victory frame.</summary>
     public static int BannerFrame(TcgEndOutcome outcome)
         => outcome switch
         {
             TcgEndOutcome.Victory => 0,
+            TcgEndOutcome.Watched => 0,
             TcgEndOutcome.Defeat  => 1,
             _                    => 2
         };
