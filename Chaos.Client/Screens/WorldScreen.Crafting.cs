@@ -1,10 +1,12 @@
 #region
 using Chaos.Client.Collections;
+using Chaos.Client.Controls.Components;
 using Chaos.Client.Controls.World.Popups.Crafting;
 using Chaos.Client.ViewModel;
 using Chaos.DarkAges.Definitions;
 using Chaos.Networking.Entities.Client;
 using Chaos.Networking.Entities.Server;
+using Microsoft.Xna.Framework;
 #endregion
 
 namespace Chaos.Client.Screens;
@@ -15,6 +17,8 @@ public sealed partial class WorldScreen
     //built on first use
     private CraftingBrowserControl? CraftingBrowser;
     private CraftingConfirmControl? CraftingConfirm;
+    private Point CraftingBrowserOrigin;
+    private Point CraftingConfirmOrigin;
 
     private void WireCrafting()
     {
@@ -57,6 +61,8 @@ public sealed partial class WorldScreen
 
         CraftingBrowser = browser;
         CraftingConfirm = confirm;
+        CraftingBrowserOrigin = new Point(browser.X, browser.Y);
+        CraftingConfirmOrigin = new Point(confirm.X, confirm.Y);
         browser.ZIndex = 2;
         confirm.ZIndex = 3;
         browser.ActionRequested += SendCraftingAction;
@@ -67,6 +73,16 @@ public sealed partial class WorldScreen
         InventoryDropTargets.Add((confirm, confirm.DropCatalyst));
 
         return true;
+    }
+
+    private void PlaceAboveOrangeBar(PrefabPanel window, Point origin)
+    {
+        var orangeBar = WorldHud.OrangeBarBounds;
+
+        if (orangeBar == Rectangle.Empty)
+            return;
+
+        window.Y = Math.Max(0, Math.Min(origin.Y, orangeBar.Top - window.Height));
     }
 
     private void HandleCraftingDisplay(CraftingDisplayArgs args)
@@ -92,6 +108,7 @@ public sealed partial class WorldScreen
         {
             case CraftingDisplayType.Open:
                 CraftingConfirm.Hide();
+                PlaceAboveOrangeBar(CraftingBrowser, CraftingBrowserOrigin);
                 CraftingBrowser.Open();
 
                 break;
@@ -116,7 +133,10 @@ public sealed partial class WorldScreen
                 CraftingConfirm.Refresh();
 
                 if ((args.Type == CraftingDisplayType.Detail) && CraftingBrowser.Visible && WorldState.Crafting.TakePendingConfirm())
+                {
+                    PlaceAboveOrangeBar(CraftingConfirm, CraftingConfirmOrigin);
                     CraftingConfirm.Open();
+                }
 
                 break;
         }
@@ -128,6 +148,7 @@ public sealed partial class WorldScreen
         if ((CraftingConfirm is null) || !WorldState.Crafting.RequestConfirm())
             return;
 
+        PlaceAboveOrangeBar(CraftingConfirm, CraftingConfirmOrigin);
         CraftingConfirm.Open();
     }
 
