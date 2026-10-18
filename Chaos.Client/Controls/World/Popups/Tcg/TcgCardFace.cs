@@ -480,11 +480,15 @@ public sealed class TcgCardFace : UIElement
 
         DrawTextClipped(spriteBatch, new Vector2(bounds.X + 10, bounds.Y + typeTop), card.Type.ToString(), white, false);
 
-        foreach (var (line, x, y) in lines)
+        var keywordRuns = TcgKeywordRuns.FindInLines(lines.ConvertAll(entry => entry.Line));
+
+        for (var i = 0; i < lines.Count; i++)
         {
+            var (line, x, y) = lines[i];
+
             DrawTextClipped(spriteBatch, new Vector2(x, y), line, white, false);
 
-            foreach (var run in TcgKeywordRuns.Find(line))
+            foreach (var run in keywordRuns[i])
             {
                 var underlineY = y + TextRenderer.CHAR_HEIGHT - 1;
 
@@ -519,12 +523,17 @@ public sealed class TcgCardFace : UIElement
         if (full && !ShowsFullArtText)
             return null;
 
-        foreach (var (line, x, y) in RulesLines(card, bounds, full))
+        var lines = RulesLines(card, bounds, full);
+        var keywordRuns = TcgKeywordRuns.FindInLines(lines.ConvertAll(entry => entry.Line));
+
+        for (var i = 0; i < lines.Count; i++)
         {
+            var (line, x, y) = lines[i];
+
             if ((mouseY < y) || (mouseY >= y + TextRenderer.CHAR_HEIGHT))
                 continue;
 
-            foreach (var run in TcgKeywordRuns.Find(line))
+            foreach (var run in keywordRuns[i])
             {
                 var startX = x + TextRenderer.MeasureWidth(line.AsSpan(0, run.Index));
 
