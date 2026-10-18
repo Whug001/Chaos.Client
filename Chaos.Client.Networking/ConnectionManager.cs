@@ -540,6 +540,8 @@ public sealed class ConnectionManager : IDisposable
 
     public event SetGroupStateHandler? OnSetGroupState;
 
+    public event SetGroupPositionsHandler? OnSetGroupPositions;
+
     /// <summary>
     ///     Fired when the server issues a song call to answer.
     /// </summary>
@@ -1963,6 +1965,7 @@ public sealed class ConnectionManager : IDisposable
         PacketHandlers[(byte)ServerOpCode.SetMapEffects] = HandleSetMapEffects;
         PacketHandlers[(byte)ServerOpCode.SetSpellTargetFilter] = HandleSetSpellTargetFilter;
         PacketHandlers[(byte)ServerOpCode.SetGroupState] = HandleSetGroupState;
+        PacketHandlers[(byte)ServerOpCode.SetGroupPositions] = HandleSetGroupPositions;
         PacketHandlers[(byte)ServerOpCode.SongCall] = HandleSongCall;
         PacketHandlers[(byte)ServerOpCode.UserOptions] = HandleUserOptions;
         PacketHandlers[(byte)ServerOpCode.MarketDisplay] = HandleMarketDisplay;
@@ -2370,6 +2373,12 @@ public sealed class ConnectionManager : IDisposable
     {
         var args = Client.Deserialize<SetGroupStateArgs>(in pkt);
         OnSetGroupState?.Invoke(args);
+    }
+
+    private void HandleSetGroupPositions(ServerPacket pkt)
+    {
+        var args = Client.Deserialize<SetGroupPositionsArgs>(in pkt);
+        OnSetGroupPositions?.Invoke(args);
     }
 
     private void HandleSongCall(ServerPacket pkt)

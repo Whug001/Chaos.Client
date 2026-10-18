@@ -1662,6 +1662,8 @@ public sealed partial class WorldScreen
 
     private static void HandleSetGroupState(SetGroupStateArgs args) => WorldState.GroupMembers.Set(args);
 
+    private static void HandleSetGroupPositions(SetGroupPositionsArgs args) => WorldState.GroupPositions.Set(args);
+
     private void HandleSongCall(SongCallArgs args)
         => WorldState.Song.BeginCall(
             args.CallId,

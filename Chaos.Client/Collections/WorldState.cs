@@ -136,6 +136,11 @@ public static class WorldState
     public static GroupMembersState GroupMembers { get; } = new();
 
     /// <summary>
+    ///     Where the other group members on the player's map instance stand. Feeds the town map pins.
+    /// </summary>
+    public static GroupPositionsState GroupPositions { get; } = new();
+
+    /// <summary>
     ///     Authoritative group invite state.
     /// </summary>
     public static GroupInvite GroupInvite { get; } = new();
@@ -506,6 +511,7 @@ public static class WorldState
         Board.CloseSession();
         Group.ResetAll();
         GroupMembers.Reset();
+        GroupPositions.Clear();
         GroupInvite.Clear();
         NpcInteraction.Close();
         Exchange.Close();

@@ -1128,6 +1128,7 @@ public sealed partial class WorldScreen : IScreen
         Game.Connection.OnSetOxygenState -= HandleSetOxygenState;
         Game.Connection.OnSetMapEffects -= HandleSetMapEffects;
         Game.Connection.OnSetGroupState -= HandleSetGroupState;
+        Game.Connection.OnSetGroupPositions -= HandleSetGroupPositions;
         Game.Connection.OnEffect -= HandleEffect;
         Game.Connection.OnLightLevel -= HandleLightLevel;
         Game.OnMetaDataSyncComplete -= HandleMetaDataSyncComplete;

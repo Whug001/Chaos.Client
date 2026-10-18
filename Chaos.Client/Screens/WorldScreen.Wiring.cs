@@ -107,6 +107,7 @@ public sealed partial class WorldScreen
         Game.Connection.OnSetOxygenState += HandleSetOxygenState;
         Game.Connection.OnSetMapEffects += HandleSetMapEffects;
         Game.Connection.OnSetGroupState += HandleSetGroupState;
+        Game.Connection.OnSetGroupPositions += HandleSetGroupPositions;
 
         //status effects
         Game.Connection.OnEffect += HandleEffect;
