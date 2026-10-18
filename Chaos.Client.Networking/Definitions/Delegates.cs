@@ -266,6 +266,12 @@ public delegate void SetSpellTargetFilterHandler(SetSpellTargetFilterArgs args);
 public delegate void SetGroupStateHandler(SetGroupStateArgs args);
 
 /// <summary>
+///     Raised when the server sends where the other group members stand on the player's map instance. A whole list
+///     every time; an empty list means no town map pins.
+/// </summary>
+public delegate void SetGroupPositionsHandler(SetGroupPositionsArgs args);
+
+/// <summary>
 ///     Fired when the server issues a four-note song call.
 /// </summary>
 public delegate void SongCallHandler(SongCallArgs args);

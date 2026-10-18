@@ -68,6 +68,9 @@ public sealed partial class WorldScreen
         //new map — dispose old caches, load fresh mapfile from local files
         TownMapControl.Hide();
 
+        //pins from the old map would sit on the new map's image until the server's next list arrives
+        WorldState.GroupPositions.Clear();
+
         //a bank window left open across a map change would let a player bank from anywhere, breaking the server's
         //assumption that everyone sharing a guild bank is standing on the same map. Hide() also clears the state.
         Bank.Hide();

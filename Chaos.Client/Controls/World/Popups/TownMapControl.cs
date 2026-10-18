@@ -2,6 +2,7 @@
 using Chaos.Client.Collections;
 using Chaos.Client.Controls.Components;
 using Chaos.Client.Data;
+using Chaos.Client.ViewModel;
 using Microsoft.Xna.Framework;
 using Microsoft.Xna.Framework.Graphics;
 #endregion
@@ -18,6 +19,15 @@ public sealed class TownMapControl : UIPanel
     private const int FRAME_WIDTH = 568;
     private const int FRAME_HEIGHT = 406;
     private const float MARKER_FRAME_INTERVAL = 0.083f;
+    private const string PIN_FILE = "tmgroup.spf";
+    private const int PIN_FRAME_COUNT = GroupMembersState.PARTY_SIZE * GroupMembersState.PARTY_COUNT;
+
+    //a full raid less the player, who gets the marker instead
+    private const int MAX_PINS = GroupMembersState.MAX_RAID_SIZE - 1;
+
+    //the pin's tip is the bottom-centre pixel of its 7x25 frame
+    private const int PIN_TIP_X = 3;
+    private const int PIN_TIP_Y = 24;
 
     private record struct TownMapEntry(int MapId, int X, int Y, int TileWidth, int TileHeight);
 
@@ -29,6 +39,10 @@ public sealed class TownMapControl : UIPanel
     private UIImage? TownImageLayer;
     private UIImage? NameLabelImage;
     private UIImage? MarkerImage;
+
+    //one image per possible pin, made on show and added before the marker so the marker draws over them
+    private readonly List<UIImage> PinImages = [];
+    private Texture2D[]? PinFrames;
 
     //marker animation frames (swapped onto markerimage.texture each tick)
     private Texture2D[]? MarkerFrames;
@@ -120,7 +134,27 @@ public sealed class TownMapControl : UIPanel
             AddChild(NameLabelImage);
         }
 
-        //layer 5: player position marker
+        //layer 5: group pins, under the player's marker
+        ActiveEntry = entry;
+        PinFrames = LoadPinFrames();
+
+        if (PinFrames is not null && TownImageLayer is not null)
+        {
+            for (var i = 0; i < MAX_PINS; i++)
+            {
+                var pin = new UIImage
+                {
+                    Visible = false
+                };
+
+                PinImages.Add(pin);
+                AddChild(pin);
+            }
+
+            UpdatePins();
+        }
+
+        //layer 6: player position marker
         ActiveEntry = entry;
         MarkerFrames = LoadEpfMarkerFrames("tmuser.epf");
 
@@ -195,6 +229,8 @@ public sealed class TownMapControl : UIPanel
         if (player is not null)
             UpdateMarkerPosition(player.TileX, player.TileY);
 
+        UpdatePins();
+
         //animate player marker
         MarkerTimer += (float)gameTime.ElapsedGameTime.TotalSeconds;
 
@@ -221,6 +257,20 @@ public sealed class TownMapControl : UIPanel
             Width = texture.Width,
             Height = texture.Height
         };
+    }
+
+    private static Texture2D[]? LoadPinFrames()
+    {
+        //an older national.dat without the pins just shows the map without them
+        if (!DatArchives.National.TryGetValue(PIN_FILE, out _))
+            return null;
+
+        var frames = new Texture2D[PIN_FRAME_COUNT];
+
+        for (var i = 0; i < PIN_FRAME_COUNT; i++)
+            frames[i] = UiRenderer.Instance!.GetNationalSpfTexture(PIN_FILE, i);
+
+        return frames;
     }
 
     private static Texture2D[]? LoadEpfMarkerFrames(string fileName)
@@ -308,34 +358,63 @@ public sealed class TownMapControl : UIPanel
     #endregion
 
     #region Marker Projection
+    private (int X, int Y)? Project(int tileX, int tileY)
+        => TownImageLayer is null
+            ? null
+            : TownMapProjection.TileToPixel(
+                TownImageLayer.X,
+                TownImageLayer.Y,
+                TownImageLayer.Width,
+                TownImageLayer.Height,
+                ActiveEntry.TileWidth,
+                ActiveEntry.TileHeight,
+                tileX,
+                tileY);
+
     private void UpdateMarkerPosition(int playerTileX, int playerTileY)
     {
-        if (MarkerImage is null || TownImageLayer is null)
+        if (MarkerImage is null || Project(playerTileX, playerTileY) is not { } point)
             return;
 
-        var imgX = TownImageLayer.X;
-        var imgY = TownImageLayer.Y;
-        var imgW = TownImageLayer.Width;
-        var imgH = TownImageLayer.Height;
-        var tileW = ActiveEntry.TileWidth;
-        var tileH = ActiveEntry.TileHeight;
-        var totalTiles = tileW + tileH;
+        MarkerImage.X = point.X - 6;
+        MarkerImage.Y = point.Y - 19;
+    }
 
-        if (totalTiles == 0)
+    private void UpdatePins()
+    {
+        if (PinFrames is null || TownImageLayer is null)
             return;
 
-        var pivotX = imgW * tileH / totalTiles + imgX;
+        var pins = TownMapPins.Build(WorldState.GroupMembers, WorldState.GroupPositions.Members, WorldState.PlayerName);
+        var used = 0;
 
-        var pixelX = (imgX - 1 + imgW - pivotX) * playerTileX / tileW
-                     + pivotX
-                     + (imgX - pivotX) * playerTileY / tileH;
+        foreach (var pin in pins)
+        {
+            if (used >= PinImages.Count)
+                break;
 
-        var pixelY = imgH * tileW / totalTiles * playerTileX / tileW
-                     + imgY
-                     + imgH * tileH / totalTiles * playerTileY / tileH;
+            if (Project(pin.TileX, pin.TileY) is not { } point
+                || !TownMapProjection.IsOnImage(
+                    TownImageLayer.X,
+                    TownImageLayer.Y,
+                    TownImageLayer.Width,
+                    TownImageLayer.Height,
+                    point))
+                continue;
 
-        MarkerImage.X = pixelX - 6;
-        MarkerImage.Y = pixelY - 19;
+            var texture = PinFrames[pin.Frame];
+            var image = PinImages[used++];
+
+            image.Texture = texture;
+            image.Width = texture.Width;
+            image.Height = texture.Height;
+            image.X = point.X - PIN_TIP_X;
+            image.Y = point.Y - PIN_TIP_Y;
+            image.Visible = true;
+        }
+
+        for (var i = used; i < PinImages.Count; i++)
+            PinImages[i].Visible = false;
     }
     #endregion
 
@@ -349,6 +428,8 @@ public sealed class TownMapControl : UIPanel
         NameLabelImage = null;
         MarkerImage = null;
         MarkerFrames = null;
+        PinFrames = null;
+        PinImages.Clear();
 
         //null out textures before clearing so uiimage.dispose doesn't try to release cached textures
         foreach (var child in Children)
