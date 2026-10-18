@@ -233,10 +233,7 @@ public static class InputBuffer
         //the next pump.
         Sdl.SDL_PumpEvents();
 
-        EventCount = 0;
-        TextCount = 0;
-        FrameKeyPresses.Clear();
-        FrameKeyReleases.Clear();
+        FreezePendingEvents();
 
         //clear stuck held state on the active→inactive edge. while another window has
         //focus SDL doesn't deliver key/button-up events to us, so held flags would
@@ -257,6 +254,43 @@ public static class InputBuffer
         //captured it into PendingEvents — dropping here would swallow the focus click.
         //the watcher only delivers events for our window, so buffered events are always
         //legitimately ours regardless of the IsActive snapshot at Update time.
+
+        //read the latest cursor position from SDL's internal state. the pump at the
+        //top of this method guarantees this reflects every OS event up to now, so
+        //MouseX / MouseY always show the true end-state of the cursor this frame.
+        _ = Sdl.SDL_GetMouseState(out RawMouseX, out RawMouseY);
+    }
+
+    //test seams - headless tests drive the real dispatcher without SDL.
+    //QueueForTests appends to the same PendingEvents buffer the SDL watcher writes;
+    //DrainForTests freezes it into the Events snapshot exactly like Update() but
+    //without pumping SDL (which needs a live video subsystem).
+    internal static void QueueForTests(BufferedInputEvent evt) => PendingEvents.Add(evt);
+
+    internal static void DrainForTests() => FreezePendingEvents();
+
+    internal static void ResetForTests()
+    {
+        PendingEvents.Clear();
+        PressedKeycodeByScancode.Clear();
+        FrameKeyPresses.Clear();
+        FrameKeyReleases.Clear();
+        EventCount = 0;
+        TextCount = 0;
+        IsLeftButtonHeld = false;
+        IsRightButtonHeld = false;
+        IsMiddleButtonHeld = false;
+    }
+
+    //freezes the accumulated PendingEvents into the frame snapshot (Events,
+    //FrameKeyPresses/FrameKeyReleases, TextBuffer). shared by Update() (after the
+    //SDL pump) and DrainForTests() so tests observe the exact production freeze.
+    private static void FreezePendingEvents()
+    {
+        EventCount = 0;
+        TextCount = 0;
+        FrameKeyPresses.Clear();
+        FrameKeyReleases.Clear();
 
         //freeze the unified event stream and derive the query-style frame snapshot
         //in one pass. FrameKeyPresses/FrameKeyReleases/TextBuffer exist only so that
@@ -297,11 +331,6 @@ public static class InputBuffer
 
             PendingEvents.Clear();
         }
-
-        //read the latest cursor position from SDL's internal state. the pump at the
-        //top of this method guarantees this reflects every OS event up to now, so
-        //MouseX / MouseY always show the true end-state of the cursor this frame.
-        _ = Sdl.SDL_GetMouseState(out RawMouseX, out RawMouseY);
     }
 
     //─────────────────────────────────────────────────────────────────────────────

@@ -23,6 +23,16 @@ public sealed partial class TcgMatchWindow
         DrawPhaseLine(batch, latest);
         DrawLog(batch);
         DrawChatLines(batch);
+        DrawWatchingLine(batch, latest);
+    }
+
+    private void DrawWatchingLine(SpriteBatch batch, TcgDisplayArgs latest)
+    {
+        if (State.Spectating || (latest.Watchers == 0))
+            return;
+
+        var at = At(TcgMatchLayout.WatchingLine);
+        DrawTextClipped(batch, new Vector2(at.X, at.Y), $"Watching: {latest.Watchers}", Color.LightGray, false);
     }
 
     private void DrawHourglass(SpriteBatch batch, TcgDisplayArgs latest, DateTime now)
@@ -78,17 +88,28 @@ public sealed partial class TcgMatchWindow
             return;
 
         var at = At(TcgMatchLayout.Chat);
-        var lines = new List<string>();
+        var lines = new List<(string Text, Color Color)>();
 
         foreach (var entry in Chat.Lines)
-            foreach (var wrapped in TextRenderer.WrapLines(entry, at.Width))
-                lines.Add(wrapped);
+        {
+            var color = ColorOf(entry.Kind);
+
+            foreach (var wrapped in TextRenderer.WrapLines(entry.Text, at.Width))
+                lines.Add((wrapped, color));
+        }
 
         var first = Math.Max(0, lines.Count - (at.Height / TextRenderer.CHAR_HEIGHT));
 
         for (var i = first; i < lines.Count; i++)
-            DrawTextClipped(batch, new Vector2(at.X, at.Y + ((i - first) * TextRenderer.CHAR_HEIGHT)), lines[i], TextColors.Whisper, false);
+            DrawTextClipped(batch, new Vector2(at.X, at.Y + ((i - first) * TextRenderer.CHAR_HEIGHT)), lines[i].Text, lines[i].Color, false);
     }
+
+    private static Color ColorOf(TcgChatKind kind) => kind switch
+    {
+        TcgChatKind.Opponent => TextColors.Whisper,
+        TcgChatKind.Other    => LegendColors.Cyan,
+        _                    => Color.LightGray
+    };
 
     public static int HourglassFrame(TcgDisplayArgs latest, DateTime now, DateTime receivedAt)
     {

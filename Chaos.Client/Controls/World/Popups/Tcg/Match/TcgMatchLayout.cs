@@ -30,6 +30,8 @@ public static class TcgMatchLayout
     public static readonly Rectangle Hand = new(4, 388, 372, 84);
     public static readonly Rectangle Buttons = new(380, 356, 86, 120);
     public static readonly Rectangle Concede = new(450, 336, 16, 16);
+    public static readonly Rectangle StopWatching = new(366, 336, 80, 16);
+    public static readonly Rectangle WatchingLine = new(104, 336, 158, 14);
 
     public static readonly Rectangle BigCard = new(495, 8, 120, 168);
     public static readonly Rectangle Hourglass = new(478, 182, 24, 36);

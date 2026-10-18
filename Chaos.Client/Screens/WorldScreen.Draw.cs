@@ -10,6 +10,7 @@ using Chaos.Client.Rendering.Models;
 using Chaos.Client.Rendering.Utility;
 using Chaos.Client.Systems;
 using Chaos.DarkAges.Definitions;
+using Chaos.Networking.Entities.Server;
 using Microsoft.Xna.Framework;
 using Microsoft.Xna.Framework.Graphics;
 #endregion
@@ -31,6 +32,9 @@ public sealed partial class WorldScreen
     //can be carrying a class resource and a song at the same time, so all three have to be readable at once.
     //Only alive in a water zone.
     private OxygenBarControl? OxygenBar;
+
+    private static readonly Dictionary<uint, string> EmptyWorkMarks = [];
+    private static readonly Dictionary<uint, CollegeDebateMarkInfo> EmptyDebateMarks = [];
 
     public void Draw(SpriteBatch spriteBatch, GameTime gameTime)
     {
@@ -239,6 +243,11 @@ public sealed partial class WorldScreen
 
             if (College is { Work.Count: > 0 } busy)
                 Overlays.DrawWorkMarks(spriteBatch, Camera, MapFile.Height, busy.Work.All, busy.Marks.All);
+
+            if (TcgBattleMarks.Count > 0)
+                Overlays.DrawBattleMarks(spriteBatch, Camera, MapFile.Height, TcgBattleMarks.All,
+                    College?.Work.All ?? EmptyWorkMarks, College?.Marks.All ?? EmptyDebateMarks);
+
             spriteBatch.End();
 
             //snapshot draw count before debug draws so the reported count excludes debug visualizations

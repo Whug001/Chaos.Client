@@ -98,7 +98,7 @@ public sealed partial class TcgMatchWindow
             Color.White,
             false);
 
-        if (!State.NeedsRedraw)
+        if (!State.NeedsRedraw && !State.Spectating)
             DrawHand(batch, board, you);
     }
 

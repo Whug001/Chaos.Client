@@ -1,4 +1,5 @@
 #region
+using Chaos.Client.Collections;
 using Chaos.Client.Controls.Components;
 using Chaos.Client.Controls.Custom;
 using Chaos.Client.Controls.World.Popups.Tcg;
@@ -118,10 +119,20 @@ public sealed partial class TcgMatchWindow : UIPanel
     public TcgCardFace BigCard { get; }
     public TcgBoardCreature Creature { get; }
     public string OpponentName => State.OpponentName;
+    public bool Spectating => State.Spectating;
+
+    public void AcceptSpectatorLine(string from, string text)
+    {
+        if (string.IsNullOrEmpty(from))
+            Chat?.AddNotice(text);
+        else
+            Chat?.AddSpectatorLine(from, text);
+    }
 
     public event Action<TcgActionArgs>? Action;
-    public event Action<string>? WhisperSent;
+    public event Action<string, string>? WhisperSent;
     public event Action? Closed;
+    public event Action? SpectateStopped;
 
     public void ShowMatch(TcgDisplayArgs update)
     {
@@ -129,6 +140,10 @@ public sealed partial class TcgMatchWindow : UIPanel
         var wasVisible = Visible;
         var isNew = !string.Equals(previousId, update.MatchId, StringComparison.Ordinal);
         State.Apply(update, DateTime.UtcNow, CardName);
+        SayBox.Visible = !State.Spectating;
+
+        if (State.Spectating)
+            SayBox.IsFocused = false;
 
         if (isNew)
         {
@@ -159,6 +174,8 @@ public sealed partial class TcgMatchWindow : UIPanel
         if (!Visible)
             return;
 
+        var stopWatching = State.Spectating && (State.Ended is null);
+
         if (UsesControlStack)
             InputDispatcher.Instance?.RemoveControl(this);
 
@@ -175,6 +192,9 @@ public sealed partial class TcgMatchWindow : UIPanel
         Queue.Clear(null);
         Input.Cancel();
         Closed?.Invoke();
+
+        if (stopWatching)
+            SpectateStopped?.Invoke();
     }
 
     public override void Update(GameTime gameTime)
@@ -217,8 +237,11 @@ public sealed partial class TcgMatchWindow : UIPanel
         DrawTurnBanner(spriteBatch);
         DrawColumn(spriteBatch);
         DrawTargeting(spriteBatch);
-        DrawConcede(spriteBatch);
-        DrawRedraw(spriteBatch);
+        if (!State.Spectating)
+            DrawConcede(spriteBatch);
+
+        if (!State.Spectating)
+            DrawRedraw(spriteBatch);
         DrawHintBanner(spriteBatch);
         DrawEndBanner(spriteBatch);
 
@@ -250,9 +273,33 @@ public sealed partial class TcgMatchWindow : UIPanel
 
     public override void OnKeyDown(KeyDownEvent e)
     {
+        if (State.Spectating)
+        {
+            if (e.Keycode == Keycode.Escape)
+                Hide();
+            else if (e.Keycode != Keycode.Enter)
+            {
+                base.OnKeyDown(e);
+
+                return;
+            }
+
+            e.Handled = true;
+
+            return;
+        }
+
         if (e.Keycode == Keycode.Escape)
         {
-            Input.Cancel();
+            if (SayBox.IsFocused)
+            {
+                SayBox.IsFocused = false;
+
+                if (InputDispatcher.Instance?.ExplicitFocus == SayBox)
+                    InputDispatcher.Instance.ClearExplicitFocus();
+            } else
+                Input.Cancel();
+
             e.Handled = true;
 
             return;
@@ -262,7 +309,12 @@ public sealed partial class TcgMatchWindow : UIPanel
         {
             if (SayBox.IsFocused && (SayBox.Text.Length > 0))
             {
-                WhisperSent?.Invoke(SayBox.Text);
+                var send = TcgChatCommand.Parse(SayBox.Text, OpponentName, WorldState.Chat.RecentWhisperSenders, State.Latest?.Practice ?? false);
+
+                if (send.Notice is not null)
+                    Chat?.AddNotice(send.Notice);
+                else if (send.Target is not null)
+                    WhisperSent?.Invoke(send.Target, send.Message);
                 SayBox.Text = string.Empty;
             } else
                 SayBox.IsFocused = true;
@@ -279,6 +331,9 @@ public sealed partial class TcgMatchWindow : UIPanel
 
     private void HoverBoard(TcgDisplayArgs board, int x, int y)
     {
+        if (State.Spectating)
+            return;
+
         if (board.Players.Count < 2)
             return;
 

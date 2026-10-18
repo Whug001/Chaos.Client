@@ -50,6 +50,7 @@ public sealed class EntityOverlayManager
     private readonly Dictionary<uint, TextElement> NameTagCache = [];
     private readonly Dictionary<uint, TextElement> DebateMarkCache = [];
     private readonly Dictionary<uint, TextElement> WorkMarkCache = [];
+    private readonly Dictionary<uint, TextElement> BattleMarkCache = [];
     private readonly List<DamageNumber> DamageNumbers = [];
 
     /// <summary>When set, overlays for entities it returns true for are not drawn (Tumble Tower hides other floors).</summary>
@@ -219,6 +220,7 @@ public sealed class EntityOverlayManager
         NameTagCache.Clear();
         DebateMarkCache.Clear();
         WorkMarkCache.Clear();
+        BattleMarkCache.Clear();
         GroupBoxes.Clear();
         DamageNumbers.Clear();
     }
@@ -435,6 +437,43 @@ public sealed class EntityOverlayManager
             }
 
             text.Update(line, LegendColors.Cyan);
+
+            if (!text.HasContent)
+                continue;
+
+            var tileWorld = Camera.TileToWorld(entity.TileX, entity.TileY, mapHeight);
+            var worldX = tileWorld.X + DaLibConstants.HALF_TILE_WIDTH + entity.VisualOffset.X;
+            var worldY = tileWorld.Y + DaLibConstants.HALF_TILE_HEIGHT + entity.VisualOffset.Y - DEBATE_MARK_Y_OFFSET;
+
+            text.Draw(spriteBatch, camera.WorldToScreen(new Vector2(worldX - text.Width / 2, worldY)));
+        }
+    }
+
+    /// <summary>Draws "Card Battle" over players in a card match; a player with a class hand-in or debate side marker keeps it. Call within the same camera-transformed batch as <see cref="Draw" />.</summary>
+    public void DrawBattleMarks(
+        SpriteBatch spriteBatch,
+        Camera camera,
+        int mapHeight,
+        IReadOnlyCollection<uint> ids,
+        IReadOnlyDictionary<uint, string> workMarks,
+        IReadOnlyDictionary<uint, CollegeDebateMarkInfo> debateMarks)
+    {
+        foreach (var id in ids)
+        {
+            if (workMarks.ContainsKey(id) || debateMarks.ContainsKey(id) || WorldState.GetEntity(id) is not { } entity)
+                continue;
+
+            if (!BattleMarkCache.TryGetValue(id, out var text))
+            {
+                text = new TextElement
+                {
+                    ShadowStyle = ShadowStyle.BothSides,
+                    ShadowColor = NAME_TAG_SHADOW_COLOR
+                };
+                BattleMarkCache[id] = text;
+            }
+
+            text.Update("Card Battle", LegendColors.Cyan);
 
             if (!text.HasContent)
                 continue;

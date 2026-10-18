@@ -435,8 +435,14 @@ public sealed class InputDispatcher
                     KeyDown.IsRepeat = evt.IsRepeat;
                     DispatchKeyboardEvent(root, KeyDown);
 
+                    //a KeyDown handled by a control-stack panel that moved focus into that
+                    //panel's own textbox (e.g. Enter opening the match chat box) carries no
+                    //text of its own - SDL never delivers text input for Return, and the box
+                    //drops stray newlines - so there is nothing to keep out. every other
+                    //focus gain still suppresses the next text input so a hotkey character
+                    //cannot leak into the newly focused box.
                     if (focusBefore is null && ExplicitFocusElement is not null)
-                        suppressNextTextInput = true;
+                        suppressNextTextInput = !KeyDown.Handled || !IsFocusInControlStackPanel();
 
                     break;
                 }
@@ -827,6 +833,11 @@ public sealed class InputDispatcher
 
         return false;
     }
+
+    //true when explicit focus sits in a textbox inside a panel on the control stack -
+    //i.e. the KeyDown just moved focus into a popup's own field.
+    private bool IsFocusInControlStackPanel()
+        => ExplicitFocusElement is UITextBox textBox && FindContainingStackEntry(textBox) is not null;
 
     /// <summary>
     ///     Walks up from the element to find the nearest ancestor that is on the control stack.

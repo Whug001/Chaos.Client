@@ -75,6 +75,17 @@ public sealed class TcgDeckRowsView : UIElement
         e.Handled = true;
     }
 
+    /// <summary>The row under a screen point, using the same row maths as <see cref="OnClick"/>.</summary>
+    public TcgDeckRow? RowAt(int screenX, int screenY)
+    {
+        if ((screenX < ScreenX) || (screenX >= ScreenX + Width) || (screenY < ScreenY) || (screenY >= ScreenY + Height))
+            return null;
+
+        var index = ScrollRows + ((screenY - ScreenY) / ROW_HEIGHT);
+
+        return (index >= 0) && (index < Rows.Count) ? Rows[index] : null;
+    }
+
     public void SetRows(IReadOnlyList<TcgDeckRow> rows)
     {
         Rows = rows;

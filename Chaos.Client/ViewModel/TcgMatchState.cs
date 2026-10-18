@@ -26,6 +26,8 @@ public sealed class TcgMatchState
 
     public bool NeedsRedraw => Latest is { Phase: TcgPhase.Redraw } && !RedrawDone;
 
+    public bool Spectating => Latest?.Spectating ?? false;
+
     public void Apply(TcgDisplayArgs update, DateTime now, Func<string, string> cardName)
     {
         if ((Latest is null) || !string.Equals(Latest.MatchId, update.MatchId, StringComparison.Ordinal))

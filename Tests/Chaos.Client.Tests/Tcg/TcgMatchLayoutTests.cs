@@ -34,4 +34,50 @@ public sealed class TcgMatchLayoutTests
         TcgMatchLayout.Board.Right.Should().Be(TcgMatchLayout.Column.Left);
         TcgMatchLayout.Column.Right.Should().Be(640);
     }
+
+    private static readonly Rectangle[] Widgets =
+    [
+        TcgMatchLayout.OpponentSeal,
+        TcgMatchLayout.OpponentGems,
+        TcgMatchLayout.OpponentTraps,
+        TcgMatchLayout.OpponentCounts,
+        TcgMatchLayout.YourSeal,
+        TcgMatchLayout.YourGems,
+        TcgMatchLayout.YourTraps,
+        TcgMatchLayout.Hand,
+        TcgMatchLayout.Buttons,
+        TcgMatchLayout.Concede,
+        TcgMatchLayout.StopWatching,
+        TcgMatchLayout.BigCard,
+        TcgMatchLayout.Hourglass,
+        TcgMatchLayout.Timers,
+        TcgMatchLayout.PhaseLine,
+        TcgMatchLayout.WatchingLine,
+        TcgMatchLayout.Log,
+        TcgMatchLayout.Chat,
+        TcgMatchLayout.ChatBox,
+        TcgMatchLayout.Banner
+    ];
+
+    [Test]
+    public void Keeps_every_widget_inside_the_window()
+    {
+        foreach (var rect in Widgets)
+            (rect is { X: >= 0, Y: >= 0 } && (rect.Right <= 640) && (rect.Bottom <= 480))
+                .Should()
+                .BeTrue(rect.ToString());
+    }
+
+    [Test]
+    public void Keeps_the_spectator_rects_clear_of_other_widgets()
+    {
+        foreach (var rect in Widgets)
+        {
+            if ((rect == TcgMatchLayout.StopWatching) || (rect == TcgMatchLayout.WatchingLine))
+                continue;
+
+            TcgMatchLayout.StopWatching.Intersects(rect).Should().BeFalse($"StopWatching overlaps {rect}");
+            TcgMatchLayout.WatchingLine.Intersects(rect).Should().BeFalse($"WatchingLine overlaps {rect}");
+        }
+    }
 }

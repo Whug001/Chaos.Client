@@ -100,6 +100,13 @@ public sealed partial class WorldScreen
         //a class quiz or debate belongs to its room; the room sends it again on the way back in
         CloseClassTools();
         ResetWorkMarks();
+        TcgBattleMarks.Clear();
+        TcgSpectatePrompt?.Hide();
+
+        //a spectator who leaves the match map stops watching; a same-map refresh (above) keeps the window
+        if ((args.MapId != CurrentMapId) && (TcgMatchWindow?.Spectating ?? false))
+            TcgMatchWindow.Hide();
+
         ResetCollegeWall(CollegeRoomLayouts.IsLayoutSwap(CurrentMapId, args.MapId));
 
         //and for the poker table, with one difference that matters: PokerTableControl.Hide() fires Closed, which

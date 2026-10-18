@@ -557,6 +557,11 @@ public sealed partial class WorldScreen
         if ((GameActions.SongNote(action) > 0) && !WorldState.Song.HasLiveCall)
             return false;
 
+        //Enter is the FocusChat ("Type in Chat") key: while the card-match window is
+        //open it must reach the match chat box, never the HUD chat box.
+        if (TcgMatchOpen && (action == GameAction.FocusChat))
+            return false;
+
         if (Game.Dispatcher.ControlStackCount == 0)
             return true;
 
@@ -1769,6 +1774,14 @@ public sealed partial class WorldScreen
         {
             SelfProfileRequested = true;
             Game.Connection.RequestSelfProfile();
+
+            return;
+        }
+
+        if (entity is { Type: ClientEntityType.Aisling } && (entity.Id != Game.Connection.AislingId)
+            && TcgBattleMarks.Contains(entity.Id) && !TcgMatchOpen)
+        {
+            AskSpectate(entity.Name);
 
             return;
         }

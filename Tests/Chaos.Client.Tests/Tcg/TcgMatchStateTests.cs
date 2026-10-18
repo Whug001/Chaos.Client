@@ -177,6 +177,19 @@ public sealed class TcgMatchStateTests
     }
 
     [Test]
+    public void Spectating_follows_the_update()
+    {
+        var state = new TcgMatchState();
+        var board = TcgMatchFixtures.Board() with { Spectating = true };
+
+        state.Apply(board, T0, k => k);
+        state.Spectating.Should().BeTrue();
+
+        state.Reset();
+        state.Spectating.Should().BeFalse();
+    }
+
+    [Test]
     public void Ending_records_the_outcome_and_stakes()
     {
         var state = new TcgMatchState();

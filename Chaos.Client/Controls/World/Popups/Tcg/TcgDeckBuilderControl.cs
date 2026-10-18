@@ -50,6 +50,7 @@ public sealed class TcgDeckBuilderControl : FramedDialogPanelBase
     private readonly CustomButton NextButton;
     private readonly UILabel PageLabel;
     private readonly CustomButton PreviousButton;
+    private readonly TcgCardFace PreviewFace;
     private readonly UILabel ProblemLabel;
     private readonly TcgDeckRowsView RowsView;
     private readonly CustomButton SaveButton;
@@ -195,6 +196,14 @@ public sealed class TcgDeckBuilderControl : FramedDialogPanelBase
         cancelButton.Clicked += RequestClose;
         AddChild(cancelButton);
 
+        PreviewFace = new TcgCardFace(creatures, 2)
+        {
+            IsHitTestVisible = false,
+            Visible = false
+        };
+
+        AddChild(PreviewFace);
+
         //last, so it draws over everything and swallows clicks meant for what is behind it
         Choice = new TcgChoicePanel(Width, Height);
         AddChild(Choice);
@@ -210,6 +219,25 @@ public sealed class TcgDeckBuilderControl : FramedDialogPanelBase
 
     /// <summary>True while a question is asked over the window; hovers behind it stay hidden.</summary>
     public bool HasOpenQuestion => Choice.Visible;
+
+    /// <summary>The keyword under the cursor on the hover preview, for the hover box. Null when nothing qualifies.</summary>
+    public string? HoveredKeyword(int mouseX, int mouseY) => Visible && PreviewFace.Visible ? PreviewFace.KeywordAt(mouseX, mouseY) : null;
+
+    /// <summary>Where the 2x hover preview goes, in control coordinates: 12 px right of the cursor, flipping left near the right edge and clamped inside.</summary>
+    public static Point PreviewPosition(int mouseX, int mouseY, int width, int height)
+    {
+        const int GAP = 12;
+        var previewWidth = TcgCardFace.WIDTH * 2;
+        var previewHeight = TcgCardFace.HEIGHT * 2;
+        var x = mouseX + GAP;
+
+        if (x + previewWidth > width)
+            x = mouseX - GAP - previewWidth;
+
+        x = Math.Clamp(x, 0, Math.Max(0, width - previewWidth));
+
+        return new Point(x, Math.Clamp(mouseY, 0, Math.Max(0, height - previewHeight)));
+    }
 
     /// <summary>A plain Hide (Escape, Cancel) asks first when there are unsaved changes.</summary>
     public override void Hide()
@@ -322,11 +350,16 @@ public sealed class TcgDeckBuilderControl : FramedDialogPanelBase
     {
         base.Update(gameTime);
 
-        if (!Visible || Draft is not { } draft || (NameBox.Text == draft.Name))
+        if (!Visible)
             return;
 
-        draft.Name = NameBox.Text;
-        RefreshFooter(draft);
+        if (Draft is { } draft && (NameBox.Text != draft.Name))
+        {
+            draft.Name = NameBox.Text;
+            RefreshFooter(draft);
+        }
+
+        UpdatePreview();
     }
 
     private void CloseNow()
@@ -358,6 +391,51 @@ public sealed class TcgDeckBuilderControl : FramedDialogPanelBase
             HorizontalAlignment = alignment,
             IsHitTestVisible = false
         };
+
+    private void UpdatePreview()
+    {
+        if (Choice.Visible || Draft is not { } draft)
+        {
+            PreviewFace.Visible = false;
+
+            return;
+        }
+
+        var mouseX = InputBuffer.MouseX;
+        var mouseY = InputBuffer.MouseY;
+
+        if (PreviewFace.Visible && PreviewFace.ScreenBounds.Contains(mouseX, mouseY))
+            return;
+
+        PreviewFace.Visible = false;
+        string? key = null;
+
+        foreach (var face in Faces)
+        {
+            if (face.Visible && face.ScreenBounds.Contains(mouseX, mouseY))
+            {
+                key = face.Card?.Key;
+
+                break;
+            }
+        }
+
+        key ??= RowsView.RowAt(mouseX, mouseY)?.Key;
+
+        if (State.Get(key) is not { } card)
+            return;
+
+        var printing = State.DeckFacePrinting(draft.Keys, card.Key);
+        var position = PreviewPosition(mouseX - ScreenX, mouseY - ScreenY, Width, Height);
+
+        PreviewFace.Card = card;
+        PreviewFace.Style = printing.Style;
+        PreviewFace.Owned = State.Copies(card.Key) > 0;
+        PreviewFace.Foil = printing.Foil;
+        PreviewFace.X = position.X;
+        PreviewFace.Y = position.Y;
+        PreviewFace.Visible = true;
+    }
 
     private void OnCardClicked(TcgCardFace face)
     {

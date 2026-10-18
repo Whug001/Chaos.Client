@@ -138,7 +138,7 @@ public sealed partial class WorldScreen
             return revealed;
 
         if (TcgDeckBuilderWindow.Visible && TcgDeckBuilderWindow.ScreenBounds.Contains(mouseX, mouseY))
-            return null;
+            return TcgDeckBuilderWindow.HoveredKeyword(mouseX, mouseY);
 
         return TcgBinderWindow.HoveredKeyword(mouseX, mouseY);
     }

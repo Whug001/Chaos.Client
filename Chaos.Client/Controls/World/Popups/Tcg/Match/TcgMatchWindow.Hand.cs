@@ -196,6 +196,13 @@ public sealed partial class TcgMatchWindow
         if (State.Latest is not { } latest)
             return;
 
+        if (State.Spectating)
+        {
+            DrawStopWatching(batch);
+
+            return;
+        }
+
         var buttons = ActiveButtons(latest);
         var passHighlighted = (latest.Decision == TcgDecision.Respond) && TcgMatchRules.YouDecide(latest, TcgDecision.Respond);
 
@@ -212,6 +219,16 @@ public sealed partial class TcgMatchWindow
         var concede = At(TcgMatchLayout.Concede);
         UIElement.DrawBorderedRect(batch, concede, BoxBack, LegendColors.Gold);
         DrawTextClipped(batch, new Vector2(concede.X + 4, concede.Y + 2), "X", Color.White, false);
+    }
+
+    private void DrawStopWatching(SpriteBatch batch)
+    {
+        var at = At(TcgMatchLayout.StopWatching);
+        UIElement.DrawBorderedRect(batch, at, BoxBack, LegendColors.Gold);
+
+        const string label = "Stop watching";
+        var x = at.X + ((at.Width - TextRenderer.MeasureWidth(label)) / 2);
+        DrawTextClipped(batch, new Vector2(x, at.Y + 2), label, Color.White, false);
     }
 
     private Rectangle ButtonRect(int index)
@@ -323,6 +340,16 @@ public sealed partial class TcgMatchWindow
 
     private void SyncCardMenu()
     {
+        if (State.Spectating)
+        {
+            PlayButton.Visible = false;
+            ManaButton.Visible = false;
+            YesButton.Visible = false;
+            NoButton.Visible = false;
+
+            return;
+        }
+
         var latest = Visible ? State.Latest : null;
         var index = -1;
 
@@ -435,6 +462,16 @@ public sealed partial class TcgMatchWindow
             return;
         }
 
+        if (State.Spectating)
+        {
+            if (At(TcgMatchLayout.StopWatching).Contains(e.ScreenX, e.ScreenY))
+                Hide();
+
+            e.Handled = true;
+
+            return;
+        }
+
         var x = e.ScreenX - ScreenX;
         var y = e.ScreenY - ScreenY;
 
@@ -517,6 +554,16 @@ public sealed partial class TcgMatchWindow
             return;
         }
 
+        if (State.Spectating)
+        {
+            if (At(TcgMatchLayout.StopWatching).Contains(e.ScreenX, e.ScreenY))
+                Hide();
+
+            e.Handled = true;
+
+            return;
+        }
+
         if (e.Button == MouseButton.Right)
         {
             Input.Cancel();
@@ -531,6 +578,9 @@ public sealed partial class TcgMatchWindow
     public override void OnDragStart(DragStartEvent e)
     {
         if (State.Ended is not null)
+            return;
+
+        if (State.Spectating)
             return;
 
         if ((Queue.ShownBoard ?? State.Latest) is not { } board)
@@ -559,6 +609,13 @@ public sealed partial class TcgMatchWindow
     public override void OnDragDrop(DragDropEvent e)
     {
         if (State.Ended is not null)
+        {
+            e.Handled = true;
+
+            return;
+        }
+
+        if (State.Spectating)
         {
             e.Handled = true;
 

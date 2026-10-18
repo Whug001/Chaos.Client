@@ -72,6 +72,17 @@ public sealed partial class WorldScreen
                     WorldState.Chat.AddOrangeBarMessage(args.Reason);
 
                 break;
+
+            case TcgDisplayType.SpectatorChat:
+                if (TcgMatchOpen)
+                    TcgMatchWindow!.AcceptSpectatorLine(args.OtherName, args.Reason);
+
+                break;
+
+            case TcgDisplayType.BattleMarks:
+                TcgBattleMarks.Set(args.BattleMarks);
+
+                break;
         }
     }
 }
