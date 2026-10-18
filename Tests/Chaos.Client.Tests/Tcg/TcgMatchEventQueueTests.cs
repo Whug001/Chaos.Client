@@ -66,19 +66,38 @@ public sealed class TcgMatchEventQueueTests
     }
 
     [Test]
-    public void Turn_started_plays_before_later_updates()
+    public void Turn_started_never_holds_the_queue()
     {
+        var first = Board(TcgEventType.TurnStarted);
+        var second = Board(TcgEventType.CardCast);
         var queue = new TcgMatchEventQueue();
-        queue.Enqueue(Board(TcgEventType.TurnStarted));
-        queue.Enqueue(Board(TcgEventType.CardCast));
 
-        queue.Current.Should().NotBeNull();
-        queue.Current!.Type.Should().Be(TcgEventType.TurnStarted);
+        queue.Enqueue(first);
+        queue.ShownBoard.Should().BeSameAs(first);
 
-        queue.Advance(1500);
+        queue.Enqueue(second);
 
         queue.Current.Should().NotBeNull();
         queue.Current!.Type.Should().Be(TcgEventType.CardCast);
+        queue.ShownBoard.Should().BeSameAs(first);
+        queue.PlayingBoard.Should().BeSameAs(second);
+    }
+
+    [Test]
+    public void Never_drops_the_newest_entry()
+    {
+        var queue = new TcgMatchEventQueue();
+
+        foreach (var _ in Enumerable.Range(0, 5))
+            queue.Enqueue(Board(TcgEventType.Damaged, TcgEventType.Damaged, TcgEventType.Damaged));
+
+        var newest = Board(TcgEventType.Attacked, TcgEventType.Attacked, TcgEventType.Attacked);
+        queue.Enqueue(newest);
+
+        Drain(queue);
+
+        queue.Current.Should().BeNull();
+        queue.ShownBoard.Should().BeSameAs(newest);
     }
 
     [Test]

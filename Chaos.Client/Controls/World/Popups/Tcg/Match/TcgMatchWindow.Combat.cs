@@ -57,15 +57,18 @@ public sealed partial class TcgMatchWindow
         if ((input.Mode != TcgInputMode.Blocking) || !TcgMatchRules.YouDecide(board, TcgDecision.Block) || input.Blocks.ContainsKey(creature.Id))
             return TcgReadyGlow.None;
 
-        var attackers = board.Players[(int)TcgMatchRules.Other(board.YourSeat)]
-                             .Battlefield
-                             .Where(attacker => board.Attackers.Contains(attacker.Id))
-                             .ToList();
+        var them = board.Players[(int)TcgMatchRules.Other(board.YourSeat)];
 
-        if (attackers.Any(attacker => attacker.Id == hoveredId))
-            attackers = attackers.Where(attacker => attacker.Id == hoveredId).ToList();
+        if ((hoveredId != 0) && board.Attackers.Contains(hoveredId))
+        {
+            for (var i = 0; i < them.Battlefield.Count; i++)
+            {
+                if (them.Battlefield[i].Id == hoveredId)
+                    return TcgMatchRules.CanBlock(creature, them.Battlefield[i], lookup) ? TcgReadyGlow.Block : TcgReadyGlow.None;
+            }
+        }
 
-        return attackers.Any(attacker => TcgMatchRules.CanBlock(creature, attacker, lookup)) ? TcgReadyGlow.Block : TcgReadyGlow.None;
+        return TcgMatchRules.CanBlockAny(board, creature, lookup) ? TcgReadyGlow.Block : TcgReadyGlow.None;
     }
 
     public static bool HasGuardProblem(
@@ -191,17 +194,34 @@ public sealed partial class TcgMatchWindow
         if (board.Players.Count < 2)
             return 0;
 
-        var order = board.Players[(int)board.YourSeat]
-                         .Battlefield
-                         .Where(creature => input.Blocks.GetValueOrDefault(creature.Id, 0) == attackerId)
-                         .Select(creature => creature.Id)
-                         .ToList();
+        var order = 0;
 
-        return Math.Max(0, order.IndexOf(blockerId));
+        foreach (var creature in board.Players[(int)board.YourSeat].Battlefield)
+        {
+            if (input.Blocks.GetValueOrDefault(creature.Id, 0) != attackerId)
+                continue;
+
+            if (creature.Id == blockerId)
+                return order;
+
+            order++;
+        }
+
+        return 0;
     }
 
     private static int BlockCount(TcgMatchInput input, int attackerId)
-        => Math.Max(1, input.Blocks.Count(pair => pair.Value == attackerId));
+    {
+        var count = 0;
+
+        foreach (var pair in input.Blocks)
+        {
+            if (pair.Value == attackerId)
+                count++;
+        }
+
+        return Math.Max(1, count);
+    }
 
     private string? CreatureBadge(TcgDisplayArgs board, TcgCreatureView view)
     {
@@ -235,49 +255,45 @@ public sealed partial class TcgMatchWindow
 
     private Rectangle ToScreen(Rectangle local) => new(ScreenX + local.X, ScreenY + local.Y, local.Width, local.Height);
 
-    private bool HandleCombatClick(TcgDisplayArgs board, TcgDisplayArgs latest, int x, int y)
+    public static bool HandleCombatClick(TcgDisplayArgs board, TcgDisplayArgs latest, TcgMatchInput input, int x, int y)
     {
-        switch (Input.Mode)
+        switch (input.Mode)
         {
             case TcgInputMode.Attacking:
-                if (OwnCreatureIdAt(board, Input, x, y) is var id && (id != 0))
+                if (OwnCreatureIdAt(board, input, x, y) is var id && (id != 0))
                 {
-                    Input.ToggleAttacker(latest, id);
+                    input.ToggleAttacker(latest, id);
 
                     return true;
                 }
 
                 return false;
             case TcgInputMode.Ordering:
-                if (OrderedBlockerIdAt(board, Input, x, y) is var blocker && (blocker != 0))
+                if (OrderedBlockerIdAt(board, input, x, y) is var blocker && (blocker != 0))
                 {
-                    Input.ClickBlocker(blocker);
+                    input.ClickBlocker(blocker);
 
                     return true;
                 }
 
                 return false;
             case TcgInputMode.Blocking:
-                if (OwnCreatureIdAt(board, Input, x, y) is var own && (own != 0))
+                if (OwnCreatureIdAt(board, input, x, y) is var own && (own != 0))
                 {
-                    Input.SelectBlocker(latest, own);
+                    input.SelectBlocker(latest, own);
 
                     return true;
                 }
 
-                if (AttackerIdAt(board, Input, x, y) is var attacker && (attacker != 0))
+                if (AttackerIdAt(board, input, x, y) is var attacker && (attacker != 0))
                 {
-                    Input.PairSelectedBlocker(latest, attacker);
+                    input.PairSelectedBlocker(latest, attacker);
 
                     return true;
                 }
 
-                if (Input.SelectedBlocker != 0)
-                {
-                    Input.ClearBlockSelection();
-
-                    return true;
-                }
+                if (input.SelectedBlocker != 0)
+                    input.ClearBlockSelection();
 
                 return false;
             default:
@@ -296,41 +312,44 @@ public sealed partial class TcgMatchWindow
 
         foreach (var attackerId in board.Attackers)
         {
-            var attackerIndex = them.Battlefield.FindIndex(creature => creature.Id == attackerId);
+            var attackerIndex = -1;
+
+            for (var i = 0; i < them.Battlefield.Count; i++)
+            {
+                if (them.Battlefield[i].Id == attackerId)
+                {
+                    attackerIndex = i;
+
+                    break;
+                }
+            }
 
             if (attackerIndex < 0)
                 continue;
 
             var attackerFeet = DrawFeet(board, Input, attackerId, false, attackerIndex, them.Battlefield.Count);
             var from = new Point(ScreenX + attackerFeet.X, ScreenY + attackerFeet.Y - 24);
-            var blockers = you.Battlefield.Where(creature => Input.Blocks.GetValueOrDefault(creature.Id, 0) == attackerId).ToList();
+            var blocked = false;
 
-            if (blockers.Count == 0)
+            for (var i = 0; i < you.Battlefield.Count; i++)
             {
-                DrawArrow(batch, from, seal, UnblockedArrow);
+                var blocker = you.Battlefield[i];
 
-                continue;
-            }
-
-            foreach (var blocker in blockers)
-            {
-                var blockerIndex = you.Battlefield.FindIndex(creature => creature.Id == blocker.Id);
-
-                if (blockerIndex < 0)
+                if (Input.Blocks.GetValueOrDefault(blocker.Id, 0) != attackerId)
                     continue;
 
-                var blockerFeet = DrawFeet(board, Input, blocker.Id, true, blockerIndex, you.Battlefield.Count);
+                blocked = true;
+                var blockerFeet = DrawFeet(board, Input, blocker.Id, true, i, you.Battlefield.Count);
                 DrawArrow(batch, from, new Point(ScreenX + blockerFeet.X, ScreenY + blockerFeet.Y - 24), BlockedArrow);
             }
+
+            if (!blocked)
+                DrawArrow(batch, from, seal, UnblockedArrow);
         }
     }
 
-    private void DrawIncomingDamage(SpriteBatch batch, TcgDisplayArgs board)
-    {
-        var damage = Input.IncomingDamage(board);
-        var text = Input.IncomingDamageText(board);
-        DrawTextClipped(batch, new Vector2(ScreenX + 8, ScreenY + 338), text, damage == 0 ? Color.Green : Color.Red, false);
-    }
+    private void DrawIncomingDamage(SpriteBatch batch, int damage, string text)
+        => DrawTextClipped(batch, new Vector2(ScreenX + 8, ScreenY + 338), text, damage == 0 ? Color.Green : Color.Red, false);
 
     private void DrawArrow(SpriteBatch batch, Point from, Point to, Color color)
     {

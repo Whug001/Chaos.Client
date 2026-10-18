@@ -19,6 +19,10 @@ public sealed partial class TcgMatchWindow
     private readonly HashSet<int> DestroyedIds = [];
     private readonly HashSet<int> FreshIds = [];
     private TcgCardFace? AnimFace;
+    private TcgEventView? TurnBanner;
+    private TcgDisplayArgs? TurnBannerBoard;
+    private TcgDisplayArgs? TurnBannerSeenBoard;
+    private double TurnBannerElapsedMs;
 
     /// <summary>Creature ids the board pass must skip this frame: only the ones the current animation draws itself.</summary>
     public static HashSet<int> AnimatedIdsFor(TcgEventView? e)
@@ -137,10 +141,6 @@ public sealed partial class TcgMatchWindow
 
         switch (e.Type)
         {
-            case TcgEventType.TurnStarted:
-                DrawTurnAnimation(batch, board, e, p);
-
-                break;
             case TcgEventType.CreatureEntered:
                 DrawEnterAnimation(batch, e, p, clockMs);
 
@@ -184,12 +184,7 @@ public sealed partial class TcgMatchWindow
         if (!TryFindCreature(e.SourceId != 0 ? e.SourceId : e.TargetId, out var card, out var feet, out var facing))
             return;
 
-        if (TcgMatchArt.ArtPresent() && (UiRenderer.Instance is { } ui))
-        {
-            var frame = Math.Clamp((int)(p * TcgMatchArt.PUFF_FRAMES), 0, TcgMatchArt.PUFF_FRAMES - 1);
-            DrawTextureFitted(batch, ui.GetSpfTexture(TcgMatchArt.PUFF, frame), new Rectangle(feet.X - 16, feet.Y - 56, 32, 32), Color.White);
-        }
-
+        DrawPuff(batch, feet, p);
         Creature.Draw(batch, card, feet, facing, TcgBoardCreature.Pose.Idle, clockMs, Color.White, 0.4f + (0.6f * p));
     }
 
@@ -284,6 +279,46 @@ public sealed partial class TcgMatchWindow
         DrawTextClipped(batch, new Vector2(x, at.Y - (20 * p)), text, color, false);
     }
 
+    /// <summary>
+    ///     Starts the turn banner when a board carrying a TurnStarted event is shown, then times it out. The banner never
+    ///     waits in the event queue, so the new board and its input are live while it fades.
+    /// </summary>
+    private void SyncTurnBanner(double elapsedMs)
+    {
+        var shown = Queue.ShownBoard ?? State.Latest;
+
+        if (!ReferenceEquals(shown, TurnBannerSeenBoard))
+        {
+            TurnBannerSeenBoard = shown;
+
+            if (shown?.Events.FirstOrDefault(e => e.Type == TcgEventType.TurnStarted) is { } started)
+            {
+                TurnBanner = started;
+                TurnBannerBoard = shown;
+                TurnBannerElapsedMs = 0;
+            }
+        }
+
+        if (TurnBanner is not null)
+        {
+            TurnBannerElapsedMs += elapsedMs;
+
+            if (TurnBannerElapsedMs >= TcgMatchEventQueue.DurationMs(TcgEventType.TurnStarted))
+                TurnBanner = null;
+        }
+    }
+
+    private void DrawTurnBanner(SpriteBatch batch)
+    {
+        if ((TurnBanner is not { } e) || (TurnBannerBoard is not { } board))
+            return;
+
+        var duration = TcgMatchEventQueue.DurationMs(TcgEventType.TurnStarted);
+        var p = duration <= 0 ? 1f : (float)Math.Min(1, TurnBannerElapsedMs / duration);
+
+        DrawTurnAnimation(batch, board, e, p);
+    }
+
     private void DrawTurnAnimation(SpriteBatch batch, TcgDisplayArgs board, TcgEventView e, float p)
     {
         var text = TurnBannerText(board, e);
@@ -323,7 +358,11 @@ public sealed partial class TcgMatchWindow
             tint = Color.White * (1 - ((p - 0.25f) / 0.75f));
 
         Creature.Draw(batch, card, feet, facing, TcgBoardCreature.Pose.Idle, clockMs, tint);
+        DrawPuff(batch, feet, p);
+    }
 
+    private void DrawPuff(SpriteBatch batch, Point feet, float p)
+    {
         if (TcgMatchArt.ArtPresent() && (UiRenderer.Instance is { } ui))
         {
             var frame = Math.Clamp((int)(p * TcgMatchArt.PUFF_FRAMES), 0, TcgMatchArt.PUFF_FRAMES - 1);

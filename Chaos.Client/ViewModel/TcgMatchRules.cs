@@ -103,6 +103,17 @@ public static class TcgMatchRules
                || HasKeyword(blocker.Key, TcgKeyword.Flying, lookup)
                || HasKeyword(blocker.Key, TcgKeyword.Reach, lookup));
 
+    /// <summary>True when the blocker could block at least one declared attacker.</summary>
+    public static bool CanBlockAny(TcgDisplayArgs board, TcgCreatureView blocker, Func<string, TcgCatalogCardView?> lookup)
+    {
+        if (board.Players.Count < 2)
+            return false;
+
+        return board.Players[(int)Other(board.YourSeat)]
+                    .Battlefield
+                    .Any(attacker => board.Attackers.Contains(attacker.Id) && CanBlock(blocker, attacker, lookup));
+    }
+
     /// <summary>True when an idle Guard creature could still block an attacker nobody is blocking (the server refuses that).</summary>
     public static bool GuardProblem(TcgDisplayArgs board, IReadOnlyList<TcgBlock> blocks, Func<string, TcgCatalogCardView?> lookup)
     {

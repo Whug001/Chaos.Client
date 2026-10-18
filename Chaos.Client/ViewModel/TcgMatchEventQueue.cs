@@ -7,7 +7,8 @@ namespace Chaos.Client.ViewModel;
 
 /// <summary>
 ///     Plays each Update's animated events one at a time. While an Update's events play, the board from before it stays
-///     on screen; when they finish, that Update's board is shown.
+///     on screen; when they finish, that Update's board is shown. The turn banner is not queued: it draws as an overlay
+///     once the board carrying it is shown.
 /// </summary>
 public sealed class TcgMatchEventQueue
 {
@@ -50,7 +51,7 @@ public sealed class TcgMatchEventQueue
 
     public void Enqueue(TcgDisplayArgs board)
     {
-        var events = board.Events.Where(e => DurationMs(e.Type) > 0).ToList();
+        var events = board.Events.Where(e => (e.Type != TcgEventType.TurnStarted) && (DurationMs(e.Type) > 0)).ToList();
 
         if ((events.Count == 0) && (Entries.Count == 0))
         {
@@ -108,7 +109,7 @@ public sealed class TcgMatchEventQueue
 
     private bool DropOldestSkippable()
     {
-        for (var i = 0; i < Entries.Count; i++)
+        for (var i = 0; i < Entries.Count - 1; i++)
         {
             var unplayed = i == 0 ? Entries[i].Events.Skip(EventIndex) : Entries[i].Events;
 

@@ -167,6 +167,10 @@ public sealed partial class TcgMatchWindow : UIPanel
         HoverCreatureId = 0;
         HoverKey = null;
         HoverPrinting = TcgPrinting.Normal;
+        TurnBanner = null;
+        TurnBannerBoard = null;
+        TurnBannerSeenBoard = null;
+        TurnBannerElapsedMs = 0;
         State.Reset();
         Queue.Clear(null);
         Input.Cancel();
@@ -176,6 +180,7 @@ public sealed partial class TcgMatchWindow : UIPanel
     public override void Update(GameTime gameTime)
     {
         Queue.Advance(gameTime.ElapsedGameTime.TotalMilliseconds);
+        SyncTurnBanner(gameTime.ElapsedGameTime.TotalMilliseconds);
         SyncCardMenu();
         SyncResponseBigCard();
 
@@ -209,6 +214,7 @@ public sealed partial class TcgMatchWindow : UIPanel
             DrawBoard(spriteBatch, board, State.Latest);
 
         DrawEventAnimation(spriteBatch);
+        DrawTurnBanner(spriteBatch);
         DrawColumn(spriteBatch);
         DrawTargeting(spriteBatch);
         DrawConcede(spriteBatch);

@@ -26,6 +26,9 @@ internal static class TcgMatchFixtures
         ["owl"] = Card("owl", TcgCardType.Creature, keywords: TcgKeyword.Reach),
         ["wall"] = Card("wall", TcgCardType.Creature, keywords: TcgKeyword.Guard),
         ["boar"] = Card("boar", TcgCardType.Creature, keywords: TcgKeyword.Trample),
+        ["charger"] = Card("charger", TcgCardType.Creature, keywords: TcgKeyword.FirstStrike | TcgKeyword.Trample),
+        ["pikeman"] = Card("pikeman", TcgCardType.Creature, keywords: TcgKeyword.FirstStrike),
+        ["viper"] = Card("viper", TcgCardType.Creature, keywords: TcgKeyword.FirstStrike | TcgKeyword.Venom),
         ["golem"] = Card("golem", TcgCardType.Creature, keywords: TcgKeyword.Ward)
     };
 

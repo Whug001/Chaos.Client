@@ -235,12 +235,7 @@ public sealed class TcgMatchInput(Func<string, TcgCatalogCardView?> lookup)
             return;
         }
 
-        SelectedBlocker = board.Players[(int)TcgMatchRules.Other(board.YourSeat)]
-                               .Battlefield
-                               .Where(attacker => board.Attackers.Contains(attacker.Id) && TcgMatchRules.CanBlock(blocker, attacker, lookup))
-                               .Any()
-            ? creatureId
-            : 0;
+        SelectedBlocker = TcgMatchRules.CanBlockAny(board, blocker, lookup) ? creatureId : 0;
     }
 
     public bool PairSelectedBlocker(TcgDisplayArgs board, int attackerId)
@@ -264,38 +259,101 @@ public sealed class TcgMatchInput(Func<string, TcgCatalogCardView?> lookup)
             return 0;
 
         var you = board.Players[(int)board.YourSeat];
+
+        if (you.Shielded)
+            return 0;
+
         var them = board.Players[(int)TcgMatchRules.Other(board.YourSeat)];
         var total = 0;
 
         foreach (var attackerId in board.Attackers)
         {
-            var attacker = them.Battlefield.Find(c => c.Id == attackerId);
+            TcgCreatureView? attacker = null;
+
+            for (var i = 0; i < them.Battlefield.Count; i++)
+            {
+                if (them.Battlefield[i].Id == attackerId)
+                {
+                    attacker = them.Battlefield[i];
+
+                    break;
+                }
+            }
 
             if (attacker is null)
                 continue;
 
-            var blockers = you.Battlefield.Where(c => BlockByBlocker.GetValueOrDefault(c.Id, 0) == attackerId).ToList();
+            var card = lookup(attacker.Key);
+            var trample = (card is not null) && ((card.Keywords & TcgKeyword.Trample) != 0);
 
-            if (blockers.Count == 0)
+            if (!trample)
+            {
+                var blocked = false;
+
+                for (var i = 0; i < you.Battlefield.Count; i++)
+                {
+                    if (BlockByBlocker.GetValueOrDefault(you.Battlefield[i].Id, 0) == attackerId)
+                    {
+                        blocked = true;
+
+                        break;
+                    }
+                }
+
+                if (blocked)
+                    continue;
+
+                total += attacker.Attack;
+
+                continue;
+            }
+
+            var venom = (card is not null) && ((card.Keywords & TcgKeyword.Venom) != 0);
+            var strikesFirst = (card is not null) && ((card.Keywords & TcgKeyword.FirstStrike) != 0);
+            var blockedCount = 0;
+            var absorbed = 0;
+            var firstStrikeDamage = 0;
+            var firstStrikeVenom = false;
+
+            for (var i = 0; i < you.Battlefield.Count; i++)
+            {
+                var blocker = you.Battlefield[i];
+
+                if (BlockByBlocker.GetValueOrDefault(blocker.Id, 0) != attackerId)
+                    continue;
+
+                blockedCount++;
+                absorbed += venom ? 1 : Math.Max(0, blocker.Health - blocker.Damage);
+
+                if (!strikesFirst && HasKeyword(blocker.Key, TcgKeyword.FirstStrike))
+                {
+                    firstStrikeDamage += blocker.Attack;
+                    firstStrikeVenom |= HasKeyword(blocker.Key, TcgKeyword.Venom) && (blocker.Attack > 0);
+                }
+            }
+
+            if (blockedCount == 0)
             {
                 total += attacker.Attack;
 
                 continue;
             }
 
-            if ((lookup(attacker.Key) is { } card) && ((card.Keywords & TcgKeyword.Trample) != 0))
-            {
-                var venom = (card.Keywords & TcgKeyword.Venom) != 0;
-                var absorbed = blockers.Sum(blocker => venom ? 1 : Math.Max(0, blocker.Health - blocker.Damage));
-                total += Math.Max(0, attacker.Attack - absorbed);
-            }
+            if (firstStrikeVenom || (firstStrikeDamage >= attacker.Health - attacker.Damage))
+                continue;
+
+            total += Math.Max(0, attacker.Attack - absorbed);
         }
 
         return total;
     }
 
-    public string IncomingDamageText(TcgDisplayArgs board)
-        => (board.Attackers.Count > 0) && (IncomingDamage(board) == 0) ? "All blocked" : $"Incoming: {IncomingDamage(board)} damage";
+    public string IncomingDamageText(TcgDisplayArgs board) => IncomingDamageText(board, IncomingDamage(board));
+
+    public string IncomingDamageText(TcgDisplayArgs board, int damage)
+        => (board.Attackers.Count > 0) && (damage == 0) ? "All blocked" : $"Incoming: {damage} damage";
+
+    private bool HasKeyword(string key, TcgKeyword keyword) => lookup(key) is { } card && ((card.Keywords & keyword) != 0);
 
     public void ClickBlocker(int blockerId)
     {

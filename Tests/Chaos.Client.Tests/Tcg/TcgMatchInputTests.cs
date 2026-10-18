@@ -446,4 +446,85 @@ public sealed class TcgMatchInputTests
         input.IncomingDamage(board).Should().Be(3);
         input.IncomingDamageText(board).Should().Be("Incoming: 3 damage");
     }
+
+    [Test]
+    public void Shielded_players_take_no_incoming_damage()
+    {
+        var board = Board(TcgDecision.Block, decider: TcgSeat.A, mine: [Creature(1, "bear")], theirs: [Creature(8, "bear")]);
+        board.Attackers.Add(8);
+        board.Players[0].Shielded = true;
+        var input = Input();
+
+        input.Sync(board);
+
+        input.IncomingDamage(board).Should().Be(0);
+    }
+
+    [Test]
+    public void A_first_strike_blocker_that_kills_a_trampler_stops_the_trample()
+    {
+        var board = Board(
+            TcgDecision.Block,
+            decider: TcgSeat.A,
+            mine: [new TcgCreatureView(1, "pikeman", 5, 2, 0, false, false)],
+            theirs: [new TcgCreatureView(8, "boar", 5, 5, 0, false, false)]);
+        board.Attackers.Add(8);
+        var input = Input();
+
+        input.Sync(board);
+        input.AssignBlock(board, 1, 8).Should().BeTrue();
+
+        input.IncomingDamage(board).Should().Be(0);
+    }
+
+    [Test]
+    public void A_first_strike_blocker_that_cannot_kill_still_takes_trample()
+    {
+        var board = Board(
+            TcgDecision.Block,
+            decider: TcgSeat.A,
+            mine: [new TcgCreatureView(1, "pikeman", 2, 2, 0, false, false)],
+            theirs: [new TcgCreatureView(8, "boar", 5, 5, 0, false, false)]);
+        board.Attackers.Add(8);
+        var input = Input();
+
+        input.Sync(board);
+        input.AssignBlock(board, 1, 8).Should().BeTrue();
+
+        input.IncomingDamage(board).Should().Be(3);
+    }
+
+    [Test]
+    public void Venom_first_strike_kills_a_trampler()
+    {
+        var board = Board(
+            TcgDecision.Block,
+            decider: TcgSeat.A,
+            mine: [new TcgCreatureView(1, "viper", 1, 2, 0, false, false)],
+            theirs: [new TcgCreatureView(8, "boar", 5, 5, 0, false, false)]);
+        board.Attackers.Add(8);
+        var input = Input();
+
+        input.Sync(board);
+        input.AssignBlock(board, 1, 8).Should().BeTrue();
+
+        input.IncomingDamage(board).Should().Be(0);
+    }
+
+    [Test]
+    public void A_first_strike_trampler_strikes_before_its_killer()
+    {
+        var board = Board(
+            TcgDecision.Block,
+            decider: TcgSeat.A,
+            mine: [new TcgCreatureView(1, "pikeman", 5, 2, 0, false, false)],
+            theirs: [new TcgCreatureView(8, "charger", 5, 5, 0, false, false)]);
+        board.Attackers.Add(8);
+        var input = Input();
+
+        input.Sync(board);
+        input.AssignBlock(board, 1, 8).Should().BeTrue();
+
+        input.IncomingDamage(board).Should().Be(3);
+    }
 }

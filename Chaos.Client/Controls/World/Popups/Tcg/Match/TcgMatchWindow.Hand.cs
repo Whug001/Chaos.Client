@@ -456,7 +456,7 @@ public sealed partial class TcgMatchWindow
 
         var board = Queue.ShownBoard ?? latest;
 
-        if ((board is not null) && (latest is not null) && (HandleCombatClick(board, latest, x, y) || (HandleRedrawClick(x, y))))
+        if ((board is not null) && (latest is not null) && (HandleCombatClick(board, latest, Input, x, y) || (HandleRedrawClick(x, y))))
         {
             e.Handled = true;
 

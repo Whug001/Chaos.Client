@@ -248,6 +248,21 @@ public sealed class TcgMatchCombatTests
     }
 
     [Test]
+    public void Missing_in_blocking_clears_the_selection_and_lets_the_click_through()
+    {
+        var board = Board(TcgDecision.Block, mine: [Creature(1, "bear")], theirs: [Creature(8, "bear")]);
+        board.Attackers.Add(8);
+        var input = new TcgMatchInput(Lookup);
+
+        input.Sync(board);
+        input.SelectBlocker(board, 1);
+        input.SelectedBlocker.Should().Be(1);
+
+        TcgMatchWindow.HandleCombatClick(board, board, input, -100, -100).Should().BeFalse();
+        input.SelectedBlocker.Should().Be(0);
+    }
+
+    [Test]
     public void Hovering_an_attacker_narrows_the_block_glow_to_it()
     {
         var bear = Creature(1, "bear");
