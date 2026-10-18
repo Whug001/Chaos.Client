@@ -96,4 +96,18 @@ public sealed class TcgMatchAnimationTests
         TcgMatchWindow.BannerFrame(TcgEndOutcome.Defeat).Should().Be(1);
         TcgMatchWindow.BannerFrame(TcgEndOutcome.Draw).Should().Be(2);
     }
+
+    [Test]
+    public void Turn_banner_names_whose_turn_it_is()
+    {
+        var board = new TcgDisplayArgs
+        {
+            Type = TcgDisplayType.Update,
+            YourSeat = TcgSeat.A,
+            Players = [new TcgPlayerView { Name = "Ana" }, new TcgPlayerView { Name = "Bo" }]
+        };
+
+        TcgMatchWindow.TurnBannerText(board, new TcgEventView(TcgEventType.TurnStarted, TcgSeat.A, 0, 0, 0, "")).Should().Be("Ana's turn!");
+        TcgMatchWindow.TurnBannerText(board, new TcgEventView(TcgEventType.TurnStarted, TcgSeat.B, 0, 0, 0, "")).Should().Be("Bo's turn!");
+    }
 }

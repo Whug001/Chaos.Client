@@ -113,6 +113,17 @@ public sealed partial class TcgMatchWindow
             _                    => 2
         };
 
+    /// <summary>The turn banner names the seat whose turn starts; input already follows the newest Update.</summary>
+    public static string TurnBannerText(TcgDisplayArgs? board, TcgEventView e)
+    {
+        var name = board is not null && board.Players.Count > (int)e.Seat ? board.Players[(int)e.Seat].Name : string.Empty;
+
+        if (!string.IsNullOrEmpty(name))
+            return $"{name}'s turn!";
+
+        return e.Seat == board?.YourSeat ? "Your turn!" : "Opponent's turn!";
+    }
+
     private static Point LerpPoint(Point from, Point to, float t)
         => new(from.X + (int)((to.X - from.X) * t), from.Y + (int)((to.Y - from.Y) * t));
 
@@ -126,6 +137,10 @@ public sealed partial class TcgMatchWindow
 
         switch (e.Type)
         {
+            case TcgEventType.TurnStarted:
+                DrawTurnAnimation(batch, board, e, p);
+
+                break;
             case TcgEventType.CreatureEntered:
                 DrawEnterAnimation(batch, e, p, clockMs);
 
@@ -269,12 +284,51 @@ public sealed partial class TcgMatchWindow
         DrawTextClipped(batch, new Vector2(x, at.Y - (20 * p)), text, color, false);
     }
 
+    private void DrawTurnAnimation(SpriteBatch batch, TcgDisplayArgs board, TcgEventView e, float p)
+    {
+        var text = TurnBannerText(board, e);
+
+        if (string.IsNullOrEmpty(text))
+            return;
+
+        const int scale = 2;
+        var width = TextRenderer.MeasureWidth(text, scale);
+        var height = TextRenderer.CHAR_HEIGHT * scale;
+        var x = ScreenX + ((TcgMatchLayout.Board.Width - width) / 2);
+        var y = ScreenY + RIVER_Y - (height / 2);
+
+        float alpha;
+
+        if (p < 0.15f)
+            alpha = p / 0.15f;
+        else if (p > 0.7f)
+            alpha = Math.Max(0, (1 - p) / 0.3f);
+        else
+            alpha = 1f;
+
+        DrawRectClipped(batch, new Rectangle(x - 8, y - 4, width + 16, height + 8), new Color(0, 0, 0, (int)(180 * alpha)));
+        TextRenderer.DrawShadowedText(batch, new Vector2(x, y), text, Color.Gold * alpha, Color.Black * alpha, false, scale);
+    }
+
     private void DrawDestroyAnimation(SpriteBatch batch, TcgEventView e, float p, int clockMs)
     {
         if (!TryFindCreature(e.SourceId != 0 ? e.SourceId : e.TargetId, out var card, out var feet, out var facing))
             return;
 
-        Creature.Draw(batch, card, feet, facing, TcgBoardCreature.Pose.Idle, clockMs, Color.White * (1 - p));
+        Color tint;
+
+        if (p < 0.25f)
+            tint = ((int)(p * 10) % 2 == 0) ? Color.Red : Color.White;
+        else
+            tint = Color.White * (1 - ((p - 0.25f) / 0.75f));
+
+        Creature.Draw(batch, card, feet, facing, TcgBoardCreature.Pose.Idle, clockMs, tint);
+
+        if (TcgMatchArt.ArtPresent() && (UiRenderer.Instance is { } ui))
+        {
+            var frame = Math.Clamp((int)(p * TcgMatchArt.PUFF_FRAMES), 0, TcgMatchArt.PUFF_FRAMES - 1);
+            DrawTextureFitted(batch, ui.GetSpfTexture(TcgMatchArt.PUFF, frame), new Rectangle(feet.X - 16, feet.Y - 56, 32, 32), Color.White);
+        }
     }
 
     private void DrawBlockAnimation(SpriteBatch batch, TcgDisplayArgs board, TcgEventView e, int clockMs)
