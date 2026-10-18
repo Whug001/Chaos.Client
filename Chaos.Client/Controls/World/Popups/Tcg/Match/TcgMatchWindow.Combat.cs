@@ -38,6 +38,33 @@ public sealed partial class TcgMatchWindow
             _                      => false
         };
 
+    public static TcgReadyGlow ReadyGlow(
+        TcgDisplayArgs board,
+        TcgMatchInput input,
+        TcgCreatureView creature,
+        int hoveredId,
+        Func<string, TcgCatalogCardView?> lookup)
+    {
+        if ((board.Players.Count < 2) || !board.Players[(int)board.YourSeat].Battlefield.Any(own => own.Id == creature.Id))
+            return TcgReadyGlow.None;
+
+        if (TcgMatchRules.CanAttack(board, creature))
+            return (input.Mode == TcgInputMode.Attacking) && input.Attackers.Contains(creature.Id) ? TcgReadyGlow.None : TcgReadyGlow.Attack;
+
+        if ((input.Mode != TcgInputMode.Blocking) || !TcgMatchRules.YouDecide(board, TcgDecision.Block) || input.Blocks.ContainsKey(creature.Id))
+            return TcgReadyGlow.None;
+
+        var attackers = board.Players[(int)TcgMatchRules.Other(board.YourSeat)]
+                             .Battlefield
+                             .Where(attacker => board.Attackers.Contains(attacker.Id))
+                             .ToList();
+
+        if (attackers.Any(attacker => attacker.Id == hoveredId))
+            attackers = attackers.Where(attacker => attacker.Id == hoveredId).ToList();
+
+        return attackers.Any(attacker => TcgMatchRules.CanBlock(creature, attacker, lookup)) ? TcgReadyGlow.Block : TcgReadyGlow.None;
+    }
+
     public static bool HasGuardProblem(
         TcgDisplayArgs board,
         IReadOnlyDictionary<int, int> blocks,
@@ -241,4 +268,11 @@ public sealed partial class TcgMatchWindow
 
         return true;
     }
+}
+
+public enum TcgReadyGlow
+{
+    None,
+    Attack,
+    Block
 }

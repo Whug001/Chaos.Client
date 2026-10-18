@@ -19,6 +19,7 @@ public sealed partial class TcgMatchWindow
     private static readonly Color TappedTint = new(150, 150, 150);
     private static readonly Color BoxBack = new(20, 14, 8);
     private static readonly Color DisabledBack = new(12, 12, 12);
+    private static readonly Color BlockGlow = new(90, 170, 255);
 
     private Rectangle At(Rectangle rect) => new(ScreenX + rect.X, ScreenY + rect.Y, rect.Width, rect.Height);
 
@@ -168,6 +169,9 @@ public sealed partial class TcgMatchWindow
             if (CreatureOutlined(view))
                 DrawAttackerOutline(batch, slot);
 
+            if (yours && ReadyGlow(board, Input, view, HoverCreatureId, Catalog.Get) is var glow && (glow != TcgReadyGlow.None))
+                DrawReadyGlow(batch, feet, glow == TcgReadyGlow.Attack ? LegendColors.Gold : BlockGlow, clockMs);
+
             if (Catalog.Get(view.Key) is { } card)
                 Creature.Draw(batch, card, feet, facing, TcgBoardCreature.Pose.Idle, clockMs, tint);
             else
@@ -227,6 +231,21 @@ public sealed partial class TcgMatchWindow
 
                 break;
             }
+        }
+    }
+
+    private void DrawReadyGlow(SpriteBatch batch, Point feet, Color color, int clockMs)
+    {
+        const int HALF_WIDTH = 20;
+        const int HALF_HEIGHT = 5;
+        var pulse = 0.45f + (0.2f * MathF.Sin(clockMs / 250f));
+
+        for (var row = -HALF_HEIGHT; row < HALF_HEIGHT; row++)
+        {
+            var y = (row + 0.5f) / HALF_HEIGHT;
+            var halfWidth = (int)MathF.Round(HALF_WIDTH * MathF.Sqrt(1 - (y * y)));
+            var fade = 1 - (0.5f * MathF.Abs(y));
+            DrawRectClipped(batch, new Rectangle(feet.X - halfWidth, feet.Y - 1 + row, halfWidth * 2, 1), color * (pulse * fade));
         }
     }
 

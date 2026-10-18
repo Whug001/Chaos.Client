@@ -169,4 +169,98 @@ public sealed class TcgMatchCombatTests
 
         TcgMatchWindow.PhaseOverride(respond, new TcgMatchInput(Lookup), "Bo", false, Lookup).Should().Be("Waiting for Bo…");
     }
+
+    [Test]
+    public void A_ready_creature_glows_to_attack()
+    {
+        var bear = Creature(1, "bear");
+        var board = Board(mine: [bear]);
+
+        TcgMatchWindow.ReadyGlow(board, new TcgMatchInput(Lookup), bear, 0, Lookup).Should().Be(TcgReadyGlow.Attack);
+    }
+
+    [Test]
+    public void Tapped_sick_and_late_creatures_do_not_glow()
+    {
+        var tapped = Creature(1, "bear", tapped: true);
+        var sick = Creature(2, "bear", sick: true);
+        var late = Creature(3, "bear");
+        var input = new TcgMatchInput(Lookup);
+
+        TcgMatchWindow.ReadyGlow(Board(mine: [tapped]), input, tapped, 0, Lookup).Should().Be(TcgReadyGlow.None);
+        TcgMatchWindow.ReadyGlow(Board(mine: [sick]), input, sick, 0, Lookup).Should().Be(TcgReadyGlow.None);
+        TcgMatchWindow.ReadyGlow(Board(phase: TcgPhase.Main2, mine: [late]), input, late, 0, Lookup).Should().Be(TcgReadyGlow.None);
+    }
+
+    [Test]
+    public void A_chosen_attacker_stops_glowing()
+    {
+        var bear = Creature(1, "bear");
+        var other = Creature(2, "bear");
+        var board = Board(mine: [bear, other]);
+        var input = new TcgMatchInput(Lookup);
+
+        input.StartAttack(board);
+        input.ToggleAttacker(board, 1);
+
+        TcgMatchWindow.ReadyGlow(board, input, bear, 0, Lookup).Should().Be(TcgReadyGlow.None);
+        TcgMatchWindow.ReadyGlow(board, input, other, 0, Lookup).Should().Be(TcgReadyGlow.Attack);
+    }
+
+    [Test]
+    public void The_opponents_creatures_never_glow()
+    {
+        var theirs = Creature(8, "bear");
+        var board = Board(mine: [Creature(1, "bear")], theirs: [theirs]);
+
+        TcgMatchWindow.ReadyGlow(board, new TcgMatchInput(Lookup), theirs, 0, Lookup).Should().Be(TcgReadyGlow.None);
+    }
+
+    [Test]
+    public void Only_a_creature_that_can_block_an_attacker_glows_to_block()
+    {
+        var bear = Creature(1, "bear");
+        var owl = Creature(2, "owl");
+        var board = Board(TcgDecision.Block, mine: [bear, owl], theirs: [Creature(8, "drake")]);
+        board.Attackers.Add(8);
+        var input = new TcgMatchInput(Lookup);
+
+        input.Sync(board);
+
+        TcgMatchWindow.ReadyGlow(board, input, bear, 0, Lookup).Should().Be(TcgReadyGlow.None);
+        TcgMatchWindow.ReadyGlow(board, input, owl, 0, Lookup).Should().Be(TcgReadyGlow.Block);
+    }
+
+    [Test]
+    public void An_assigned_blocker_stops_glowing()
+    {
+        var bear = Creature(1, "bear");
+        var board = Board(TcgDecision.Block, mine: [bear], theirs: [Creature(8, "bear")]);
+        board.Attackers.Add(8);
+        var input = new TcgMatchInput(Lookup);
+
+        input.Sync(board);
+        TcgMatchWindow.ReadyGlow(board, input, bear, 0, Lookup).Should().Be(TcgReadyGlow.Block);
+
+        input.AssignBlock(board, 1, 8).Should().BeTrue();
+
+        TcgMatchWindow.ReadyGlow(board, input, bear, 0, Lookup).Should().Be(TcgReadyGlow.None);
+    }
+
+    [Test]
+    public void Hovering_an_attacker_narrows_the_block_glow_to_it()
+    {
+        var bear = Creature(1, "bear");
+        var board = Board(TcgDecision.Block, mine: [bear], theirs: [Creature(8, "bear"), Creature(9, "drake")]);
+        board.Attackers.Add(8);
+        board.Attackers.Add(9);
+        var input = new TcgMatchInput(Lookup);
+
+        input.Sync(board);
+
+        TcgMatchWindow.ReadyGlow(board, input, bear, 0, Lookup).Should().Be(TcgReadyGlow.Block);
+        TcgMatchWindow.ReadyGlow(board, input, bear, 8, Lookup).Should().Be(TcgReadyGlow.Block);
+        TcgMatchWindow.ReadyGlow(board, input, bear, 9, Lookup).Should().Be(TcgReadyGlow.None);
+        TcgMatchWindow.ReadyGlow(board, input, bear, 1, Lookup).Should().Be(TcgReadyGlow.Block);
+    }
 }

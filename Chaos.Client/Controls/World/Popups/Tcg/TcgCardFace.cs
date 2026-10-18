@@ -66,6 +66,7 @@ public sealed class TcgCardFace : UIElement
     private bool IdleFlip;
     private int IntervalMs = MIN_FRAME_MS;
     private int PoseSpriteId = -1;
+    private bool IsHovered;
 
     public TcgCardFace(CreatureRenderer creatures, int scale)
     {
@@ -252,6 +253,13 @@ public sealed class TcgCardFace : UIElement
         Clicked?.Invoke(this);
         e.Handled = true;
     }
+
+    public override void OnMouseEnter() => IsHovered = true;
+
+    public override void OnMouseLeave() => IsHovered = false;
+
+    //full art shows its painting bare until hovered; a face that can't be hovered (the match's big card) always shows text
+    private bool ShowsFullArtText => IsHovered || !IsHitTestVisible;
 
     public override void Update(GameTime gameTime)
     {
@@ -451,6 +459,17 @@ public sealed class TcgCardFace : UIElement
     {
         var white = MultiplyTint(Color.White, tint);
         var nameWidth = COST_RIGHT_2X - CostWidth(card, Scale) - 4 - NAME_LEFT_2X;
+
+        DrawTextClipped(
+            spriteBatch,
+            new Vector2(bounds.X + NAME_LEFT_2X, bounds.Y + NAME_TOP_2X),
+            Fit(card.Name, nameWidth),
+            MultiplyTint(LegendColors.Gold, tint),
+            false);
+
+        if (full && !ShowsFullArtText)
+            return;
+
         var lines = RulesLines(card, bounds, full);
         var typeTop = full ? TypeTopFull(lines.Count) : TYPE_TOP_2X;
         var boxBottom = bounds.Y + (full ? FULL_RULES_BOTTOM : RULES_TOP + RULES_HEIGHT);
@@ -459,12 +478,6 @@ public sealed class TcgCardFace : UIElement
         if (full)
             DrawRectClipped(spriteBatch, new Rectangle(bounds.X + 8, bounds.Y + typeTop - 2, 104, FULL_PANEL_BOTTOM - typeTop + 2), FullTextBack);
 
-        DrawTextClipped(
-            spriteBatch,
-            new Vector2(bounds.X + NAME_LEFT_2X, bounds.Y + NAME_TOP_2X),
-            Fit(card.Name, nameWidth),
-            MultiplyTint(LegendColors.Gold, tint),
-            false);
         DrawTextClipped(spriteBatch, new Vector2(bounds.X + 10, bounds.Y + typeTop), card.Type.ToString(), white, false);
 
         foreach (var (line, x, y) in lines)
@@ -502,6 +515,9 @@ public sealed class TcgCardFace : UIElement
 
         var bounds = new Rectangle(ScreenX, ScreenY, Width, Height);
         var full = UiRenderer.Instance is { } ui && (TcgFaceArts.Resolve(card, Style, ui.GetSpfFrameCount) == TcgFaceArt.Full);
+
+        if (full && !ShowsFullArtText)
+            return null;
 
         foreach (var (line, x, y) in RulesLines(card, bounds, full))
         {
