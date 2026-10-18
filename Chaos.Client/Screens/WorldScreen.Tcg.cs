@@ -52,6 +52,7 @@ public sealed partial class WorldScreen
         binder.EditDeckRequested += OpenTcgDeckBuilder;
         binder.Closed += OnTcgBinderClosed;
         binder.FindMatchClicked += SendTcgRankedJoin;
+        binder.LeaveQueueClicked += SendTcgRankedLeave;
         binder.RankedTabOpened += SendTcgRankedInfo;
         builder.ActionRequested += SendTcgCollectionAction;
 
@@ -151,6 +152,8 @@ public sealed partial class WorldScreen
 
     private void SendTcgRankedJoin(string deckName) => Game.Connection.SendTcgAction(TcgRankedState.JoinAction(deckName));
 
+    private void SendTcgRankedLeave() => Game.Connection.SendTcgAction(TcgRankedState.LeaveAction());
+
     private void SendTcgRankedInfo() => Game.Connection.SendTcgAction(TcgRankedState.InfoAction());
 
     private void UnwireTcg()
@@ -165,6 +168,7 @@ public sealed partial class WorldScreen
             TcgBinderWindow.EditDeckRequested -= OpenTcgDeckBuilder;
             TcgBinderWindow.Closed -= OnTcgBinderClosed;
             TcgBinderWindow.FindMatchClicked -= SendTcgRankedJoin;
+            TcgBinderWindow.LeaveQueueClicked -= SendTcgRankedLeave;
             TcgBinderWindow.RankedTabOpened -= SendTcgRankedInfo;
         }
 

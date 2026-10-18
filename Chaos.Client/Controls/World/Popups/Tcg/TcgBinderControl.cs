@@ -65,6 +65,7 @@ public sealed class TcgBinderControl : FramedDialogPanelBase
     private readonly UILabel DustLabel;
     private readonly CustomButton EditDeckButton;
     private readonly CustomButton FindMatchButton;
+    private readonly CustomButton LeaveQueueButton;
     private readonly TcgCardFace[] Faces = new TcgCardFace[TcgCollectionState.PAGE_SIZE];
     private readonly CustomButton[] StyleButtons = new CustomButton[3];
     private readonly UILabel HintLabel;
@@ -248,7 +249,8 @@ public sealed class TcgBinderControl : FramedDialogPanelBase
         RenameDeckButton = Button("Rename", LEFT + (2 * DECK_BUTTON_STEP), DECK_BUTTONS_TOP, DECK_BUTTON_WIDTH, StartRename);
         DeleteDeckButton = Button("Delete", LEFT + (3 * DECK_BUTTON_STEP), DECK_BUTTONS_TOP, DECK_BUTTON_WIDTH, DeleteSelectedDeck);
         FindMatchButton = Button("Find match", LEFT + (4 * DECK_BUTTON_STEP), DECK_BUTTONS_TOP, DECK_BUTTON_WIDTH, FindMatch);
-        DeckButtons = [NewDeckButton, EditDeckButton, RenameDeckButton, DeleteDeckButton, FindMatchButton];
+        LeaveQueueButton = Button("Leave queue", LEFT + (5 * DECK_BUTTON_STEP), DECK_BUTTONS_TOP, DECK_BUTTON_WIDTH, LeaveQueue);
+        DeckButtons = [NewDeckButton, EditDeckButton, RenameDeckButton, DeleteDeckButton, FindMatchButton, LeaveQueueButton];
 
         RenameLabel = Label(LEFT, RENAME_TOP + 5, 60, "New name", LegendColors.White);
         AddChild(RenameLabel);
@@ -307,6 +309,9 @@ public sealed class TcgBinderControl : FramedDialogPanelBase
 
     /// <summary>Find match on the Decks tab: the name of the deck to queue with.</summary>
     public event Action<string>? FindMatchClicked;
+
+    /// <summary>Leave queue on the Decks tab: stops searching for a ranked match.</summary>
+    public event Action? LeaveQueueClicked;
 
     /// <summary>The Ranked tab was opened: the server ladder info is needed.</summary>
     public event Action? RankedTabOpened;
@@ -411,7 +416,10 @@ public sealed class TcgBinderControl : FramedDialogPanelBase
 
         //the queue mode changes outside the binder, so re-check the button every frame
         if (Visible && (State.Tab == TcgBinderTab.Decks))
+        {
             FindMatchButton.Enabled = (SelectedDeckView() is { } selected) && WorldState.TcgRanked.CanFindMatch(selected.Status);
+            LeaveQueueButton.Enabled = WorldState.TcgRanked.ShowLeave;
+        }
     }
 
     private CustomButton Button(string caption, int x, int y, int width, ClickedHandler onClick)
@@ -468,6 +476,8 @@ public sealed class TcgBinderControl : FramedDialogPanelBase
         if (SelectedDeckView() is { } deck)
             FindMatchClicked?.Invoke(deck.Name);
     }
+
+    private void LeaveQueue() => LeaveQueueClicked?.Invoke();
 
     private void EditSelectedDeck()
     {
@@ -649,6 +659,7 @@ public sealed class TcgBinderControl : FramedDialogPanelBase
         RenameDeckButton.Enabled = SelectedDeck is not null;
         DeleteDeckButton.Enabled = SelectedDeck is not null;
         FindMatchButton.Enabled = (SelectedDeckView() is { } selected) && WorldState.TcgRanked.CanFindMatch(selected.Status);
+        LeaveQueueButton.Enabled = WorldState.TcgRanked.ShowLeave;
 
         var renaming = shown && (RenamingDeck is not null);
         RenameLabel.Visible = renaming;
