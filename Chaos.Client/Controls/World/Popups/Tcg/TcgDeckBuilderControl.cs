@@ -4,6 +4,7 @@ using Chaos.Client.Controls.Components;
 using Chaos.Client.Controls.Custom;
 using Chaos.Client.Controls.World.Popups.Dialog;
 using Chaos.Client.ViewModel;
+using Chaos.DarkAges.Definitions;
 using Chaos.Networking.Entities.Client;
 using Microsoft.Xna.Framework;
 #endregion
@@ -302,7 +303,9 @@ public sealed class TcgDeckBuilderControl : FramedDialogPanelBase
             var owned = State.Copies(card.Key);
             face.Card = card;
             face.Owned = owned > 0;
-            face.Foil = State.Count(card.Key, true) > 0;
+            var printing = State.DeckFacePrinting(draft.Keys, card.Key);
+            face.Style = printing.Style;
+            face.Foil = printing.Foil;
             face.Badge = $"{draft.InDeck(card.Key)}/{owned}";
         }
 
@@ -363,7 +366,7 @@ public sealed class TcgDeckBuilderControl : FramedDialogPanelBase
 
         var owned = State.Copies(card.Key);
 
-        MessageLabel.Text = draft.TryAdd(card.Key, owned) ? string.Empty : draft.AddProblem(card.Key, owned) ?? string.Empty;
+        MessageLabel.Text = draft.TryAdd(card.Key, owned, card.Rarity) ? string.Empty : draft.AddProblem(card.Key, owned, card.Rarity) ?? string.Empty;
         Refresh();
     }
 

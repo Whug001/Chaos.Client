@@ -163,6 +163,7 @@ public sealed class TcgPackRevealControl : FramedDialogPanelBase
                 continue;
 
             face.Card = Reveal.View(i);
+            face.Style = Reveal.Cards[i].Style;
             face.FaceDown = false;
             face.Owned = true;
             face.FlipProgress = 0f;

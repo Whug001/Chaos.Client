@@ -130,7 +130,8 @@ public sealed partial class TcgMatchWindow
             var slot = TcgMatchLayout.HandCard(i, you.Hand.Count);
             var face = HandFaces[i];
             face.Card = Catalog.Get(view.Key);
-            face.Foil = false;
+            face.Style = view.Printing.Style;
+            face.Foil = view.Printing.Foil;
             face.FaceDown = false;
             face.FlipProgress = 1f;
             face.Badge = string.Empty;
@@ -305,7 +306,8 @@ public sealed partial class TcgMatchWindow
             return;
 
         DragFace.Card = Catalog.Get(view.Key);
-        DragFace.Foil = false;
+        DragFace.Style = view.Printing.Style;
+        DragFace.Foil = view.Printing.Foil;
         DragFace.FaceDown = false;
         DragFace.FlipProgress = 1f;
         DragFace.Badge = string.Empty;

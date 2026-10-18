@@ -49,6 +49,8 @@ public sealed class TcgBinderControl : FramedDialogPanelBase
     private const int TAB_TOP = 26;
     private const int TAB_WIDTH = 48;
     private const int TITLE_TOP = 8;
+    private const int STYLE_STEP = BUTTON_HEIGHT + 2;
+    private const int STYLE_TOP = 36;
 
     private static readonly string[] TabNames = ["All", "Fire", "Water", "Wind", "Earth", "Neutral", "Decks", "Ranked"];
 
@@ -64,13 +66,14 @@ public sealed class TcgBinderControl : FramedDialogPanelBase
     private readonly CustomButton EditDeckButton;
     private readonly CustomButton FindMatchButton;
     private readonly TcgCardFace[] Faces = new TcgCardFace[TcgCollectionState.PAGE_SIZE];
-    private readonly UILabel FoilLabel;
+    private readonly CustomButton[] StyleButtons = new CustomButton[3];
     private readonly UILabel HintLabel;
     private readonly UILabel MessageLabel;
     private readonly UILabel NameLabel;
     private readonly CustomButton NewDeckButton;
     private readonly CustomButton NextButton;
-    private readonly UILabel NormalLabel;
+    private static readonly Color MythicColor = new(185, 140, 255);
+    private static readonly TcgCardStyle[] SwitchStyles = [TcgCardStyle.Normal, TcgCardStyle.Extended, TcgCardStyle.Full];
     private readonly CustomCheckBox OwnedOnlyBox;
     private readonly UILabel PageLabel;
     private readonly CustomButton PreviousButton;
@@ -199,18 +202,30 @@ public sealed class TcgBinderControl : FramedDialogPanelBase
 
         NameLabel = Label(INFO_LEFT, GRID_TOP, INFO_WIDTH, string.Empty, LegendColors.Gold);
         RarityLabel = Label(INFO_LEFT, GRID_TOP + 16, INFO_WIDTH, string.Empty, LegendColors.Silver);
-        NormalLabel = Label(INFO_LEFT, GRID_TOP + 40, INFO_WIDTH, string.Empty, LegendColors.White);
-        FoilLabel = Label(INFO_LEFT, GRID_TOP + 56, INFO_WIDTH, string.Empty, LegendColors.White);
+        for (var i = 0; i < StyleButtons.Length; i++)
+        {
+            var style = SwitchStyles[i];
+
+            StyleButtons[i] = Button(
+                string.Empty,
+                INFO_LEFT,
+                GRID_TOP + STYLE_TOP + (i * STYLE_STEP),
+                INFO_WIDTH - 10,
+                () =>
+                {
+                    State.SetDetailStyle(style);
+                    Refresh();
+                });
+        }
+
         HintLabel = Label(DETAIL_LEFT, GRID_TOP + 120, CONTENT_WIDTH - DETAIL_LEFT + LEFT, "Click a card to see it here.", LegendColors.Silver, HorizontalAlignment.Center);
         AddChild(NameLabel);
         AddChild(RarityLabel);
-        AddChild(NormalLabel);
-        AddChild(FoilLabel);
         AddChild(HintLabel);
 
-        PullOutButton = Button("Pull out", INFO_LEFT, GRID_TOP + 96, 120, OnPullOut);
-        BreakButton = Button("Break", INFO_LEFT, GRID_TOP + 124, 120, OnBreak);
-        CraftButton = Button("Craft", INFO_LEFT, GRID_TOP + 152, 120, OnCraft);
+        PullOutButton = Button("Pull out", INFO_LEFT, GRID_TOP + 116, 120, OnPullOut);
+        BreakButton = Button("Break", INFO_LEFT, GRID_TOP + 144, 120, OnBreak);
+        CraftButton = Button("Craft", INFO_LEFT, GRID_TOP + 172, 120, OnCraft);
 
         for (var i = 0; i < DeckRows.Length; i++)
         {
@@ -413,13 +428,13 @@ public sealed class TcgBinderControl : FramedDialogPanelBase
         return button;
     }
 
-    private void ConfirmPullOut(TcgCatalogCardView card, bool foil)
+    private void ConfirmPullOut(TcgCatalogCardView card, TcgPrinting printing)
     {
-        var request = TcgCollectionState.PullOutAction(card.Key, foil);
+        var request = TcgCollectionState.PullOutAction(card.Key, printing);
 
         if (State.PullOutWarning(card.Key) is { } warning)
             Choice.Ask(
-                $"{warning} Pull out {TcgCollectionState.CardName(card, foil)}?",
+                $"{warning} Pull out {TcgCollectionState.CardName(card, printing)}?",
                 ["Yes", "No"],
                 answer =>
                 {
@@ -501,31 +516,37 @@ public sealed class TcgBinderControl : FramedDialogPanelBase
         if (State.Selected is not { } card)
             return;
 
-        var normal = State.CanBreak(card.Key, false);
-        var foil = State.CanBreak(card.Key, true);
+        var plain = new TcgPrinting(State.DetailStyle, false);
+        var foil = new TcgPrinting(State.DetailStyle, true);
+        var canPlain = State.CanBreak(card.Key, plain);
+        var canFoil = State.CanBreak(card.Key, foil);
 
-        if (normal && foil)
+        if (canPlain && canFoil)
             Choice.Ask(
                 $"Break which copy of {card.Name}?",
                 [
-                    $"Normal ({TcgCollectionState.BreakValue(card.Rarity, false)})",
-                    $"Foil ({TcgCollectionState.BreakValue(card.Rarity, true)})",
+                    $"Plain ({TcgCollectionState.BreakValue(card.Rarity, plain)})",
+                    $"Foil ({TcgCollectionState.BreakValue(card.Rarity, foil)})",
                     "Cancel"
                 ],
                 answer =>
                 {
                     if (answer is 0 or 1)
-                        Request(TcgCollectionState.BreakAction(card.Key, answer == 1));
+                        Request(TcgCollectionState.BreakAction(card.Key, answer == 1 ? foil : plain));
                 });
-        else if (normal || foil)
+        else if (canPlain || canFoil)
+        {
+            var printing = canFoil ? foil : plain;
+
             Choice.Ask(
-                State.BreakQuestion(card, foil),
+                State.BreakQuestion(card, printing),
                 ["Yes", "No"],
                 answer =>
                 {
                     if (answer == 0)
-                        Request(TcgCollectionState.BreakAction(card.Key, foil));
+                        Request(TcgCollectionState.BreakAction(card.Key, printing));
                 });
+        }
     }
 
     private void OnCardClicked(TcgCardFace face)
@@ -571,20 +592,22 @@ public sealed class TcgBinderControl : FramedDialogPanelBase
         if (State.Selected is not { } card)
             return;
 
-        var normal = State.CanPullOut(card.Key, false);
-        var foil = State.CanPullOut(card.Key, true);
+        var plain = new TcgPrinting(State.DetailStyle, false);
+        var foil = new TcgPrinting(State.DetailStyle, true);
+        var hasPlain = State.CanPullOut(card.Key, plain);
+        var hasFoil = State.CanPullOut(card.Key, foil);
 
-        if (normal && foil)
+        if (hasPlain && hasFoil)
             Choice.Ask(
                 $"Pull out which copy of {card.Name}?",
-                ["Normal", "Foil", "Cancel"],
+                ["Plain", "Foil", "Cancel"],
                 answer =>
                 {
                     if (answer is 0 or 1)
-                        ConfirmPullOut(card, answer == 1);
+                        ConfirmPullOut(card, answer == 1 ? foil : plain);
                 });
-        else if (normal || foil)
-            ConfirmPullOut(card, foil);
+        else if (hasPlain || hasFoil)
+            ConfirmPullOut(card, hasFoil ? foil : plain);
     }
 
     private static Color RarityColor(TcgRarity rarity)
@@ -593,7 +616,8 @@ public sealed class TcgBinderControl : FramedDialogPanelBase
             TcgRarity.Common   => LegendColors.Silver,
             TcgRarity.Uncommon => LegendColors.Lime,
             TcgRarity.Rare     => LegendColors.Gold,
-            _                  => LegendColors.Orange
+            TcgRarity.Legendary => LegendColors.Orange,
+            _                  => MythicColor
         };
 
     private void RefreshDecks(bool shown)
@@ -685,8 +709,8 @@ public sealed class TcgBinderControl : FramedDialogPanelBase
         DetailFace.Visible = shown;
         NameLabel.Visible = shown;
         RarityLabel.Visible = shown;
-        NormalLabel.Visible = shown;
-        FoilLabel.Visible = shown;
+        foreach (var button in StyleButtons)
+            button.Visible = false;
         PullOutButton.Visible = shown;
         BreakButton.Visible = shown;
         CraftButton.Visible = shown;
@@ -695,20 +719,27 @@ public sealed class TcgBinderControl : FramedDialogPanelBase
         if (card is null)
             return;
 
-        var normal = State.Count(card.Key, false);
-        var foil = State.Count(card.Key, true);
+        var styles = TcgCollectionState.Styles(card);
+        for (var i = 0; i < styles.Count; i++)
+        {
+            StyleButtons[i].Visible = true;
+            StyleButtons[i].Caption = State.StyleText(card.Key, styles[i]);
+            StyleButtons[i].Selected = styles[i] == State.DetailStyle;
+        }
+
+        var plain = new TcgPrinting(State.DetailStyle, false);
+        var foil = new TcgPrinting(State.DetailStyle, true);
 
         DetailFace.Card = card;
-        DetailFace.Owned = (normal + foil) > 0;
-        DetailFace.Foil = foil > 0;
+        DetailFace.Style = State.DetailStyle;
+        DetailFace.Owned = (State.Count(card.Key, plain) + State.Count(card.Key, foil)) > 0;
+        DetailFace.Foil = State.Count(card.Key, foil) > 0;
         NameLabel.Text = card.Name;
         RarityLabel.Text = card.Rarity.ToString();
         RarityLabel.ForegroundColor = RarityColor(card.Rarity);
-        NormalLabel.Text = $"Normal: {normal}";
-        FoilLabel.Text = $"Foil: {foil}";
-        PullOutButton.Enabled = (normal + foil) > 0;
-        BreakButton.Enabled = State.CanBreak(card.Key, false) || State.CanBreak(card.Key, true);
-        CraftButton.Caption = $"Craft ({TcgCollectionState.CraftCost(card.Rarity)})";
+        PullOutButton.Enabled = State.CanPullOut(card.Key, plain) || State.CanPullOut(card.Key, foil);
+        BreakButton.Enabled = State.CanBreak(card.Key, plain) || State.CanBreak(card.Key, foil);
+        CraftButton.Caption = TcgCollectionState.Craftable(card.Rarity) ? $"Craft ({TcgCollectionState.CraftCost(card.Rarity)})" : "Can't craft";
         CraftButton.Enabled = State.CanCraft(card.Key);
     }
 
@@ -728,7 +759,9 @@ public sealed class TcgBinderControl : FramedDialogPanelBase
             var copies = State.Copies(card.Key);
             face.Card = card;
             face.Owned = copies > 0;
-            face.Foil = State.Count(card.Key, true) > 0;
+            var best = State.BestPrinting(card.Key) ?? TcgPrinting.Normal;
+            face.Style = best.Style;
+            face.Foil = best.Foil;
             face.Badge = copies > 0 ? copies.ToString() : string.Empty;
             face.Selected = card.Key.Equals(State.SelectedKey, StringComparison.OrdinalIgnoreCase);
         }

@@ -27,6 +27,7 @@ public sealed partial class TcgMatchWindow : UIPanel
     private int HoverHandId;
     private int HoverCreatureId;
     private string? HoverKey;
+    private TcgPrinting HoverPrinting;
 
     public TcgMatchWindow(CreatureRenderer creatures, TcgCollectionState catalog)
     {
@@ -165,6 +166,7 @@ public sealed partial class TcgMatchWindow : UIPanel
         HoverHandId = 0;
         HoverCreatureId = 0;
         HoverKey = null;
+        HoverPrinting = TcgPrinting.Normal;
         State.Reset();
         Queue.Clear(null);
         Input.Cancel();
@@ -227,6 +229,7 @@ public sealed partial class TcgMatchWindow : UIPanel
         HoverHandId = 0;
         HoverCreatureId = 0;
         HoverKey = null;
+        HoverPrinting = TcgPrinting.Normal;
 
         if ((Queue.ShownBoard ?? State.Latest) is { } board)
             HoverBoard(board, x, y);
@@ -235,7 +238,8 @@ public sealed partial class TcgMatchWindow : UIPanel
             return;
 
         BigCard.Card = HoverKey is not null ? Catalog.Get(HoverKey) : null;
-        BigCard.Foil = State.Latest is not null && IsFoilAnte(State.Latest, HoverKey);
+        BigCard.Style = HoverPrinting.Style;
+        BigCard.Foil = HoverPrinting.Foil || (State.Latest is not null && IsFoilAnte(State.Latest, HoverKey));
     }
 
     public override void OnKeyDown(KeyDownEvent e)
@@ -282,6 +286,7 @@ public sealed partial class TcgMatchWindow : UIPanel
             {
                 HoverHandId = you.Hand[i].Id;
                 HoverKey = you.Hand[i].Key;
+                HoverPrinting = you.Hand[i].Printing;
 
                 return;
             }
@@ -303,6 +308,7 @@ public sealed partial class TcgMatchWindow : UIPanel
             {
                 HoverCreatureId = creatures[i].Id;
                 HoverKey = creatures[i].Key;
+                HoverPrinting = creatures[i].Printing;
 
                 return true;
             }

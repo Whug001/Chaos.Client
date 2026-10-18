@@ -120,7 +120,8 @@ public static class TcgMatchText
         if (stakes == TcgStakes.Gold)
             return outcome == TcgEndOutcome.Victory ? $"You won {gold * 2L:N0} gold." : $"You lost {gold:N0} gold.";
 
-        string Describe(TcgAnteView card) => card.Foil ? $"{cardName(card.Key)} (foil)" : cardName(card.Key);
+        string Describe(TcgAnteView card)
+            => card.Printing == TcgPrinting.Normal ? cardName(card.Key) : $"{cardName(card.Key)} ({card.Printing.Label.ToLowerInvariant()})";
 
         var yours = ante.FirstOrDefault(card => card.Seat == you);
         var theirs = ante.FirstOrDefault(card => card.Seat != you);

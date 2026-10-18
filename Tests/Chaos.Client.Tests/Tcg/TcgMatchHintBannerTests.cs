@@ -41,6 +41,17 @@ public sealed class TcgMatchHintBannerTests
     }
 
     [Test]
+    public void Stays_left_of_the_buttons_during_redraw()
+    {
+        var board = Board(phase: TcgPhase.Redraw);
+
+        var banner = TcgMatchWindow.HintBannerRect(board, 22);
+
+        banner.Intersects(TcgMatchLayout.Buttons).Should().BeFalse();
+        banner.Right.Should().BeLessThanOrEqualTo(TcgMatchLayout.Buttons.Left - 4);
+    }
+
+    [Test]
     public void Stays_put_when_the_board_is_missing()
         => TcgMatchWindow.HintBannerRect(null, 22).Y.Should().Be(TcgMatchLayout.OpponentStrip.Bottom + 4);
 }

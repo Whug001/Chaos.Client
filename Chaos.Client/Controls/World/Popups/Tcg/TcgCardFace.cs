@@ -1,5 +1,6 @@
 #region
 using Chaos.Client.Controls.Components;
+using Chaos.Client.Rendering;
 using Chaos.Client.Systems;
 using Chaos.Client.ViewModel;
 using Chaos.DarkAges.Definitions;
@@ -12,34 +13,43 @@ using Microsoft.Xna.Framework.Graphics;
 namespace Chaos.Client.Controls.World.Popups.Tcg;
 
 /// <summary>
-///     One card, drawn from the setoa.dat card art at 1x (60 x 84, the grids) or 2x (120 x 168, the detail panel and the
-///     reveal): the element frame, the picture, the cost, and at 2x the name, type, rules text and stats. Unowned cards are
-///     drawn dark and foils shimmer; a face-down card shows the back and its pack glow. Every texture is UiRenderer's or
-///     CreatureRenderer's cached one: never dispose them. The art contract is in the 3b plan ("Card art contract").
+///     One card, drawn from its painting in setoa.dat (`tcgart<nnn>.spf`) in its style, or from its sprite when it has none,
+///     at 1x (60 x 84, the grids) or 2x (120 x 168, the detail panel and the reveal): the element frame, the picture, the
+///     cost, and at 2x the name, type, rules text and stats. Unowned cards are drawn dark and foils show an animated
+///     holo sheen; a face-down card shows the back and its pack glow. Every texture is UiRenderer's or CreatureRenderer's
+///     cached one, except the shared foil texture this control repaints: never dispose them.
+///     The art contract is in the 3b plan ("Card art contract").
 /// </summary>
 public sealed class TcgCardFace : UIElement
 {
     public const int BACK_FRAME = 5;
-    public const string FRAME_FILE = "tcgframe.spf";
+    public const string FRAME_FILE = TcgFaceArts.FRAME_FILE;
     public const int FRAME_FRAMES = 6;
     public const string GLOW_FILE = "tcgglow.spf";
     public const int GLOW_FRAMES = 3;
     public const int GLOW_MARGIN = 4;
     public const int HEIGHT = 84;
-    public const string SHINE_FILE = "tcgshine.spf";
     public const int WIDTH = 60;
 
     private const int FOIL_GLOW = 2;
     private const int LEGENDARY_GLOW = 1;
+    private const int FULL_PANEL_BOTTOM = 164;
+    private const int FULL_RULES_BOTTOM = 148;
+    private const int FULL_RULES_LINES = 6;
+    private const int MYTHIC_GLOW = 3;
     private const int MIN_FRAME_MS = 120;
     private const int RARE_GLOW = 0;
 
     private static readonly Color BadgeBack = new(0, 0, 0, 200);
+    private static readonly Color FullTextBack = new(0, 0, 0, 160);
     private static readonly Color UnownedTint = new(80, 80, 80);
 
     //picture window, in 1x pixels for 1x faces and 2x pixels for 2x faces
     private static readonly Rectangle Picture1X = new(6, 14, 48, 31);
     private static readonly Rectangle Picture2X = new(12, 20, 96, 70);
+
+    //the 2x window halved: the painting fills the frame's whole picture well, not the sprite's smaller window
+    private static readonly Rectangle Painting1X = new(6, 10, 48, 35);
 
     //the 2x name bar's text row and the right edge the cost ends at, inside the top border
     private const int NAME_LEFT_2X = 9;
@@ -78,7 +88,7 @@ public sealed class TcgCardFace : UIElement
     /// <summary>1 for a still card; 0 to 1 while flipping from the back (0) to the face (1).</summary>
     public float FlipProgress { get; set; } = 1f;
 
-    /// <summary>Shimmer: the player owns a foil copy (binder), or this copy is foil (reveal).</summary>
+    /// <summary>Holo sheen: the player owns a foil copy (binder), or this copy is foil (reveal).</summary>
     public bool Foil { get; set; }
 
     public TcgRevealGlow Glow { get; set; }
@@ -86,14 +96,46 @@ public sealed class TcgCardFace : UIElement
     public int Scale { get; }
     public bool Selected { get; set; }
 
+    /// <summary>How the card is drawn: its normal window, the extended picture or full art. Foil is separate.</summary>
+    public TcgCardStyle Style { get; set; }
+
     public event Action<TcgCardFace>? Clicked;
 
     /// <summary>False when this client's setoa.dat lacks the card art (old game files).</summary>
     public static bool ArtPresent()
         => UiRenderer.Instance is { } ui
            && (ui.GetSpfFrameCount(FRAME_FILE) >= FRAME_FRAMES)
-           && (ui.GetSpfFrameCount(GLOW_FILE) >= GLOW_FRAMES)
-           && (ui.GetSpfFrameCount(SHINE_FILE) >= 1);
+           && (ui.GetSpfFrameCount(GLOW_FILE) >= GLOW_FRAMES);
+
+    //one animated foil texture shared by every card on screen, repainted at most every 50 ms
+    private const long FOIL_REPAINT_MS = 50;
+    private static Texture2D? FoilTextureField;
+    private static long FoilPaintedAt;
+
+    /// <summary>The shared foil frame for this tick, repainted at most every 50 ms.</summary>
+    private static Texture2D FoilTexture(SpriteBatch spriteBatch, long clock)
+    {
+        var device = spriteBatch.GraphicsDevice;
+
+        if (FoilTextureField is null || FoilTextureField.IsDisposed || FoilTextureField.GraphicsDevice != device)
+        {
+            if (FoilTextureField is { IsDisposed: false } stale)
+                stale.Dispose();
+
+            FoilTextureField = new Texture2D(device, TcgFoilPainter.Width, TcgFoilPainter.Height);
+            FoilPaintedAt = clock - FOIL_REPAINT_MS;
+        }
+
+        if (clock - FoilPaintedAt >= FOIL_REPAINT_MS)
+        {
+            using var scope = new PixelBufferScope(TcgFoilPainter.Width, TcgFoilPainter.Height);
+            TcgFoilPainter.Paint(scope.Pixels, (float)((clock / 1000.0) % TcgFoilPainter.LoopSeconds));
+            scope.CommitTo(FoilTextureField);
+            FoilPaintedAt = clock;
+        }
+
+        return FoilTextureField;
+    }
 
     public override void Draw(SpriteBatch spriteBatch)
     {
@@ -127,21 +169,18 @@ public sealed class TcgCardFace : UIElement
         }
 
         var tint = Owned ? Color.White : UnownedTint;
-        DrawTextureFitted(spriteBatch, ui.GetSpfTexture(FRAME_FILE, FrameIndex(card.Element)), bounds, tint);
-        DrawPicture(spriteBatch, ui, card, Offset(Scale == 1 ? Picture1X : Picture2X, bounds), tint);
+        var art = TcgFaceArts.Resolve(card, Style, ui.GetSpfFrameCount);
+        DrawFace(spriteBatch, ui, card, art, bounds, tint);
         DrawCost(spriteBatch, card, bounds, tint);
 
         if (Scale >= 2)
-            DrawText2X(spriteBatch, card, bounds, tint);
+            DrawText2X(spriteBatch, card, bounds, tint, art == TcgFaceArt.Full);
 
         if (card.Type == TcgCardType.Creature)
             DrawStats(spriteBatch, card, bounds, tint);
 
         if (Foil && Owned)
-        {
-            var shimmer = 0.35f + (0.25f * MathF.Sin(clock / 2000f * MathF.Tau));
-            DrawTextureFitted(spriteBatch, ui.GetSpfTexture(SHINE_FILE), bounds, Color.White * shimmer);
-        }
+            DrawTextureFitted(spriteBatch, FoilTexture(spriteBatch, clock), bounds, Color.White);
 
         if (Selected)
             DrawBorder(spriteBatch, bounds, LegendColors.Gold);
@@ -149,6 +188,49 @@ public sealed class TcgCardFace : UIElement
         if (Badge.Length > 0)
             DrawBadge(spriteBatch, bounds);
     }
+
+    private void DrawFace(SpriteBatch spriteBatch, UiRenderer ui, TcgCatalogCardView card, TcgFaceArt art, Rectangle bounds, Color tint)
+    {
+        //1x faces use the half-size frames, drawn at their own size
+        var half = Scale == 1 ? TcgFaceArts.HALF_OFFSET : 0;
+        var painting = TcgFaceArts.PaintingFile(card.Painting);
+
+        switch (art)
+        {
+            case TcgFaceArt.Normal:
+                //the normal frame's picture well is opaque, so the painting goes on top of it, where the sprite goes
+                DrawFrame(spriteBatch, ui, TcgFaceArts.FRAME_FILE, card, bounds, tint);
+                DrawTextureFitted(
+                    spriteBatch,
+                    ui.GetSpfTexture(painting, TcgFaceArts.PAINTING_NORMAL + half),
+                    Offset(Scale == 1 ? Painting1X : Picture2X, bounds),
+                    tint);
+
+                break;
+            case TcgFaceArt.Extended:
+                DrawTextureFitted(
+                    spriteBatch,
+                    ui.GetSpfTexture(painting, TcgFaceArts.PAINTING_EXTENDED + half),
+                    new Rectangle(bounds.X, bounds.Y, bounds.Width, 49 * Scale),
+                    tint);
+                DrawFrame(spriteBatch, ui, TcgFaceArts.FRAME_X_FILE, card, bounds, tint);
+
+                break;
+            case TcgFaceArt.Full:
+                DrawTextureFitted(spriteBatch, ui.GetSpfTexture(painting, TcgFaceArts.PAINTING_FULL + half), bounds, tint);
+                DrawFrame(spriteBatch, ui, TcgFaceArts.FRAME_F_FILE, card, bounds, tint);
+
+                break;
+            default:
+                DrawFrame(spriteBatch, ui, TcgFaceArts.FRAME_FILE, card, bounds, tint);
+                DrawPicture(spriteBatch, ui, card, Offset(Scale == 1 ? Picture1X : Picture2X, bounds), tint);
+
+                break;
+        }
+    }
+
+    private void DrawFrame(SpriteBatch spriteBatch, UiRenderer ui, string file, TcgCatalogCardView card, Rectangle bounds, Color tint)
+        => DrawTextureFitted(spriteBatch, ui.GetSpfTexture(file, TcgFaceArts.FrameIndex(card, ui.GetSpfFrameCount(file))), bounds, tint);
 
     public static Color ElementColor(TcgElement element)
         => element switch
@@ -160,15 +242,7 @@ public sealed class TcgCardFace : UIElement
             _                => new Color(130, 130, 130)
         };
 
-    public static int FrameIndex(TcgElement element)
-        => element switch
-        {
-            TcgElement.Fire  => 0,
-            TcgElement.Water => 1,
-            TcgElement.Wind  => 2,
-            TcgElement.Earth => 3,
-            _                => 4
-        };
+    public static int FrameIndex(TcgElement element) => TcgFaceArts.ElementFrame(element);
 
     public override void OnClick(ClickEvent e)
     {
@@ -267,7 +341,7 @@ public sealed class TcgCardFace : UIElement
         var width = Math.Max(1, (int)(bounds.Width * widthScale));
         var squashed = new Rectangle(bounds.X + ((bounds.Width - width) / 2), bounds.Y, width, bounds.Height);
 
-        var frame = backHalf || Card is not { } card ? BACK_FRAME : FrameIndex(card.Element);
+        var frame = backHalf || Card is not { } card ? BACK_FRAME : TcgFaceArts.FrameIndex(card, ui.GetSpfFrameCount(FRAME_FILE));
         DrawTextureFitted(spriteBatch, ui.GetSpfTexture(FRAME_FILE, frame), squashed, Color.White);
     }
 
@@ -301,8 +375,24 @@ public sealed class TcgCardFace : UIElement
 
                 break;
             }
+            case TcgRevealGlow.Mythic:
+                DrawTextureFitted(spriteBatch, ui.GetSpfTexture(GLOW_FILE, MythicGlow(ui)), outer, Color.White * pulse);
+
+                break;
+            case TcgRevealGlow.MythicFoil:
+            {
+                DrawTextureFitted(spriteBatch, ui.GetSpfTexture(GLOW_FILE, FOIL_GLOW), outer, Color.White * pulse);
+                var inner = bounds;
+                inner.Inflate((GLOW_MARGIN - 1) * Scale, (GLOW_MARGIN - 1) * Scale);
+                DrawTextureFitted(spriteBatch, ui.GetSpfTexture(GLOW_FILE, MythicGlow(ui)), inner, Color.White * pulse);
+
+                break;
+            }
         }
     }
+
+    //old game files have no Mythic glow; the legendary one stands in
+    private static int MythicGlow(UiRenderer ui) => ui.GetSpfFrameCount(GLOW_FILE) > MYTHIC_GLOW ? MYTHIC_GLOW : LEGENDARY_GLOW;
 
     private void DrawPicture(SpriteBatch spriteBatch, UiRenderer ui, TcgCatalogCardView card, Rectangle window, Color tint)
     {
@@ -357,11 +447,17 @@ public sealed class TcgCardFace : UIElement
         DrawTextClipped(spriteBatch, new Vector2(right - TextRenderer.MeasureWidth(health), y), health, MultiplyTint(LegendColors.Red, tint), false);
     }
 
-    private void DrawText2X(SpriteBatch spriteBatch, TcgCatalogCardView card, Rectangle bounds, Color tint)
+    private void DrawText2X(SpriteBatch spriteBatch, TcgCatalogCardView card, Rectangle bounds, Color tint, bool full)
     {
         var white = MultiplyTint(Color.White, tint);
-
         var nameWidth = COST_RIGHT_2X - CostWidth(card, Scale) - 4 - NAME_LEFT_2X;
+        var lines = RulesLines(card, bounds, full);
+        var typeTop = full ? TypeTopFull(lines.Count) : TYPE_TOP_2X;
+        var boxBottom = bounds.Y + (full ? FULL_RULES_BOTTOM : RULES_TOP + RULES_HEIGHT);
+
+        //full art has no text box in its frame; this panel keeps the text readable over the painting
+        if (full)
+            DrawRectClipped(spriteBatch, new Rectangle(bounds.X + 8, bounds.Y + typeTop - 2, 104, FULL_PANEL_BOTTOM - typeTop + 2), FullTextBack);
 
         DrawTextClipped(
             spriteBatch,
@@ -369,9 +465,9 @@ public sealed class TcgCardFace : UIElement
             Fit(card.Name, nameWidth),
             MultiplyTint(LegendColors.Gold, tint),
             false);
-        DrawTextClipped(spriteBatch, new Vector2(bounds.X + 10, bounds.Y + TYPE_TOP_2X), card.Type.ToString(), white, false);
+        DrawTextClipped(spriteBatch, new Vector2(bounds.X + 10, bounds.Y + typeTop), card.Type.ToString(), white, false);
 
-        foreach (var (line, x, y) in RulesLines(card, bounds))
+        foreach (var (line, x, y) in lines)
         {
             DrawTextClipped(spriteBatch, new Vector2(x, y), line, white, false);
 
@@ -379,8 +475,8 @@ public sealed class TcgCardFace : UIElement
             {
                 var underlineY = y + TextRenderer.CHAR_HEIGHT - 1;
 
-                //the rules box ends 38 px below its top; keep the underline inside it rather than lose it
-                if (underlineY + 1 > bounds.Y + RULES_TOP + RULES_HEIGHT)
+                //keep the underline inside the rules area rather than lose it
+                if (underlineY + 1 > boxBottom)
                     underlineY--;
 
                 DrawRectClipped(
@@ -405,8 +501,9 @@ public sealed class TcgCardFace : UIElement
             return null;
 
         var bounds = new Rectangle(ScreenX, ScreenY, Width, Height);
+        var full = UiRenderer.Instance is { } ui && (TcgFaceArts.Resolve(card, Style, ui.GetSpfFrameCount) == TcgFaceArt.Full);
 
-        foreach (var (line, x, y) in RulesLines(card, bounds))
+        foreach (var (line, x, y) in RulesLines(card, bounds, full))
         {
             if ((mouseY < y) || (mouseY >= y + TextRenderer.CHAR_HEIGHT))
                 continue;
@@ -432,17 +529,24 @@ public sealed class TcgCardFace : UIElement
     private const int RULES_HEIGHT = 38;
     private const int RULES_LINES = 3;
 
-    /// <summary>What <see cref="DrawText2X" /> draws and <see cref="KeywordAt" /> hit-tests: the first lines of rules text with their origins.</summary>
-    private static List<(string Line, int X, int Y)> RulesLines(TcgCatalogCardView card, Rectangle bounds)
+    /// <summary>
+    ///     What <see cref="DrawText2X" /> draws and <see cref="KeywordAt" /> hit-tests: the first rules lines with their
+    ///     origins. Full art shows up to 6 lines ending above the stats; the other styles 3 lines in the frame's text box.
+    /// </summary>
+    private static List<(string Line, int X, int Y)> RulesLines(TcgCatalogCardView card, Rectangle bounds, bool full)
     {
         var wrapped = TextRenderer.WrapLines(card.RulesText, RULES_WIDTH);
-        var lines = new List<(string Line, int X, int Y)>(RULES_LINES);
+        var count = Math.Min(wrapped.Count, full ? FULL_RULES_LINES : RULES_LINES);
+        var top = full ? FULL_RULES_BOTTOM - (count * TextRenderer.CHAR_HEIGHT) : RULES_TOP;
+        var lines = new List<(string Line, int X, int Y)>(count);
 
-        for (var i = 0; (i < wrapped.Count) && (i < RULES_LINES); i++)
-            lines.Add((wrapped[i], bounds.X + RULES_LEFT, bounds.Y + RULES_TOP + (i * TextRenderer.CHAR_HEIGHT)));
+        for (var i = 0; i < count; i++)
+            lines.Add((wrapped[i], bounds.X + RULES_LEFT, bounds.Y + top + (i * TextRenderer.CHAR_HEIGHT)));
 
         return lines;
     }
+
+    private static int TypeTopFull(int lineCount) => FULL_RULES_BOTTOM - (lineCount * TextRenderer.CHAR_HEIGHT) - TextRenderer.CHAR_HEIGHT - 1;
 
     private static string Fit(string text, int width)
     {

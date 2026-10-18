@@ -102,8 +102,10 @@ public sealed partial class TcgMatchWindow
         if (!IsResponseShowing || (State.Latest is not { } latest))
             return;
 
-        BigCard.Card = Catalog.Get(latest.Stack[^1].Key);
-        BigCard.Foil = IsFoilAnte(latest, latest.Stack[^1].Key);
+        var top = latest.Stack[^1];
+        BigCard.Card = Catalog.Get(top.Key);
+        BigCard.Style = top.Printing.Style;
+        BigCard.Foil = top.Printing.Foil || IsFoilAnte(latest, top.Key);
     }
 
     private bool HandleRedrawClick(int x, int y)
@@ -189,6 +191,7 @@ public sealed partial class TcgMatchWindow
         {
             var face = BannerFaces[i];
             face.Card = Catalog.Get(latest.Ante[i].Key);
+            face.Style = latest.Ante[i].Style;
             face.Foil = latest.Ante[i].Foil;
             face.FaceDown = false;
             face.FlipProgress = 1f;
@@ -204,7 +207,7 @@ public sealed partial class TcgMatchWindow
         return y + TcgCardFace.HEIGHT + 4;
     }
 
-    private const int HINT_WIDTH = 384;
+    private const int HINT_WIDTH = 368;
     private const int HINT_MAX_LINES = 3;
 
     /// <summary>
@@ -213,11 +216,15 @@ public sealed partial class TcgMatchWindow
     /// </summary>
     public static Rectangle HintBannerRect(TcgDisplayArgs? board, int height)
     {
-        var y = ((board is not null) && (board.Phase == TcgPhase.Redraw) && (board.Players.Count >= 2))
+        var isRedraw = (board is not null) && (board.Phase == TcgPhase.Redraw) && (board.Players.Count >= 2);
+        var y = isRedraw
             ? RedrawOverlay.Bottom + 4
             : TcgMatchLayout.OpponentStrip.Bottom + 4;
+        var x = isRedraw
+            ? ((TcgMatchLayout.Buttons.Left - 4 - HINT_WIDTH) / 2)
+            : ((TcgMatchLayout.Board.Width - HINT_WIDTH) / 2);
 
-        return new Rectangle((TcgMatchLayout.Board.Width - HINT_WIDTH) / 2, y, HINT_WIDTH, height);
+        return new Rectangle(x, y, HINT_WIDTH, height);
     }
 
     private void DrawHintBanner(SpriteBatch batch)
@@ -270,7 +277,8 @@ public sealed partial class TcgMatchWindow
         {
             var face = RedrawFaces[i];
             face.Card = Catalog.Get(hand[i].Key);
-            face.Foil = false;
+            face.Style = hand[i].Printing.Style;
+            face.Foil = hand[i].Printing.Foil;
             face.FaceDown = false;
             face.FlipProgress = 1f;
             face.Badge = string.Empty;

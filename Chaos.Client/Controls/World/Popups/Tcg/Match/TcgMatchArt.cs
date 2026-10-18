@@ -16,6 +16,9 @@ public static class TcgMatchArt
     public const string ZZZ = "tcgzzz.spf";
     public const string PEDESTAL = "tcgplinth.spf";
     public const string PUFF = "tcgpuff.spf";
+
+    /// <summary>The shield marker by a shielded player's life. Optional: a purple square stands in when it is missing.</summary>
+    public const string SHIELD = "tcgshield.spf";
     public const int PUFF_FRAMES = 5;
     public const int DARK_GEM_OFFSET = 5;
     public const int HOURGLASS_FRAMES = 8;

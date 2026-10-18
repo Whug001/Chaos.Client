@@ -20,7 +20,11 @@ public sealed class TcgDeckDraft
     public const string DEFAULT_NAME = "Untitled deck";
     public const int DECK_SIZE = 40;
     public const int MAX_COPIES = 3;
+    public const int MAX_MYTHIC_COPIES = 1;
     public const int MAX_NAME_LENGTH = 24;
+
+    /// <summary>Mirrors the server's <c>TcgRules.MaxCopies</c>.</summary>
+    public static int MaxCopies(TcgRarity rarity) => rarity == TcgRarity.Mythic ? MAX_MYTHIC_COPIES : MAX_COPIES;
 
     //sorts cards no longer in the catalog after every real cost
     private const int UNKNOWN_COST = 99;
@@ -66,16 +70,16 @@ public sealed class TcgDeckDraft
     public string OriginalName { get; }
 
     /// <summary>Null when one more copy can be added, otherwise why not.</summary>
-    /// <param name="owned">The player's normal plus foil copies of the card.</param>
-    public string? AddProblem(string key, int owned)
+    /// <param name="owned">The player's copies of the card, every printing counted.</param>
+    public string? AddProblem(string key, int owned, TcgRarity rarity = TcgRarity.Common)
     {
         if (Count >= DECK_SIZE)
             return $"A deck holds {DECK_SIZE} cards.";
 
         var inDeck = InDeck(key);
 
-        if (inDeck >= MAX_COPIES)
-            return $"A deck can hold {MAX_COPIES} copies of a card.";
+        if (inDeck >= MaxCopies(rarity))
+            return rarity == TcgRarity.Mythic ? "A deck can hold 1 copy of a Mythic card." : $"A deck can hold {MAX_COPIES} copies of a card.";
 
         if (inDeck < owned)
             return null;
@@ -120,7 +124,7 @@ public sealed class TcgDeckDraft
     public static TcgDeckDraft Edit(TcgDeckView deck) => new(deck.Name, deck.Name, deck.Cards);
 
     /// <summary>The first thing keeping the deck from play, or "Ready to play".</summary>
-    /// <param name="copiesOwned">The player's normal plus foil copies of a card.</param>
+    /// <param name="copiesOwned">The player's copies of a card, every printing counted.</param>
     public string FirstProblem(Func<string, int> copiesOwned, Func<string, TcgCatalogCardView?> lookup)
     {
         if (NameProblem is { } nameProblem)
@@ -135,6 +139,9 @@ public sealed class TcgDeckDraft
 
         foreach (var row in Rows(lookup))
         {
+            if (lookup(row.Key) is { Rarity: TcgRarity.Mythic } && (row.Count > MAX_MYTHIC_COPIES))
+                return $"Only 1 {row.Name} allowed";
+
             var owned = copiesOwned(row.Key);
 
             if (row.Count > owned)
@@ -184,9 +191,9 @@ public sealed class TcgDeckDraft
             Keys = Cards.ToList()
         };
 
-    public bool TryAdd(string key, int owned)
+    public bool TryAdd(string key, int owned, TcgRarity rarity = TcgRarity.Common)
     {
-        if (AddProblem(key, owned) is not null)
+        if (AddProblem(key, owned, rarity) is not null)
             return false;
 
         Cards.Add(key);

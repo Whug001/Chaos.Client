@@ -14,7 +14,12 @@ public enum TcgRevealGlow : byte
     Foil,
 
     /// <summary>The legendary glow with a rainbow edge.</summary>
-    LegendaryFoil
+    LegendaryFoil,
+
+    Mythic,
+
+    /// <summary>The Mythic glow with a rainbow edge.</summary>
+    MythicFoil
 }
 
 /// <summary>
@@ -62,6 +67,9 @@ public sealed class TcgRevealState
     {
         if (!double.IsNaN(FlipStarts[index]))
             return TcgRevealGlow.None;
+
+        if (PackCards[index].Rarity == TcgRarity.Mythic)
+            return PackCards[index].Foil ? TcgRevealGlow.MythicFoil : TcgRevealGlow.Mythic;
 
         var card = PackCards[index];
 

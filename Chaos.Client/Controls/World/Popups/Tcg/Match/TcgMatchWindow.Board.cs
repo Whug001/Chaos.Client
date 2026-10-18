@@ -57,7 +57,7 @@ public sealed partial class TcgMatchWindow
 
     private void DrawOpponentStrip(SpriteBatch batch, TcgPlayerView them)
     {
-        DrawSeal(batch, TcgMatchLayout.OpponentSeal, them.Life);
+        DrawSeal(batch, TcgMatchLayout.OpponentSeal, them.Life, them.Shielded);
 
         for (var i = 0; i < them.Mana.Count; i++)
             DrawGem(batch, TcgMatchLayout.OpponentGems, i, them.Mana[i], false);
@@ -72,7 +72,7 @@ public sealed partial class TcgMatchWindow
 
     private void DrawYourStrip(SpriteBatch batch, TcgDisplayArgs board, TcgPlayerView you, int clockMs)
     {
-        DrawSeal(batch, TcgMatchLayout.YourSeal, you.Life);
+        DrawSeal(batch, TcgMatchLayout.YourSeal, you.Life, you.Shielded);
 
         for (var i = 0; i < you.Mana.Count; i++)
             DrawGem(batch, TcgMatchLayout.YourGems, i, you.Mana[i], true);
@@ -92,7 +92,7 @@ public sealed partial class TcgMatchWindow
             DrawHand(batch, board, you);
     }
 
-    private void DrawSeal(SpriteBatch batch, Rectangle rect, int life)
+    private void DrawSeal(SpriteBatch batch, Rectangle rect, int life, bool shielded)
     {
         var at = At(rect);
 
@@ -105,6 +105,21 @@ public sealed partial class TcgMatchWindow
         var x = at.X + ((at.Width - TextRenderer.MeasureWidth(text)) / 2);
         var y = at.Y + ((at.Height - TextRenderer.CHAR_HEIGHT) / 2);
         DrawTextClipped(batch, new Vector2(x, y), text, Color.White, false);
+
+        if (shielded)
+            DrawShield(batch, at);
+    }
+
+    private static readonly Color ShieldFallback = new(185, 140, 255);
+
+    private void DrawShield(SpriteBatch batch, Rectangle seal)
+    {
+        var marker = new Rectangle(seal.Right - 12, seal.Y - 4, 16, 16);
+
+        if (UiRenderer.Instance is { } ui && (ui.GetSpfFrameCount(TcgMatchArt.SHIELD) >= 1))
+            DrawTextureFitted(batch, ui.GetSpfTexture(TcgMatchArt.SHIELD), marker, Color.White);
+        else
+            DrawRectClipped(batch, marker, ShieldFallback);
     }
 
     private void DrawGem(SpriteBatch batch, Rectangle row, int index, TcgManaView mana, bool darkWhenTapped)

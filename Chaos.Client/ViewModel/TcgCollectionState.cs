@@ -31,13 +31,14 @@ public sealed class TcgCollectionState
     public const int PAGE_SIZE = 12;
 
     private readonly Dictionary<string, TcgCatalogCardView> ByKey = new(StringComparer.OrdinalIgnoreCase);
-    private readonly Dictionary<string, (int Normal, int Foil)> Counts = new(StringComparer.OrdinalIgnoreCase);
+    private readonly Dictionary<string, TcgOwnedView> Counts = new(StringComparer.OrdinalIgnoreCase);
     private List<TcgCatalogCardView> Sorted = [];
 
     /// <summary>Every card in the catalog, sorted by element (fire, water, wind, earth, neutral), then cost, then name.</summary>
     public IReadOnlyList<TcgCatalogCardView> Cards => Sorted;
 
     public IReadOnlyList<TcgDeckView> Decks { get; private set; } = [];
+    public TcgCardStyle DetailStyle { get; private set; }
     public int Dust { get; private set; }
 
     /// <summary>The cards the current tab and "Owned only" show.</summary>
@@ -70,7 +71,7 @@ public sealed class TcgCollectionState
             ByKey[card.Key] = card;
 
         foreach (var owned in args.Owned)
-            Counts[owned.Key] = (owned.Normal, owned.Foil);
+            Counts[owned.Key] = owned;
 
         Sorted = ByKey.Values.ToList();
         Sorted.Sort(Compare);
@@ -85,19 +86,37 @@ public sealed class TcgCollectionState
         Page = Math.Clamp(Page, 0, PageCount - 1);
     }
 
-    public static TcgCollectionActionArgs BreakAction(string key, bool foil)
+    /// <summary>The printings a deck's copies get at match start; the server runs the same <see cref="TcgPrinting.AssignBest" />.</summary>
+    public IReadOnlyList<TcgPrinting> AssignPrintings(IReadOnlyList<string> keys) => TcgPrinting.AssignBest(keys, Count);
+
+    /// <summary>The best printing owned, or null when none is.</summary>
+    public TcgPrinting? BestPrinting(string key)
+    {
+        foreach (var printing in TcgPrinting.BestFirst)
+            if (Count(key, printing) > 0)
+                return printing;
+
+        return null;
+    }
+
+    public static TcgCollectionActionArgs BreakAction(string key, TcgPrinting printing)
         => new()
         {
             Type = TcgCollectionActionType.Break,
             CardKey = key,
-            Foil = foil
+            Foil = printing.Foil,
+            Style = printing.Style
         };
 
-    public string BreakQuestion(TcgCatalogCardView card, bool foil) => $"Break {CardName(card, foil)} for {BreakValue(card.Rarity, foil)} dust?";
+    public string BreakQuestion(TcgCatalogCardView card, TcgPrinting printing)
+        => $"Break {CardName(card, printing)} for {BreakValue(card.Rarity, printing)} dust?";
 
-    /// <summary>Mirrors the server's <c>TcgCollectionRules.BreakValue</c>: a foil is worth four normal copies.</summary>
-    public static int BreakValue(TcgRarity rarity, bool foil)
+    /// <summary>Mirrors the server's <c>TcgCollectionRules.BreakValue</c>.</summary>
+    public static int BreakValue(TcgRarity rarity, TcgPrinting printing)
     {
+        if (rarity == TcgRarity.Mythic)
+            return printing.Foil ? 6400 : 1600;
+
         var normal = rarity switch
         {
             TcgRarity.Common   => 5,
@@ -106,17 +125,25 @@ public sealed class TcgCollectionState
             _                  => 400
         };
 
-        return foil ? normal * 4 : normal;
+        var styled = printing.Style switch
+        {
+            TcgCardStyle.Extended => normal * 2,
+            TcgCardStyle.Full     => normal * 4,
+            _                     => normal
+        };
+
+        return printing.Foil ? styled * 4 : styled;
     }
 
-    /// <summary>Only copies beyond the 3 a deck can use break, counting normal and foil together.</summary>
-    public bool CanBreak(string key, bool foil) => (Count(key, foil) > 0) && (Copies(key) > MAX_COPIES);
+    /// <summary>Only copies beyond the 3 a deck can use break, counting every printing together.</summary>
+    public bool CanBreak(string key, TcgPrinting printing) => (Count(key, printing) > 0) && (Copies(key) > MAX_COPIES);
 
-    public bool CanCraft(string key) => Get(key) is { } card && (Copies(key) < MAX_COPIES) && (Dust >= CraftCost(card.Rarity));
+    public bool CanCraft(string key)
+        => Get(key) is { } card && Craftable(card.Rarity) && (Copies(key) < MAX_COPIES) && (Dust >= CraftCost(card.Rarity));
 
-    public bool CanPullOut(string key, bool foil) => Count(key, foil) > 0;
+    public bool CanPullOut(string key, TcgPrinting printing) => Count(key, printing) > 0;
 
-    public static string CardName(TcgCatalogCardView card, bool foil) => foil ? $"{card.Name} (Foil)" : card.Name;
+    public static string CardName(TcgCatalogCardView card, TcgPrinting printing) => printing.Name(card.Name);
 
     public void Clear()
     {
@@ -127,6 +154,7 @@ public sealed class TcgCollectionState
         Dust = 0;
         Message = string.Empty;
         HasSnapshot = false;
+        DetailStyle = TcgCardStyle.Normal;
         OwnedOnly = false;
         Page = 0;
         SelectedKey = null;
@@ -149,9 +177,22 @@ public sealed class TcgCollectionState
         return byCost != 0 ? byCost : string.Compare(left.Name, right.Name, StringComparison.OrdinalIgnoreCase);
     }
 
-    public int Copies(string key) => Counts.TryGetValue(key, out var counts) ? counts.Normal + counts.Foil : 0;
+    public int Copies(string key) => Counts.TryGetValue(key, out var owned) ? owned.Copies : 0;
 
-    public int Count(string key, bool foil) => Counts.TryGetValue(key, out var counts) ? foil ? counts.Foil : counts.Normal : 0;
+    public int Count(string key, TcgPrinting printing) => Counts.TryGetValue(key, out var owned) ? owned.Count(printing) : 0;
+
+    /// <summary>Mirrors the server's <c>TcgCollectionRules.Craftable</c>.</summary>
+    public static bool Craftable(TcgRarity rarity) => rarity != TcgRarity.Mythic;
+
+    /// <summary>The printing a card shows in the deck builder grid: what its first deck copy gets, or the best owned when it is not in the deck.</summary>
+    public TcgPrinting DeckFacePrinting(IReadOnlyList<string> deckKeys, string key)
+    {
+        for (var i = 0; i < deckKeys.Count; i++)
+            if (deckKeys[i].Equals(key, StringComparison.OrdinalIgnoreCase))
+                return AssignPrintings(deckKeys)[i];
+
+        return BestPrinting(key) ?? TcgPrinting.Normal;
+    }
 
     public static TcgCollectionActionArgs CraftAction(string key)
         => new()
@@ -230,12 +271,13 @@ public sealed class TcgCollectionState
 
     public void PreviousPage() => Page = Math.Max(Page - 1, 0);
 
-    public static TcgCollectionActionArgs PullOutAction(string key, bool foil)
+    public static TcgCollectionActionArgs PullOutAction(string key, TcgPrinting printing)
         => new()
         {
             Type = TcgCollectionActionType.PullOut,
             CardKey = key,
-            Foil = foil
+            Foil = printing.Foil,
+            Style = printing.Style
         };
 
     /// <summary>The warning to show before pulling out one copy, naming each saved deck that would then be a copy short; null when none would.</summary>
@@ -263,7 +305,32 @@ public sealed class TcgCollectionState
             NewName = newName
         };
 
-    public void Select(string? key) => SelectedKey = Get(key)?.Key;
+    /// <summary>Selects a card and shows the style of its best owned printing.</summary>
+    public void Select(string? key)
+    {
+        SelectedKey = Get(key)?.Key;
+        DetailStyle = SelectedKey is not null && BestPrinting(SelectedKey) is { } best ? best.Style : TcgCardStyle.Normal;
+    }
+
+    public void SetDetailStyle(TcgCardStyle style) => DetailStyle = style;
+
+    public static string StyleName(TcgCardStyle style)
+        => style switch
+        {
+            TcgCardStyle.Extended => "Extended",
+            TcgCardStyle.Full     => "Full art",
+            _                     => "Normal"
+        };
+
+    /// <summary>The styles the binder's switch offers: full art only for rare or better.</summary>
+    public static IReadOnlyList<TcgCardStyle> Styles(TcgCatalogCardView card)
+        => card.Rarity >= TcgRarity.Rare
+            ? [TcgCardStyle.Normal, TcgCardStyle.Extended, TcgCardStyle.Full]
+            : [TcgCardStyle.Normal, TcgCardStyle.Extended];
+
+    /// <summary>One style button's caption: the owned count, then the foil count.</summary>
+    public string StyleText(string key, TcgCardStyle style)
+        => $"{StyleName(style)}: {Count(key, new TcgPrinting(style, false))}, foil {Count(key, new TcgPrinting(style, true))}";
 
     public void SetOwnedOnly(bool ownedOnly)
     {

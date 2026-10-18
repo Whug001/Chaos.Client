@@ -146,8 +146,8 @@ public sealed class TcgCollectionStateTests
         var state = new TcgCollectionState();
         state.Apply(Snapshot([Card("imp", TcgElement.Fire, 1)], [new TcgOwnedView("IMP", 2, 1)], 75));
 
-        state.Count("imp", false).Should().Be(2);
-        state.Count("imp", true).Should().Be(1);
+        state.Count("imp", TcgPrinting.Normal).Should().Be(2);
+        state.Count("imp", TcgPrinting.NormalFoil).Should().Be(1);
         state.Copies("imp").Should().Be(3);
         state.Copies("other").Should().Be(0);
         state.Dust.Should().Be(75);
@@ -160,16 +160,16 @@ public sealed class TcgCollectionStateTests
         var state = new TcgCollectionState();
         state.Apply(Snapshot([Card("imp", TcgElement.Fire, 1)], [new TcgOwnedView("imp", 4, 0)]));
 
-        state.CanBreak("imp", false).Should().BeTrue();
-        state.CanBreak("imp", true).Should().BeFalse();
+        state.CanBreak("imp", TcgPrinting.Normal).Should().BeTrue();
+        state.CanBreak("imp", TcgPrinting.NormalFoil).Should().BeFalse();
 
         state.Apply(Snapshot([Card("imp", TcgElement.Fire, 1)], [new TcgOwnedView("imp", 3, 0)]));
-        state.CanBreak("imp", false).Should().BeFalse();
+        state.CanBreak("imp", TcgPrinting.Normal).Should().BeFalse();
 
         state.Apply(Snapshot([Card("imp", TcgElement.Fire, 1)], [new TcgOwnedView("imp", 3, 1)]));
-        state.CanBreak("imp", false).Should().BeTrue();
-        state.CanBreak("imp", true).Should().BeTrue();
-        state.CanPullOut("imp", true).Should().BeTrue();
+        state.CanBreak("imp", TcgPrinting.Normal).Should().BeTrue();
+        state.CanBreak("imp", TcgPrinting.NormalFoil).Should().BeTrue();
+        state.CanPullOut("imp", TcgPrinting.NormalFoil).Should().BeTrue();
     }
 
     [Test]
@@ -217,8 +217,8 @@ public sealed class TcgCollectionStateTests
         var imp = Card("imp", TcgElement.Fire, 1, "Ember Imp");
         var state = State(imp);
 
-        state.BreakQuestion(imp, false).Should().Be("Break Ember Imp for 5 dust?");
-        state.BreakQuestion(imp, true).Should().Be("Break Ember Imp (Foil) for 20 dust?");
+        state.BreakQuestion(imp, TcgPrinting.Normal).Should().Be("Break Ember Imp for 5 dust?");
+        state.BreakQuestion(imp, TcgPrinting.NormalFoil).Should().Be("Break Ember Imp (Foil) for 20 dust?");
         state.CraftQuestion(imp).Should().Be("Craft Ember Imp for 40 dust?");
         TcgCollectionState.StatusText(new TcgDeckView("a", [], TcgDeckStatus.Ready, 0)).Should().Be("Ready");
         TcgCollectionState.StatusText(new TcgDeckView("a", [], TcgDeckStatus.Missing, 1)).Should().Be("Missing 1 card");
@@ -233,11 +233,11 @@ public sealed class TcgCollectionStateTests
         TcgCollectionState.CraftCost(TcgRarity.Uncommon).Should().Be(100);
         TcgCollectionState.CraftCost(TcgRarity.Rare).Should().Be(400);
         TcgCollectionState.CraftCost(TcgRarity.Legendary).Should().Be(1600);
-        TcgCollectionState.BreakValue(TcgRarity.Common, false).Should().Be(5);
-        TcgCollectionState.BreakValue(TcgRarity.Uncommon, false).Should().Be(20);
-        TcgCollectionState.BreakValue(TcgRarity.Rare, false).Should().Be(100);
-        TcgCollectionState.BreakValue(TcgRarity.Legendary, false).Should().Be(400);
-        TcgCollectionState.BreakValue(TcgRarity.Legendary, true).Should().Be(1600);
+        TcgCollectionState.BreakValue(TcgRarity.Common, TcgPrinting.Normal).Should().Be(5);
+        TcgCollectionState.BreakValue(TcgRarity.Uncommon, TcgPrinting.Normal).Should().Be(20);
+        TcgCollectionState.BreakValue(TcgRarity.Rare, TcgPrinting.Normal).Should().Be(100);
+        TcgCollectionState.BreakValue(TcgRarity.Legendary, TcgPrinting.Normal).Should().Be(400);
+        TcgCollectionState.BreakValue(TcgRarity.Legendary, TcgPrinting.NormalFoil).Should().Be(1600);
     }
 
     [Test]
@@ -257,8 +257,8 @@ public sealed class TcgCollectionStateTests
     {
         TcgCollectionState.OpenAction().Type.Should().Be(TcgCollectionActionType.Open);
         TcgCollectionState.CloseAction().Type.Should().Be(TcgCollectionActionType.Close);
-        TcgCollectionState.PullOutAction("imp", true).Should().BeEquivalentTo(new TcgCollectionActionArgs { Type = TcgCollectionActionType.PullOut, CardKey = "imp", Foil = true });
-        TcgCollectionState.BreakAction("imp", false).Should().BeEquivalentTo(new TcgCollectionActionArgs { Type = TcgCollectionActionType.Break, CardKey = "imp" });
+        TcgCollectionState.PullOutAction("imp", TcgPrinting.NormalFoil).Should().BeEquivalentTo(new TcgCollectionActionArgs { Type = TcgCollectionActionType.PullOut, CardKey = "imp", Foil = true });
+        TcgCollectionState.BreakAction("imp", TcgPrinting.Normal).Should().BeEquivalentTo(new TcgCollectionActionArgs { Type = TcgCollectionActionType.Break, CardKey = "imp" });
         TcgCollectionState.CraftAction("imp").Should().BeEquivalentTo(new TcgCollectionActionArgs { Type = TcgCollectionActionType.Craft, CardKey = "imp" });
         TcgCollectionState.RenameAction("Fire", "Blaze").Should().BeEquivalentTo(new TcgCollectionActionArgs { Type = TcgCollectionActionType.RenameDeck, DeckName = "Fire", NewName = "Blaze" });
         TcgCollectionState.DeleteAction("Fire").Should().BeEquivalentTo(new TcgCollectionActionArgs { Type = TcgCollectionActionType.DeleteDeck, DeckName = "Fire" });
