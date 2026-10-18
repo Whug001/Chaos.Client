@@ -175,10 +175,22 @@ public sealed class GroupMemberPanel : UIElement
             return;
         }
 
-        if (Nullable.Equals(member.Appearance, RenderedAppearance))
+        RefreshPortrait();
+    }
+
+    /// <summary>
+    ///     Re-renders the portrait when the snapshot changed. The pants come straight from the group packet, so
+    ///     an off-screen member's portrait matches their world sprite with no map lookup.
+    /// </summary>
+    private void RefreshPortrait()
+    {
+        if (Member is null)
             return;
 
-        RenderedAppearance = member.Appearance;
+        if (Nullable.Equals(Member.Appearance, RenderedAppearance))
+            return;
+
+        RenderedAppearance = Member.Appearance;
         MeasureFace();
         RenderFigure();
     }
