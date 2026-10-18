@@ -155,7 +155,7 @@ public sealed class TcgMatchCombatTests
 
         input.Sync(block);
 
-        TcgMatchWindow.PhaseOverride(block, input, "Bo", false, Lookup).Should().Be("Drag your creatures onto attackers, then Confirm.");
+        TcgMatchWindow.PhaseOverride(block, input, "Bo", false, Lookup).Should().Be("Click or drag your creatures onto attackers to block, then Confirm.");
 
         var guard = Board(TcgDecision.Block, mine: [Creature(1, "wall")], theirs: [Creature(8, "bear")]);
         guard.Attackers.Add(8);

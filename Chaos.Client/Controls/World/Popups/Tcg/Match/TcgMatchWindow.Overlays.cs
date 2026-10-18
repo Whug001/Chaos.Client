@@ -79,7 +79,7 @@ public sealed partial class TcgMatchWindow
         Func<string, TcgCatalogCardView?> lookup)
     {
         if (input.Mode == TcgInputMode.Blocking)
-            return HasGuardProblem(board, input.Blocks, lookup) ? "A Guard creature must block." : "Drag your creatures onto attackers, then Confirm.";
+            return HasGuardProblem(board, input.Blocks, lookup) ? "A Guard creature must block." : "Click or drag your creatures onto attackers to block, then Confirm.";
 
         if (input.Mode == TcgInputMode.Ordering)
             return "Click blockers in damage order.";

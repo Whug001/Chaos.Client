@@ -46,6 +46,13 @@ public sealed partial class TcgMatchWindow
         var them = board.Players[(int)TcgMatchRules.Other(board.YourSeat)];
 
         DrawOpponentStrip(batch, them);
+
+        if ((latest is not null) && (Input.Mode == TcgInputMode.Blocking) && TcgMatchRules.YouDecide(latest, TcgDecision.Block))
+        {
+            DrawBlockArrows(batch, board);
+            DrawIncomingDamage(batch, board);
+        }
+
         DrawCreatureRow(batch, board, them.Battlefield, false, clockMs);
         DrawCreatureRow(batch, board, you.Battlefield, true, clockMs);
 

@@ -287,4 +287,163 @@ public sealed class TcgMatchInputTests
         input.Mode.Should().Be(TcgInputMode.Ordering);
         input.OrderingAttacker.Should().Be(1);
     }
+
+    [Test]
+    public void Clicking_a_creature_that_can_block_selects_it()
+    {
+        var board = Board(TcgDecision.Block, decider: TcgSeat.A, mine: [Creature(1, "bear")], theirs: [Creature(8, "bear")]);
+        board.Attackers.Add(8);
+        var input = Input();
+
+        input.Sync(board);
+        input.SelectBlocker(board, 1);
+
+        input.SelectedBlocker.Should().Be(1);
+        input.Blocks.Should().BeEmpty();
+    }
+
+    [Test]
+    public void Clicking_a_creature_that_cannot_block_selects_nothing()
+    {
+        var board = Board(TcgDecision.Block, decider: TcgSeat.A, mine: [Creature(1, "bear")], theirs: [Creature(8, "drake")]);
+        board.Attackers.Add(8);
+        var input = Input();
+
+        input.Sync(board);
+        input.SelectBlocker(board, 1);
+
+        input.SelectedBlocker.Should().Be(0);
+    }
+
+    [Test]
+    public void Clicking_an_attacker_with_a_selected_blocker_pairs_them()
+    {
+        var board = Board(TcgDecision.Block, decider: TcgSeat.A, mine: [Creature(1, "bear")], theirs: [Creature(8, "bear")]);
+        board.Attackers.Add(8);
+        var input = Input();
+
+        input.Sync(board);
+        input.SelectBlocker(board, 1);
+        input.PairSelectedBlocker(board, 8).Should().BeTrue();
+
+        input.Blocks.Should().ContainKey(1);
+        input.Blocks[1].Should().Be(8);
+        input.SelectedBlocker.Should().Be(0);
+    }
+
+    [Test]
+    public void Clicking_a_blocking_creature_removes_its_block()
+    {
+        var board = Board(TcgDecision.Block, decider: TcgSeat.A, mine: [Creature(1, "bear")], theirs: [Creature(8, "bear")]);
+        board.Attackers.Add(8);
+        var input = Input();
+
+        input.Sync(board);
+        input.AssignBlock(board, 1, 8).Should().BeTrue();
+        input.SelectBlocker(board, 1);
+
+        input.Blocks.Should().BeEmpty();
+        input.SelectedBlocker.Should().Be(0);
+    }
+
+    [Test]
+    public void Clicking_the_selected_creature_again_clears_the_selection()
+    {
+        var board = Board(TcgDecision.Block, decider: TcgSeat.A, mine: [Creature(1, "bear")], theirs: [Creature(8, "bear")]);
+        board.Attackers.Add(8);
+        var input = Input();
+
+        input.Sync(board);
+        input.SelectBlocker(board, 1);
+        input.SelectBlocker(board, 1);
+
+        input.SelectedBlocker.Should().Be(0);
+        input.Blocks.Should().BeEmpty();
+    }
+
+    [Test]
+    public void Clearing_the_selection_empties_it()
+    {
+        var board = Board(TcgDecision.Block, decider: TcgSeat.A, mine: [Creature(1, "bear")], theirs: [Creature(8, "bear")]);
+        board.Attackers.Add(8);
+        var input = Input();
+
+        input.Sync(board);
+        input.SelectBlocker(board, 1);
+        input.ClearBlockSelection();
+
+        input.SelectedBlocker.Should().Be(0);
+        input.Blocks.Should().BeEmpty();
+    }
+
+    [Test]
+    public void Confirm_and_cancel_clear_the_selection()
+    {
+        var board = Board(TcgDecision.Block, decider: TcgSeat.A, mine: [Creature(1, "bear")], theirs: [Creature(8, "bear")]);
+        board.Attackers.Add(8);
+        var input = Input();
+
+        input.Sync(board);
+        input.SelectBlocker(board, 1);
+        input.Cancel();
+
+        input.SelectedBlocker.Should().Be(0);
+
+        input.SelectBlocker(board, 1);
+        input.Confirm(board);
+
+        input.SelectedBlocker.Should().Be(0);
+    }
+
+    [Test]
+    public void Leaving_blocking_clears_the_selection()
+    {
+        var board = Board(TcgDecision.Block, decider: TcgSeat.A, mine: [Creature(1, "bear")], theirs: [Creature(8, "bear")]);
+        board.Attackers.Add(8);
+        var input = Input();
+
+        input.Sync(board);
+        input.SelectBlocker(board, 1);
+        input.Sync(Board());
+
+        input.Mode.Should().Be(TcgInputMode.Idle);
+        input.SelectedBlocker.Should().Be(0);
+    }
+
+    [Test]
+    public void Incoming_damage_drops_as_blocks_are_added()
+    {
+        var board = Board(TcgDecision.Block, decider: TcgSeat.A, mine: [Creature(1, "bear"), Creature(2, "bear")], theirs: [Creature(8, "bear"), Creature(9, "bear")]);
+        board.Attackers.AddRange([8, 9]);
+        var input = Input();
+
+        input.Sync(board);
+
+        input.IncomingDamage(board).Should().Be(4);
+        input.IncomingDamageText(board).Should().Be("Incoming: 4 damage");
+
+        input.AssignBlock(board, 1, 8).Should().BeTrue();
+        input.IncomingDamage(board).Should().Be(2);
+        input.IncomingDamageText(board).Should().Be("Incoming: 2 damage");
+
+        input.AssignBlock(board, 2, 9).Should().BeTrue();
+        input.IncomingDamage(board).Should().Be(0);
+        input.IncomingDamageText(board).Should().Be("All blocked");
+    }
+
+    [Test]
+    public void Trample_damage_still_gets_through_a_small_blocker()
+    {
+        var board = Board(TcgDecision.Block, decider: TcgSeat.A, mine: [Creature(1, "bear")], theirs: [new TcgCreatureView(8, "boar", 5, 5, 0, false, false)]);
+        board.Attackers.Add(8);
+        var input = Input();
+
+        input.Sync(board);
+
+        input.IncomingDamage(board).Should().Be(5);
+
+        input.AssignBlock(board, 1, 8).Should().BeTrue();
+        input.IncomingDamage(board).Should().Be(3);
+        input.IncomingDamageText(board).Should().Be("Incoming: 3 damage");
+    }
 }

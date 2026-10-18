@@ -31,6 +31,7 @@ public sealed class TcgMatchInput(Func<string, TcgCatalogCardView?> lookup)
 
     public TcgInputMode Mode { get; private set; }
     public int SelectedCard { get; private set; }
+    public int SelectedBlocker { get; private set; }
     public IReadOnlyList<int> Targets { get; private set; } = [];
     public IReadOnlyList<int> Attackers => ChosenAttackers;
     public IReadOnlyDictionary<int, int> Blocks => BlockByBlocker;
@@ -69,6 +70,7 @@ public sealed class TcgMatchInput(Func<string, TcgCatalogCardView?> lookup)
             if (Mode != TcgInputMode.Blocking)
             {
                 BlockByBlocker.Clear();
+                SelectedBlocker = 0;
                 Mode = TcgInputMode.Blocking;
             }
 
@@ -108,7 +110,10 @@ public sealed class TcgMatchInput(Func<string, TcgCatalogCardView?> lookup)
         }
 
         if (Mode is TcgInputMode.Blocking or TcgInputMode.Ordering or TcgInputMode.Redraw)
+        {
+            SelectedBlocker = 0;
             Mode = TcgInputMode.Idle;
+        }
 
         if ((Mode == TcgInputMode.Attacking) && !TcgMatchRules.YouDecide(board, TcgDecision.Main))
             Mode = TcgInputMode.Idle;
@@ -208,6 +213,90 @@ public sealed class TcgMatchInput(Func<string, TcgCatalogCardView?> lookup)
 
     public void Unassign(int blockerId) => BlockByBlocker.Remove(blockerId);
 
+    public void SelectBlocker(TcgDisplayArgs board, int creatureId)
+    {
+        if (Mode != TcgInputMode.Blocking)
+            return;
+
+        if (BlockByBlocker.ContainsKey(creatureId) || (SelectedBlocker == creatureId))
+        {
+            BlockByBlocker.Remove(creatureId);
+            SelectedBlocker = 0;
+
+            return;
+        }
+
+        var blocker = board.Players[(int)board.YourSeat].Battlefield.Find(c => c.Id == creatureId);
+
+        if (blocker is null)
+        {
+            SelectedBlocker = 0;
+
+            return;
+        }
+
+        SelectedBlocker = board.Players[(int)TcgMatchRules.Other(board.YourSeat)]
+                               .Battlefield
+                               .Where(attacker => board.Attackers.Contains(attacker.Id) && TcgMatchRules.CanBlock(blocker, attacker, lookup))
+                               .Any()
+            ? creatureId
+            : 0;
+    }
+
+    public bool PairSelectedBlocker(TcgDisplayArgs board, int attackerId)
+    {
+        if ((Mode != TcgInputMode.Blocking) || (SelectedBlocker == 0))
+            return false;
+
+        if (!AssignBlock(board, SelectedBlocker, attackerId))
+            return false;
+
+        SelectedBlocker = 0;
+
+        return true;
+    }
+
+    public void ClearBlockSelection() => SelectedBlocker = 0;
+
+    public int IncomingDamage(TcgDisplayArgs board)
+    {
+        if (board.Players.Count < 2)
+            return 0;
+
+        var you = board.Players[(int)board.YourSeat];
+        var them = board.Players[(int)TcgMatchRules.Other(board.YourSeat)];
+        var total = 0;
+
+        foreach (var attackerId in board.Attackers)
+        {
+            var attacker = them.Battlefield.Find(c => c.Id == attackerId);
+
+            if (attacker is null)
+                continue;
+
+            var blockers = you.Battlefield.Where(c => BlockByBlocker.GetValueOrDefault(c.Id, 0) == attackerId).ToList();
+
+            if (blockers.Count == 0)
+            {
+                total += attacker.Attack;
+
+                continue;
+            }
+
+            if ((lookup(attacker.Key) is { } card) && ((card.Keywords & TcgKeyword.Trample) != 0))
+            {
+                var venom = (card.Keywords & TcgKeyword.Venom) != 0;
+                var absorbed = blockers.Sum(blocker => venom ? 1 : Math.Max(0, blocker.Health - blocker.Damage));
+                total += Math.Max(0, attacker.Attack - absorbed);
+            }
+        }
+
+        return total;
+    }
+
+    public string IncomingDamageText(TcgDisplayArgs board)
+        => (board.Attackers.Count > 0) && (IncomingDamage(board) == 0) ? "All blocked" : $"Incoming: {IncomingDamage(board)} damage";
+
     public void ClickBlocker(int blockerId)
     {
         if ((Mode == TcgInputMode.Ordering) && !Order.Contains(blockerId))
@@ -240,6 +329,8 @@ public sealed class TcgMatchInput(Func<string, TcgCatalogCardView?> lookup)
                     ? null
                     : Done(new TcgActionArgs { Type = TcgActionType.DeclareAttackers, CardIds = [..ChosenAttackers] });
             case TcgInputMode.Blocking:
+                SelectedBlocker = 0;
+
                 return new TcgActionArgs
                 {
                     Type = TcgActionType.DeclareBlockers,
@@ -268,6 +359,7 @@ public sealed class TcgMatchInput(Func<string, TcgCatalogCardView?> lookup)
         {
             case TcgInputMode.Blocking:
                 BlockByBlocker.Clear();
+                SelectedBlocker = 0;
 
                 break;
             case TcgInputMode.Ordering:

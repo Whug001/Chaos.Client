@@ -25,6 +25,7 @@ internal static class TcgMatchFixtures
         ["drake"] = Card("drake", TcgCardType.Creature, keywords: TcgKeyword.Flying),
         ["owl"] = Card("owl", TcgCardType.Creature, keywords: TcgKeyword.Reach),
         ["wall"] = Card("wall", TcgCardType.Creature, keywords: TcgKeyword.Guard),
+        ["boar"] = Card("boar", TcgCardType.Creature, keywords: TcgKeyword.Trample),
         ["golem"] = Card("golem", TcgCardType.Creature, keywords: TcgKeyword.Ward)
     };
 

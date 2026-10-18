@@ -17,6 +17,9 @@ public sealed partial class TcgMatchWindow
     private const int BLOCK_FRONT_Y = 44;
     private const int BLOCK_SPREAD_X = 40;
 
+    private static readonly Color UnblockedArrow = new(220, 50, 50);
+    private static readonly Color BlockedArrow = new(255, 176, 0);
+
     public static List<string> CombatButtonLabels(TcgInputMode mode)
         => mode switch
         {
@@ -95,6 +98,9 @@ public sealed partial class TcgMatchWindow
 
             if ((input.Mode == TcgInputMode.Blocking) && input.Blocks.TryGetValue(creatureId, out var attackerId))
                 return BlockerFeet(ShiftedAttackerFeet(board, attackerId), BlockerIndex(board, input, creatureId, attackerId), BlockCount(input, attackerId));
+
+            if ((input.Mode == TcgInputMode.Blocking) && (input.SelectedBlocker == creatureId))
+                return new Point(feet.X, feet.Y - RIVER_LIFT);
         } else if ((input.Mode == TcgInputMode.Blocking) && board.Attackers.Contains(creatureId))
             return new Point(feet.X, feet.Y + RIVER_LIFT);
 
@@ -251,9 +257,116 @@ public sealed partial class TcgMatchWindow
                 }
 
                 return false;
+            case TcgInputMode.Blocking:
+                if (OwnCreatureIdAt(board, Input, x, y) is var own && (own != 0))
+                {
+                    Input.SelectBlocker(latest, own);
+
+                    return true;
+                }
+
+                if (AttackerIdAt(board, Input, x, y) is var attacker && (attacker != 0))
+                {
+                    Input.PairSelectedBlocker(latest, attacker);
+
+                    return true;
+                }
+
+                if (Input.SelectedBlocker != 0)
+                {
+                    Input.ClearBlockSelection();
+
+                    return true;
+                }
+
+                return false;
             default:
                 return false;
         }
+    }
+
+    private void DrawBlockArrows(SpriteBatch batch, TcgDisplayArgs board)
+    {
+        if (board.Players.Count < 2)
+            return;
+
+        var you = board.Players[(int)board.YourSeat];
+        var them = board.Players[(int)TcgMatchRules.Other(board.YourSeat)];
+        var seal = new Point(ScreenX + TcgMatchLayout.YourSeal.Center.X, ScreenY + TcgMatchLayout.YourSeal.Center.Y);
+
+        foreach (var attackerId in board.Attackers)
+        {
+            var attackerIndex = them.Battlefield.FindIndex(creature => creature.Id == attackerId);
+
+            if (attackerIndex < 0)
+                continue;
+
+            var attackerFeet = DrawFeet(board, Input, attackerId, false, attackerIndex, them.Battlefield.Count);
+            var from = new Point(ScreenX + attackerFeet.X, ScreenY + attackerFeet.Y - 24);
+            var blockers = you.Battlefield.Where(creature => Input.Blocks.GetValueOrDefault(creature.Id, 0) == attackerId).ToList();
+
+            if (blockers.Count == 0)
+            {
+                DrawArrow(batch, from, seal, UnblockedArrow);
+
+                continue;
+            }
+
+            foreach (var blocker in blockers)
+            {
+                var blockerIndex = you.Battlefield.FindIndex(creature => creature.Id == blocker.Id);
+
+                if (blockerIndex < 0)
+                    continue;
+
+                var blockerFeet = DrawFeet(board, Input, blocker.Id, true, blockerIndex, you.Battlefield.Count);
+                DrawArrow(batch, from, new Point(ScreenX + blockerFeet.X, ScreenY + blockerFeet.Y - 24), BlockedArrow);
+            }
+        }
+    }
+
+    private void DrawIncomingDamage(SpriteBatch batch, TcgDisplayArgs board)
+    {
+        var damage = Input.IncomingDamage(board);
+        var text = Input.IncomingDamageText(board);
+        DrawTextClipped(batch, new Vector2(ScreenX + 8, ScreenY + 338), text, damage == 0 ? Color.Green : Color.Red, false);
+    }
+
+    private void DrawArrow(SpriteBatch batch, Point from, Point to, Color color)
+    {
+        var dx = (double)(to.X - from.X);
+        var dy = (double)(to.Y - from.Y);
+        var length = Math.Sqrt((dx * dx) + (dy * dy));
+
+        if (length < 10)
+            return;
+
+        var ux = dx / length;
+        var uy = dy / length;
+        var tip = new Point((int)(to.X - (ux * 8)), (int)(to.Y - (uy * 8)));
+        DrawDotLine(batch, from, tip, color);
+
+        var tipX = (double)tip.X;
+        var tipY = (double)tip.Y;
+        DrawDotLine(batch, tip, new Point((int)(tipX - (ux * 10) - (uy * 6)), (int)(tipY - (uy * 10) + (ux * 6))), color);
+        DrawDotLine(batch, tip, new Point((int)(tipX - (ux * 10) + (uy * 6)), (int)(tipY - (uy * 10) - (ux * 6))), color);
+    }
+
+    private void DrawDotLine(SpriteBatch batch, Point from, Point to, Color color)
+    {
+        var dx = to.X - from.X;
+        var dy = to.Y - from.Y;
+        var steps = Math.Max(Math.Abs(dx), Math.Abs(dy));
+
+        if (steps == 0)
+        {
+            DrawRectClipped(batch, new Rectangle(from.X - 1, from.Y - 1, 3, 3), color);
+
+            return;
+        }
+
+        for (var i = 0; i <= steps; i += 2)
+            DrawRectClipped(batch, new Rectangle(from.X + ((dx * i) / steps) - 1, from.Y + ((dy * i) / steps) - 1, 3, 3), color);
     }
 
     private bool HandleBlockDrop(int blockerId, int x, int y)
@@ -265,6 +378,8 @@ public sealed partial class TcgMatchWindow
             Input.AssignBlock(latest, blockerId, attacker);
         else
             Input.Unassign(blockerId);
+
+        Input.ClearBlockSelection();
 
         return true;
     }
