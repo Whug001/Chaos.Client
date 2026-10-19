@@ -54,6 +54,7 @@ public sealed partial class WorldScreen
         GroupVitals.Suppressed = WorldMap.Visible || TcgMatchOpen;
         RaidVitals.Suppressed = WorldMap.Visible || TcgMatchOpen;
         SuppressHotbars(WorldMap.Visible || TcgMatchOpen);
+        TcgQueueBar?.Sync();
 
         var elapsedMs = (float)gameTime.ElapsedGameTime.TotalMilliseconds;
 

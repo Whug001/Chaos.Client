@@ -98,10 +98,12 @@ public sealed class TcgQueueBar : UIPanel
     public event Action? DeclineClicked;
     public event Action? LeaveClicked;
 
-    public override void Update(GameTime gameTime)
+    /// <summary>
+    ///     Called by the world screen every frame. Not done in Update: a parent panel never updates a hidden child,
+    ///     so a hidden bar could never show itself.
+    /// </summary>
+    public void Sync()
     {
-        base.Update(gameTime);
-
         var ranked = WorldState.TcgRanked;
 
         Visible = (ranked.Mode != TcgQueueMode.Hidden) && !IsMatchOpen();
