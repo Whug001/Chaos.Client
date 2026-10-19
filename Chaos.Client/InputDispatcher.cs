@@ -23,6 +23,9 @@ public sealed class InputDispatcher
     //keyboard events before the control stack. set via textboxfocusgained.
     private UIElement? ExplicitFocusElement;
 
+    //the selectable read-only label (mail body, article body, ...) the user last pressed on. labels never take
+    //explicit focus (that would make their popup mouse-modal), so copy / select-all are routed to it directly.
+    private UILabel? SelectionLabel;
 
     //hover state
     private UIElement? HoveredElement;
@@ -216,6 +219,7 @@ public sealed class InputDispatcher
         StashedFocus.Clear();
         ClearExplicitFocus();
         CapturedElement = null;
+        SelectionLabel = null;
 
         DragActive = false;
         DragPayload = null;
@@ -519,6 +523,9 @@ public sealed class InputDispatcher
                     ClearExplicitFocus();
             }
 
+            if (button == MouseButton.Left)
+                SelectionLabel = FindSelectableLabel(target);
+
             //set capture
             CapturedElement = target;
 
@@ -713,6 +720,19 @@ public sealed class InputDispatcher
             //explicit focus is no longer visible — clear it
             ClearExplicitFocus();
 
+        //phase 1.75: copy / select-all go to the selectable label last pressed on, while its window is still on top.
+        //only those two keys, so arrows, hotkeys and escape keep reaching the window and the world as before.
+        if (e is KeyDownEvent { Accelerator: true, Keycode: Keycode.C or Keycode.A }
+            && SelectionLabel is not null
+            && IsEffectivelyVisible(SelectionLabel)
+            && (FindContainingStackEntry(SelectionLabel) == TopControl))
+        {
+            DispatchSingle(SelectionLabel, e);
+
+            if (e.Handled)
+                return;
+        }
+
         //phase 2: stack dispatch with bubbling
         var target = TopControl ?? root;
         DispatchBubble(target, e);
@@ -853,6 +873,15 @@ public sealed class InputDispatcher
 
             current = current.Parent;
         }
+
+        return null;
+    }
+
+    private static UILabel? FindSelectableLabel(UIElement? element)
+    {
+        for (var current = element; current is not null; current = current.Parent)
+            if (current is UILabel { IsSelectable: true } label)
+                return label;
 
         return null;
     }
