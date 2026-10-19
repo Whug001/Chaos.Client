@@ -70,7 +70,7 @@ public sealed partial class TcgMatchWindow
         DrawSeal(batch, TcgMatchLayout.OpponentSeal, them.Life, them.Shielded);
 
         for (var i = 0; i < them.Mana.Count; i++)
-            DrawGem(batch, TcgMatchLayout.OpponentGems, i, them.Mana[i], true);
+            DrawGem(batch, TcgMatchLayout.OpponentGems, i, them.Mana[i]);
 
         DrawTrapBacks(batch, TcgMatchLayout.OpponentTraps, them.Traps.Count);
 
@@ -85,7 +85,7 @@ public sealed partial class TcgMatchWindow
         DrawSeal(batch, TcgMatchLayout.YourSeal, you.Life, you.Shielded);
 
         for (var i = 0; i < you.Mana.Count; i++)
-            DrawGem(batch, TcgMatchLayout.YourGems, i, you.Mana[i], true, Input.PickedMana.Contains(you.Mana[i].Id));
+            DrawGem(batch, TcgMatchLayout.YourGems, i, you.Mana[i], Input.PickedMana.Contains(you.Mana[i].Id));
 
         DrawTrapBacks(batch, TcgMatchLayout.YourTraps, you.Traps.Count);
 
@@ -132,24 +132,19 @@ public sealed partial class TcgMatchWindow
             DrawRectClipped(batch, marker, ShieldFallback);
     }
 
-    private void DrawGem(SpriteBatch batch, Rectangle row, int index, TcgManaView mana, bool darkWhenTapped, bool picked = false)
+    private void DrawGem(SpriteBatch batch, Rectangle row, int index, TcgManaView mana, bool picked = false)
     {
         var slot = TcgMatchLayout.Gem(row, index);
         var at = new Rectangle(ScreenX + slot.X, ScreenY + slot.Y - (picked ? 3 : 0), 16, 16);
-        var frame = (int)mana.Element + ((darkWhenTapped && mana.Tapped) ? TcgMatchArt.DARK_GEM_OFFSET : 0);
+        var frame = (int)mana.Element + (mana.Tapped ? TcgMatchArt.DARK_GEM_OFFSET : 0);
 
         if (TcgMatchArt.ArtPresent() && (UiRenderer.Instance is { } ui))
             DrawTextureFitted(batch, ui.GetSpfTexture(TcgMatchArt.GEM, frame), at, Color.White);
         else
-            DrawRectClipped(batch, at, mana.Tapped && darkWhenTapped ? DisabledBack : TcgCardFace.ElementColor(mana.Element));
+            DrawRectClipped(batch, at, mana.Tapped ? DisabledBack : TcgCardFace.ElementColor(mana.Element));
 
         if (picked)
-        {
-            DrawRectClipped(batch, new Rectangle(at.X, at.Y, at.Width, 1), LegendColors.Gold);
-            DrawRectClipped(batch, new Rectangle(at.X, at.Bottom - 1, at.Width, 1), LegendColors.Gold);
-            DrawRectClipped(batch, new Rectangle(at.X, at.Y, 1, at.Height), LegendColors.Gold);
-            DrawRectClipped(batch, new Rectangle(at.Right - 1, at.Y, 1, at.Height), LegendColors.Gold);
-        }
+            UIElement.DrawBorder(batch, at, LegendColors.Gold);
     }
 
     private void DrawTrapBacks(SpriteBatch batch, Rectangle row, int count)

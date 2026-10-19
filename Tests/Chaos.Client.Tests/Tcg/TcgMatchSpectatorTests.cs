@@ -63,6 +63,40 @@ public sealed class TcgMatchSpectatorTests
     }
 
     [Test]
+    public void A_hover_wins_over_the_waiting_card()
+    {
+        var board = Board(decision: TcgDecision.Respond, decider: TcgSeat.B);
+        board.Stack.Add(new TcgStackView(7, "bolt", TcgSeat.A, 0, false));
+
+        TcgMatchWindow.BigCardPick("bear", TcgPrinting.Normal, board, false).Should().Be(("bear", TcgPrinting.Normal));
+    }
+
+    [Test]
+    public void A_spectator_hover_wins_over_the_waiting_card()
+    {
+        var board = Board(decision: TcgDecision.Respond, decider: TcgSeat.B);
+        board.Stack.Add(new TcgStackView(7, "bolt", TcgSeat.A, 0, false));
+
+        TcgMatchWindow.BigCardPick("owl", TcgPrinting.Full, board, true).Should().Be(("owl", TcgPrinting.Full));
+    }
+
+    [Test]
+    public void Without_a_hover_the_waiting_card_shows()
+    {
+        var board = Board(decision: TcgDecision.Respond, decider: TcgSeat.B);
+        board.Stack.Add(new TcgStackView(7, "bolt", TcgSeat.A, 0, false, TcgPrinting.NormalFoil));
+
+        TcgMatchWindow.BigCardPick(null, TcgPrinting.Normal, board, false).Should().Be(("bolt", TcgPrinting.NormalFoil));
+    }
+
+    [Test]
+    public void Without_a_hover_or_a_waiting_card_there_is_nothing()
+    {
+        TcgMatchWindow.BigCardPick(null, TcgPrinting.Normal, Board(decision: TcgDecision.Respond), false).Should().BeNull();
+        TcgMatchWindow.BigCardPick(null, TcgPrinting.Normal, null, true).Should().BeNull();
+    }
+
+    [Test]
     public void No_card_once_the_stack_is_empty_or_the_window_closed()
     {
         TcgMatchWindow.ShowsStackBigCard(Board(decision: TcgDecision.Respond), true).Should().BeFalse();

@@ -446,6 +446,8 @@ public sealed class TcgMatchInput(Func<string, TcgCatalogCardView?> lookup)
 
     public void Cancel()
     {
+        Picked.Clear();
+
         switch (Mode)
         {
             case TcgInputMode.Blocking:

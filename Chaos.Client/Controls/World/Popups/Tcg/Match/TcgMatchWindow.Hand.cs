@@ -501,29 +501,28 @@ public sealed partial class TcgMatchWindow
         }
 
         var latest = State.Latest;
+        var board = Queue.ShownBoard ?? latest;
 
-        if ((Input.Mode == TcgInputMode.Targeting) && (latest is not null))
+        if ((board is not null) && (GemIdAt(board, x, y) is var gem && (gem != 0)))
         {
-            if (TargetAt(Queue.ShownBoard ?? latest, x, y) is { } target)
-                Raise(Input.ChooseTarget(Queue.ShownBoard ?? latest, target));
-
+            Input.ToggleMana(board, gem);
             e.Handled = true;
 
             return;
         }
 
-        var board = Queue.ShownBoard ?? latest;
+        if ((Input.Mode == TcgInputMode.Targeting) && (board is not null) && (latest is not null))
+        {
+            if (TargetAt(board, x, y) is { } target)
+                Raise(Input.ChooseTarget(board, target));
+
+            e.Handled = true;
+
+            return;
+        }
 
         if ((board is not null) && (latest is not null) && (HandleCombatClick(board, latest, Input, x, y) || (HandleRedrawClick(x, y))))
         {
-            e.Handled = true;
-
-            return;
-        }
-
-        if ((latest is not null) && (GemIdAt(latest, x, y) is var gem && (gem != 0)))
-        {
-            Input.ToggleMana(latest, gem);
             e.Handled = true;
 
             return;

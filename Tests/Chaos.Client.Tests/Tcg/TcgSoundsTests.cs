@@ -3,6 +3,7 @@ using Chaos.Client.ViewModel;
 using Chaos.DarkAges.Definitions;
 using Chaos.Networking.Entities.Server;
 using FluentAssertions;
+using static Chaos.Client.Tests.TcgMatchFixtures;
 #endregion
 
 namespace Chaos.Client.Tests;
@@ -10,6 +11,8 @@ namespace Chaos.Client.Tests;
 public sealed class TcgSoundsTests
 {
     private static TcgEventView Event(TcgEventType type, TcgSeat seat = TcgSeat.A) => new(type, seat, 1, 2, 3, "");
+
+    private static TcgEventView Cast(string key) => new(TcgEventType.CardCast, TcgSeat.A, 1, 2, 0, key);
 
     [Test]
     [Arguments(TcgEventType.CreatureEntered, 188)]
@@ -23,6 +26,30 @@ public sealed class TcgSoundsTests
     public void Queued_events_map_to_their_sound(TcgEventType type, int sound)
     {
         TcgSounds.ForQueuedEvent(Event(type)).Should().Be(sound);
+    }
+
+    [Test]
+    public void A_creature_cast_is_silent_until_it_enters()
+    {
+        TcgSounds.ForQueuedEvent(Cast("bear"), Lookup).Should().BeNull();
+    }
+
+    [Test]
+    public void A_non_creature_cast_still_plays()
+    {
+        TcgSounds.ForQueuedEvent(Cast("bolt"), Lookup).Should().Be(189);
+    }
+
+    [Test]
+    public void A_cast_of_an_unknown_card_still_plays()
+    {
+        TcgSounds.ForQueuedEvent(Cast("missing"), Lookup).Should().Be(189);
+    }
+
+    [Test]
+    public void A_cast_without_a_catalog_still_plays()
+    {
+        TcgSounds.ForQueuedEvent(Cast("bear")).Should().Be(189);
     }
 
     [Test]

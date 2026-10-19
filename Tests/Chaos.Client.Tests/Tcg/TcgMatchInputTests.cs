@@ -73,6 +73,49 @@ public sealed class TcgMatchInputTests
     }
 
     [Test]
+    public void Picking_mana_while_targeting_keeps_the_target()
+    {
+        var board = Board(mana: [Mana(1, TcgElement.Fire), Mana(2, TcgElement.Fire)], theirs: [Creature(9, "bear")]);
+        board.Players[0].Hand.Add(new TcgCardView(6, "bolt"));
+        var input = Input();
+
+        input.ClickHandCard(board, 6);
+        input.ChoosePlay(board).Should().BeNull();
+        input.Mode.Should().Be(TcgInputMode.Targeting);
+
+        input.ToggleMana(board, 1);
+        input.ToggleMana(board, 2);
+
+        input.Mode.Should().Be(TcgInputMode.Targeting);
+        input.Targets.Should().Equal(9);
+        input.PickedMana.Should().Equal(1, 2);
+
+        input.ToggleMana(board, 1);
+
+        input.Mode.Should().Be(TcgInputMode.Targeting);
+        input.PickedMana.Should().Equal(2);
+    }
+
+    [Test]
+    public void Cancel_clears_picked_gems()
+    {
+        var board = Board(mana: [Mana(1, TcgElement.Fire)], theirs: [Creature(9, "bear")]);
+        board.Players[0].Hand.Add(new TcgCardView(6, "bolt"));
+        var input = Input();
+
+        input.ClickHandCard(board, 6);
+        input.ChoosePlay(board);
+        input.ToggleMana(board, 1);
+        input.PickedMana.Should().Equal(1);
+
+        input.Cancel();
+
+        input.PickedMana.Should().BeEmpty();
+        input.Mode.Should().Be(TcgInputMode.Idle);
+        input.Targets.Should().BeEmpty();
+    }
+
+    [Test]
     public void Cancel_returns_to_idle()
     {
         var board = Board(mana: [Mana(1, TcgElement.Fire)], theirs: [Creature(9, "bear")]);

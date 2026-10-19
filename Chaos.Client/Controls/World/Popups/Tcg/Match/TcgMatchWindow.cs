@@ -251,7 +251,7 @@ public sealed partial class TcgMatchWindow : UIPanel
 
         LastSoundEvent = current;
 
-        if (Visible && (current is not null) && TcgSounds.ForQueuedEvent(current) is { } sound)
+        if (Visible && (current is not null) && TcgSounds.ForQueuedEvent(current, Catalog.Get) is { } sound)
             Sounds.PlaySound(sound);
     }
 
@@ -326,12 +326,8 @@ public sealed partial class TcgMatchWindow : UIPanel
         if ((Queue.ShownBoard ?? State.Latest) is { } board)
             HoverBoard(board, x, y);
 
-        if (IsResponseShowing)
-            return;
-
-        BigCard.Card = HoverKey is not null ? Catalog.Get(HoverKey) : null;
-        BigCard.Style = HoverPrinting.Style;
-        BigCard.Foil = HoverPrinting.Foil || (State.Latest is not null && IsFoilAnte(State.Latest, HoverKey));
+        var pick = BigCardPick(HoverKey, HoverPrinting, State.Latest, State.Spectating);
+        ShowBigCard(pick?.Key, pick?.Printing ?? HoverPrinting);
     }
 
     public override void OnKeyDown(KeyDownEvent e)

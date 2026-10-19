@@ -27,11 +27,15 @@ public static class TcgSounds
     public const int BELL = 200;
     public const int COUNTDOWN_TICK = 201;
 
-    /// <summary>The sound for an event when the animation queue reaches it.</summary>
-    public static int? ForQueuedEvent(TcgEventView e)
+    /// <summary>
+    ///     The sound for an event when the animation queue reaches it. A cast whose card is a creature stays silent:
+    ///     the cast animation still plays, and CREATURE_PLAYED follows when it enters.
+    /// </summary>
+    public static int? ForQueuedEvent(TcgEventView e, Func<string, TcgCatalogCardView?>? lookup = null)
         => e.Type switch
         {
             TcgEventType.CreatureEntered   => CREATURE_PLAYED,
+            TcgEventType.CardCast when lookup?.Invoke(e.Key) is { Type: TcgCardType.Creature } => null,
             TcgEventType.CardCast          => SPELL_PLAYED,
             TcgEventType.TrapRevealed      => TRAP_REVEALED,
             TcgEventType.Attacked          => ATTACK,

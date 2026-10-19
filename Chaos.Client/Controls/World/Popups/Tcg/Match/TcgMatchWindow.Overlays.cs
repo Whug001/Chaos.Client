@@ -102,15 +102,39 @@ public sealed partial class TcgMatchWindow
 
     private bool IsResponseShowing => ShowsStackBigCard(State.Latest, State.Spectating);
 
+    /// <summary>
+    ///     Which card the big card shows: the hovered card while the cursor is over one, else the top stack card
+    ///     while a response window is open.
+    /// </summary>
+    public static (string Key, TcgPrinting Printing)? BigCardPick(string? hoverKey, TcgPrinting hoverPrinting, TcgDisplayArgs? board, bool spectating)
+    {
+        if (hoverKey is not null)
+            return (hoverKey, hoverPrinting);
+
+        if ((board is not null) && ShowsStackBigCard(board, spectating))
+        {
+            var top = board.Stack[^1];
+
+            return (top.Key, top.Printing);
+        }
+
+        return null;
+    }
+
+    private void ShowBigCard(string? key, TcgPrinting printing)
+    {
+        BigCard.Card = key is not null ? Catalog.Get(key) : null;
+        BigCard.Style = printing.Style;
+        BigCard.Foil = printing.Foil || ((key is not null) && (State.Latest is not null) && IsFoilAnte(State.Latest, key));
+    }
+
     private void SyncResponseBigCard()
     {
-        if (!IsResponseShowing || (State.Latest is not { } latest))
+        if (!IsResponseShowing || (State.Latest is null))
             return;
 
-        var top = latest.Stack[^1];
-        BigCard.Card = Catalog.Get(top.Key);
-        BigCard.Style = top.Printing.Style;
-        BigCard.Foil = top.Printing.Foil || IsFoilAnte(latest, top.Key);
+        if (BigCardPick(HoverKey, HoverPrinting, State.Latest, State.Spectating) is { } pick)
+            ShowBigCard(pick.Key, pick.Printing);
     }
 
     private bool HandleRedrawClick(int x, int y)
