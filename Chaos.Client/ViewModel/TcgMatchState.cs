@@ -22,6 +22,7 @@ public sealed class TcgMatchState
     public bool ManaPlacedThisTurn { get; private set; }
     public TcgMatchEnd? Ended { get; private set; }
     public string Hint { get; private set; } = string.Empty;
+    public string? WrongManaNote { get; set; }
     public IReadOnlyList<string> Log => LogLines;
     public string OpponentName => Latest is null ? string.Empty : Latest.Players[(int)TcgMatchRules.Other(Latest.YourSeat)].Name;
 
@@ -68,7 +69,7 @@ public sealed class TcgMatchState
             RedrawDone = false;
 
         if (update.Rejected != TcgRejectReason.None)
-            AddLog(TcgMatchText.RejectText(update.Rejected));
+            AddLog((update.Rejected == TcgRejectReason.WrongMana) && (WrongManaNote is { } note) ? note : TcgMatchText.RejectText(update.Rejected));
     }
 
     public void MarkRedrawSent() => RedrawDone = true;

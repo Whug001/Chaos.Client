@@ -15,6 +15,8 @@ using Microsoft.Xna.Framework.Graphics;
 
 namespace Chaos.Client.Controls.World.Popups.Tcg.Match;
 
+public readonly record struct TcgHoverHit(int HandId, int CreatureId, string Key, TcgPrinting Printing);
+
 /// <summary>
 ///     The full-screen tavern window for a card match. Draws the newest board (or the board an event animation is
 ///     showing) while timers, buttons and highlights always follow the newest Update. Clicks and drags become
@@ -152,6 +154,7 @@ public sealed partial class TcgMatchWindow : UIPanel
             || (previous.Decider != update.Decider))
             LastTickSecond = null;
 
+        State.WrongManaNote = Input.WrongManaNote;
         State.Apply(update, DateTime.UtcNow, CardName);
         SayBox.Visible = !State.Spectating;
 
@@ -391,50 +394,48 @@ public sealed partial class TcgMatchWindow : UIPanel
 
     private void HoverBoard(TcgDisplayArgs board, int x, int y)
     {
-        if (State.Spectating)
+        if (HoverAt(board, Input, State.Spectating, x, y) is not { } hit)
             return;
 
+        HoverHandId = hit.HandId;
+        HoverCreatureId = hit.CreatureId;
+        HoverKey = hit.Key;
+        HoverPrinting = hit.Printing;
+    }
+
+    public static TcgHoverHit? HoverAt(TcgDisplayArgs board, TcgMatchInput input, bool spectating, int x, int y)
+    {
         if (board.Players.Count < 2)
-            return;
+            return null;
 
-        var you = board.Players[(int)board.YourSeat];
-
-        for (var i = you.Hand.Count - 1; i >= 0; i--)
+        //spectators get no hand from the server, and a stale one must never show
+        if (!spectating)
         {
-            var slot = TcgMatchLayout.HandCard(i, you.Hand.Count);
+            var you = board.Players[(int)board.YourSeat];
 
-            if (new Rectangle(slot.X, slot.Y, TcgCardFace.WIDTH, TcgCardFace.HEIGHT).Contains(x, y))
+            for (var i = you.Hand.Count - 1; i >= 0; i--)
             {
-                HoverHandId = you.Hand[i].Id;
-                HoverKey = you.Hand[i].Key;
-                HoverPrinting = you.Hand[i].Printing;
+                var slot = TcgMatchLayout.HandCard(i, you.Hand.Count);
 
-                return;
+                if (new Rectangle(slot.X, slot.Y, TcgCardFace.WIDTH, TcgCardFace.HEIGHT).Contains(x, y))
+                    return new TcgHoverHit(you.Hand[i].Id, 0, you.Hand[i].Key, you.Hand[i].Printing);
             }
         }
 
-        if (HoverCreatures(board, board.Players[(int)board.YourSeat].Battlefield, true, x, y))
-            return;
-
-        HoverCreatures(board, board.Players[(int)TcgMatchRules.Other(board.YourSeat)].Battlefield, false, x, y);
+        return HoverCreatures(board, input, board.Players[(int)board.YourSeat].Battlefield, true, x, y)
+               ?? HoverCreatures(board, input, board.Players[(int)TcgMatchRules.Other(board.YourSeat)].Battlefield, false, x, y);
     }
 
-    private bool HoverCreatures(TcgDisplayArgs board, List<TcgCreatureView> creatures, bool yours, int x, int y)
+    private static TcgHoverHit? HoverCreatures(TcgDisplayArgs board, TcgMatchInput input, List<TcgCreatureView> creatures, bool yours, int x, int y)
     {
         for (var i = creatures.Count - 1; i >= 0; i--)
         {
-            var feet = DrawFeet(board, Input, creatures[i].Id, yours, i, creatures.Count);
+            var feet = DrawFeet(board, input, creatures[i].Id, yours, i, creatures.Count);
 
             if (new Rectangle(feet.X - 24, feet.Y - 48, 48, 48).Contains(x, y))
-            {
-                HoverCreatureId = creatures[i].Id;
-                HoverKey = creatures[i].Key;
-                HoverPrinting = creatures[i].Printing;
-
-                return true;
-            }
+                return new TcgHoverHit(0, creatures[i].Id, creatures[i].Key, creatures[i].Printing);
         }
 
-        return false;
+        return null;
     }
 }

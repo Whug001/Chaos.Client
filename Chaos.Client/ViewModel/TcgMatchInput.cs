@@ -26,6 +26,7 @@ public sealed class TcgMatchInput(Func<string, TcgCatalogCardView?> lookup)
     private readonly List<int> Order = [];
     private readonly HashSet<int> Ordered = [];
     private readonly HashSet<int> PutBack = [];
+    private readonly List<int> Picked = [];
     private TcgInputMode BeforeConcede = TcgInputMode.Idle;
     private int LastOrdered;
 
@@ -38,9 +39,30 @@ public sealed class TcgMatchInput(Func<string, TcgCatalogCardView?> lookup)
     public IReadOnlyList<int> DamageOrder => Order;
     public int OrderingAttacker { get; private set; }
     public IReadOnlySet<int> RedrawMarks => PutBack;
+    public IReadOnlyList<int> PickedMana => Picked;
+
+    /// <summary>The chat line for a WrongMana refusal of the last action sent with picks.</summary>
+    public string? WrongManaNote { get; private set; }
+
+    public void ToggleMana(TcgDisplayArgs board, int manaId)
+    {
+        if (Picked.Remove(manaId))
+            return;
+
+        if ((board.Players.Count > (int)board.YourSeat) && board.Players[(int)board.YourSeat].Mana.Exists(m => (m.Id == manaId) && !m.Tapped))
+            Picked.Add(manaId);
+    }
 
     public void Sync(TcgDisplayArgs board)
     {
+        if (board.Players.Count > (int)board.YourSeat)
+        {
+            if ((board.Rejected != TcgRejectReason.None) || board.Events.Exists(e => e.Type == TcgEventType.TurnStarted))
+                Picked.Clear();
+            else
+                Picked.RemoveAll(id => !board.Players[(int)board.YourSeat].Mana.Exists(m => (m.Id == id) && !m.Tapped));
+        }
+
         //a refused damage order was never applied: let that attacker be ordered again
         if ((board.Rejected != TcgRejectReason.None) && (LastOrdered != 0) && TcgMatchRules.YouDecide(board, TcgDecision.DamageOrder))
         {
@@ -141,10 +163,10 @@ public sealed class TcgMatchInput(Func<string, TcgCatalogCardView?> lookup)
             return null;
 
         if (card.Type == TcgCardType.Trap)
-            return Done(new TcgActionArgs { Type = TcgActionType.SetTrap, CardId = SelectedCard });
+            return Paid(new TcgActionArgs { Type = TcgActionType.SetTrap, CardId = SelectedCard }, card, 0);
 
         if (!TcgMatchRules.NeedsTarget(card))
-            return Done(new TcgActionArgs { Type = TcgActionType.Cast, CardId = SelectedCard });
+            return Paid(new TcgActionArgs { Type = TcgActionType.Cast, CardId = SelectedCard }, card, 0);
 
         Targets = TcgMatchRules.LegalTargets(board, card, lookup);
         Mode = TcgInputMode.Targeting;
@@ -152,10 +174,18 @@ public sealed class TcgMatchInput(Func<string, TcgCatalogCardView?> lookup)
         return null;
     }
 
-    public TcgActionArgs? ChooseTarget(int targetId)
-        => (Mode == TcgInputMode.Targeting) && Targets.Contains(targetId)
-            ? Done(new TcgActionArgs { Type = TcgActionType.Cast, CardId = SelectedCard, TargetId = targetId })
-            : null;
+    public TcgActionArgs? ChooseTarget(TcgDisplayArgs board, int targetId)
+    {
+        if ((Mode != TcgInputMode.Targeting) || !Targets.Contains(targetId))
+            return null;
+
+        if ((HandCard(board, SelectedCard) is not { } view) || (lookup(view.Key) is not { } card))
+            return null;
+
+        var extra = IsWardCreature(board, targetId) ? TcgMatchRules.WARD_TAX : 0;
+
+        return Paid(new TcgActionArgs { Type = TcgActionType.Cast, CardId = SelectedCard, TargetId = targetId }, card, extra);
+    }
 
     public TcgActionArgs? ChooseMana()
         => Mode == TcgInputMode.CardMenu ? Done(new TcgActionArgs { Type = TcgActionType.PlaceMana, CardId = SelectedCard }) : null;
@@ -449,6 +479,31 @@ public sealed class TcgMatchInput(Func<string, TcgCatalogCardView?> lookup)
         Targets = [];
 
         return action;
+    }
+
+    private TcgActionArgs Paid(TcgActionArgs action, TcgCatalogCardView card, int extraGeneric)
+    {
+        action.ManaIds = [..Picked];
+        WrongManaNote = Picked.Count == 0 ? null : $"Those gems don't pay for {card.Name} (needs {TcgMatchRules.CostText(card, extraGeneric)}).";
+        Picked.Clear();
+
+        return Done(action);
+    }
+
+    private bool IsWardCreature(TcgDisplayArgs board, int targetId)
+    {
+        if (board.Players.Count < 2)
+            return false;
+
+        foreach (var seat in new[] { board.YourSeat, TcgMatchRules.Other(board.YourSeat) })
+        {
+            var creature = board.Players[(int)seat].Battlefield.Find(c => c.Id == targetId);
+
+            if (creature is not null)
+                return HasKeyword(creature.Key, TcgKeyword.Ward);
+        }
+
+        return false;
     }
 
     private static TcgCardView? HandCard(TcgDisplayArgs board, int cardId)

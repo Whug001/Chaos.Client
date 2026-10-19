@@ -96,9 +96,11 @@ public sealed partial class TcgMatchWindow
         return null;
     }
 
-    private bool IsResponseShowing
-        => State.Latest is { Decision: TcgDecision.Respond, Stack.Count: > 0 }
-           && TcgMatchRules.YouDecide(State.Latest, TcgDecision.Respond);
+    public static bool ShowsStackBigCard(TcgDisplayArgs? board, bool spectating)
+        => board is { Decision: TcgDecision.Respond, Stack.Count: > 0 }
+           && (spectating || TcgMatchRules.YouDecide(board, TcgDecision.Respond) || (board.Stack[^1].Controller == board.YourSeat));
+
+    private bool IsResponseShowing => ShowsStackBigCard(State.Latest, State.Spectating);
 
     private void SyncResponseBigCard()
     {

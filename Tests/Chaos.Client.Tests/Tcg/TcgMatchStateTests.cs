@@ -328,6 +328,31 @@ public sealed class TcgMatchStateTests
     }
 
     [Test]
+    public void A_wrong_mana_refusal_logs_the_sent_cards_note()
+    {
+        var state = new TcgMatchState();
+        state.WrongManaNote = "Those gems don't pay for bear (needs 1 Fire + 1 any).";
+        var refused = Update();
+        refused.Rejected = TcgRejectReason.WrongMana;
+
+        state.Apply(refused, T0, k => k);
+
+        state.Log.Last().Should().Be("Those gems don't pay for bear (needs 1 Fire + 1 any).");
+    }
+
+    [Test]
+    public void A_wrong_mana_refusal_without_a_note_logs_the_generic_line()
+    {
+        var state = new TcgMatchState();
+        var refused = Update();
+        refused.Rejected = TcgRejectReason.WrongMana;
+
+        state.Apply(refused, T0, k => k);
+
+        state.Log.Last().Should().Be(TcgMatchText.RejectText(TcgRejectReason.WrongMana));
+    }
+
+    [Test]
     public void Your_main_decision_keeps_the_turn_and_reserve_clocks()
     {
         var state = new TcgMatchState();

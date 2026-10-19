@@ -85,6 +85,7 @@ public static class TcgMatchText
             TcgRejectReason.GuardMustBlock    => "A Guard creature must block first.",
             TcgRejectReason.AlreadyRedrew     => "You already redrew.",
             TcgRejectReason.InvalidOrder      => "That damage order is not valid.",
+            TcgRejectReason.WrongMana         => "Those gems don't pay for that card.",
             _                                 => string.Empty
         };
 

@@ -53,9 +53,9 @@ public sealed class TcgMatchInputTests
 
         input.Mode.Should().Be(TcgInputMode.Targeting);
         input.Targets.Should().Equal(9);
-        input.ChooseTarget(3).Should().BeNull();
+        input.ChooseTarget(board, 3).Should().BeNull();
 
-        var cast = input.ChooseTarget(9);
+        var cast = input.ChooseTarget(board, 9);
         cast!.TargetId.Should().Be(9);
         input.Mode.Should().Be(TcgInputMode.Idle);
     }
@@ -265,7 +265,7 @@ public sealed class TcgMatchInputTests
 
         input.Mode.Should().Be(TcgInputMode.Targeting);
         input.Targets.Should().BeEmpty();
-        input.ChooseTarget(9).Should().BeNull();
+        input.ChooseTarget(next, 9).Should().BeNull();
     }
 
     [Test]
@@ -527,5 +527,99 @@ public sealed class TcgMatchInputTests
         input.AssignBlock(board, 1, 8).Should().BeTrue();
 
         input.IncomingDamage(board).Should().Be(3);
+    }
+
+    [Test]
+    public void Clicking_a_gem_picks_it_and_clicking_again_unpicks_it()
+    {
+        var board = Board(mana: [Mana(1, TcgElement.Fire), Mana(2, TcgElement.Fire)]);
+        var input = Input();
+
+        input.ToggleMana(board, 1);
+        input.PickedMana.Should().BeEquivalentTo([1]);
+
+        input.ToggleMana(board, 1);
+        input.PickedMana.Should().BeEmpty();
+    }
+
+    [Test]
+    public void Tapped_and_unknown_gems_cannot_be_picked()
+    {
+        var board = Board(mana: [Mana(1, TcgElement.Fire, tapped: true)]);
+        var input = Input();
+
+        input.ToggleMana(board, 1);
+        input.ToggleMana(board, 99);
+
+        input.PickedMana.Should().BeEmpty();
+    }
+
+    [Test]
+    public void A_cast_sends_the_picks_and_clears_them()
+    {
+        var board = Board(mana: [Mana(1, TcgElement.Fire), Mana(2, TcgElement.Fire)]);
+        board.Players[0].Hand.Add(new TcgCardView(5, "bear"));
+        var input = Input();
+
+        input.ToggleMana(board, 2);
+        input.ToggleMana(board, 1);
+        input.ClickHandCard(board, 5);
+        var action = input.ChoosePlay(board);
+
+        action!.ManaIds.Should().Equal(2, 1);
+        input.PickedMana.Should().BeEmpty();
+    }
+
+    [Test]
+    public void Picks_clear_on_a_turn_change()
+    {
+        var board = Board(mana: [Mana(1, TcgElement.Fire)]);
+        var input = Input();
+        input.ToggleMana(board, 1);
+
+        var next = Board(mana: [Mana(1, TcgElement.Fire)]);
+        next.Events.Add(new TcgEventView(TcgEventType.TurnStarted, TcgSeat.A, 0, 0, 0, ""));
+        input.Sync(next);
+
+        input.PickedMana.Should().BeEmpty();
+    }
+
+    [Test]
+    public void Picks_clear_on_a_refusal()
+    {
+        var board = Board(mana: [Mana(1, TcgElement.Fire)]);
+        var input = Input();
+        input.ToggleMana(board, 1);
+
+        var refused = Board(mana: [Mana(1, TcgElement.Fire)]);
+        refused.Rejected = TcgRejectReason.WrongMana;
+        input.Sync(refused);
+
+        input.PickedMana.Should().BeEmpty();
+    }
+
+    [Test]
+    public void A_pick_that_became_tapped_is_dropped()
+    {
+        var input = Input();
+        input.ToggleMana(Board(mana: [Mana(1, TcgElement.Fire)]), 1);
+
+        input.Sync(Board(mana: [Mana(1, TcgElement.Fire, tapped: true)]));
+
+        input.PickedMana.Should().BeEmpty();
+    }
+
+    [Test]
+    public void A_send_with_picks_remembers_the_wrong_mana_note()
+    {
+        var board = Board(mana: [Mana(1, TcgElement.Fire)]);
+        board.Players[0].Hand.Add(new TcgCardView(5, "bear"));
+        var input = Input();
+
+        input.ToggleMana(board, 1);
+        input.ClickHandCard(board, 5);
+        input.ChoosePlay(board);
+
+        input.WrongManaNote.Should().Be("Those gems don't pay for bear (needs 1 Fire + 1 any).");
     }
 }

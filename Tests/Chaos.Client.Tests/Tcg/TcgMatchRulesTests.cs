@@ -158,4 +158,13 @@ public sealed class TcgMatchRulesTests
         TcgMatchRules.AttackersNeedingOrder(board, new HashSet<int>()).Should().Equal(1);
         TcgMatchRules.AttackersNeedingOrder(board, new HashSet<int> { 1 }).Should().BeEmpty();
     }
+
+    [Test]
+    public void Describes_a_cost_in_words()
+    {
+        TcgMatchRules.CostText(Catalog["bear"]).Should().Be("1 Fire + 1 any");
+        TcgMatchRules.CostText(Card("pyro", TcgCardType.Instant, fire: 1)).Should().Be("1 Fire");
+        TcgMatchRules.CostText(Catalog["bear"], 2).Should().Be("1 Fire + 3 any");
+        TcgMatchRules.CostText(Card("free", TcgCardType.Creature)).Should().Be("nothing");
+    }
 }

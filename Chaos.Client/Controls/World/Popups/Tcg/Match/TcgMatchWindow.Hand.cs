@@ -67,6 +67,24 @@ public sealed partial class TcgMatchWindow
         return 0;
     }
 
+    public static int GemIdAt(TcgDisplayArgs board, int x, int y)
+    {
+        if (board.Players.Count <= (int)board.YourSeat)
+            return 0;
+
+        var mana = board.Players[(int)board.YourSeat].Mana;
+
+        for (var i = 0; i < mana.Count; i++)
+        {
+            var slot = TcgMatchLayout.Gem(TcgMatchLayout.YourGems, i);
+
+            if (new Rectangle(slot.X, slot.Y, 16, 16).Contains(x, y))
+                return mana[i].Id;
+        }
+
+        return 0;
+    }
+
     public static TcgDropZone DropZoneAt(int x, int y)
     {
         if (TcgMatchLayout.Battlefield.Contains(x, y))
@@ -487,7 +505,7 @@ public sealed partial class TcgMatchWindow
         if ((Input.Mode == TcgInputMode.Targeting) && (latest is not null))
         {
             if (TargetAt(Queue.ShownBoard ?? latest, x, y) is { } target)
-                Raise(Input.ChooseTarget(target));
+                Raise(Input.ChooseTarget(Queue.ShownBoard ?? latest, target));
 
             e.Handled = true;
 
@@ -498,6 +516,14 @@ public sealed partial class TcgMatchWindow
 
         if ((board is not null) && (latest is not null) && (HandleCombatClick(board, latest, Input, x, y) || (HandleRedrawClick(x, y))))
         {
+            e.Handled = true;
+
+            return;
+        }
+
+        if ((latest is not null) && (GemIdAt(latest, x, y) is var gem && (gem != 0)))
+        {
+            Input.ToggleMana(latest, gem);
             e.Handled = true;
 
             return;

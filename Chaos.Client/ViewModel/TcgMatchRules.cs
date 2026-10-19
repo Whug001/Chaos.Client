@@ -142,6 +142,31 @@ public static class TcgMatchRules
 
     public static TcgSeat Other(TcgSeat seat) => seat == TcgSeat.A ? TcgSeat.B : TcgSeat.A;
 
+    /// <summary>A card's cost in words for chat, e.g. "1 Fire + 2 any".</summary>
+    public static string CostText(TcgCatalogCardView card, int extraGeneric = 0)
+    {
+        var parts = new List<string>();
+
+        if (card.Fire > 0)
+            parts.Add($"{card.Fire} Fire");
+
+        if (card.Water > 0)
+            parts.Add($"{card.Water} Water");
+
+        if (card.Wind > 0)
+            parts.Add($"{card.Wind} Wind");
+
+        if (card.Earth > 0)
+            parts.Add($"{card.Earth} Earth");
+
+        var generic = card.Generic + extraGeneric;
+
+        if (generic > 0)
+            parts.Add($"{generic} any");
+
+        return parts.Count == 0 ? "nothing" : string.Join(" + ", parts);
+    }
+
     private static bool Affordable(TcgDisplayArgs board, TcgCatalogCardView card, Func<string, TcgCatalogCardView?> lookup)
         => NeedsTarget(card)
             ? LegalTargets(board, card, lookup).Count > 0
