@@ -1,8 +1,8 @@
 # Chaos.Client
 
 A custom Dark Ages client written in C# (.NET 10) on top of MonoGame, [DALib](https://github.com/Sichii/DALib), and
-the [Chaos.Networking](https://github.com/Sichii/Chaos-Server) layer. Built to talk
-to [Chaos-Server](https://github.com/Sichii/Chaos-Server) (and any private server using the same networking layer), and
+the [Chaos.Networking](https://github.com/Whug001/Chaos-Server) layer. Built to talk
+to [Chaos-Server](https://github.com/Whug001/Chaos-Server) (and any private server using the same networking layer), and
 intended as a baseline other private server projects can fork and modify. Compatibility with retail servers is not an
 explicit goal of this project, but it will probably work anyway.
 
@@ -16,7 +16,7 @@ Almost everything a fork needs to change is in `Chaos.Client/GlobalSettings.cs`:
 
 | Setting                | What it is                                                                                                                          |
 |------------------------|-------------------------------------------------------------------------------------------------------------------------------------|
-| `ClientVersion`        | Version sent to the server on handshake. Default `744`.                                                                             |
+| `ClientVersion`        | Version sent to the server on handshake. Mirrors the server's `CONSTANTS.CLIENT_VERSION` (`Chaos-Server/Chaos.DarkAges/Definitions/CONSTANTS.cs`; `796` on 2026-10-20). |
 | `DataPath`             | Absolute path to the Dark Ages data folder (contains the `.dat` archives).                                                          |
 | `LobbyHost`            | Lobby server hostname or IP.                                                                                                        |
 | `LobbyPort`            | Lobby server port.                                                                                                                  |
@@ -94,6 +94,10 @@ This client implements the full lobby/login/world flow, rendering, HUD, inventor
 boards/mail, groups, profile, dialogs, and most of the popup UI. It is close to the retail client's look and feel but
 intentionally differs in several places (see below).
 
+Beyond retail parity it also implements the server's newer game systems: the trading card game (collection, challenges,
+ranked queue, and match windows), player portraits with a commission board, the crafting browser and confirm windows,
+numbered group pins on the town map, and a raid grid.
+
 ## Differences from the Retail Client
 
 These are intentional, and are the first things a fork should know about:
@@ -122,9 +126,9 @@ These are intentional, and are the first things a fork should know about:
    `ColorCodesEnabled` toggle so you can turn them off per-control if you need to.
 10. **Pants render under overcoats when the server allows it.** If the server's item definition says the overcoat
     permits pants, this client draws them. Retail does not.
-11. **Album and Portrait systems are not implemented.** The Album tab in the self-profile is not wired up, and the
-    portrait button does not actually take a portrait of your character. Both are straightforward to fill in if you need
-    them.
+11. **The Album tab in the self-profile is not wired up.** The Portrait system *is* implemented — the status-book
+    portrait opens a 48×56 drawing canvas (upload/clear/set/remove, synced to the server), Painted Portraits can be
+    traded, and a commission board window lets artists take and deliver portrait requests.
 12. **Alt+Enter cycles through window sizes.** The virtual canvas is 640×480; Alt+Enter steps the backbuffer through
     multiples of that — 1×, 2×, 3×, … — up to whatever the current monitor can fit, then wraps back to 1×.
 13. **Swimming is unrestricted by default.** Retail gates swimming(walking on water tiles) behind the `Swimming` skill,
@@ -628,6 +632,6 @@ a protocol extension, you'll already have the server repo open anyway.
 
 ## Related Repositories
 
-- [Chaos-Server](https://github.com/Sichii/Chaos-Server) — the private server this client targets, and the source of the
+- [Chaos-Server](https://github.com/Whug001/Chaos-Server) — the private server this client targets, and the source of the
   canonical packet shapes.
 - [DALib](https://github.com/eriscorp/dalib) — nuget package for reading and writing Dark Ages `.dat` archives.
