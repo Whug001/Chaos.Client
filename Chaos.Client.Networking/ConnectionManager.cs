@@ -583,6 +583,11 @@ public sealed class ConnectionManager : IDisposable
     public event MountWindowDisplayHandler? OnMountWindowDisplay;
 
     /// <summary>
+    ///     Fired when an effects window display packet is received from the server.
+    /// </summary>
+    public event EffectWindowDisplayHandler? OnEffectWindowDisplay;
+
+    /// <summary>
     ///     Fired when a fishing window display packet is received from the server.
     /// </summary>
     public event FishingDisplayHandler? OnFishingDisplay;
@@ -1426,6 +1431,10 @@ public sealed class ConnectionManager : IDisposable
     public void SendMountWindowChoose(byte mount, DisplayColor color)
         => SendIfWorld(new MountWindowChooseArgs { Mount = mount, Color = color });
 
+    /// <summary>The player picked an effect in the effects window. Effect 0 clears the pick.</summary>
+    public void SendEffectWindowChoose(EffectWindowKind kind, byte effect)
+        => SendIfWorld(new EffectWindowChooseArgs { Kind = kind, Effect = effect });
+
     /// <summary>The player pressed and is holding the line.</summary>
     public void SendFishingHold() => SendIfWorld(new FishingInteractionArgs { Type = FishingInteractionType.Hold });
 
@@ -1985,6 +1994,7 @@ public sealed class ConnectionManager : IDisposable
         PacketHandlers[(byte)ServerOpCode.WheelDisplay] = HandleWheelDisplay;
         PacketHandlers[(byte)ServerOpCode.LockpickDisplay] = HandleLockpickDisplay;
         PacketHandlers[(byte)ServerOpCode.MountWindowDisplay] = HandleMountWindowDisplay;
+        PacketHandlers[(byte)ServerOpCode.EffectWindowDisplay] = HandleEffectWindowDisplay;
         PacketHandlers[(byte)ServerOpCode.FishingDisplay] = HandleFishingDisplay;
         PacketHandlers[(byte)ServerOpCode.PumpkinCarvingDisplay] = HandlePumpkinCarvingDisplay;
         PacketHandlers[(byte)ServerOpCode.PumpkinLook] = HandlePumpkinLook;
@@ -2439,6 +2449,12 @@ public sealed class ConnectionManager : IDisposable
     {
         var args = Client.Deserialize<MountWindowDisplayArgs>(in pkt);
         OnMountWindowDisplay?.Invoke(args);
+    }
+
+    private void HandleEffectWindowDisplay(ServerPacket pkt)
+    {
+        var args = Client.Deserialize<EffectWindowDisplayArgs>(in pkt);
+        OnEffectWindowDisplay?.Invoke(args);
     }
 
     private void HandleFishingDisplay(ServerPacket pkt)
