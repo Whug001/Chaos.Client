@@ -94,14 +94,24 @@ public sealed partial class TcgMatchWindow
 
         DrawTrapBacks(batch, TcgMatchLayout.YourTraps, you.Traps.Count);
 
-        var name = Fit(you.Name, 120);
+        var name = Fit(you.Name, State.Spectating ? 80 : 120);
         DrawTextClipped(batch, new Vector2(ScreenX + 52, ScreenY + 373), name, LegendColors.Gold, false);
+        var deck = $"Deck {you.DeckCount}";
+        var deckX = ScreenX + 58 + TextRenderer.MeasureWidth(name);
         DrawTextClipped(
             batch,
-            new Vector2(ScreenX + 58 + TextRenderer.MeasureWidth(name), ScreenY + 373),
-            $"Deck {you.DeckCount}",
+            new Vector2(deckX, ScreenY + 373),
+            deck,
             Color.White,
             false);
+
+        if (State.Spectating)
+            DrawTextClipped(
+                batch,
+                new Vector2(deckX + 6 + TextRenderer.MeasureWidth(deck), ScreenY + 373),
+                $"Hand {you.HandCount}",
+                Color.White,
+                false);
 
         if (!State.NeedsRedraw && !State.Spectating)
             DrawHand(batch, board, you);
