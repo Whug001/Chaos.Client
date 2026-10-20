@@ -391,6 +391,30 @@ public sealed partial class TcgMatchWindow
         Creature.Draw(batch, card, feet, facing, TcgBoardCreature.Pose.Idle, clockMs, Color.White);
     }
 
+    internal readonly record struct TcgAnimationStart(Point Feet, bool Yours, string Key);
+
+    /// <summary>Where an animation starts and lands: the same feet the board pass draws for the creature.</summary>
+    internal static TcgAnimationStart? AnimationStart(TcgDisplayArgs board, TcgMatchInput input, int id)
+    {
+        if ((board.Players.Count < 2) || (id == 0))
+            return null;
+
+        foreach (var seat in new[] { TcgSeat.A, TcgSeat.B })
+        {
+            var creatures = board.Players[(int)seat].Battlefield;
+            var index = creatures.FindIndex(creature => creature.Id == id);
+
+            if (index < 0)
+                continue;
+
+            var yours = seat == board.YourSeat;
+
+            return new TcgAnimationStart(DrawFeet(board, input, id, yours, index, creatures.Count), yours, creatures[index].Key);
+        }
+
+        return null;
+    }
+
     private bool TryFindCreature(int id, out TcgCatalogCardView card, out Point feet, out Direction facing)
     {
         card = null!;
@@ -402,28 +426,20 @@ public sealed partial class TcgMatchWindow
 
         foreach (var board in new[] { Queue.ShownBoard, Queue.PlayingBoard })
         {
-            if (board is null || (board.Players.Count < 2))
+            if (board is null)
                 continue;
 
-            foreach (var seat in new[] { TcgSeat.A, TcgSeat.B })
-            {
-                var creatures = board.Players[(int)seat].Battlefield;
-                var index = creatures.FindIndex(creature => creature.Id == id);
+            if (AnimationStart(board, Input, id) is not { } start)
+                continue;
 
-                if (index < 0)
-                    continue;
+            if (Catalog.Get(start.Key) is not { } found)
+                return false;
 
-                if (Catalog.Get(creatures[index].Key) is not { } found)
-                    return false;
+            card = found;
+            feet = new Point(ScreenX + start.Feet.X, ScreenY + start.Feet.Y);
+            facing = start.Yours ? Direction.Up : Direction.Down;
 
-                var yours = seat == board.YourSeat;
-                var slot = TcgMatchLayout.CreatureSlot(index, creatures.Count, yours);
-                card = found;
-                feet = new Point(ScreenX + slot.X, ScreenY + slot.Y);
-                facing = yours ? Direction.Up : Direction.Down;
-
-                return true;
-            }
+            return true;
         }
 
         return false;

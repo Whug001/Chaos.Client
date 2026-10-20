@@ -99,19 +99,54 @@ public sealed partial class TcgMatchWindow
             if ((input.Mode == TcgInputMode.Attacking) && input.Attackers.Contains(creatureId))
                 return new Point(feet.X, feet.Y - RIVER_LIFT);
 
-            if ((input.Mode == TcgInputMode.Blocking) && input.Blocks.TryGetValue(creatureId, out var attackerId))
-                return BlockerFeet(ShiftedAttackerFeet(board, attackerId), BlockerIndex(board, input, creatureId, attackerId), BlockCount(input, attackerId));
+            if (input.Mode == TcgInputMode.Blocking)
+            {
+                var live = input.Blocks.Select(pair => new TcgBlock(pair.Key, pair.Value)).ToList();
 
-            if ((input.Mode == TcgInputMode.Blocking) && (input.SelectedBlocker == creatureId))
-                return new Point(feet.X, feet.Y - RIVER_LIFT);
-        } else if ((input.Mode == TcgInputMode.Blocking) && board.Attackers.Contains(creatureId))
-            return new Point(feet.X, feet.Y + RIVER_LIFT);
+                if (input.Blocks.TryGetValue(creatureId, out var attackerId))
+                    return BlockerFeet(ShiftedAttackerFeet(board, attackerId), BlockerIndex(board, live, creatureId, attackerId), BlockCount(live, attackerId));
+
+                if (input.SelectedBlocker == creatureId)
+                    return new Point(feet.X, feet.Y - RIVER_LIFT);
+
+                return feet;
+            }
+        } else if (input.Mode == TcgInputMode.Blocking)
+        {
+            if (board.Attackers.Contains(creatureId))
+                return new Point(feet.X, feet.Y + RIVER_LIFT);
+
+            return feet;
+        }
+
+        if (input.Mode == TcgInputMode.Ordering)
+            return feet;
+
+        if (BlocksConfirmed(board))
+        {
+            if (board.Attackers.Contains(creatureId))
+                return yours ? new Point(feet.X, feet.Y - RIVER_LIFT) : new Point(feet.X, feet.Y + RIVER_LIFT);
+
+            var confirmed = board.Blocks.FirstOrDefault(block => block.BlockerId == creatureId);
+
+            if (confirmed is not null)
+                return BlockerFeet(
+                    ShiftedAttackerFeet(board, confirmed.AttackerId),
+                    BlockerIndex(board, board.Blocks, creatureId, confirmed.AttackerId),
+                    BlockCount(board.Blocks, confirmed.AttackerId),
+                    yours);
+        }
 
         return feet;
     }
 
     public static Point BlockerFeet(Point attackerFeet, int index, int count)
-        => new(attackerFeet.X + ((index - ((count - 1) / 2)) * BLOCK_SPREAD_X), attackerFeet.Y + BLOCK_FRONT_Y);
+        => BlockerFeet(attackerFeet, index, count, true);
+
+    public static Point BlockerFeet(Point attackerFeet, int index, int count, bool blockerBelowAttacker)
+        => new(
+            attackerFeet.X + ((index - ((count - 1) / 2)) * BLOCK_SPREAD_X),
+            attackerFeet.Y + ((blockerBelowAttacker ? 1 : -1) * BLOCK_FRONT_Y));
 
     public static int OwnCreatureIdAt(TcgDisplayArgs board, TcgMatchInput input, int x, int y)
     {
@@ -178,27 +213,33 @@ public sealed partial class TcgMatchWindow
         if (board.Players.Count < 2)
             return Point.Zero;
 
-        var creatures = board.Players[(int)TcgMatchRules.Other(board.YourSeat)].Battlefield;
-        var index = creatures.FindIndex(creature => creature.Id == attackerId);
+        for (var seat = 0; seat < board.Players.Count; seat++)
+        {
+            var creatures = board.Players[seat].Battlefield;
+            var index = creatures.FindIndex(creature => creature.Id == attackerId);
 
-        if (index < 0)
-            return Point.Zero;
+            if (index < 0)
+                continue;
 
-        var feet = TcgMatchLayout.CreatureSlot(index, creatures.Count, false);
+            var yours = (TcgSeat)seat == board.YourSeat;
+            var feet = TcgMatchLayout.CreatureSlot(index, creatures.Count, yours);
 
-        return new Point(feet.X, feet.Y + RIVER_LIFT);
+            return yours ? new Point(feet.X, feet.Y - RIVER_LIFT) : new Point(feet.X, feet.Y + RIVER_LIFT);
+        }
+
+        return Point.Zero;
     }
 
-    private static int BlockerIndex(TcgDisplayArgs board, TcgMatchInput input, int blockerId, int attackerId)
+    private static int BlockerIndex(TcgDisplayArgs board, IReadOnlyList<TcgBlock> blocks, int blockerId, int attackerId)
     {
         if (board.Players.Count < 2)
             return 0;
 
         var order = 0;
 
-        foreach (var creature in board.Players[(int)board.YourSeat].Battlefield)
+        foreach (var creature in board.Players[(int)SeatOf(board, blockerId, board.YourSeat)].Battlefield)
         {
-            if (input.Blocks.GetValueOrDefault(creature.Id, 0) != attackerId)
+            if (blocks.All(block => (block.BlockerId != creature.Id) || (block.AttackerId != attackerId)))
                 continue;
 
             if (creature.Id == blockerId)
@@ -210,17 +251,28 @@ public sealed partial class TcgMatchWindow
         return 0;
     }
 
-    private static int BlockCount(TcgMatchInput input, int attackerId)
+    private static int BlockCount(IReadOnlyList<TcgBlock> blocks, int attackerId)
     {
         var count = 0;
 
-        foreach (var pair in input.Blocks)
+        foreach (var block in blocks)
         {
-            if (pair.Value == attackerId)
+            if (block.AttackerId == attackerId)
                 count++;
         }
 
         return Math.Max(1, count);
+    }
+
+    private static TcgSeat SeatOf(TcgDisplayArgs board, int creatureId, TcgSeat fallback)
+    {
+        for (var seat = 0; seat < board.Players.Count; seat++)
+        {
+            if (board.Players[seat].Battlefield.Exists(creature => creature.Id == creatureId))
+                return (TcgSeat)seat;
+        }
+
+        return fallback;
     }
 
     private string? CreatureBadge(TcgDisplayArgs board, TcgCreatureView view)
@@ -362,6 +414,92 @@ public sealed partial class TcgMatchWindow
             if (!blocked)
                 DrawArrow(batch, from, seal, UnblockedArrow);
         }
+    }
+
+    public readonly record struct TcgBlockArrow(Point From, Point To, bool Blocked);
+
+    public static bool ShowsConfirmedBlocks(TcgDisplayArgs board, TcgMatchInput input)
+        => (board.Players.Count >= 2)
+           && (input.Mode != TcgInputMode.Blocking)
+           && BlocksConfirmed(board);
+
+    /// <summary>Attackers are declared and at least one block is confirmed: the confirmed layout.</summary>
+    private static bool BlocksConfirmed(TcgDisplayArgs board)
+        => (board.Attackers.Count > 0) && (board.Blocks.Count > 0);
+
+    public static List<TcgBlockArrow> ConfirmedBlockArrows(TcgDisplayArgs board, TcgMatchInput input)
+    {
+        var arrows = new List<TcgBlockArrow>();
+
+        if (!ShowsConfirmedBlocks(board, input))
+            return arrows;
+
+        var defenderSeat = TcgMatchRules.Other(AttackerSeat(board));
+        var seal = defenderSeat == board.YourSeat ? TcgMatchLayout.YourSeal.Center : TcgMatchLayout.OpponentSeal.Center;
+
+        foreach (var attackerId in board.Attackers)
+        {
+            if (FindSpot(board, attackerId) is not { } attacker)
+                continue;
+
+            var from = DrawFeet(board, input, attackerId, attacker.Yours, attacker.Index, attacker.Count);
+            from = new Point(from.X, from.Y - 24);
+            var blocked = false;
+
+            foreach (var block in board.Blocks)
+            {
+                if ((block.AttackerId != attackerId) || (FindSpot(board, block.BlockerId) is not { } blocker))
+                    continue;
+
+                blocked = true;
+                var feet = DrawFeet(board, input, block.BlockerId, blocker.Yours, blocker.Index, blocker.Count);
+                arrows.Add(new TcgBlockArrow(from, new Point(feet.X, feet.Y - 24), true));
+            }
+
+            if (!blocked)
+                arrows.Add(new TcgBlockArrow(from, seal, false));
+        }
+
+        return arrows;
+    }
+
+    private static TcgSeat AttackerSeat(TcgDisplayArgs board)
+    {
+        foreach (var attackerId in board.Attackers)
+        {
+            var seat = SeatOf(board, attackerId, board.ActiveSeat);
+
+            if (board.Players[(int)seat].Battlefield.Exists(creature => creature.Id == attackerId))
+                return seat;
+        }
+
+        return board.ActiveSeat;
+    }
+
+    private readonly record struct CreatureSpot(bool Yours, int Index, int Count);
+
+    private static CreatureSpot? FindSpot(TcgDisplayArgs board, int creatureId)
+    {
+        for (var seat = 0; seat < board.Players.Count; seat++)
+        {
+            var creatures = board.Players[seat].Battlefield;
+            var index = creatures.FindIndex(creature => creature.Id == creatureId);
+
+            if (index >= 0)
+                return new CreatureSpot((TcgSeat)seat == board.YourSeat, index, creatures.Count);
+        }
+
+        return null;
+    }
+
+    private void DrawConfirmedBlockArrows(SpriteBatch batch, TcgDisplayArgs board)
+    {
+        foreach (var arrow in ConfirmedBlockArrows(board, Input))
+            DrawArrow(
+                batch,
+                new Point(ScreenX + arrow.From.X, ScreenY + arrow.From.Y),
+                new Point(ScreenX + arrow.To.X, ScreenY + arrow.To.Y),
+                arrow.Blocked ? BlockedArrow : UnblockedArrow);
     }
 
     private void DrawIncomingDamage(SpriteBatch batch, int damage, string text)

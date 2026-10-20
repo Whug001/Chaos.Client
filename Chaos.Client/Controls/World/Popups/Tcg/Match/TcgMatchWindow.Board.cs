@@ -47,13 +47,18 @@ public sealed partial class TcgMatchWindow
 
         DrawOpponentStrip(batch, them);
 
-        if ((latest is not null) && (latest.Players.Count >= 2) && (Input.Mode == TcgInputMode.Blocking) && TcgMatchRules.YouDecide(latest, TcgDecision.Block))
+        if ((latest is not null)
+            && (latest.Players.Count >= 2)
+            && !board.Spectating
+            && (Input.Mode == TcgInputMode.Blocking)
+            && TcgMatchRules.YouDecide(latest, TcgDecision.Block))
         {
             var incoming = Input.IncomingDamage(latest);
 
             DrawBlockArrows(batch, latest);
             DrawIncomingDamage(batch, incoming, Input.IncomingDamageText(latest, incoming));
-        }
+        } else if (ShowsConfirmedBlocks(board, Input))
+            DrawConfirmedBlockArrows(batch, board);
 
         DrawCreatureRow(batch, board, them.Battlefield, false, clockMs);
         DrawCreatureRow(batch, board, you.Battlefield, true, clockMs);
