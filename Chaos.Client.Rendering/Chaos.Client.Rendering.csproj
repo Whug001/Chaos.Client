@@ -1,5 +1,8 @@
 <Project Sdk="Microsoft.NET.Sdk">
     <ItemGroup>
+        <InternalsVisibleTo Include="Chaos.Client.Tests" />
+    </ItemGroup>
+    <ItemGroup>
         <ProjectReference Include="..\Chaos.Client.Data\Chaos.Client.Data.csproj"/>
         <ProjectReference Include="$(UnoraServerPath)\Chaos.DarkAges\Chaos.DarkAges.csproj"/>
     </ItemGroup>
