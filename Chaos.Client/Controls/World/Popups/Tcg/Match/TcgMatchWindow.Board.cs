@@ -92,8 +92,8 @@ public sealed partial class TcgMatchWindow
             DragFace.Badge = string.Empty;
             DragFace.Owned = true;
             DragFace.Selected = false;
-            DragFace.X = slot.X;
-            DragFace.Y = slot.Y;
+            DragFace.X = ScreenX + slot.X;
+            DragFace.Y = ScreenY + slot.Y;
             DragFace.Draw(batch);
 
             var at = new Rectangle(ScreenX + slot.X, ScreenY + slot.Y, slot.Width, slot.Height);

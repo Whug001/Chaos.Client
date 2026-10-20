@@ -493,6 +493,17 @@ public sealed partial class TcgMatchWindow
         var x = e.ScreenX - ScreenX;
         var y = e.ScreenY - ScreenY;
 
+        var stackBoard = Queue.ShownBoard ?? State.Latest;
+
+        if ((stackBoard is not null)
+            && (stackBoard.Stack.Count > 0)
+            && (TcgMatchLayout.StackHitAt(x, y, stackBoard.Stack.Count) is not null))
+        {
+            e.Handled = true;
+
+            return;
+        }
+
         if (Input.Mode == TcgInputMode.ConfirmConcede)
         {
             e.Handled = true;
@@ -595,6 +606,22 @@ public sealed partial class TcgMatchWindow
             e.Handled = true;
 
             return;
+        }
+
+        if (e.Button == MouseButton.Left)
+        {
+            var x = e.ScreenX - ScreenX;
+            var y = e.ScreenY - ScreenY;
+            var board = Queue.ShownBoard ?? State.Latest;
+
+            if ((board is not null)
+                && (board.Stack.Count > 0)
+                && (TcgMatchLayout.StackHitAt(x, y, board.Stack.Count) is not null))
+            {
+                e.Handled = true;
+
+                return;
+            }
         }
 
         base.OnMouseDown(e);
