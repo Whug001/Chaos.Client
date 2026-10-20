@@ -90,12 +90,22 @@ public sealed class ThumbnailGrid<T> : UIPanel where T : notnull
     ///     <paramref name="thumbFor" /> may return null (cell draws its border only). The arrows show only when
     ///     <paramref name="pageCount" /> is more than one. <paramref name="isSelected" />, when given, replaces the
     ///     comparison with <paramref name="selected" />, so several cells can show as selected at once.
+    ///     <paramref name="isDimmed" /> draws a cell's thumbnail faded. <paramref name="isMarked" />, when given,
+    ///     moves the check-mark badge from the selected cell to the marked cells (the selected cell keeps its gold
+    ///     border).
     /// </summary>
     /// <remarks>
     ///     There is no "no selection" sentinel for value-type <typeparamref name="T" />: pass a real, currently-selected
     ///     value -- <c>default</c> would just compare equal to whatever item equals <c>default(T)</c>.
     /// </remarks>
-    public void SetItems(IReadOnlyList<T> items, T? selected, int pageCount, Func<T, Texture2D?> thumbFor, Func<T, bool>? isSelected = null)
+    public void SetItems(
+        IReadOnlyList<T> items,
+        T? selected,
+        int pageCount,
+        Func<T, Texture2D?> thumbFor,
+        Func<T, bool>? isSelected = null,
+        Func<T, bool>? isDimmed = null,
+        Func<T, bool>? isMarked = null)
     {
         if (Left is not null)
             Left.Visible = pageCount > 1;
@@ -114,12 +124,18 @@ public sealed class ThumbnailGrid<T> : UIPanel where T : notnull
                 cell.Item = items[i];
                 cell.Thumbnail = thumbFor(items[i]);
                 cell.IsSelected = isSelected?.Invoke(items[i]) ?? ((selected is not null) && items[i].Equals(selected));
+                cell.IsDimmed = isDimmed?.Invoke(items[i]) ?? false;
+                cell.UsesMarks = isMarked is not null;
+                cell.IsMarked = isMarked?.Invoke(items[i]) ?? false;
             } else
             {
                 cell.Visible = false;
                 cell.Item = null;
                 cell.Thumbnail = null;
                 cell.IsSelected = false;
+                cell.IsDimmed = false;
+                cell.UsesMarks = false;
+                cell.IsMarked = false;
             }
 
             //InputDispatcher only re-runs hit-testing on cursor movement and diffs the hovered element by
@@ -154,6 +170,9 @@ public sealed class ThumbnailGrid<T> : UIPanel where T : notnull
         public object? Item;
         public Texture2D? Thumbnail;
         public bool IsSelected;
+        public bool IsDimmed;
+        public bool UsesMarks;
+        public bool IsMarked;
         public bool IsHovered;
 
         public event Action<object>? Hovered;
@@ -197,19 +216,26 @@ public sealed class ThumbnailGrid<T> : UIPanel where T : notnull
             var bounds = new Rectangle(ScreenX, ScreenY, Width, Height);
             DrawRect(spriteBatch, bounds, Slot);
 
+            //unowned items in the Effects window
+            var tint = IsDimmed ? Color.White * 0.35f : Color.White;
+
             //HeadThumbnailRenderer.Clear() can dispose the texture this cell still references between one
             //SetItems call and the next (e.g. the base look changed) -- guard against drawing a stale handle.
             if (Thumbnail is { IsDisposed: false })
-                DrawTextureFitted(spriteBatch, Thumbnail, new Rectangle(bounds.X + 2, bounds.Y + 2, Width - 4, Height - 4), Color.White);
+                DrawTextureFitted(spriteBatch, Thumbnail, new Rectangle(bounds.X + 2, bounds.Y + 2, Width - 4, Height - 4), tint);
 
             if (IsSelected)
             {
                 DrawBorder(spriteBatch, bounds, SelectedBorder);
                 DrawBorder(spriteBatch, new Rectangle(bounds.X + 1, bounds.Y + 1, Width - 2, Height - 2), SelectedBorder);
-                DrawRect(spriteBatch, new Rectangle(bounds.Right - 11, bounds.Y + 1, 10, 10), SelectedBorder);
-                DrawRect(spriteBatch, new Rectangle(bounds.Right - 8, bounds.Y + 4, 4, 4), LegendColors.AlmostBlack);
             } else if (IsHovered)
                 DrawBorder(spriteBatch, bounds, HoverBorder);
+
+            if (UsesMarks ? IsMarked : IsSelected)
+            {
+                DrawRect(spriteBatch, new Rectangle(bounds.Right - 11, bounds.Y + 1, 10, 10), SelectedBorder);
+                DrawRect(spriteBatch, new Rectangle(bounds.Right - 8, bounds.Y + 4, 4, 4), LegendColors.AlmostBlack);
+            }
         }
     }
 }

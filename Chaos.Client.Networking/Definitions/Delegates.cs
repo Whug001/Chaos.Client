@@ -432,6 +432,11 @@ public delegate void LockpickDisplayHandler(LockpickDisplayArgs args);
 public delegate void MountWindowDisplayHandler(MountWindowDisplayArgs args);
 
 /// <summary>
+///     Fired when an effects window display packet is received.
+/// </summary>
+public delegate void EffectWindowDisplayHandler(EffectWindowDisplayArgs args);
+
+/// <summary>
 ///     Fired when a fishing window display packet is received.
 /// </summary>
 public delegate void FishingDisplayHandler(FishingDisplayArgs args);
