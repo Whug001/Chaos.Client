@@ -578,6 +578,11 @@ public sealed class ConnectionManager : IDisposable
     public event LockpickDisplayHandler? OnLockpickDisplay;
 
     /// <summary>
+    ///     Fired when a mount window display packet is received from the server.
+    /// </summary>
+    public event MountWindowDisplayHandler? OnMountWindowDisplay;
+
+    /// <summary>
     ///     Fired when a fishing window display packet is received from the server.
     /// </summary>
     public event FishingDisplayHandler? OnFishingDisplay;
@@ -1415,6 +1420,12 @@ public sealed class ConnectionManager : IDisposable
     /// </summary>
     public void SendLockpickClose() => SendIfWorld(new LockpickInteractionArgs { Type = LockpickInteractionType.Close });
 
+    /// <summary>
+    ///     Tells the server which mount and cloak this character chose in the mount window.
+    /// </summary>
+    public void SendMountWindowChoose(byte mount, DisplayColor color)
+        => SendIfWorld(new MountWindowChooseArgs { Mount = mount, Color = color });
+
     /// <summary>The player pressed and is holding the line.</summary>
     public void SendFishingHold() => SendIfWorld(new FishingInteractionArgs { Type = FishingInteractionType.Hold });
 
@@ -1973,6 +1984,7 @@ public sealed class ConnectionManager : IDisposable
         PacketHandlers[(byte)ServerOpCode.SlotMachineDisplay] = HandleSlotMachineDisplay;
         PacketHandlers[(byte)ServerOpCode.WheelDisplay] = HandleWheelDisplay;
         PacketHandlers[(byte)ServerOpCode.LockpickDisplay] = HandleLockpickDisplay;
+        PacketHandlers[(byte)ServerOpCode.MountWindowDisplay] = HandleMountWindowDisplay;
         PacketHandlers[(byte)ServerOpCode.FishingDisplay] = HandleFishingDisplay;
         PacketHandlers[(byte)ServerOpCode.PumpkinCarvingDisplay] = HandlePumpkinCarvingDisplay;
         PacketHandlers[(byte)ServerOpCode.PumpkinLook] = HandlePumpkinLook;
@@ -2421,6 +2433,12 @@ public sealed class ConnectionManager : IDisposable
     {
         var args = Client.Deserialize<LockpickDisplayArgs>(in pkt);
         OnLockpickDisplay?.Invoke(args);
+    }
+
+    private void HandleMountWindowDisplay(ServerPacket pkt)
+    {
+        var args = Client.Deserialize<MountWindowDisplayArgs>(in pkt);
+        OnMountWindowDisplay?.Invoke(args);
     }
 
     private void HandleFishingDisplay(ServerPacket pkt)

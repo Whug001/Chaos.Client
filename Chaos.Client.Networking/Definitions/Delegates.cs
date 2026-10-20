@@ -427,6 +427,11 @@ public delegate void WheelDisplayHandler(WheelDisplayArgs args);
 public delegate void LockpickDisplayHandler(LockpickDisplayArgs args);
 
 /// <summary>
+///     Fired when a mount window display packet is received.
+/// </summary>
+public delegate void MountWindowDisplayHandler(MountWindowDisplayArgs args);
+
+/// <summary>
 ///     Fired when a fishing window display packet is received.
 /// </summary>
 public delegate void FishingDisplayHandler(FishingDisplayArgs args);
