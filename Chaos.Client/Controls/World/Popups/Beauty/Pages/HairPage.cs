@@ -25,6 +25,8 @@ public sealed class HairPage : MirrorPageView
     private readonly ThumbnailGrid<BeautyShopHairstyleEntry> Styles;
     private readonly UILabel ColorCaption;
     private readonly SwatchGrid Colors;
+    private readonly UILabel OmbreCaption;
+    private readonly SwatchGrid Ombres;
 
     public HairPage(MirrorActions actions, int width, int height)
         : base(actions, width, height)
@@ -47,6 +49,15 @@ public sealed class HairPage : MirrorPageView
         Colors.HoverCleared += () => Actions.Hover(v => v.ClearHover());
         Colors.Selected += c => Actions.Select(v => v.SelectHairColor(c));
         AddChild(Colors);
+
+        OmbreCaption = AddLabel(0, 0, width);
+        OmbreCaption.Text = "Ombre dyes";
+
+        Ombres = new SwatchGrid { X = Styles.CellLeft };
+        Ombres.Hovered += c => Actions.Hover(v => v.SetHoverHairColor(c));
+        Ombres.HoverCleared += () => Actions.Hover(v => v.ClearHover());
+        Ombres.Selected += c => Actions.Select(v => v.SelectHairColor(c));
+        AddChild(Ombres);
     }
 
     public override void Refresh()
@@ -65,8 +76,14 @@ public sealed class HairPage : MirrorPageView
             h => Actions.Thumbnails.Get(baseLook with { HeadSprite = h.Sprite }));
 
         var color = vm.HoveredHairColor ?? vm.HairColor;
-        ColorCaption.Text = $"Hair color   {color} - {CostText(color == vm.CurrentHairColor, vm.CostOfHairColor(color))}";
-        Colors.SetColors(vm.HairColors, vm.HairColor, SwatchColorFor);
+        ColorCaption.Text = $"Hair color   {OmbreDyes.NameOf(color)} - {CostText(color == vm.CurrentHairColor, vm.CostOfHairColor(color))}";
+        Colors.SetColors(vm.HairColors.Where(c => !OmbreDyes.IsOmbre(c)).ToList(), vm.HairColor, SwatchColorFor);
+
+        var ombres = vm.HairColors.Where(OmbreDyes.IsOmbre).ToList();
+        OmbreCaption.Visible = Ombres.Visible = ombres.Count > 0;
+        OmbreCaption.Y = Colors.Y + Colors.Height + SECTION_GAP;
+        Ombres.Y = OmbreCaption.Y + TextRenderer.CHAR_HEIGHT + 2;
+        Ombres.SetColors(ombres, vm.HairColor, SwatchColorFor, TipSwatchColorFor);
     }
 
     internal static Color SwatchColorFor(DisplayColor color)
@@ -84,4 +101,8 @@ public sealed class HairPage : MirrorPageView
 
         return new Color(mid.Red, mid.Green, mid.Blue);
     }
+
+    /// <summary>The bottom half of an ombre swatch: the tip ramp's middle color. Null for plain colors.</summary>
+    internal static Color? TipSwatchColorFor(DisplayColor color)
+        => OmbreDyes.TryGet(color, out var ombre) ? SwatchColorFor((DisplayColor)ombre.Tip) : null;
 }

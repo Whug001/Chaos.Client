@@ -1136,7 +1136,19 @@ public sealed class AislingRenderer : IDisposable
         if (palette is null)
             return null;
 
-        var image = Graphics.RenderImage(frame, palette);
+        var image = (typeLetter is 'h' or 'e' or 'f') && OmbreDyes.TryGet(dyeColor, out var ombre)
+            ? RenderOmbreLayer(
+                lookup,
+                spriteId,
+                ombre,
+                paletteOverride,
+                frame,
+                palette,
+                in appearance,
+                frameIndex,
+                anim,
+                idleFallbackFrame)
+            : Graphics.RenderImage(frame, palette);
 
         // ReSharper disable once ConditionIsAlwaysTrueOrFalseAccordingToNullableAPIContract
         if (image is null)
@@ -1147,6 +1159,57 @@ public sealed class AislingRenderer : IDisposable
         return new LayerInfo(image, typeLetter);
     }
 
+    /// <summary>
+    ///     Draws an ombre head layer. <paramref name="rootPalette" /> is already the root, because color0.tbl entries
+    ///     72-88 hold the root ramps. The fade rows come from the h frame of the same sprite and pose, so the e and f
+    ///     layers fade over the same rows as the hair.
+    /// </summary>
+    private SKImage RenderOmbreLayer(
+        PaletteLookup lookup,
+        int spriteId,
+        OmbreDye ombre,
+        KhanPalOverrideType paletteOverride,
+        EpfFrame frame,
+        Palette rootPalette,
+        in AislingAppearance appearance,
+        int frameIndex,
+        string anim,
+        int idleFallbackFrame)
+    {
+        var tipPalette = ResolvePalette(lookup, spriteId, (DisplayColor)ombre.Tip, paletteOverride);
+
+        if (tipPalette is null || ReferenceEquals(tipPalette, rootPalette) || !DrawData.DyeColorTable.Contains(ombre.Tip))
+            return Graphics.RenderImage(frame, rootPalette);
+
+        var fadeFrame = frame;
+        (var hairEpf, var hairFrame) = ResolveLayerEpf('h', spriteId, in appearance, frameIndex, anim, idleFallbackFrame);
+
+        if (hairEpf is not null && (hairFrame >= 0))
+            fadeFrame = hairEpf[hairFrame];
+
+        var rows = OmbreHairPainter.HairRows(fadeFrame.PixelWidth, fadeFrame.PixelHeight, fadeFrame.Data);
+
+        if (rows is null && !ReferenceEquals(fadeFrame, frame))
+        {
+            fadeFrame = frame;
+            rows = OmbreHairPainter.HairRows(frame.PixelWidth, frame.PixelHeight, frame.Data);
+        }
+
+        if (rows is null)
+            return Graphics.RenderImage(frame, rootPalette);
+
+        var pixels = OmbreHairPainter.Paint(
+            frame.PixelWidth,
+            frame.PixelHeight,
+            frame.Top,
+            frame.Data,
+            rootPalette,
+            tipPalette,
+            fadeFrame.Top + rows.Value.First,
+            fadeFrame.Top + rows.Value.Last);
+
+        return GuildCloakPainter.ToImage(frame, pixels);
+    }
 
     /// <summary>An accessory layer: the guild cloak paints its wearer's design when that design is loaded; everything else dyes as usual.</summary>
     private LayerInfo? RenderAccessoryLayer(

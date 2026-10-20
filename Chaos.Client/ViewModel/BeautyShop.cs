@@ -23,6 +23,7 @@ public sealed class BeautyShop
     public int GenderPrice { get; private set; }
     public int HairDyePrice { get; private set; }
     public int BodyDyePrice { get; private set; }
+    public int OmbreDyePrice { get; private set; }
     public int Gold { get; private set; }
 
     //current look (what the server says the player has now)
@@ -105,7 +106,10 @@ public sealed class BeautyShop
         => sprite == CurrentHairStyle ? 0 : Hairstyles.FirstOrDefault(h => h.Sprite == sprite)?.Price ?? 0;
 
     /// <summary>What choosing <paramref name="color" /> as the hair dye adds to <see cref="Total" />. 0 for the current dye.</summary>
-    public int CostOfHairColor(DisplayColor color) => color != CurrentHairColor ? HairDyePrice : 0;
+    public int CostOfHairColor(DisplayColor color)
+        => color == CurrentHairColor ? 0
+            : OmbreDyes.IsOmbre(color) ? OmbreDyePrice
+            : HairDyePrice;
 
     /// <summary>What choosing <paramref name="color" /> as the skin adds to <see cref="Total" />. 0 for the current skin.</summary>
     public int CostOfBodyColor(BodyColor color) => color != CurrentBodyColor ? BodyDyePrice : 0;
@@ -132,6 +136,7 @@ public sealed class BeautyShop
         GenderPrice = args.GenderPrice;
         HairDyePrice = args.HairDyePrice;
         BodyDyePrice = args.BodyDyePrice;
+        OmbreDyePrice = args.OmbreDyePrice;
         Gold = args.Gold;
 
         CurrentGender = args.Gender;
@@ -153,7 +158,7 @@ public sealed class BeautyShop
         Faces = [];
         HairColors = [];
         BodyColors = [];
-        GenderPrice = HairDyePrice = BodyDyePrice = Gold = 0;
+        GenderPrice = HairDyePrice = BodyDyePrice = OmbreDyePrice = Gold = 0;
         CurrentGender = Gender = Gender.Male;
         CurrentHairStyle = HairStyle = 0;
         CurrentHairColor = HairColor = DisplayColor.Default;

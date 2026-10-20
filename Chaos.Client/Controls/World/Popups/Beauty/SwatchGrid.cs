@@ -30,7 +30,11 @@ public sealed class SwatchGrid : UIPanel
 
     public SwatchGrid() => Background = null;
 
-    public void SetColors(IReadOnlyList<DisplayColor> colors, DisplayColor selected, Func<DisplayColor, Color> swatchColor)
+    public void SetColors(
+        IReadOnlyList<DisplayColor> colors,
+        DisplayColor selected,
+        Func<DisplayColor, Color> swatchColor,
+        Func<DisplayColor, Color?>? bottomColor = null)
     {
         //rebuild only when the colour list changes (it doesn't after Open); otherwise just restyle
         if (Swatches.Count != colors.Count)
@@ -67,6 +71,7 @@ public sealed class SwatchGrid : UIPanel
         {
             Swatches[i].Color = colors[i];
             Swatches[i].Fill = swatchColor(colors[i]);
+            Swatches[i].BottomFill = bottomColor?.Invoke(colors[i]);
             Swatches[i].IsSelected = colors[i] == selected;
         }
     }
@@ -75,6 +80,7 @@ public sealed class SwatchGrid : UIPanel
     {
         public DisplayColor Color;
         public Microsoft.Xna.Framework.Color Fill;
+        public Microsoft.Xna.Framework.Color? BottomFill;
         public bool IsSelected;
         private bool IsHovered;
 
@@ -116,6 +122,9 @@ public sealed class SwatchGrid : UIPanel
 
             var bounds = new Rectangle(ScreenX, ScreenY, Width, Height);
             DrawRect(spriteBatch, bounds, Fill);
+            //two-tone swatch (ombre dyes): the bottom half shows the tip color
+            if (BottomFill is { } bottom)
+                DrawRect(spriteBatch, new Rectangle(bounds.X, bounds.Y + (Height / 2), Width, Height - (Height / 2)), bottom);
 
             if (IsSelected)
             {

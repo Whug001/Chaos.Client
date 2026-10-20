@@ -20,6 +20,7 @@ public class BeautyShopViewModelTests
             GenderPrice = 50_000,
             HairDyePrice = 1_000,
             BodyDyePrice = 1_000,
+            OmbreDyePrice = 25_000,
             MaleHairstyles = [new BeautyShopHairstyleEntry { Sprite = 0, Price = 1_000 }, new BeautyShopHairstyleEntry { Sprite = 1, Price = 1_000 }, new BeautyShopHairstyleEntry { Sprite = 97, Price = 2_500 }],
             FemaleHairstyles = [new BeautyShopHairstyleEntry { Sprite = 0, Price = 1_000 }, new BeautyShopHairstyleEntry { Sprite = 1, Price = 1_000 }, new BeautyShopHairstyleEntry { Sprite = 96, Price = 1_000 }],
             Faces =
@@ -28,7 +29,7 @@ public class BeautyShopViewModelTests
                 new BeautyShopFaceEntry { Sprite = 10, Name = "Beauty", Price = 50_000, FemaleOnly = false },
                 new BeautyShopFaceEntry { Sprite = 18, Name = "Resting", Price = 50_000, FemaleOnly = true }
             ],
-            HairColors = [DisplayColor.Default, DisplayColor.Apple, DisplayColor.Scarlet],
+            HairColors = [DisplayColor.Default, DisplayColor.Apple, DisplayColor.Scarlet, (DisplayColor)72],
             BodyColors = [BodyColor.Brown, BodyColor.Tan, BodyColor.White]
         };
 
@@ -401,6 +402,35 @@ public class BeautyShopViewModelTests
         waived.SelectFace(10);
         waived.Total.Should().Be(waived.GenderPrice + waived.CostOfFace(10));
         waived.Total.Should().Be(100_000);
+
+        await Task.CompletedTask;
+    }
+
+    [Test]
+    public async Task An_ombre_costs_the_ombre_price()
+    {
+        var vm = Opened();
+
+        vm.OmbreDyePrice.Should().Be(25_000);
+        vm.CostOfHairColor((DisplayColor)72).Should().Be(25_000);
+        vm.CostOfHairColor(DisplayColor.Apple).Should().Be(1_000);
+
+        vm.SelectHairColor((DisplayColor)72);
+        vm.Total.Should().Be(25_000);
+
+        await Task.CompletedTask;
+    }
+
+    [Test]
+    public async Task The_current_ombre_is_free()
+    {
+        var vm = new BeautyShop();
+        var args = Open();
+        args.HairColor = (DisplayColor)72;
+        vm.ApplyOpen(args);
+
+        vm.CostOfHairColor((DisplayColor)72).Should().Be(0);
+        vm.CostOfHairColor(DisplayColor.Scarlet).Should().Be(1_000);
 
         await Task.CompletedTask;
     }

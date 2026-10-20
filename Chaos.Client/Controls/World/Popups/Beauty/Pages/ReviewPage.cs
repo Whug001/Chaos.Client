@@ -5,6 +5,7 @@ using Chaos.Client.Controls.Custom;
 using Chaos.Client.Definitions;
 using Chaos.Client.Rendering;
 using Chaos.Client.Rendering.Definitions;
+using Chaos.DarkAges.Definitions;
 #endregion
 
 namespace Chaos.Client.Controls.World.Popups.Beauty.Pages;
@@ -144,7 +145,7 @@ public sealed class ReviewPage : MirrorPageView
             Position(vm.HairstylesFor(vm.CurrentGender), h => h.Sprite == vm.CurrentHairStyle),
             Position(vm.Hairstyles, h => h.Sprite == vm.HairStyle),
             vm.CostOfHairStyle(vm.HairStyle));
-        SetRow(2, vm.HairColorChanged, vm.CurrentHairColor.ToString(), vm.HairColor.ToString(), vm.CostOfHairColor(vm.HairColor));
+        SetRow(2, vm.HairColorChanged, OmbreDyes.NameOf(vm.CurrentHairColor), OmbreDyes.NameOf(vm.HairColor), vm.CostOfHairColor(vm.HairColor));
         SetRow(3, vm.BodyColorChanged, vm.CurrentBodyColor.ToString(), vm.BodyColor.ToString(), vm.CostOfBodyColor(vm.BodyColor));
         SetRow(4, vm.FaceChanged, FaceName(vm, vm.CurrentFaceSprite), FaceName(vm, vm.FaceSprite), vm.CostOfFace(vm.FaceSprite));
 
