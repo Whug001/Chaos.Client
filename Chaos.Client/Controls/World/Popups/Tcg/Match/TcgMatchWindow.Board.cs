@@ -70,6 +70,49 @@ public sealed partial class TcgMatchWindow
         DrawButtons(batch);
     }
 
+    private static readonly Color StackCounteredDim = new(0, 0, 0, 150);
+
+    private void DrawStack(SpriteBatch batch, TcgDisplayArgs board)
+    {
+        if (board.Stack.Count == 0)
+            return;
+
+        var count = board.Stack.Count;
+
+        for (var i = 0; i < count; i++)
+        {
+            var item = board.Stack[i];
+            var slot = TcgMatchLayout.StackSlot(count - 1 - i, count);
+
+            DragFace.Card = Catalog.Get(item.Key);
+            DragFace.Style = item.Printing.Style;
+            DragFace.Foil = item.Printing.Foil;
+            DragFace.FaceDown = false;
+            DragFace.FlipProgress = 1f;
+            DragFace.Badge = string.Empty;
+            DragFace.Owned = true;
+            DragFace.Selected = false;
+            DragFace.X = slot.X;
+            DragFace.Y = slot.Y;
+            DragFace.Draw(batch);
+
+            var at = new Rectangle(ScreenX + slot.X, ScreenY + slot.Y, slot.Width, slot.Height);
+            UIElement.DrawBorder(batch, at, item.Controller == board.YourSeat ? Color.Blue : Color.Red);
+
+            if (!item.Countered)
+                continue;
+
+            DrawRectClipped(batch, at, StackCounteredDim);
+
+            for (var yy = 0; yy < at.Height; yy++)
+            {
+                var xx = (yy * at.Width) / at.Height;
+                DrawRectClipped(batch, new Rectangle(at.X + xx, at.Y + yy, 2, 2), Color.Red);
+                DrawRectClipped(batch, new Rectangle(at.X + at.Width - 1 - xx, at.Y + yy, 2, 2), Color.Red);
+            }
+        }
+    }
+
     private void DrawOpponentStrip(SpriteBatch batch, TcgPlayerView them)
     {
         DrawSeal(batch, TcgMatchLayout.OpponentSeal, them.Life, them.Shielded);

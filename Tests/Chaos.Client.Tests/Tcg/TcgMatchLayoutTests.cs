@@ -80,4 +80,51 @@ public sealed class TcgMatchLayoutTests
             TcgMatchLayout.WatchingLine.Intersects(rect).Should().BeFalse($"WatchingLine overlaps {rect}");
         }
     }
+
+    [Test]
+    public void Stack_starts_at_the_left_edge_of_its_row()
+        => TcgMatchLayout.StackSlot(0, 1).Should().Be(new Rectangle(300, 74, 60, 84));
+
+    [Test]
+    public void Stack_slots_for_one_three_and_five_stay_inside_the_row()
+    {
+        foreach (var count in new[] { 1, 3, 5 })
+        {
+            for (var i = 0; i < count; i++)
+            {
+                var slot = TcgMatchLayout.StackSlot(i, count);
+                slot.X.Should().BeGreaterThanOrEqualTo(TcgMatchLayout.StackRow.X);
+                slot.Right.Should().BeLessThanOrEqualTo(TcgMatchLayout.StackRow.Right);
+                slot.Y.Should().Be(TcgMatchLayout.StackRow.Y);
+                slot.Height.Should().Be(TcgMatchLayout.StackRow.Height);
+            }
+
+            TcgMatchLayout.StackSlot(0, count).X.Should().Be(300);
+        }
+    }
+
+    [Test]
+    public void Stack_slots_spread_for_three_and_compress_for_five()
+    {
+        TcgMatchLayout.StackSlot(1, 3).X.Should().Be(353);
+        TcgMatchLayout.StackSlot(2, 3).X.Should().Be(406);
+        TcgMatchLayout.StackSlot(1, 5).X.Should().Be(326);
+        TcgMatchLayout.StackSlot(4, 5).X.Should().Be(404);
+    }
+
+    [Test]
+    public void Stack_hit_prefers_the_newest_on_overlap()
+    {
+        TcgMatchLayout.StackHitAt(355, 80, 3).Should().Be(0);
+        TcgMatchLayout.StackHitAt(300, 74, 1).Should().Be(0);
+    }
+
+    [Test]
+    public void Stack_hit_misses_outside_the_row()
+    {
+        TcgMatchLayout.StackHitAt(0, 0, 3).Should().BeNull();
+        TcgMatchLayout.StackHitAt(299, 74, 3).Should().BeNull();
+        TcgMatchLayout.StackHitAt(300, 73, 3).Should().BeNull();
+        TcgMatchLayout.StackHitAt(300, 80, 0).Should().BeNull();
+    }
 }

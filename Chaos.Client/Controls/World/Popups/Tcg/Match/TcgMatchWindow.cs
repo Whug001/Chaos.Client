@@ -296,6 +296,9 @@ public sealed partial class TcgMatchWindow : UIPanel
         if (board is not null)
             DrawBoard(spriteBatch, board, State.Latest);
 
+        if ((board is not null) && (board.Stack.Count > 0))
+            DrawStack(spriteBatch, board);
+
         DrawEventAnimation(spriteBatch);
         DrawTurnBanner(spriteBatch);
         DrawColumn(spriteBatch);
@@ -390,6 +393,17 @@ public sealed partial class TcgMatchWindow : UIPanel
 
     private void HoverBoard(TcgDisplayArgs board, int x, int y)
     {
+        if ((board.Stack.Count > 0) && (TcgMatchLayout.StackHitAt(x, y, board.Stack.Count) is { } display))
+        {
+            var item = board.Stack[board.Stack.Count - 1 - display];
+            HoverHandId = 0;
+            HoverCreatureId = 0;
+            HoverKey = item.Key;
+            HoverPrinting = item.Printing;
+
+            return;
+        }
+
         if (HoverAt(board, Input, State.Spectating, x, y) is not { } hit)
             return;
 

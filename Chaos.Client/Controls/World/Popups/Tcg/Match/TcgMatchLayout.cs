@@ -33,6 +33,8 @@ public static class TcgMatchLayout
     public static readonly Rectangle StopWatching = new(366, 336, 80, 16);
     public static readonly Rectangle WatchingLine = new(104, 336, 158, 14);
 
+    public static readonly Rectangle StackRow = new(300, 74, 166, 84);
+
     public static readonly Rectangle BigCard = new(495, 8, 120, 168);
     public static readonly Rectangle Hourglass = new(478, 182, 24, 36);
     public static readonly Rectangle Timers = new(506, 186, 128, 28);
@@ -56,6 +58,29 @@ public static class TcgMatchLayout
         var step = count <= 1 ? HAND_STEP : Math.Min(HAND_STEP, (Hand.Width - 60) / (count - 1));
 
         return new Point(Hand.X + (index * step), Hand.Y);
+    }
+
+    /// <summary>Stack card slot for a display index (0 is the newest, leftmost).</summary>
+    public static Rectangle StackSlot(int index, int count)
+    {
+        var step = count <= 3 ? 53 : (StackRow.Width - TcgCardFace.WIDTH) / (count - 1);
+
+        return new Rectangle(StackRow.X + (index * step), StackRow.Y, TcgCardFace.WIDTH, TcgCardFace.HEIGHT);
+    }
+
+    /// <summary>Display index under a window-local point, or null. The newest (index 0, drawn on top) wins overlaps.</summary>
+    public static int? StackHitAt(int x, int y, int count)
+    {
+        if (count <= 0)
+            return null;
+
+        for (var i = 0; i < count; i++)
+        {
+            if (StackSlot(i, count).Contains(x, y))
+                return i;
+        }
+
+        return null;
     }
 
     public static Point Gem(Rectangle row, int index) => new(row.X + (index * 18), row.Y);
