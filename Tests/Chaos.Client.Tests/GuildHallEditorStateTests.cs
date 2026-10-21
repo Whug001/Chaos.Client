@@ -17,7 +17,7 @@ public sealed class GuildHallEditorStateTests
             Sets =
             [
                 new GuildHallPaletteSet("free", "Free set", true, 0, [11, 12, 13], [new GuildHallForegroundInfo(500, 0)], [new GuildHallForegroundInfo(0, 700)]),
-                new GuildHallPaletteSet("stone", "Stone Keep", false, 3000000, [21], [new GuildHallForegroundInfo(800, 801)], [])
+                new GuildHallPaletteSet("stone", "Stone Keep", false, 10000000, [21], [new GuildHallForegroundInfo(800, 801)], [])
             ],
             Npcs = [new GuildHallNpcOption("tibbs", "Tibbs", 61, 99, 39, true), new GuildHallNpcOption("loom", "Loom", 70, 0, 0, false)],
             EntranceX = 98,
