@@ -437,6 +437,11 @@ public delegate void MountWindowDisplayHandler(MountWindowDisplayArgs args);
 public delegate void EffectWindowDisplayHandler(EffectWindowDisplayArgs args);
 
 /// <summary>
+///     Fired when a guild hall editor display packet is received.
+/// </summary>
+public delegate void GuildHallEditorDisplayHandler(GuildHallEditorDisplayArgs args);
+
+/// <summary>
 ///     Fired when a fishing window display packet is received.
 /// </summary>
 public delegate void FishingDisplayHandler(FishingDisplayArgs args);

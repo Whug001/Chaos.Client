@@ -914,6 +914,7 @@ public sealed partial class WorldScreen : IScreen
         WireTownBallot();
         WireArenaHost();
         WireMounts();
+        WireGuildHallEditor();
         WireEffects();
         WireCrafting();
         WireCommissionBoard();
@@ -1164,6 +1165,7 @@ public sealed partial class WorldScreen : IScreen
         UnwireTownBallot();
         UnwireArenaHost();
         UnwireMounts();
+        UnwireGuildHallEditor();
         UnwireEffects();
         UnwireCrafting();
         UnwireCommissionBoard();

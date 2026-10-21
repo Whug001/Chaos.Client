@@ -14,6 +14,12 @@ public sealed class MapStreamingTests
                        .BeTrue();
 
     [Test]
+    public void IsStreamed_ShouldBeTrue_ForTheGuildHallMap()
+        => MapStreaming.IsStreamed(32001)
+                       .Should()
+                       .BeTrue();
+
+    [Test]
     public void IsStreamed_ShouldBeFalse_ForOrdinaryMaps()
         => MapStreaming.IsStreamed(7)
                        .Should()

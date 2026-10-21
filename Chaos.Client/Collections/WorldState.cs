@@ -236,6 +236,12 @@ public static class WorldState
     public static GlassWayState GlassWay { get; } = new();
 
     /// <summary>
+    ///     The guild hall editor (sets, tool, selection). Not cleared by <see cref="Clear" />: a same-map refresh keeps it.
+    ///     WorldScreen closes it on a real map change; <see cref="ResetAll" /> closes it on logout.
+    /// </summary>
+    public static GuildHallEditorState GuildHallEditor { get; } = new();
+
+    /// <summary>
     ///     Which guild cloak design each player's cloak shows (0 = plain), from the server's GuildCloakLook. Kept across
     ///     DisplayAisling updates; cleared with the entities.
     /// </summary>
@@ -503,6 +509,7 @@ public static class WorldState
         TumbleTower.Clear();
         Causeway.Clear();
         GlassWay.Clear();
+        GuildHallEditor.Close();
         ClassResource.Reset();
         Oxygen.Reset();
         Equipment.Clear();

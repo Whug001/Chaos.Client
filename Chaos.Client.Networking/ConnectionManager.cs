@@ -588,6 +588,11 @@ public sealed class ConnectionManager : IDisposable
     public event EffectWindowDisplayHandler? OnEffectWindowDisplay;
 
     /// <summary>
+    ///     Fired when a guild hall editor display packet is received from the server: open, close, refused, tiles or NPCs.
+    /// </summary>
+    public event GuildHallEditorDisplayHandler? OnGuildHallEditorDisplay;
+
+    /// <summary>
     ///     Fired when a fishing window display packet is received from the server.
     /// </summary>
     public event FishingDisplayHandler? OnFishingDisplay;
@@ -1435,6 +1440,9 @@ public sealed class ConnectionManager : IDisposable
     public void SendEffectWindowChoose(EffectWindowKind kind, byte effect)
         => SendIfWorld(new EffectWindowChooseArgs { Kind = kind, Effect = effect });
 
+    /// <summary>Sends one guild hall editor action. The server checks and expands it.</summary>
+    public void SendGuildHallEditor(GuildHallEditorArgs args) => SendIfWorld(args);
+
     /// <summary>The player pressed and is holding the line.</summary>
     public void SendFishingHold() => SendIfWorld(new FishingInteractionArgs { Type = FishingInteractionType.Hold });
 
@@ -1995,6 +2003,7 @@ public sealed class ConnectionManager : IDisposable
         PacketHandlers[(byte)ServerOpCode.LockpickDisplay] = HandleLockpickDisplay;
         PacketHandlers[(byte)ServerOpCode.MountWindowDisplay] = HandleMountWindowDisplay;
         PacketHandlers[(byte)ServerOpCode.EffectWindowDisplay] = HandleEffectWindowDisplay;
+        PacketHandlers[(byte)ServerOpCode.GuildHallEditorDisplay] = HandleGuildHallEditorDisplay;
         PacketHandlers[(byte)ServerOpCode.FishingDisplay] = HandleFishingDisplay;
         PacketHandlers[(byte)ServerOpCode.PumpkinCarvingDisplay] = HandlePumpkinCarvingDisplay;
         PacketHandlers[(byte)ServerOpCode.PumpkinLook] = HandlePumpkinLook;
@@ -2455,6 +2464,12 @@ public sealed class ConnectionManager : IDisposable
     {
         var args = Client.Deserialize<EffectWindowDisplayArgs>(in pkt);
         OnEffectWindowDisplay?.Invoke(args);
+    }
+
+    private void HandleGuildHallEditorDisplay(ServerPacket pkt)
+    {
+        var args = Client.Deserialize<GuildHallEditorDisplayArgs>(in pkt);
+        OnGuildHallEditorDisplay?.Invoke(args);
     }
 
     private void HandleFishingDisplay(ServerPacket pkt)

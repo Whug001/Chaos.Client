@@ -1332,6 +1332,9 @@ public sealed partial class WorldScreen
     /// </remarks>
     private void OnRootMouseDown(MouseDownEvent e)
     {
+        if (TryGuildHallMouseDown(e))
+            return;
+
         if (e.Button != MouseButton.Right)
             return;
 
@@ -1408,6 +1411,13 @@ public sealed partial class WorldScreen
     {
         if (e.Button != MouseButton.Left)
             return;
+
+        if (TryGuildHallClick(e.ScreenX, e.ScreenY, e.Button, e.Ctrl, e.Alt))
+        {
+            e.Handled = true;
+
+            return;
+        }
 
         LastLeftClickWasCast = CastingSystem.IsTargeting;
 
@@ -1493,6 +1503,9 @@ public sealed partial class WorldScreen
     private void OnRootDoubleClick(DoubleClickEvent e)
     {
         if (MapFile is null)
+            return;
+
+        if (TryGuildHallClick(e.ScreenX, e.ScreenY, e.Button, e.Ctrl, e.Alt))
             return;
 
         var viewport = WorldHud.ViewportBounds;

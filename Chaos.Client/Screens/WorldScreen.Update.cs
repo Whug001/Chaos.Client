@@ -400,6 +400,8 @@ public sealed partial class WorldScreen
         //all movement has been processed at this point — sort once and publish the frame state.
         PopulateFrameState(newHoveredId);
 
+        UpdateGuildHallEditor();
+
         Root!.Update(gameTime);
         LayoutHotbars();
     }

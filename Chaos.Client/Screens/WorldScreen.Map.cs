@@ -133,6 +133,7 @@ public sealed partial class WorldScreen
         ResetTumbleTower();
         ResetCauseway();
         ResetGlassWay();
+        ResetGuildHallEditor();
         MapRenderer.Dispose();
         MapRenderer = new MapRenderer();
 

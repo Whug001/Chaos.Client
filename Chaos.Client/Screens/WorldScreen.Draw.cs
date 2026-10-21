@@ -109,6 +109,7 @@ public sealed partial class WorldScreen
             DrawCausewayRafts(spriteBatch);
             DrawGlassWay(spriteBatch);
             DrawTileCursor(spriteBatch);
+            DrawGuildHallEditorOverlay(spriteBatch);
             spriteBatch.End();
 
             //background animations: drawn above the background tiles, beneath all entities/foreground.
