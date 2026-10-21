@@ -1,4 +1,6 @@
 #region
+using Chaos.Client.Controls.World.Popups.Beauty.Pages;
+using Chaos.Client.Data;
 using Chaos.DarkAges.Definitions;
 using Chaos.Networking.Entities.Server;
 #endregion
@@ -296,18 +298,24 @@ public sealed class BeautyShop
         SyncPages();
     }
 
-    public void Randomize() => Randomize(Random.Shared);
+    public void Randomize()
+        => Randomize(Random.Shared, static i => DataContext.AislingDrawData.DyeColorTable.Contains(i));
 
-    /// <summary>A random valid hairstyle, dye, skin and face for the current gender. Gender is deliberately never randomized -- it is the expensive, gear-reshaping change.</summary>
-    public void Randomize(Random rng)
+    /// <summary>Randomize without a dye-table check: every catalog color is eligible, exactly as before.</summary>
+    public void Randomize(Random rng) => Randomize(rng, _ => true);
+
+    /// <summary>A random valid hairstyle, dye, skin and face for the current gender. Gender is deliberately never randomized -- it is the expensive, gear-reshaping change. The dye comes from exactly what the hair page shows: every non-ombre color plus the visible ombres.</summary>
+    public void Randomize(Random rng, Func<int, bool> dyeContains)
     {
         ClearHover();
 
         if (Hairstyles.Count > 0)
             HairStyle = Hairstyles[rng.Next(Hairstyles.Count)].Sprite;
 
-        if (HairColors.Count > 0)
-            HairColor = HairColors[rng.Next(HairColors.Count)];
+        var dyes = HairColors.Where(c => !OmbreDyes.IsOmbre(c)).Concat(HairPage.VisibleOmbres(HairColors, dyeContains)).ToList();
+
+        if (dyes.Count > 0)
+            HairColor = dyes[rng.Next(dyes.Count)];
 
         if (BodyColors.Count > 0)
             BodyColor = BodyColors[rng.Next(BodyColors.Count)];

@@ -355,6 +355,42 @@ public class BeautyShopViewModelTests
     }
 
     [Test]
+    public async Task Randomize_with_an_old_dye_table_never_picks_a_hidden_ombre()
+    {
+        var vm = Opened();
+        var plain = vm.HairColors.Where(c => !OmbreDyes.IsOmbre(c)).ToList();
+
+        for (var seed = 0; seed < 200; seed++)
+        {
+            vm.Randomize(new Random(seed), _ => false);
+
+            OmbreDyes.IsOmbre(vm.HairColor).Should().BeFalse();
+            plain.Should().Contain(vm.HairColor);
+        }
+
+        await Task.CompletedTask;
+    }
+
+    [Test]
+    public async Task Randomize_with_a_modern_dye_table_can_pick_a_visible_ombre()
+    {
+        var vm = Opened();
+        var seen = new HashSet<DisplayColor>();
+
+        for (var seed = 0; seed < 500; seed++)
+        {
+            vm.Randomize(new Random(seed), _ => true);
+
+            vm.HairColors.Should().Contain(vm.HairColor);
+            seen.Add(vm.HairColor);
+        }
+
+        seen.Should().Contain((DisplayColor)72);
+
+        await Task.CompletedTask;
+    }
+
+    [Test]
     public async Task CostOf_prices_each_choice_against_the_current_look()
     {
         var vm = Opened();

@@ -52,6 +52,8 @@ public sealed class MountWindowControl : GuildCloakDialogBase
     private readonly MountWindowState State = new();
     private readonly ThumbnailGrid<MountWindowMount> Grid;
     private readonly UILabel PageLabel;
+    private readonly UILabel EmptyLabel;
+    private readonly CustomButton ChooseButton;
     private readonly MountPreview Preview;
     private readonly UILabel NameLabel;
     private readonly UILabel ColorLabel;
@@ -97,6 +99,8 @@ public sealed class MountWindowControl : GuildCloakDialogBase
 
         PageLabel = Caption(string.Empty, LEFT, PAGE_TOP, gridWidth, HorizontalAlignment.Center, LegendColors.Gray);
 
+        EmptyLabel = Caption("You don't have a mount yet.", LEFT, TOP + 60, gridWidth, HorizontalAlignment.Center, LegendColors.Gray);
+
         var previewLeft = LEFT + gridWidth + GAP;
         Preview = new MountPreview(Renderer, Creatures, PREVIEW_WIDTH, PREVIEW_HEIGHT)
         {
@@ -126,7 +130,7 @@ public sealed class MountWindowControl : GuildCloakDialogBase
         Swatches.HoverCleared += () => ColorLabel.Text = ColorText(State.Color);
         AddChild(Swatches);
 
-        AddButton(
+        ChooseButton = AddButton(
             "Choose",
             BUTTON_WIDTH,
             Width - LEFT - BUTTON_WIDTH,
@@ -174,7 +178,7 @@ public sealed class MountWindowControl : GuildCloakDialogBase
 
     private void Choose()
     {
-        if (State.Selected is not { } mount)
+        if (!State.CanChoose || State.Selected is not { } mount)
             return;
 
         Chosen?.Invoke(mount.Mount, State.Color);
@@ -183,6 +187,11 @@ public sealed class MountWindowControl : GuildCloakDialogBase
 
     private void Refresh()
     {
+        var empty = !State.CanChoose;
+        EmptyLabel.Visible = empty;
+        Grid.Visible = !empty;
+        PageLabel.Visible = !empty;
+        ChooseButton.Enabled = State.CanChoose;
         Grid.SetItems(State.PageItems, State.Selected, State.PageCount, ThumbFor);
         PageLabel.Text = $"{State.Page + 1}/{State.PageCount}";
         Swatches.SetColors(State.Colors, State.Color, HairPage.SwatchColorFor);
