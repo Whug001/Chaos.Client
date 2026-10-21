@@ -38,6 +38,9 @@ public sealed partial class WorldScreen
 
         if (EffectWindow is null)
         {
+            if (args.Type != EffectWindowDisplayType.Open)
+                return;
+
             EffectWindow = new EffectWindowControl(Game.AislingRenderer, Game.EffectRenderer)
             {
                 ZIndex = 2
@@ -47,7 +50,10 @@ public sealed partial class WorldScreen
             Root.AddChild(EffectWindow);
         }
 
-        EffectWindow.Open(args, WorldState.GetPlayerEntity()?.Appearance);
+        if (args.Type == EffectWindowDisplayType.Open)
+            EffectWindow.Open(args, WorldState.GetPlayerEntity()?.Appearance);
+        else
+            EffectWindow.CloseFromServer();
     }
 
     private void SendEffectWindowChoose(EffectWindowKind kind, byte effect) => Game.Connection.SendEffectWindowChoose(kind, effect);
