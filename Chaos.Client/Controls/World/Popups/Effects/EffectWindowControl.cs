@@ -139,6 +139,9 @@ public sealed class EffectWindowControl : GuildCloakDialogBase
         Refresh();
     }
 
+    /// <summary>The server closed the window; nothing is sent back.</summary>
+    public void CloseFromServer() => Hide();
+
     /// <summary>The server saved a pick: move the check mark and the status line.</summary>
     public void ApplyUpdate(EffectWindowDisplayArgs args)
     {
