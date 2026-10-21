@@ -282,7 +282,7 @@ public sealed partial class TcgMatchWindow
         var pulse = 0.55f + (0.45f * MathF.Sin(Environment.TickCount64 / 240f));
         var gold = LegendColors.Gold * pulse;
 
-        foreach (var rect in Input.Targets.Select(id => TargetRect(board, id)))
+        foreach (var rect in Input.Targets.Select(id => TargetRect(board, Input, id)))
         {
             if (rect is not { } local)
                 continue;
@@ -296,13 +296,23 @@ public sealed partial class TcgMatchWindow
         }
     }
 
-    public static Rectangle? TargetRect(TcgDisplayArgs board, int id)
+    public static Rectangle? TargetRect(TcgDisplayArgs board, TcgMatchInput input, int id)
     {
+        if (board.Players.Count < 2)
+            return null;
+
         if (id < 0)
             return id == TcgMatchRules.PlayerTarget(board.YourSeat) ? TcgMatchLayout.YourSeal : TcgMatchLayout.OpponentSeal;
 
-        if ((board.Stack.Count > 0) && (board.Stack[^1].CardId == id))
-            return TcgMatchLayout.BigCard;
+        for (var i = 0; i < board.Stack.Count; i++)
+        {
+            if (board.Stack[i].CardId != id)
+                continue;
+
+            //the newest spell shows big; every older spell answers on its own row slot
+            return i == board.Stack.Count - 1 ? TcgMatchLayout.BigCard : TcgMatchLayout.StackSlot(board.Stack.Count - 1 - i, board.Stack.Count);
+        }
+
 
         foreach (var yours in new[] { true, false })
         {
@@ -315,7 +325,8 @@ public sealed partial class TcgMatchWindow
                 if (creatures[i].Id != id)
                     continue;
 
-                var feet = TcgMatchLayout.CreatureSlot(i, creatures.Count, yours);
+                //the same shifted feet the board pass draws, so highlights and clicks line up
+                var feet = DrawFeet(board, input, id, yours, i, creatures.Count);
 
                 return new Rectangle(feet.X - 24, feet.Y - 48, 48, 48);
             }
@@ -328,7 +339,7 @@ public sealed partial class TcgMatchWindow
     {
         foreach (var id in Input.Targets)
         {
-            if (TargetRect(board, id) is { } rect && rect.Contains(x, y))
+            if (TargetRect(board, Input, id) is { } rect && rect.Contains(x, y))
                 return id;
         }
 
@@ -494,6 +505,15 @@ public sealed partial class TcgMatchWindow
         var y = e.ScreenY - ScreenY;
 
         var stackBoard = Queue.ShownBoard ?? State.Latest;
+
+        //in targeting mode a creature, a seal or a waiting spell answers before the stack row swallows the click
+        if ((Input.Mode == TcgInputMode.Targeting) && (stackBoard is not null) && (State.Latest is not null) && (TargetAt(stackBoard, x, y) is { } answered))
+        {
+            Raise(Input.ChooseTarget(stackBoard, answered));
+            e.Handled = true;
+
+            return;
+        }
 
         if ((stackBoard is not null)
             && (stackBoard.Stack.Count > 0)
