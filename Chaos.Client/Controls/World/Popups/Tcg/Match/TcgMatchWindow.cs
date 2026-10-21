@@ -393,6 +393,21 @@ public sealed partial class TcgMatchWindow : UIPanel
 
     private void HoverBoard(TcgDisplayArgs board, int x, int y)
     {
+        var hit = HoverAt(board, Input, State.Spectating, x, y);
+
+        //in targeting mode a creature answering the spell wins over the stack row's preview
+        if ((Input.Mode == TcgInputMode.Targeting)
+            && (hit is { } answering)
+            && ((answering.HandId != 0) || Input.Targets.Contains(answering.CreatureId)))
+        {
+            HoverHandId = answering.HandId;
+            HoverCreatureId = answering.CreatureId;
+            HoverKey = answering.Key;
+            HoverPrinting = answering.Printing;
+
+            return;
+        }
+
         if ((board.Stack.Count > 0) && (TcgMatchLayout.StackHitAt(x, y, board.Stack.Count) is { } display))
         {
             var item = board.Stack[board.Stack.Count - 1 - display];
@@ -404,13 +419,13 @@ public sealed partial class TcgMatchWindow : UIPanel
             return;
         }
 
-        if (HoverAt(board, Input, State.Spectating, x, y) is not { } hit)
+        if (hit is not { } found)
             return;
 
-        HoverHandId = hit.HandId;
-        HoverCreatureId = hit.CreatureId;
-        HoverKey = hit.Key;
-        HoverPrinting = hit.Printing;
+        HoverHandId = found.HandId;
+        HoverCreatureId = found.CreatureId;
+        HoverKey = found.Key;
+        HoverPrinting = found.Printing;
     }
 
     public static TcgHoverHit? HoverAt(TcgDisplayArgs board, TcgMatchInput input, bool spectating, int x, int y)

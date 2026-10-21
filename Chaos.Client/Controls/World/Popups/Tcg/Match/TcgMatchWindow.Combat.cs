@@ -104,7 +104,12 @@ public sealed partial class TcgMatchWindow
                 var live = input.Blocks.Select(pair => new TcgBlock(pair.Key, pair.Value)).ToList();
 
                 if (input.Blocks.TryGetValue(creatureId, out var attackerId))
-                    return BlockerFeet(ShiftedAttackerFeet(board, attackerId), BlockerIndex(board, live, creatureId, attackerId), BlockCount(live, attackerId));
+                {
+                    if (ShiftedAttackerFeet(board, attackerId) is not { } shiftedFeet)
+                        return feet;
+
+                    return BlockerFeet(shiftedFeet, BlockerIndex(board, live, creatureId, attackerId), BlockCount(live, attackerId));
+                }
 
                 if (input.SelectedBlocker == creatureId)
                     return new Point(feet.X, feet.Y - RIVER_LIFT);
@@ -129,9 +134,10 @@ public sealed partial class TcgMatchWindow
 
             var confirmed = board.Blocks.FirstOrDefault(block => block.BlockerId == creatureId);
 
-            if (confirmed is not null)
+            //a dead attacker stays listed: its blockers hold their normal spots
+            if ((confirmed is not null) && (ShiftedAttackerFeet(board, confirmed.AttackerId) is { } confirmedFeet))
                 return BlockerFeet(
-                    ShiftedAttackerFeet(board, confirmed.AttackerId),
+                    confirmedFeet,
                     BlockerIndex(board, board.Blocks, creatureId, confirmed.AttackerId),
                     BlockCount(board.Blocks, confirmed.AttackerId),
                     yours);
@@ -208,10 +214,10 @@ public sealed partial class TcgMatchWindow
         return 0;
     }
 
-    private static Point ShiftedAttackerFeet(TcgDisplayArgs board, int attackerId)
+    private static Point? ShiftedAttackerFeet(TcgDisplayArgs board, int attackerId)
     {
         if (board.Players.Count < 2)
-            return Point.Zero;
+            return null;
 
         for (var seat = 0; seat < board.Players.Count; seat++)
         {
@@ -227,7 +233,7 @@ public sealed partial class TcgMatchWindow
             return yours ? new Point(feet.X, feet.Y - RIVER_LIFT) : new Point(feet.X, feet.Y + RIVER_LIFT);
         }
 
-        return Point.Zero;
+        return null;
     }
 
     private static int BlockerIndex(TcgDisplayArgs board, IReadOnlyList<TcgBlock> blocks, int blockerId, int attackerId)
@@ -423,11 +429,11 @@ public sealed partial class TcgMatchWindow
            && (input.Mode != TcgInputMode.Blocking)
            && BlocksConfirmed(board);
 
-    /// <summary>Attackers are declared and at least one block is confirmed: the confirmed layout.</summary>
+    /// <summary>Attackers are declared and blocks are no longer being chosen: the confirmed layout.</summary>
     private static bool BlocksConfirmed(TcgDisplayArgs board)
-        => (board.Attackers.Count > 0) && (board.Blocks.Count > 0);
+        => (board.Attackers.Count > 0) && (board.Decision != TcgDecision.Block);
 
-    public static List<TcgBlockArrow> ConfirmedBlockArrows(TcgDisplayArgs board, TcgMatchInput input)
+    public static List<TcgBlockArrow> ConfirmedBlockArrows(TcgDisplayArgs board, TcgMatchInput input, Func<string, TcgCatalogCardView?> lookup)
     {
         var arrows = new List<TcgBlockArrow>();
 
@@ -457,7 +463,9 @@ public sealed partial class TcgMatchWindow
             }
 
             if (!blocked)
-                arrows.Add(new TcgBlockArrow(from, seal, false));
+                //a blocked attacker whose blockers all died still hits nothing unless it tramples
+                if (!board.Blocks.Any(block => block.AttackerId == attackerId) || AttackerTramples(board, attacker, lookup))
+                    arrows.Add(new TcgBlockArrow(from, seal, false));
         }
 
         return arrows;
@@ -492,9 +500,18 @@ public sealed partial class TcgMatchWindow
         return null;
     }
 
+    private static bool AttackerTramples(TcgDisplayArgs board, CreatureSpot spot, Func<string, TcgCatalogCardView?> lookup)
+    {
+        var creatures = board.Players[(int)(spot.Yours ? board.YourSeat : TcgMatchRules.Other(board.YourSeat))].Battlefield;
+
+        return (spot.Index < creatures.Count)
+               && (lookup(creatures[spot.Index].Key) is { } card)
+               && ((card.Keywords & TcgKeyword.Trample) != 0);
+    }
+
     private void DrawConfirmedBlockArrows(SpriteBatch batch, TcgDisplayArgs board)
     {
-        foreach (var arrow in ConfirmedBlockArrows(board, Input))
+        foreach (var arrow in ConfirmedBlockArrows(board, Input, Catalog.Get))
             DrawArrow(
                 batch,
                 new Point(ScreenX + arrow.From.X, ScreenY + arrow.From.Y),
