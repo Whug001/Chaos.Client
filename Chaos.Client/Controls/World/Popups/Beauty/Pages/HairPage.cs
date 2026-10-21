@@ -79,12 +79,23 @@ public sealed class HairPage : MirrorPageView
         ColorCaption.Text = $"Hair color   {OmbreDyes.NameOf(color)} - {CostText(color == vm.CurrentHairColor, vm.CostOfHairColor(color))}";
         Colors.SetColors(vm.HairColors.Where(c => !OmbreDyes.IsOmbre(c)).ToList(), vm.HairColor, SwatchColorFor);
 
-        var ombres = vm.HairColors.Where(OmbreDyes.IsOmbre).ToList();
+        var ombres = VisibleOmbres(vm.HairColors);
         OmbreCaption.Visible = Ombres.Visible = ombres.Count > 0;
         OmbreCaption.Y = Colors.Y + Colors.Height + SECTION_GAP;
         Ombres.Y = OmbreCaption.Y + TextRenderer.CHAR_HEIGHT + 2;
         Ombres.SetColors(ombres, vm.HairColor, SwatchColorFor, TipSwatchColorFor);
     }
+
+    /// <summary>
+    ///     Ombre dyes the client can actually paint: catalog ombres gated on Legend.dat's dye table holding the
+    ///     root ramp (72) and the Lod tip ramps (200+). Old tables render ombres as plain hair, so the block stays
+    ///     hidden and they cannot be picked.
+    /// </summary>
+    internal static List<DisplayColor> VisibleOmbres(IReadOnlyList<DisplayColor> hairColors)
+        => VisibleOmbres(hairColors, static i => DataContext.AislingDrawData.DyeColorTable.Contains(i));
+
+    internal static List<DisplayColor> VisibleOmbres(IReadOnlyList<DisplayColor> hairColors, Func<int, bool> dyeContains)
+        => dyeContains(72) && dyeContains(200) ? hairColors.Where(OmbreDyes.IsOmbre).ToList() : [];
 
     internal static Color SwatchColorFor(DisplayColor color)
     {

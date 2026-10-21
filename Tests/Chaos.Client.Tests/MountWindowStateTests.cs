@@ -60,6 +60,23 @@ public sealed class MountWindowStateTests
     }
 
     [Test]
+    public async Task Empty_list_cannot_choose()
+    {
+        var state = new MountWindowState();
+        state.Open(Open(0));
+
+        state.Selected.Should().BeNull();
+        state.CanChoose.Should().BeFalse();
+
+        state.Open(Open(2));
+
+        state.Selected.Should().NotBeNull();
+        state.CanChoose.Should().BeTrue();
+
+        await Task.CompletedTask;
+    }
+
+    [Test]
     public async Task Keeps_owned_current_color_and_ignores_unowned_ones()
     {
         var state = new MountWindowState();

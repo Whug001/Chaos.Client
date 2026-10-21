@@ -24,6 +24,9 @@ public sealed class MountWindowState
 
     public MountWindowMount? Selected => (SelectedIndex >= 0) && (SelectedIndex < Mounts.Count) ? Mounts[SelectedIndex] : null;
 
+    /// <summary>Whether Choose may fire: the player owns at least one mount, so a selection always exists.</summary>
+    public bool CanChoose => Mounts.Count != 0;
+
     public IReadOnlyList<MountWindowMount> PageItems => Mounts.Skip(Page * PAGE_SIZE).Take(PAGE_SIZE).ToList();
 
     public void Open(MountWindowDisplayArgs args)
