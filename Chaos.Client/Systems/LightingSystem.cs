@@ -1,6 +1,7 @@
 #region
 using Chaos.Client.Collections;
 using Chaos.Client.Data;
+using Chaos.Client.Data.Models;
 using Chaos.DarkAges.Definitions;
 using Chaos.Geometry.Abstractions.Definitions;
 using DALib.Data;
@@ -33,8 +34,16 @@ public sealed class LightingSystem
     /// </summary>
     public static readonly (int Dx, int Dy)[] BaselineVisibilityOffsets = ComputeEuclidean(0);
 
+    private static readonly (int Dx, int Dy)[] MapLanternOffsets = ComputeEuclidean(MapLanterns.RADIUS_TILES);
+
+    //built on first use: a dark map with no wall lanterns never needs it
+    private static LightMask? MapLanternMask;
+
     private LightSource[] Buffer = new LightSource[16];
     private int Count;
+
+    //the current map's wall lanterns, found once when the map finishes loading
+    private Vector2[] MapLanternTiles = [];
 
     /// <summary>
     ///     The light sources gathered on the most recent <see cref="Gather" /> call. Span lifetime
@@ -43,8 +52,8 @@ public sealed class LightingSystem
     public ReadOnlySpan<LightSource> Sources => Buffer.AsSpan(0, Count);
 
     /// <summary>
-    ///     Walks the world entity list and builds the light source array for the current frame, then adds the Theatre
-    ///     spotlights in <paramref name="spotlights" />. Short-circuits to an empty span when the map isn't dark, so stale
+    ///     Walks the world entity list and builds the light source array for the current frame, then adds the map's
+    ///     wall lanterns and the Theatre spotlights in <paramref name="spotlights" />. Short-circuits to an empty span when the map isn't dark, so stale
     ///     sources from a prior map can't leak across a transition.
     /// </summary>
     public void Gather(MapFile? mapFile, MapFlags flags, Camera camera, IReadOnlyList<StageLightFrame> spotlights)
@@ -83,6 +92,25 @@ public sealed class LightingSystem
                 tileOffsets);
         }
 
+        if (MapLanternTiles.Length > 0)
+        {
+            MapLanternMask ??= SpotlightMasks.Build(MapLanterns.RADIUS_TILES);
+
+            foreach (var lantern in MapLanternTiles)
+            {
+                if (Count >= Buffer.Length)
+                    Array.Resize(ref Buffer, Buffer.Length * 2);
+
+                Buffer[Count++] = new LightSource(
+                    FloorToScreen(lantern, mapFile.Height, camera),
+                    (int)MathF.Round(lantern.X),
+                    (int)MathF.Round(lantern.Y),
+                    default,
+                    MapLanternMask,
+                    MapLanternOffsets);
+            }
+        }
+
         foreach (var spot in spotlights)
         {
             var strength = (byte)Math.Clamp((int)MathF.Round(spot.Strength * 32f), 0, 32);
@@ -105,6 +133,9 @@ public sealed class LightingSystem
     }
 
     /// <summary>A fractional tile's floor centre in viewport pixels (same formula as <c>Camera.TileToWorld</c> plus half a tile).</summary>
+    /// <summary>Finds the wall lanterns on a freshly loaded map. Null clears them, for the gap while the next map loads.</summary>
+    public void SetMapLanterns(MapFile? mapFile) => MapLanternTiles = mapFile is null ? [] : MapLanterns.Find(mapFile);
+
     public static Vector2 FloorToScreen(Vector2 tile, int mapHeight, Camera camera)
     {
         var worldX = ((mapHeight - 1 + tile.X - tile.Y) * DaLibConstants.HALF_TILE_WIDTH) + DaLibConstants.HALF_TILE_WIDTH;
