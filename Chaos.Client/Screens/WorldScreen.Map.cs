@@ -146,6 +146,7 @@ public sealed partial class WorldScreen
                 args.Height,
                 args.CheckSum);
         MapPreloaded = false;
+        Lighting.SetMapLanterns(null);
 
         //see HandleMapChangePending — MapPathfinder's grid no longer matches MapFile's dimensions, so any right-click
         //arriving before FinalizeMapLoad would index the old PathNodes[,] out of bounds
@@ -278,6 +279,7 @@ public sealed partial class WorldScreen
             MapPathfinder = pathfinder;
             MapWaterTiles = waterTiles;
             MapDoorTiles = doorTiles;
+            Lighting.SetMapLanterns(MapFile);
             MapPreloaded = true;
         }
 
