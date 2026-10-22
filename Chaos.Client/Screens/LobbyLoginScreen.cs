@@ -617,6 +617,7 @@ public sealed class LobbyLoginScreen : IScreen
         if (args.LoginMessageType == LoginMessageType.Confirm)
         {
             PasswordChangeControl.Hide();
+            StartPanel.SetButtonsEnabled(true);
             LobbyLoginPopupMessage.Show("Password has been changed.");
 
             return;

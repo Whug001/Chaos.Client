@@ -1436,6 +1436,16 @@ public sealed partial class WorldScreen
         //cast mode — target selection or cancel
         if (CastingSystem.IsTargeting)
         {
+            //a click that reaches the root from outside the world viewport (for example over a click-through
+            //hotbar) is not a world aim — keep targeting armed instead of casting at a clamped edge tile or
+            //cancelling the cast.
+            if (!IsInWorldViewport(e.ScreenX, e.ScreenY))
+            {
+                e.Handled = true;
+
+                return;
+            }
+
             if (CastingSystem.IsGroundTargeting)
             {
                 //ground-targeted spells land on the aimed tile, not an entity (id 0). clamp off-map clicks to the
