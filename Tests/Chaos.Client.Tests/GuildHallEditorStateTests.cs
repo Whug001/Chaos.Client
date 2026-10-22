@@ -326,4 +326,85 @@ public sealed class GuildHallEditorStateTests
 
         await Task.CompletedTask;
     }
+
+    [Test]
+    public async Task Side_defaults_to_Both_and_flows_into_args()
+    {
+        var state = new GuildHallEditorState();
+        state.Open(Open());
+        state.Side.Should().Be(GuildHallSide.Both);
+
+        state.SetTab(GuildHallTab.Walls);
+        state.Select(new GuildHallPick(0, 500, 0, null));
+        state.SetSide(GuildHallSide.Left);
+
+        var paint = state.ArgsAt(new Point(5, 6))!;
+        paint.Action.Should().Be(GuildHallEditorAction.Paint);
+        paint.Side.Should().Be(GuildHallSide.Left);
+        (paint.Left, paint.Right).Should().Be(((ushort)500, (ushort)0));
+
+        state.SetTool(GuildHallTool.Rect);
+        var rect = state.RectArgs(new Point(5, 6), new Point(7, 8))!;
+        rect.Action.Should().Be(GuildHallEditorAction.Rect);
+        rect.Side.Should().Be(GuildHallSide.Left);
+
+        state.SetTool(GuildHallTool.Erase);
+        state.ArgsAt(new Point(5, 6))!.Side.Should().Be(GuildHallSide.Left);
+
+        await Task.CompletedTask;
+    }
+
+    [Test]
+    public async Task Second_open_keeps_the_side_and_close_resets_it()
+    {
+        var state = new GuildHallEditorState();
+        state.Open(Open());
+        state.SetSide(GuildHallSide.Right);
+
+        state.Open(Open());
+        state.Side.Should().Be(GuildHallSide.Right);
+
+        state.Close();
+        state.Side.Should().Be(GuildHallSide.Both);
+
+        await Task.CompletedTask;
+    }
+
+    [Test]
+    public async Task SetSide_ignores_unknown_values()
+    {
+        var state = new GuildHallEditorState();
+        state.Open(Open());
+
+        state.SetSide((GuildHallSide)99);
+        state.Side.Should().Be(GuildHallSide.Both);
+
+        state.SetSide(GuildHallSide.Right);
+        state.SetSide((GuildHallSide)99);
+        state.Side.Should().Be(GuildHallSide.Right);
+
+        await Task.CompletedTask;
+    }
+
+    [Test]
+    public async Task Erase_from_the_Floors_tab_sends_Both_even_after_a_side_was_picked()
+    {
+        var state = new GuildHallEditorState();
+        state.Open(Open());
+        state.SetTab(GuildHallTab.Walls);
+        state.SetSide(GuildHallSide.Left);
+        state.SetTab(GuildHallTab.Floors);
+        state.SetTool(GuildHallTool.Erase);
+
+        var erase = state.ArgsAt(new Point(5, 6))!;
+        erase.Action.Should().Be(GuildHallEditorAction.Erase);
+        erase.Side.Should().Be(GuildHallSide.Both);
+
+        state.SetTool(GuildHallTool.Paint);
+        var paint = state.ArgsAt(new Point(5, 6))!;
+        paint.Action.Should().Be(GuildHallEditorAction.Paint);
+        paint.Side.Should().Be(GuildHallSide.Both);
+
+        await Task.CompletedTask;
+    }
 }

@@ -19,20 +19,22 @@ namespace Chaos.Client.Controls.World.Popups.GuildHall;
 public sealed class GuildHallEditorControl : UIPanel
 {
     public const int PANEL_WIDTH = 222;
-    public const int PANEL_HEIGHT = 272;
+    public const int PANEL_HEIGHT = 290;
     public const int PAD = 6;
     public const int SET_Y = 20;
     public const int TAB_Y = 38;
     public const int TOOL_Y = 56;
     public const int TOOL2_Y = 74;
-    public const int GRID_Y = 94;
-    public const int STATUS_Y = 236;
-    public const int DONE_Y = 252;
+    public const int SIDE_Y = 94;
+    public const int GRID_Y = 112;
+    public const int STATUS_Y = 254;
+    public const int DONE_Y = 270;
     private const int BUTTON_WIDTH = 51;
     private const int BUTTON_PITCH = 53;
 
     private static readonly string[] TabNames = ["Floors", "Walls", "Decor", "NPCs"];
     private static readonly string[] ToolNames = ["Paint", "Rect", "Fill", "Erase"];
+    private static readonly string[] SideNames = ["Both", "Left", "Right"];
 
     private readonly StageButton EntranceButton;
     private readonly ThumbnailGrid<GuildHallPick> Grid;
@@ -42,6 +44,7 @@ public sealed class GuildHallEditorControl : UIPanel
     private readonly StageButton[] TabButtons = new StageButton[4];
     private readonly GuildHallThumbnails Thumbnails;
     private readonly StageButton[] ToolButtons = new StageButton[4];
+    private readonly StageButton[] SideButtons = new StageButton[3];
     private readonly StageButton TurnButton;
 
     public GuildHallEditorControl(CreatureRenderer creatures)
@@ -70,6 +73,12 @@ public sealed class GuildHallEditorControl : UIPanel
         {
             var tool = (GuildHallTool)i;
             ToolButtons[i] = Button(ToolNames[i], PAD + (i * BUTTON_PITCH), TOOL_Y, BUTTON_WIDTH, () => Act(() => State.SetTool(tool)));
+        }
+
+        for (var i = 0; i < SideButtons.Length; i++)
+        {
+            var side = (GuildHallSide)i;
+            SideButtons[i] = Button(SideNames[i], PAD + (i * BUTTON_PITCH), SIDE_Y, BUTTON_WIDTH, () => Act(() => State.SetSide(side)));
         }
 
         EntranceButton = Button("Entrance", PAD, TOOL2_Y, 70, () => Act(() => State.SetTool(GuildHallTool.Entrance)));
@@ -138,6 +147,14 @@ public sealed class GuildHallEditorControl : UIPanel
 
         for (var i = 0; i < ToolButtons.Length; i++)
             ToolButtons[i].Selected = (int)state.Tool == i;
+
+        var foregroundTab = state.Tab is GuildHallTab.Walls or GuildHallTab.Decor;
+
+        for (var i = 0; i < SideButtons.Length; i++)
+        {
+            SideButtons[i].Selected = (int)state.Side == i;
+            SideButtons[i].Visible = foregroundTab;
+        }
 
         EntranceButton.Selected = state.Tool == GuildHallTool.Entrance;
 

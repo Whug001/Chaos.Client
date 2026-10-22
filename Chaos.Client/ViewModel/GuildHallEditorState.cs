@@ -44,6 +44,7 @@ public sealed class GuildHallEditorState
     public Point Entrance { get; private set; }
     public GuildHallTool Tool { get; private set; } = GuildHallTool.Paint;
     public GuildHallTab Tab { get; private set; } = GuildHallTab.Floors;
+    public GuildHallSide Side { get; private set; } = GuildHallSide.Both;
     public int SetIndex { get; private set; }
     public int Page { get; private set; }
     public ushort? SelectedFloor { get; private set; }
@@ -111,6 +112,7 @@ public sealed class GuildHallEditorState
 
         Tool = GuildHallTool.Paint;
         Tab = GuildHallTab.Floors;
+        Side = GuildHallSide.Both;
         Page = 0;
         FacingIndex = 0;
         SelectedFloor = Sets.FirstOrDefault(s => s.Owned)?.Floors.FirstOrDefault() is { } floor and not 0 ? floor : null;
@@ -183,6 +185,7 @@ public sealed class GuildHallEditorState
         Entrance = Point.Zero;
         Tool = GuildHallTool.Paint;
         Tab = GuildHallTab.Floors;
+        Side = GuildHallSide.Both;
         SetIndex = 0;
         Page = 0;
         FacingIndex = 0;
@@ -218,6 +221,15 @@ public sealed class GuildHallEditorState
             Tab = GuildHallTab.Floors;
             Page = 0;
         }
+    }
+
+    public void SetSide(GuildHallSide side)
+    {
+        if (!Enum.IsDefined(side))
+            return;
+
+        Side = side;
+        LastRefusedReason = null;
     }
 
     public void StepSet(int delta)
@@ -268,6 +280,7 @@ public sealed class GuildHallEditorState
         var args = new GuildHallEditorArgs
         {
             Layer = Layer,
+            Side = Layer == GuildHallLayer.Foreground ? Side : GuildHallSide.Both,
             X = (byte)tile.X,
             Y = (byte)tile.Y
         };
