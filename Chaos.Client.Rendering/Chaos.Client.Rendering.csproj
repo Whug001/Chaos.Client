@@ -47,4 +47,10 @@
             <LogicalName>glassway.%(Filename)%(Extension)</LogicalName>
         </EmbeddedResource>
     </ItemGroup>
+    <ItemGroup>
+        <!-- Guild hall editor glyphs, white-on-transparent 12px icons; read back by GuildHallIconAssets as "guildhallicon.<file>". -->
+        <EmbeddedResource Include="Assets\GuildHallIcons\*.png">
+            <LogicalName>guildhallicon.%(Filename)%(Extension)</LogicalName>
+        </EmbeddedResource>
+    </ItemGroup>
 </Project>
