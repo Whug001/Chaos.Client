@@ -160,9 +160,18 @@ public sealed class GuildHallEditorControl : UIPanel
             isDimmed: _ => locked,
             isMarked: npcTab ? pick => npcs.Any(n => (n.Key == pick.NpcKey) && n.Placed) : null);
 
-        StatusLabel.Text = state.LastRefusedReason
-            ?? (locked && state.CurrentSet is { } lockedSet ? $"Locked: {lockedSet.Price:N0} gold" : HintFor(state.Tool));
+        //server reasons run longer than the line fits, so they are shortened here; the orange bar keeps the full text
+        StatusLabel.Text = ShortenStatus(
+            state.ActiveRefusal
+            ?? (locked && state.CurrentSet is { } lockedSet ? $"Locked: {lockedSet.Price:N0} gold" : HintFor(state.Tool)));
     }
+
+    /// <summary>Shortens a status line to the width the panel fits, with an ellipsis.</summary>
+    internal static string ShortenStatus(string text, int maxLength = 30)
+        => text.Length <= maxLength ? text : string.Concat(text.AsSpan(0, maxLength - 3), "...");
+
+    /// <summary>Frees the thumbnail textures. Called when the world screen unwires with the panel open.</summary>
+    public void DisposeThumbnails() => Thumbnails.Clear();
 
     private static string HintFor(GuildHallTool tool)
         => tool switch

@@ -50,6 +50,8 @@ public sealed class GuildHallEditorState
     public GuildHallForegroundInfo? SelectedForeground { get; private set; }
     public string? SelectedNpcKey { get; private set; }
     public string? LastRefusedReason { get; private set; }
+    public DateTime RefusedAtUtc { get; private set; }
+    public static readonly TimeSpan RefusalLifetime = TimeSpan.FromSeconds(5);
 
     /// <summary>Whether the editor owns the in-progress left press; its release click is swallowed, then cleared.</summary>
     public bool PressOwned { get; private set; }
@@ -95,6 +97,7 @@ public sealed class GuildHallEditorState
         Npcs = args.Npcs;
         Entrance = new Point(args.EntranceX, args.EntranceY);
         IsOpen = true;
+        LastRefusedReason = null;
 
         var keptSet = setKey is null ? -1 : Sets.ToList().FindIndex(s => s.Key == setKey);
         SetIndex = keptSet >= 0 ? keptSet : 0;
@@ -119,12 +122,41 @@ public sealed class GuildHallEditorState
     public void SetNpcs(IReadOnlyList<GuildHallNpcOption> npcs)
     {
         Npcs = npcs;
+        LastRefusedReason = null;
 
         if (Tab == GuildHallTab.Npcs)
             Page = Math.Clamp(Page, 0, PageCount - 1);
     }
 
-    public void Refuse(string reason) => LastRefusedReason = reason;
+    public void Refuse(string reason)
+    {
+        LastRefusedReason = reason;
+        RefusedAtUtc = DateTime.UtcNow;
+    }
+
+    /// <summary>The refusal to show, if one was recorded in the last few seconds.</summary>
+    public string? ActiveRefusal => ActiveRefusalAt(DateTime.UtcNow);
+
+    internal string? ActiveRefusalAt(DateTime now)
+        => LastRefusedReason is null || (now - RefusedAtUtc) >= RefusalLifetime ? null : LastRefusedReason;
+
+    /// <summary>Clears the refusal, e.g. when the player acts again or the server acknowledges an edit.</summary>
+    public void ClearRefusal() => LastRefusedReason = null;
+
+    private bool EmptyHintShown;
+
+    /// <summary>True the first time a stroke step has nothing selected; later steps in the same stroke stay quiet.</summary>
+    public bool TakeEmptyHint()
+    {
+        if (EmptyHintShown)
+            return false;
+
+        EmptyHintShown = true;
+        return true;
+    }
+
+    /// <summary>Starts a new stroke's empty-selection hint.</summary>
+    public void ResetEmptyHint() => EmptyHintShown = false;
 
     /// <summary>Marks the current left press as the editor's. Only sticks while open.</summary>
     public void ClaimPress()
@@ -163,6 +195,7 @@ public sealed class GuildHallEditorState
     public void SetTab(GuildHallTab tab)
     {
         Tab = tab;
+        LastRefusedReason = null;
         Page = 0;
 
         if (tab == GuildHallTab.Npcs)
@@ -174,6 +207,7 @@ public sealed class GuildHallEditorState
     public void SetTool(GuildHallTool tool)
     {
         Tool = tool;
+        LastRefusedReason = null;
 
         if ((tool == GuildHallTool.Npc) && (Tab != GuildHallTab.Npcs))
         {
@@ -188,6 +222,8 @@ public sealed class GuildHallEditorState
 
     public void StepSet(int delta)
     {
+        LastRefusedReason = null;
+
         if (Sets.Count == 0)
             return;
 
@@ -205,6 +241,7 @@ public sealed class GuildHallEditorState
         if (pick.NpcKey is { } key)
         {
             SelectedNpcKey = key;
+            LastRefusedReason = null;
 
             return true;
         }
@@ -216,6 +253,8 @@ public sealed class GuildHallEditorState
             SelectedFloor = pick.Floor;
         else
             SelectedForeground = new GuildHallForegroundInfo(pick.Left, pick.Right);
+
+        LastRefusedReason = null;
 
         return true;
     }

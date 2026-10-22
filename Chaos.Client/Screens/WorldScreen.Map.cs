@@ -261,6 +261,8 @@ public sealed partial class WorldScreen
 
     private void FinalizeMapLoad()
     {
+        HallTilesDirty = false;
+
         if (MapFile is null)
             return;
 

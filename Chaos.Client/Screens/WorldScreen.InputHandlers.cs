@@ -893,6 +893,15 @@ public sealed partial class WorldScreen
         //the quest log stays off the control stack so the player can walk with it open, which is why it is closed here
         if (e.Scancode == Scancode.Escape)
         {
+            //a rect drag is the only editor state Escape touches; it cancels the drag and does nothing else
+            if (HallStrokeActive && (HallStrokeTool == GuildHallTool.Rect))
+            {
+                HallStrokeActive = false;
+                e.Handled = true;
+
+                return;
+            }
+
             if (QuestLogWindow.Visible)
             {
                 QuestLogWindow.Close();

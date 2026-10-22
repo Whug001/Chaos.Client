@@ -149,6 +149,114 @@ public sealed class GuildHallEditorStateTests
     }
 
     [Test]
+    public async Task ActiveRefusal_shows_then_expires()
+    {
+        var state = new GuildHallEditorState();
+        state.Open(Open());
+        state.ActiveRefusal.Should().BeNull();
+
+        state.Refuse("That wall would trap Mike.");
+        state.ActiveRefusal.Should().Be("That wall would trap Mike.");
+        state.ActiveRefusalAt(state.RefusedAtUtc + TimeSpan.FromSeconds(4)).Should().Be("That wall would trap Mike.");
+        state.ActiveRefusalAt(state.RefusedAtUtc + TimeSpan.FromSeconds(6)).Should().BeNull();
+
+        await Task.CompletedTask;
+    }
+
+    [Test]
+    public async Task Successful_actions_clear_the_refusal()
+    {
+        var state = new GuildHallEditorState();
+        state.Open(Open());
+
+        state.Refuse("Slow down a moment.");
+        state.Select(new GuildHallPick(11, 0, 0, null));
+        state.ActiveRefusal.Should().BeNull();
+
+        state.Refuse("Slow down a moment.");
+        state.SetTool(GuildHallTool.Rect);
+        state.ActiveRefusal.Should().BeNull();
+
+        state.Refuse("Slow down a moment.");
+        state.SetTab(GuildHallTab.Walls);
+        state.ActiveRefusal.Should().BeNull();
+
+        state.Refuse("Slow down a moment.");
+        state.StepSet(1);
+        state.ActiveRefusal.Should().BeNull();
+
+        await Task.CompletedTask;
+    }
+
+    [Test]
+    public async Task Reopen_clears_the_refusal_including_the_locked_set_hint()
+    {
+        var state = new GuildHallEditorState();
+        state.Open(Open());
+        state.Refuse("Buy Stone Keep from Tibbs to use these tiles.");
+        state.SetTab(GuildHallTab.Walls);
+
+        state.Open(Open());
+        state.ActiveRefusal.Should().BeNull();
+        state.Tab.Should().Be(GuildHallTab.Walls);
+
+        await Task.CompletedTask;
+    }
+
+    [Test]
+    public async Task ClearRefusal_clears_the_active_refusal()
+    {
+        var state = new GuildHallEditorState();
+        state.Open(Open());
+
+        state.Refuse("Someone is standing there.");
+        state.ActiveRefusal.Should().Be("Someone is standing there.");
+
+        state.ClearRefusal();
+        state.ActiveRefusal.Should().BeNull();
+
+        await Task.CompletedTask;
+    }
+
+    [Test]
+    public async Task Empty_hint_restarts_at_each_press_start()
+    {
+        var state = new GuildHallEditorState();
+        state.Open(Open());
+
+        //a Paint stroke with nothing selected: the press tile shows the hint, later drag steps stay quiet
+        state.ResetEmptyHint();
+        state.TakeEmptyHint().Should().BeTrue();
+        state.TakeEmptyHint().Should().BeFalse();
+
+        //the next stroke restarts it, so the hint shows exactly once per stroke including the press tile
+        state.ResetEmptyHint();
+        state.TakeEmptyHint().Should().BeTrue();
+        state.TakeEmptyHint().Should().BeFalse();
+
+        //a Fill click restarts it too
+        state.ResetEmptyHint();
+        state.TakeEmptyHint().Should().BeTrue();
+
+        await Task.CompletedTask;
+    }
+
+    [Test]
+    public async Task Empty_hint_shows_once_per_stroke()
+    {
+        var state = new GuildHallEditorState();
+        state.Open(Open());
+
+        state.TakeEmptyHint().Should().BeTrue();
+        state.TakeEmptyHint().Should().BeFalse();
+
+        state.ResetEmptyHint();
+        state.TakeEmptyHint().Should().BeTrue();
+
+        await Task.CompletedTask;
+    }
+
+    [Test]
     public async Task Refuse_stores_reason_and_close_resets()
     {
         var state = new GuildHallEditorState();

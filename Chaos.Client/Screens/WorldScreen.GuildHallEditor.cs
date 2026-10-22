@@ -21,11 +21,17 @@ public sealed partial class WorldScreen
     private static readonly Color HallRectOutline = LegendColors.Gold * 0.6f;
     private static readonly Color HallEntranceMark = new Color(80, 220, 120) * 0.5f;
 
+    //a burst of Tiles packets sets this; the tab map and pathfinder rebuild once per frame from it
+    private bool HallTilesDirty;
+
     //a held Paint/Erase stroke or a Rect drag; ends when the left button is no longer held
     private bool HallStrokeActive;
     private GuildHallTool HallStrokeTool;
     private Point HallStrokeStart;
     private Point HallStrokeLast;
+
+    //the refusal the panel last showed; the panel refreshes when it changes, including when it expires
+    private string? LastShownRefusal;
 
     private void WireGuildHallEditor() => Game.Connection.OnGuildHallEditorDisplay += HandleGuildHallEditorDisplay;
 
@@ -38,6 +44,7 @@ public sealed partial class WorldScreen
 
         GuildHallEditorWindow.EditRequested -= SendGuildHallEditor;
         GuildHallEditorWindow.MessageRequested -= ShowGuildHallMessage;
+        GuildHallEditorWindow.DisposeThumbnails();
     }
 
     private static void ShowGuildHallMessage(string message) => WorldState.Chat.AddOrangeBarMessage(message);
@@ -59,7 +66,12 @@ public sealed partial class WorldScreen
         return GuildHallEditorWindow;
     }
 
-    private void SendGuildHallEditor(GuildHallEditorArgs args) => Game.Connection.SendGuildHallEditor(args);
+    private void SendGuildHallEditor(GuildHallEditorArgs args)
+    {
+        //a new action supersedes the old refusal; the update loop refreshes the panel when it changes
+        WorldState.GuildHallEditor.ClearRefusal();
+        Game.Connection.SendGuildHallEditor(args);
+    }
 
     private void HandleGuildHallEditorDisplay(GuildHallEditorDisplayArgs args)
     {
@@ -82,7 +94,10 @@ public sealed partial class WorldScreen
                 break;
 
             case GuildHallEditorDisplayKind.Close:
+                //the player is still in the hall, so a pending Tiles rebuild still runs on the next update
+                var tilesDirty = HallTilesDirty;
                 ResetGuildHallEditor();
+                HallTilesDirty = tilesDirty;
 
                 break;
 
@@ -95,6 +110,8 @@ public sealed partial class WorldScreen
 
             case GuildHallEditorDisplayKind.Tiles:
                 ApplyGuildHallTiles(args.Tiles);
+                //a Tiles broadcast acknowledges an edit, so a stale refusal goes away even before it expires
+                WorldState.GuildHallEditor.ClearRefusal();
 
                 break;
 
@@ -115,19 +132,14 @@ public sealed partial class WorldScreen
         if (GuildHallTileApply.Apply(MapFile, tiles) == 0)
             return;
 
-        TabMapRenderer.Generate(Device, MapFile);
-
-        //still loading: FinalizeMapLoad builds the grid from the finished tiles
-        if (!MapPreloaded)
-            return;
-
-        (MapPathfinder, MapWaterTiles, MapDoorTiles) = BuildPathfinder(MapFile);
+        HallTilesDirty = true;
     }
 
     /// <summary>Closes the editor. Called on a real map change and on the server's Close.</summary>
     private void ResetGuildHallEditor()
     {
         HallStrokeActive = false;
+        HallTilesDirty = false;
         WorldState.GuildHallEditor.Close();
         GuildHallEditorWindow?.Hide();
     }
@@ -158,7 +170,7 @@ public sealed partial class WorldScreen
     {
         if (WorldState.GuildHallEditor.ArgsAt(tile) is { } args)
             SendGuildHallEditor(args);
-        else
+        else if (WorldState.GuildHallEditor.TakeEmptyHint())
             WorldState.Chat.AddOrangeBarMessage("Pick a tile or an NPC in the hall editor first.");
     }
 
@@ -186,11 +198,15 @@ public sealed partial class WorldScreen
         WorldState.GuildHallEditor.ClaimPress();
         var tool = WorldState.GuildHallEditor.Tool;
 
+        //a new stroke or click restarts the empty-selection hint, so it shows exactly once including the press tile
+        WorldState.GuildHallEditor.ResetEmptyHint();
+
         if (tool != GuildHallTool.Rect)
             SendHallTile(tile);
 
         if (tool is GuildHallTool.Paint or GuildHallTool.Erase or GuildHallTool.Rect)
         {
+            //the hint restarts at press start above, so the press tile counts as its first show
             HallStrokeActive = true;
             HallStrokeTool = tool;
             HallStrokeStart = tile;
@@ -219,6 +235,16 @@ public sealed partial class WorldScreen
     /// </summary>
     private void UpdateGuildHallEditor()
     {
+        if (HallTilesDirty && (MapFile is not null) && (CurrentMapId == CONSTANTS.GUILD_HALL_MAP_ID))
+        {
+            HallTilesDirty = false;
+            TabMapRenderer.Generate(Device, MapFile);
+
+            //still loading: FinalizeMapLoad builds the grid from the finished tiles
+            if (MapPreloaded)
+                (MapPathfinder, MapWaterTiles, MapDoorTiles) = BuildPathfinder(MapFile);
+        }
+
         if (GuildHallEditorWindow is not { Visible: true } window)
         {
             HallStrokeActive = false;
@@ -227,6 +253,15 @@ public sealed partial class WorldScreen
         }
 
         window.Dock(WorldHud.ViewportBounds);
+
+        //ActiveRefusal goes null on its own after five seconds, so poll it here and refresh on any change
+        var activeRefusal = WorldState.GuildHallEditor.ActiveRefusal;
+
+        if (activeRefusal != LastShownRefusal)
+        {
+            LastShownRefusal = activeRefusal;
+            window.RefreshFromState();
+        }
 
         if (!HallStrokeActive)
             return;
@@ -245,8 +280,13 @@ public sealed partial class WorldScreen
 
         HallStrokeActive = false;
 
-        if ((HallStrokeTool == GuildHallTool.Rect) && WorldState.GuildHallEditor.RectArgs(HallStrokeStart, HallStrokeLast) is { } rect)
-            SendGuildHallEditor(rect);
+        if (HallStrokeTool == GuildHallTool.Rect)
+        {
+            if (WorldState.GuildHallEditor.RectArgs(HallStrokeStart, HallStrokeLast) is { } rect)
+                SendGuildHallEditor(rect);
+            else if (WorldState.GuildHallEditor.TakeEmptyHint())
+                WorldState.Chat.AddOrangeBarMessage("Pick a tile or an NPC in the hall editor first.");
+        }
     }
 
     /// <summary>In the background batch after the tile cursor: the rectangle being dragged and the hall entrance.</summary>
