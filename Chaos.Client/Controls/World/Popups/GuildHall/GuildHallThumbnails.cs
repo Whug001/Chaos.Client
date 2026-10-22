@@ -2,6 +2,7 @@
 using Chaos.Client.Data;
 using Chaos.Client.Systems;
 using Chaos.Client.ViewModel;
+using Chaos.Networking.Entities.Server;
 using Chaos.Geometry.Abstractions.Definitions;
 using DALib.Drawing;
 using Microsoft.Xna.Framework.Graphics;
@@ -20,13 +21,17 @@ public sealed class GuildHallThumbnails : IDisposable
     private readonly CreatureRenderer Creatures;
     private readonly Dictionary<ushort, Texture2D?> Floors = [];
     private readonly Dictionary<(ushort Left, ushort Right), Texture2D?> Foregrounds = [];
+    private readonly Dictionary<string, Texture2D> PrefabCache = [];
 
     public GuildHallThumbnails(CreatureRenderer creatures) => Creatures = creatures;
 
     public void Dispose() => Clear();
 
-    public Texture2D? For(GuildHallPick pick, IReadOnlyList<Chaos.Networking.Entities.Server.GuildHallNpcOption> npcs)
+    public Texture2D? For(GuildHallPick pick, IReadOnlyList<GuildHallNpcOption> npcs, IReadOnlyList<GuildHallPrefabInfo> prefabs)
     {
+        if (pick.PrefabKey is { } prefabKey)
+            return prefabs.FirstOrDefault(p => p.Key == prefabKey) is { } prefab ? Prefab(prefab) : null;
+
         if (pick.NpcKey is { } key)
             return npcs.FirstOrDefault(n => n.Key == key) is { } npc ? NpcFrame(npc.Sprite) : null;
 
@@ -43,6 +48,11 @@ public sealed class GuildHallThumbnails : IDisposable
 
         Floors.Clear();
         Foregrounds.Clear();
+
+        foreach (var texture in PrefabCache.Values)
+            texture.Dispose();
+
+        PrefabCache.Clear();
     }
 
     private Texture2D? Floor(ushort id)
@@ -92,6 +102,57 @@ public sealed class GuildHallThumbnails : IDisposable
         }
 
         Foregrounds[(left, right)] = texture;
+
+        return texture;
+    }
+
+    private Texture2D? Prefab(GuildHallPrefabInfo prefab)
+    {
+        if (PrefabCache.TryGetValue(prefab.Key, out var cached))
+            return cached;
+
+        var parts = new List<(SKImage Image, int Left, int Bottom)>();
+
+        for (var y = 0; y < prefab.Height; y++)
+            for (var x = 0; x < prefab.Width; x++)
+            {
+                var index = y * prefab.Width + x;
+                var px = (prefab.Height - 1 + x - y) * DaLibConstants.HALF_TILE_WIDTH;
+                var bottom = (x + y) * DaLibConstants.HALF_TILE_HEIGHT + (2 * DaLibConstants.HALF_TILE_HEIGHT);
+
+                if (prefab.Left[index] != 0 && RenderForeground(prefab.Left[index]) is { } left)
+                    parts.Add((left, px, bottom));
+
+                if (prefab.Right[index] != 0 && RenderForeground(prefab.Right[index]) is { } right)
+                    parts.Add((right, px + DaLibConstants.HALF_TILE_WIDTH, bottom));
+            }
+
+        if (parts.Count == 0)
+            return null;
+
+        var top = parts.Min(p => p.Bottom - p.Image.Height);
+        var width = parts.Max(p => p.Left + p.Image.Width);
+        var height = parts.Max(p => p.Bottom) - top;
+        Texture2D? texture = null;
+
+        if ((width > 0) && (height > 0))
+        {
+            var info = new SKImageInfo(width, height, SKColorType.Rgba8888, SKAlphaType.Premul);
+            using var surface = SKSurface.Create(info);
+            surface.Canvas.Clear(SKColors.Transparent);
+
+            foreach (var part in parts)
+                surface.Canvas.DrawImage(part.Image, part.Left, part.Bottom - part.Image.Height - top);
+
+            using var snapshot = surface.Snapshot();
+            texture = TextureConverter.ToTexture2D(snapshot);
+        }
+
+        foreach (var part in parts)
+            part.Image.Dispose();
+
+        if (texture is not null)
+            PrefabCache[prefab.Key] = texture;
 
         return texture;
     }

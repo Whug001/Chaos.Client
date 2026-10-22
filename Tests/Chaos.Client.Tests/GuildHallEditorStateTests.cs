@@ -10,13 +10,13 @@ namespace Chaos.Client.Tests;
 
 public sealed class GuildHallEditorStateTests
 {
-    private static GuildHallEditorDisplayArgs Open()
+    private static GuildHallEditorDisplayArgs Open(List<GuildHallPrefabInfo>? prefabs = null)
         => new()
         {
             Kind = GuildHallEditorDisplayKind.Open,
             Sets =
             [
-                new GuildHallPaletteSet("free", "Free set", true, 0, [11, 12, 13], [new GuildHallForegroundInfo(500, 0)], [new GuildHallForegroundInfo(0, 700)]),
+                new GuildHallPaletteSet("free", "Free set", true, 0, [11, 12, 13], [new GuildHallForegroundInfo(500, 0)], [new GuildHallForegroundInfo(0, 700)]) with { Prefabs = prefabs ?? [] },
                 new GuildHallPaletteSet("stone", "Stone Keep", false, 10000000, [21], [new GuildHallForegroundInfo(800, 801)], [])
             ],
             Npcs = [new GuildHallNpcOption("tibbs", "Tibbs", 61, 99, 39, true), new GuildHallNpcOption("loom", "Loom", 70, 0, 0, false)],
@@ -404,6 +404,131 @@ public sealed class GuildHallEditorStateTests
         var paint = state.ArgsAt(new Point(5, 6))!;
         paint.Action.Should().Be(GuildHallEditorAction.Paint);
         paint.Side.Should().Be(GuildHallSide.Both);
+
+        await Task.CompletedTask;
+    }
+
+    private static GuildHallPrefabInfo Dresser() =>
+        new("FG_3588_11488", 1, 5, [0, 0, 0, 0, 11488], [11493, 11492, 11491, 11490, 11489]);
+
+    private static GuildHallPick PrefabPick(string key) => new(0, 0, 0, null, key);
+
+    [Test]
+    public async Task Prefabs_tab_forces_paint_and_ignores_shape_tools()
+    {
+        var state = new GuildHallEditorState();
+        state.Open(Open(prefabs: [Dresser()]));
+        state.SetTool(GuildHallTool.Fill);
+
+        state.SetTab(GuildHallTab.Prefabs);
+        state.Tool.Should().Be(GuildHallTool.Paint);
+
+        state.SetTool(GuildHallTool.Rect);
+        state.SetTool(GuildHallTool.Fill);
+        state.SetTool(GuildHallTool.Erase);
+        state.Tool.Should().Be(GuildHallTool.Paint);
+
+        state.SetTool(GuildHallTool.Entrance);
+        state.Tool.Should().Be(GuildHallTool.Entrance);
+
+        await Task.CompletedTask;
+    }
+
+    [Test]
+    public async Task Places_prefab_only_with_paint_on_prefabs_tab()
+    {
+        var state = new GuildHallEditorState();
+        state.Open(Open(prefabs: [Dresser()]));
+        state.PlacesPrefab.Should().BeFalse();
+
+        state.SetTab(GuildHallTab.Prefabs);
+        state.PlacesPrefab.Should().BeTrue();
+
+        state.SetTool(GuildHallTool.Entrance);
+        state.PlacesPrefab.Should().BeFalse();
+
+        await Task.CompletedTask;
+    }
+
+    [Test]
+    public async Task Prefabs_tab_lists_and_selects_the_current_sets_prefabs()
+    {
+        var state = new GuildHallEditorState();
+        state.Open(Open(prefabs: [Dresser()]));
+        state.SetTab(GuildHallTab.Prefabs);
+
+        state.Items.Should().Equal(PrefabPick("FG_3588_11488"));
+        state.Select(PrefabPick("FG_3588_11488")).Should().BeTrue();
+        state.SelectedPrefab!.Key.Should().Be("FG_3588_11488");
+        state.Selected.Should().Be(PrefabPick("FG_3588_11488"));
+
+        await Task.CompletedTask;
+    }
+
+    [Test]
+    public async Task Prefab_from_a_locked_set_cannot_be_selected()
+    {
+        var state = new GuildHallEditorState();
+        state.Open(Open(prefabs: [Dresser()]));
+        state.StepSet(1);
+        state.SetTab(GuildHallTab.Prefabs);
+
+        state.Select(PrefabPick("FG_3588_11488")).Should().BeFalse();
+        state.SelectedPrefab.Should().BeNull();
+
+        await Task.CompletedTask;
+    }
+
+    [Test]
+    public async Task Click_on_prefabs_tab_sends_the_prefab_key()
+    {
+        var state = new GuildHallEditorState();
+        state.Open(Open(prefabs: [Dresser()]));
+        state.SetTab(GuildHallTab.Prefabs);
+        state.ArgsAt(new Point(4, 6)).Should().BeNull();
+
+        state.Select(PrefabPick("FG_3588_11488"));
+        var args = state.ArgsAt(new Point(4, 6))!;
+
+        args.Action.Should().Be(GuildHallEditorAction.Prefab);
+        args.NpcKey.Should().Be("FG_3588_11488");
+        args.X.Should().Be(4);
+        args.Y.Should().Be(6);
+        args.Layer.Should().Be(GuildHallLayer.Foreground);
+        args.Side.Should().Be(GuildHallSide.Both);
+
+        await Task.CompletedTask;
+    }
+
+    [Test]
+    public async Task Reopen_keeps_the_selected_prefab_and_close_clears_it()
+    {
+        var state = new GuildHallEditorState();
+        state.Open(Open(prefabs: [Dresser()]));
+        state.SetTab(GuildHallTab.Prefabs);
+        state.Select(PrefabPick("FG_3588_11488"));
+
+        state.Open(Open(prefabs: [Dresser()]));
+        state.SelectedPrefab!.Key.Should().Be("FG_3588_11488");
+
+        state.Close();
+        state.SelectedPrefab.Should().BeNull();
+
+        await Task.CompletedTask;
+    }
+
+    [Test]
+    public async Task Prefab_footprint_outlines_the_whole_piece()
+    {
+        var state = new GuildHallEditorState();
+        state.Open(Open(prefabs: [Dresser()]));
+        state.SetTab(GuildHallTab.Prefabs);
+        state.PrefabFootprint(new Point(3, 4)).Should().BeEmpty();
+
+        state.Select(PrefabPick("FG_3588_11488"));
+
+        state.PrefabFootprint(new Point(3, 4)).Should().BeEquivalentTo(
+            [new Point(3, 4), new Point(3, 5), new Point(3, 6), new Point(3, 7), new Point(3, 8)]);
 
         await Task.CompletedTask;
     }

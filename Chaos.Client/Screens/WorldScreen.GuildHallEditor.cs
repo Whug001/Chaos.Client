@@ -204,6 +204,9 @@ public sealed partial class WorldScreen
         if (tool != GuildHallTool.Rect)
             SendHallTile(tile);
 
+        if (WorldState.GuildHallEditor.PlacesPrefab)
+            return true;
+
         if (tool is GuildHallTool.Paint or GuildHallTool.Erase or GuildHallTool.Rect)
         {
             //the hint restarts at press start above, so the press tile counts as its first show
@@ -296,6 +299,12 @@ public sealed partial class WorldScreen
             return;
 
         DrawHallTileMark(spriteBatch, WorldState.GuildHallEditor.Entrance, HallEntranceMark);
+
+        var state = WorldState.GuildHallEditor;
+
+        if (state.PlacesPrefab && !HallStrokeActive && HoveredHallTile() is { } hovered)
+            foreach (var tile in state.PrefabFootprint(hovered))
+                DrawHallTileMark(spriteBatch, tile, HallRectOutline);
 
         if (!HallStrokeActive || (HallStrokeTool != GuildHallTool.Rect))
             return;

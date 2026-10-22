@@ -40,4 +40,14 @@ public sealed class GuildHallEditorLayoutTests
 
         await Task.CompletedTask;
     }
+
+    [Test]
+    public async Task Prefab_tab_buttons_fit_in_the_row()
+    {
+        var lastRight = GuildHallEditorControl.PAD + (4 * GuildHallEditorControl.TAB_PITCH) + GuildHallEditorControl.TAB_WIDTH;
+
+        lastRight.Should().BeLessThanOrEqualTo(GuildHallEditorControl.PANEL_WIDTH - GuildHallEditorControl.PAD);
+
+        await Task.CompletedTask;
+    }
 }

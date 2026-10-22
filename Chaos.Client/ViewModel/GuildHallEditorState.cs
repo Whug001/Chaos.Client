@@ -21,11 +21,12 @@ public enum GuildHallTab
     Floors,
     Walls,
     Decor,
-    Npcs
+    Npcs,
+    Prefabs
 }
 
 /// <summary>One picker cell: a floor (Floor != 0), a foreground pair (Left/Right), or an NPC (NpcKey).</summary>
-public readonly record struct GuildHallPick(ushort Floor, ushort Left, ushort Right, string? NpcKey);
+public readonly record struct GuildHallPick(ushort Floor, ushort Left, ushort Right, string? NpcKey, string? PrefabKey = null);
 
 /// <summary>The guild hall editor's sets, NPCs, entrance, tool and selection. No graphics, so it is testable.</summary>
 public sealed class GuildHallEditorState
@@ -71,6 +72,7 @@ public sealed class GuildHallEditorState
             GuildHallTab.Floors => CurrentSet?.Floors.Select(f => new GuildHallPick(f, 0, 0, null)).ToList() ?? [],
             GuildHallTab.Walls  => CurrentSet?.Walls.Select(w => new GuildHallPick(0, w.Left, w.Right, null)).ToList() ?? [],
             GuildHallTab.Decor  => CurrentSet?.Decor.Select(d => new GuildHallPick(0, d.Left, d.Right, null)).ToList() ?? [],
+            GuildHallTab.Prefabs => CurrentSet?.Prefabs.Select(p => new GuildHallPick(0, 0, 0, null, p.Key)).ToList() ?? [],
             _                   => Npcs.Select(n => new GuildHallPick(0, 0, 0, n.Key)).ToList()
         };
 
@@ -83,10 +85,19 @@ public sealed class GuildHallEditorState
         {
             GuildHallTab.Floors => SelectedFloor is { } floor ? new GuildHallPick(floor, 0, 0, null) : null,
             GuildHallTab.Npcs   => SelectedNpcKey is { } key ? new GuildHallPick(0, 0, 0, key) : null,
+            GuildHallTab.Prefabs => SelectedPrefab is { } prefab ? new GuildHallPick(0, 0, 0, null, prefab.Key) : null,
             _                   => SelectedForeground is { } fg ? new GuildHallPick(0, fg.Left, fg.Right, null) : null
         };
 
     public GuildHallNpcOption? SelectedNpc => Npcs.FirstOrDefault(n => n.Key == SelectedNpcKey);
+    public GuildHallPrefabInfo? SelectedPrefab { get; private set; }
+
+    public bool PlacesPrefab => Tab == GuildHallTab.Prefabs && Tool == GuildHallTool.Paint;
+
+    public IReadOnlyList<Point> PrefabFootprint(Point tile) =>
+        SelectedPrefab is { } prefab
+            ? GuildHallStroke.Perimeter(tile, new Point(tile.X + prefab.Width - 1, tile.Y + prefab.Height - 1)).ToList()
+            : [];
 
     /// <summary>First Open fills everything; a later Open (after a move or a purchase) keeps the tab, tool and selection.</summary>
     public void Open(GuildHallEditorDisplayArgs args)
@@ -106,6 +117,9 @@ public sealed class GuildHallEditorState
         if (wasOpen)
         {
             Page = Math.Clamp(Page, 0, PageCount - 1);
+            SelectedPrefab = SelectedPrefab is { } kept
+                ? args.Sets.SelectMany(s => s.Prefabs).FirstOrDefault(p => p.Key == kept.Key)
+                : null;
 
             return;
         }
@@ -192,6 +206,7 @@ public sealed class GuildHallEditorState
         SelectedFloor = null;
         SelectedForeground = null;
         SelectedNpcKey = null;
+        SelectedPrefab = null;
         LastRefusedReason = null;
     }
 
@@ -201,7 +216,9 @@ public sealed class GuildHallEditorState
         LastRefusedReason = null;
         Page = 0;
 
-        if (tab == GuildHallTab.Npcs)
+        if (tab == GuildHallTab.Prefabs)
+            Tool = GuildHallTool.Paint;
+        else if (tab == GuildHallTab.Npcs)
             Tool = GuildHallTool.Npc;
         else if (Tool == GuildHallTool.Npc)
             Tool = GuildHallTool.Paint;
@@ -209,6 +226,9 @@ public sealed class GuildHallEditorState
 
     public void SetTool(GuildHallTool tool)
     {
+        if (Tab == GuildHallTab.Prefabs && tool is GuildHallTool.Rect or GuildHallTool.Fill or GuildHallTool.Erase)
+            return;
+
         Tool = tool;
         LastRefusedReason = null;
 
@@ -261,6 +281,13 @@ public sealed class GuildHallEditorState
         if (CurrentSetLocked)
             return false;
 
+        if (Tab == GuildHallTab.Prefabs)
+        {
+            SelectedPrefab = CurrentSet?.Prefabs.FirstOrDefault(p => p.Key == pick.PrefabKey);
+
+            return SelectedPrefab is not null;
+        }
+
         if (pick.Floor != 0)
             SelectedFloor = pick.Floor;
         else
@@ -276,6 +303,19 @@ public sealed class GuildHallEditorState
     {
         if (!IsOpen || (tile.X < 0) || (tile.X > byte.MaxValue) || (tile.Y < 0) || (tile.Y > byte.MaxValue))
             return null;
+
+        if (PlacesPrefab)
+            return SelectedPrefab is { } prefab
+                ? new GuildHallEditorArgs
+                {
+                    Action = GuildHallEditorAction.Prefab,
+                    NpcKey = prefab.Key,
+                    X = (byte)tile.X,
+                    Y = (byte)tile.Y,
+                    Layer = GuildHallLayer.Foreground,
+                    Side = GuildHallSide.Both
+                }
+                : null;
 
         var args = new GuildHallEditorArgs
         {

@@ -31,8 +31,10 @@ public sealed class GuildHallEditorControl : UIPanel
     public const int DONE_Y = 270;
     private const int BUTTON_WIDTH = 51;
     private const int BUTTON_PITCH = 53;
+    public const int TAB_WIDTH = 40;
+    public const int TAB_PITCH = 42;
 
-    private static readonly string[] TabNames = ["Floors", "Walls", "Decor", "NPCs"];
+    private static readonly string[] TabNames = ["Floors", "Walls", "Decor", "NPCs", "Prefab"];
     private static readonly string[] ToolNames = ["Paint", "Rect", "Fill", "Erase"];
     private static readonly string[] SideNames = ["Both", "Left", "Right"];
 
@@ -41,7 +43,7 @@ public sealed class GuildHallEditorControl : UIPanel
     private readonly StageButton RemoveButton;
     private readonly UILabel SetLabel;
     private readonly UILabel StatusLabel;
-    private readonly StageButton[] TabButtons = new StageButton[4];
+    private readonly StageButton[] TabButtons = new StageButton[TabNames.Length];
     private readonly GuildHallThumbnails Thumbnails;
     private readonly StageButton[] ToolButtons = new StageButton[4];
     private readonly StageButton[] SideButtons = new StageButton[3];
@@ -66,7 +68,7 @@ public sealed class GuildHallEditorControl : UIPanel
         for (var i = 0; i < TabButtons.Length; i++)
         {
             var tab = (GuildHallTab)i;
-            TabButtons[i] = Button(TabNames[i], PAD + (i * BUTTON_PITCH), TAB_Y, BUTTON_WIDTH, () => Act(() => State.SetTab(tab)));
+            TabButtons[i] = Button(TabNames[i], PAD + (i * TAB_PITCH), TAB_Y, TAB_WIDTH, () => Act(() => State.SetTab(tab)));
         }
 
         for (var i = 0; i < ToolButtons.Length; i++)
@@ -166,13 +168,14 @@ public sealed class GuildHallEditorControl : UIPanel
 
         var locked = !npcTab && state.CurrentSetLocked;
         var npcs = state.Npcs;
+        var prefabs = state.CurrentSet?.Prefabs ?? [];
 
         //GuildHallPick is a value type, so T? is just T: pass a real value and drive the highlight with isSelected
         Grid.SetItems(
             state.PageItems,
             state.Selected ?? default,
             state.PageCount,
-            pick => Thumbnails.For(pick, npcs),
+            pick => Thumbnails.For(pick, npcs, prefabs),
             isSelected: pick => state.Selected is { } selected && pick.Equals(selected),
             isDimmed: _ => locked,
             isMarked: npcTab ? pick => npcs.Any(n => (n.Key == pick.NpcKey) && n.Placed) : null);
@@ -180,7 +183,7 @@ public sealed class GuildHallEditorControl : UIPanel
         //server reasons run longer than the line fits, so they are shortened here; the orange bar keeps the full text
         StatusLabel.Text = ShortenStatus(
             state.ActiveRefusal
-            ?? (locked && state.CurrentSet is { } lockedSet ? $"Locked: {lockedSet.Price:N0} gold" : HintFor(state.Tool)));
+            ?? (locked && state.CurrentSet is { } lockedSet ? $"Locked: {lockedSet.Price:N0} gold" : state.PlacesPrefab ? "Click to place the piece." : HintFor(state.Tool)));
     }
 
     /// <summary>Shortens a status line to the width the panel fits, with an ellipsis.</summary>
