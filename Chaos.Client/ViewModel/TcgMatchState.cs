@@ -76,6 +76,10 @@ public sealed class TcgMatchState
 
     public void End(TcgDisplayArgs close, Func<string, string> cardName)
     {
+        //a stale close from an older match must not end the match now showing
+        if ((Latest is not null) && !string.Equals(Latest.MatchId, close.MatchId, StringComparison.Ordinal))
+            return;
+
         var you = Latest?.YourSeat ?? TcgSeat.A;
         var spectating = Latest?.Spectating ?? close.Spectating;
         var draw = !close.HasWinner || (close.EndReason == TcgEndReason.Draw);

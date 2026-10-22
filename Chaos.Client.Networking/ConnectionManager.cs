@@ -1,5 +1,6 @@
 ﻿#region
 using System.Buffers;
+using System.Diagnostics;
 using System.Net;
 using Chaos.Cryptography;
 using Chaos.DarkAges.Definitions;
@@ -925,9 +926,10 @@ public sealed class ConnectionManager : IDisposable
             try
             {
                 HandlePacket(pkt);
-            } catch
+            } catch (Exception ex)
             {
                 //malformed packet — skip
+                Debug.WriteLine($"[ConnectionManager] ProcessPackets opcode {pkt.OpCode} skipped: {ex.Message}");
             } finally
             {
                 ArrayPool<byte>.Shared.Return(pkt.Data);

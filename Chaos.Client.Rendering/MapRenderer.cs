@@ -19,8 +19,8 @@ public sealed class MapRenderer : IDisposable
     private readonly Dictionary<int, Texture2D> BgTextureCache = [];
     private readonly Dictionary<int, SKImage> FgImageCache = [];
     private readonly Lock FgImageCacheLock = new();
-    private readonly Dictionary<int, Texture2D> FgTextureCache = [];
-    
+    private readonly Dictionary<int, Texture2D?> FgTextureCache = [];
+
     private TextureAtlas? BgAtlas;
     private PaletteCyclingManager? CyclingManager;
     private TextureAtlas? FgAtlas;
@@ -47,7 +47,7 @@ public sealed class MapRenderer : IDisposable
             image.Dispose();
 
         foreach (var texture in FgTextureCache.Values)
-            texture.Dispose();
+            texture?.Dispose();
 
         foreach (var image in FgImageCache.Values)
             image.Dispose();
@@ -345,7 +345,12 @@ public sealed class MapRenderer : IDisposable
         var palettized = DataContext.Tiles.GetForegroundTile(tileId);
 
         if (palettized is null)
+        {
+            //remember the miss so a missing tile is not looked up again every frame
+            FgTextureCache[tileId] = null;
+
             return null;
+        }
 
         using var image = Graphics.RenderImage(palettized.Entity.Decompress(), palettized.Palette);
         var texture = TextureConverter.ToTexture2D(image);

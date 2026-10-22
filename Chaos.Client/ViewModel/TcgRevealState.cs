@@ -42,7 +42,7 @@ public sealed class TcgRevealState
     private double[] FlipStarts = [];
     private List<TcgPackCardView> PackCards = [];
 
-    public bool AllFaceUp => (PackCards.Count > 0) && Enumerable.Range(0, PackCards.Count).All(IsFaceUp);
+    public bool AllFaceUp => Enumerable.Range(0, PackCards.Count).All(IsFaceUp);
     public IReadOnlyList<TcgPackCardView> Cards => PackCards;
     public double ElapsedMs { get; private set; }
     public bool IsActive => PackCards.Count > 0;

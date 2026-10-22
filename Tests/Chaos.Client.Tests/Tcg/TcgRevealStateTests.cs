@@ -137,9 +137,19 @@ public sealed class TcgRevealStateTests
     }
 
     [Test]
+    public void An_empty_pack_is_already_all_face_up_so_it_can_close()
+    {
+        var state = new TcgRevealState();
+        state.Start(Pack());
+
+        state.IsActive.Should().BeFalse();
+        state.AllFaceUp.Should().BeTrue();
+    }
+
+    [Test]
     public void Done_needs_every_card_face_up()
     {
-        new TcgRevealState().AllFaceUp.Should().BeFalse();
+        new TcgRevealState().IsActive.Should().BeFalse();
 
         var state = Started();
         state.Update(TcgRevealState.ArrivalMs(7));

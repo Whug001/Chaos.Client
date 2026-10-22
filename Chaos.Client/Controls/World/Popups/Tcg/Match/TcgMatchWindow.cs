@@ -192,6 +192,10 @@ public sealed partial class TcgMatchWindow : UIPanel
 
     public void EndMatch(TcgDisplayArgs close)
     {
+        //a stale close must not clear the showing match's queue or end it
+        if ((State.Latest is not null) && !string.Equals(State.Latest.MatchId, close.MatchId, StringComparison.Ordinal))
+            return;
+
         State.End(close, CardName);
         Queue.Clear(State.Latest);
 

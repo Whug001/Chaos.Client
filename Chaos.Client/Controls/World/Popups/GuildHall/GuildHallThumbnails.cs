@@ -18,10 +18,13 @@ namespace Chaos.Client.Controls.World.Popups.GuildHall;
 /// </summary>
 public sealed class GuildHallThumbnails : IDisposable
 {
+    private const int MAX_PREFAB_CELLS = 16;
+    private const int MAX_PREFAB_PIXELS = 1024;
+
     private readonly CreatureRenderer Creatures;
     private readonly Dictionary<ushort, Texture2D?> Floors = [];
     private readonly Dictionary<(ushort Left, ushort Right), Texture2D?> Foregrounds = [];
-    private readonly Dictionary<string, Texture2D> PrefabCache = [];
+    private readonly Dictionary<string, Texture2D?> PrefabCache = [];
 
     public GuildHallThumbnails(CreatureRenderer creatures) => Creatures = creatures;
 
@@ -50,7 +53,7 @@ public sealed class GuildHallThumbnails : IDisposable
         Foregrounds.Clear();
 
         foreach (var texture in PrefabCache.Values)
-            texture.Dispose();
+            texture?.Dispose();
 
         PrefabCache.Clear();
     }
@@ -111,50 +114,75 @@ public sealed class GuildHallThumbnails : IDisposable
         if (PrefabCache.TryGetValue(prefab.Key, out var cached))
             return cached;
 
-        var parts = new List<(SKImage Image, int Left, int Bottom)>();
-
-        for (var y = 0; y < prefab.Height; y++)
-            for (var x = 0; x < prefab.Width; x++)
-            {
-                var index = y * prefab.Width + x;
-                var px = (prefab.Height - 1 + x - y) * DaLibConstants.HALF_TILE_WIDTH;
-                var bottom = (x + y) * DaLibConstants.HALF_TILE_HEIGHT + (2 * DaLibConstants.HALF_TILE_HEIGHT);
-
-                if (prefab.Left[index] != 0 && RenderForeground(prefab.Left[index]) is { } left)
-                    parts.Add((left, px, bottom));
-
-                if (prefab.Right[index] != 0 && RenderForeground(prefab.Right[index]) is { } right)
-                    parts.Add((right, px + DaLibConstants.HALF_TILE_WIDTH, bottom));
-            }
-
-        if (parts.Count == 0)
-            return null;
-
-        var top = parts.Min(p => p.Bottom - p.Image.Height);
-        var width = parts.Max(p => p.Left + p.Image.Width);
-        var height = parts.Max(p => p.Bottom) - top;
         Texture2D? texture = null;
 
-        if ((width > 0) && (height > 0))
+        try
         {
-            var info = new SKImageInfo(width, height, SKColorType.Rgba8888, SKAlphaType.Premul);
-            using var surface = SKSurface.Create(info);
-            surface.Canvas.Clear(SKColors.Transparent);
-
-            foreach (var part in parts)
-                surface.Canvas.DrawImage(part.Image, part.Left, part.Bottom - part.Image.Height - top);
-
-            using var snapshot = surface.Snapshot();
-            texture = TextureConverter.ToTexture2D(snapshot);
+            texture = BuildPrefabTexture(prefab);
+        } catch
+        {
+            texture = null;
         }
 
-        foreach (var part in parts)
-            part.Image.Dispose();
-
-        if (texture is not null)
-            PrefabCache[prefab.Key] = texture;
+        //cache the null too, so a bad prefab is not rebuilt every frame
+        PrefabCache[prefab.Key] = texture;
 
         return texture;
+    }
+
+    private static Texture2D? BuildPrefabTexture(GuildHallPrefabInfo prefab)
+    {
+        var cellsWide = Math.Min((int)prefab.Width, MAX_PREFAB_CELLS);
+        var cellsHigh = Math.Min((int)prefab.Height, MAX_PREFAB_CELLS);
+        var parts = new List<(SKImage Image, int Left, int Bottom)>();
+
+        try
+        {
+            for (var y = 0; y < cellsHigh; y++)
+                for (var x = 0; x < cellsWide; x++)
+                {
+                    var index = y * prefab.Width + x;
+                    var px = (prefab.Height - 1 + x - y) * DaLibConstants.HALF_TILE_WIDTH;
+                    var bottom = (x + y) * DaLibConstants.HALF_TILE_HEIGHT + (2 * DaLibConstants.HALF_TILE_HEIGHT);
+
+                    if (prefab.Left[index] != 0 && RenderForeground(prefab.Left[index]) is { } left)
+                        parts.Add((left, px, bottom));
+
+                    if (prefab.Right[index] != 0 && RenderForeground(prefab.Right[index]) is { } right)
+                        parts.Add((right, px + DaLibConstants.HALF_TILE_WIDTH, bottom));
+                }
+
+            if (parts.Count == 0)
+                return null;
+
+            var top = parts.Min(p => p.Bottom - p.Image.Height);
+            var width = Math.Min(parts.Max(p => p.Left + p.Image.Width), MAX_PREFAB_PIXELS);
+            var height = Math.Min(parts.Max(p => p.Bottom) - top, MAX_PREFAB_PIXELS);
+            Texture2D? texture = null;
+
+            if ((width > 0) && (height > 0))
+            {
+                var info = new SKImageInfo(width, height, SKColorType.Rgba8888, SKAlphaType.Premul);
+                using var surface = SKSurface.Create(info);
+
+                if (surface is not null)
+                {
+                    surface.Canvas.Clear(SKColors.Transparent);
+
+                    foreach (var part in parts)
+                        surface.Canvas.DrawImage(part.Image, part.Left, part.Bottom - part.Image.Height - top);
+
+                    using var snapshot = surface.Snapshot();
+                    texture = TextureConverter.ToTexture2D(snapshot);
+                }
+            }
+
+            return texture;
+        } finally
+        {
+            foreach (var part in parts)
+                part.Image.Dispose();
+        }
     }
 
     private static SKImage? RenderForeground(ushort id)
