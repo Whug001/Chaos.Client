@@ -150,8 +150,8 @@ public sealed class KeyBindingsControl : GuildCloakDialogBase
             color: LegendColors.Gray);
 
         StatusLabel = Caption(HINT, LEFT, statusTop, Width - (2 * LEFT), color: LegendColors.Gray);
-        AddButton("Reset All", RESET_WIDTH, LEFT, resetTop, () => Confirm("This puts every key back to its default. Are you sure?", ResetAll));
-        AddButton("Reset Page", RESET_WIDTH, LEFT + RESET_WIDTH + GAP, resetTop, () => Confirm($"This puts the {PageName} keys back to their defaults. Are you sure?", ResetPage));
+        AddButton("Reset All", RESET_WIDTH, LEFT, resetTop, () => Confirm(ResetAllQuestion, ResetAll));
+        AddButton("Reset Page", RESET_WIDTH, LEFT + RESET_WIDTH + GAP, resetTop, () => Confirm(ResetPageQuestion, ResetPage));
 
         //covers the window while the question is up, so nothing behind it can be clicked
         ConfirmShade = new UIPanel
@@ -364,13 +364,33 @@ public sealed class KeyBindingsControl : GuildCloakDialogBase
         CancelCapture();
         KeyBindings.Current.ResetToDefaults(Actions);
         Changed = true;
-        SetStatus($"The {PageName} keys are back to their defaults.", LegendColors.White);
+        SetStatus(ResetPageStatus, LegendColors.White);
         Refresh();
     }
 
     /// <summary>The page's name for messages: the category's, or the picked bar's on the Hotbars page.</summary>
     private string PageName
         => Category == GameActionCategory.Hotbars ? $"Hotbar {HotbarBar + 1}" : GameActions.CategoryName(Category);
+
+    private bool IsHotbarsPage => Category == GameActionCategory.Hotbars;
+
+    //Reset All also resets the hotbar slots, whose defaults are unbound, so it clears their keys too.
+    internal static string ResetAllQuestion
+        => "This puts every key back to its default and clears all hotbar keys. Are you sure?";
+
+    private string ResetPageQuestion => ResetPageQuestionFor(PageName, IsHotbarsPage);
+
+    private string ResetPageStatus => ResetPageStatusFor(PageName, IsHotbarsPage);
+
+    //Hotbar slots have no default keys, so resetting a hotbar clears its keys; the confirm and the
+    //status say that instead of promising defaults back. Other pages keep the defaults wording.
+    internal static string ResetPageQuestionFor(string pageName, bool hotbars)
+        => hotbars
+            ? $"Hotbars have no default keys, so this clears every key on {pageName}. Are you sure?"
+            : $"This puts the {pageName} keys back to their defaults. Are you sure?";
+
+    internal static string ResetPageStatusFor(string pageName, bool hotbars)
+        => hotbars ? $"{pageName} has no keys now." : $"The {pageName} keys are back to their defaults.";
 
     /// <summary>Asks <paramref name="question" /> over the window, and runs <paramref name="reset" /> only on Yes.</summary>
     private void Confirm(string question, Action reset)
