@@ -42,9 +42,9 @@ public sealed class GuildHallEditorLayoutTests
     }
 
     [Test]
-    public async Task Prefab_tab_is_called_rooms()
+    public async Task Prefab_tab_is_called_prefabs()
     {
-        GuildHallEditorControl.TabNames.Should().Equal("Floors", "Walls", "Decor", "NPCs", "Rooms");
+        GuildHallEditorControl.TabNames.Should().Equal("Floors", "Walls", "Decor", "NPCs", "Prefabs");
 
         await Task.CompletedTask;
     }
