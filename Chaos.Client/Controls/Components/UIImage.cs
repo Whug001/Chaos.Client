@@ -10,6 +10,9 @@ public class UIImage : UIElement
 {
     public Texture2D? Texture { get; set; }
 
+    /// <summary>Multiplied with the texture. White (the default) draws it as-is; silver mutes a white glyph.</summary>
+    public Color Tint { get; set; } = Color.White;
+
     public override void Dispose()
     {
         Texture?.Dispose();
@@ -34,7 +37,7 @@ public class UIImage : UIElement
             spriteBatch,
             Texture,
             new Vector2(ScreenX, ScreenY),
-            Color.White);
+            Tint);
     }
 
 }
