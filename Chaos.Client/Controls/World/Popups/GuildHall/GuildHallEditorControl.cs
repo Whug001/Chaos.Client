@@ -23,7 +23,9 @@ public sealed class GuildHallEditorControl : UIPanel
     public const int PAD = 6;
     public const int HEADER_Y = 2;
     public const int HEADER_H = 16;
-    public const int TITLE_W = 190;
+    public const int TITLE_W = 140;
+    public const int RESET_X = 150;
+    public const int RESET_W = 46;
     public const int CHECK_X = 200;
     public const int CHECK_W = 16;
     public const int TAB_Y = 20;
@@ -50,7 +52,7 @@ public sealed class GuildHallEditorControl : UIPanel
     public const int REMOVE_X = 110;
     public const int REMOVE_W = 106;
 
-    internal static readonly string[] TabNames = ["Floors", "Walls", "Decor", "NPCs", "Rooms"];
+    internal static readonly string[] TabNames = ["Floors", "Walls", "Decor", "NPCs", "Prefabs"];
     internal static readonly string[] ToolNames = ["Paint", "Box", "Fill", "Erase", "Door"];
     private static readonly string[] TabIconKeys = ["tab_floors", "tab_walls", "tab_decor", "tab_npcs", "tab_rooms"];
     private static readonly string[] ToolIconKeys = ["tool_paint", "tool_box", "tool_fill", "tool_erase", "tool_door"];
@@ -59,6 +61,7 @@ public sealed class GuildHallEditorControl : UIPanel
     private static readonly string[] SideNames = ["Both", "Left", "Right"];
 
     private readonly GuildHallEditorButton CheckButton;
+    private readonly GuildHallEditorButton ResetButton;
     private readonly GuildHallEditorButton NextButton;
     private readonly GuildHallEditorButton PrevButton;
     private readonly GuildHallEditorButton RemoveButton;
@@ -91,6 +94,7 @@ public sealed class GuildHallEditorControl : UIPanel
         Label("GUILD HALL EDITOR", PAD, HEADER_Y + ((HEADER_H - TextRenderer.CHAR_HEIGHT) / 2), TITLE_W, LegendColors.Gold);
         CheckButton = Button(string.Empty, CHECK_X, HEADER_Y, CHECK_W, HEADER_H, Done);
         CheckButton.Green = true;
+        ResetButton = Button("Reset", RESET_X, HEADER_Y, RESET_W, HEADER_H, SendReset);
 
         for (var i = 0; i < TabButtons.Length; i++)
         {
@@ -163,6 +167,7 @@ public sealed class GuildHallEditorControl : UIPanel
         var bounds = new List<Rectangle>
         {
             new(PAD, HEADER_Y, TITLE_W, HEADER_H),
+            new(RESET_X, HEADER_Y, RESET_W, HEADER_H),
             new(CHECK_X, HEADER_Y, CHECK_W, HEADER_H)
         };
 
@@ -227,6 +232,7 @@ public sealed class GuildHallEditorControl : UIPanel
     public void Show(Rectangle viewport)
     {
         Dock(viewport);
+        ResetButton.Caption = State.ResetCaption;
         Visible = true;
         RefreshFromState();
     }
@@ -239,6 +245,25 @@ public sealed class GuildHallEditorControl : UIPanel
         Visible = false;
         Thumbnails.Clear();
         Icons.Clear();
+    }
+
+    private void SendReset()
+    {
+        if (State.RequestReset(out var args) && args is not null)
+            EditRequested?.Invoke(args);
+
+        ResetButton.Caption = State.ResetCaption;
+    }
+
+    public override void Update(GameTime gameTime)
+    {
+        base.Update(gameTime);
+
+        if (!State.ResetArmed)
+            return;
+
+        State.ResetUpdate(gameTime.ElapsedGameTime);
+        ResetButton.Caption = State.ResetCaption;
     }
 
     public override void Dispose()

@@ -190,12 +190,53 @@ public sealed class GuildHallEditorState
         return owned;
     }
 
+    public static readonly TimeSpan ResetConfirmWindow = TimeSpan.FromSeconds(3);
+
+    public bool ResetArmed { get; private set; }
+    public string ResetCaption => ResetArmed ? "Sure?" : "Reset";
+    private TimeSpan ResetArmedFor;
+
+    /// <summary>First click arms the reset confirm and sends nothing; a click while armed sends a Reset and disarms. Tick <see cref="ResetUpdate" /> with the game clock.</summary>
+    public bool RequestReset(out GuildHallEditorArgs? args)
+    {
+        if (ResetArmed)
+        {
+            ResetArmed = false;
+            ResetArmedFor = TimeSpan.Zero;
+            args = new GuildHallEditorArgs { Action = GuildHallEditorAction.Reset };
+
+            return true;
+        }
+
+        ResetArmed = true;
+        ResetArmedFor = TimeSpan.Zero;
+        args = null;
+
+        return false;
+    }
+
+    public void ResetUpdate(TimeSpan elapsed)
+    {
+        if (!ResetArmed)
+            return;
+
+        ResetArmedFor += elapsed;
+
+        if (ResetArmedFor >= ResetConfirmWindow)
+        {
+            ResetArmed = false;
+            ResetArmedFor = TimeSpan.Zero;
+        }
+    }
+
     public void Close()
     {
         IsOpen = false;
         PressOwned = false;
         Sets = [];
         Npcs = [];
+        ResetArmed = false;
+        ResetArmedFor = TimeSpan.Zero;
         Entrance = Point.Zero;
         Tool = GuildHallTool.Paint;
         Tab = GuildHallTab.Floors;
