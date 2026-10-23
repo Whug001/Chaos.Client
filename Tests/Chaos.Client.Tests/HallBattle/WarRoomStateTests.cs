@@ -110,4 +110,89 @@ public sealed class WarRoomStateTests
         state.PickAction("Bo").Picked.Should().BeFalse();
         state.PickAction("Bo").Action.Should().Be(HallBattleActionKind.Pick);
     }
+
+    private static List<string> Names(int count) => Enumerable.Range(1, count).Select(i => $"Member{i:00}").ToList();
+
+    private static HallBattleDisplayArgs Team(string our, string their, List<string> candidates)
+        => new()
+        {
+            Kind = HallBattleDisplayKind.Team,
+            OurGuild = our,
+            TheirGuild = their,
+            Candidates = candidates
+        };
+
+    [Test]
+    public void Candidates_PageForwardAndBackByFourteen()
+    {
+        var state = new WarRoomState();
+        state.Apply(Team("Wolves", "Lotus", Names(30)));
+
+        state.PageCandidates(1, WarRoomLayout.CANDIDATE_ROWS);
+        state.CandidateOffset.Should().Be(14);
+
+        state.PageCandidates(1, WarRoomLayout.CANDIDATE_ROWS);
+        state.CandidateOffset.Should().Be(28);
+
+        state.PageCandidates(-10, WarRoomLayout.CANDIDATE_ROWS);
+        state.CandidateOffset.Should().Be(0);
+    }
+
+    [Test]
+    public void Candidates_ResetWhenANewBattleArrives()
+    {
+        var state = new WarRoomState();
+        state.Apply(Team("Wolves", "Lotus", Names(30)));
+        state.PageCandidates(1, WarRoomLayout.CANDIDATE_ROWS);
+
+        state.Apply(Team("Wolves", "Ravens", Names(30)));
+
+        state.CandidateOffset.Should().Be(0);
+    }
+
+    [Test]
+    public void Candidates_ClampWhenTheListShrinks()
+    {
+        var state = new WarRoomState();
+        state.Apply(Team("Wolves", "Lotus", Names(30)));
+        state.PageCandidates(1, WarRoomLayout.CANDIDATE_ROWS);
+        state.Apply(Team("Wolves", "Lotus", Names(5)));
+
+        state.CandidateOffset.Should().Be(14);
+        state.ClampCandidateOffset(WarRoomLayout.CANDIDATE_ROWS);
+
+        state.CandidateOffset.Should().Be(0);
+    }
+
+    [Test]
+    public void Candidates_PagesCountsAPartialLastPage()
+    {
+        var state = new WarRoomState();
+        state.Apply(Team("Wolves", "Lotus", Names(30)));
+
+        state.CandidatePages(WarRoomLayout.CANDIDATE_ROWS).Should().Be(3);
+    }
+
+    [Test]
+    public void Candidates_MaxOffsetIsTheStartOfTheLastPage()
+    {
+        var state = new WarRoomState();
+        state.Apply(Team("Wolves", "Lotus", Names(20)));
+
+        state.CandidateMaxOffset(WarRoomLayout.CANDIDATE_ROWS).Should().Be(14);
+        state.CandidatePages(WarRoomLayout.CANDIDATE_ROWS).Should().Be(2);
+
+        state.PageCandidates(1, WarRoomLayout.CANDIDATE_ROWS);
+        state.CandidateOffset.Should().Be(14);
+    }
+
+    [Test]
+    public void Candidates_MaxOffsetIsZeroWhenEmpty()
+    {
+        var state = new WarRoomState();
+        state.Apply(Team("Wolves", "Lotus", Names(0)));
+
+        state.CandidateMaxOffset(WarRoomLayout.CANDIDATE_ROWS).Should().Be(0);
+        state.CandidatePages(WarRoomLayout.CANDIDATE_ROWS).Should().Be(1);
+    }
 }

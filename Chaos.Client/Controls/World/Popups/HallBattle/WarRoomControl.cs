@@ -77,6 +77,10 @@ public static class WarRoomLayout
                 yield return TheirRow(i);
             }
 
+            yield return ListPrev;
+            yield return ListNext;
+            yield return ListPageLabel;
+
             for (var i = 0; i < CANDIDATE_ROWS; i++)
                 yield return CandidateRow(i);
 
@@ -232,8 +236,8 @@ public sealed class WarRoomControl : UIPanel
         FriendlyButton.Clicked += () => SetRanked(false);
         HandPickButton.Clicked += () => SetOpenInvite(false);
         OpenInviteButton.Clicked += () => SetOpenInvite(true);
-        PrevButton.Clicked += () => PageList(-1);
-        NextButton.Clicked += () => PageList(1);
+        PrevButton.Clicked += () => TurnPage(-1);
+        NextButton.Clicked += () => TurnPage(1);
         close.Clicked += Hide;
 
         ChallengeButton.Clicked += () =>
@@ -335,6 +339,17 @@ public sealed class WarRoomControl : UIPanel
         Refresh();
     }
 
+    private void TurnPage(int step)
+    {
+        if (State.Page == WarRoomPage.Team)
+        {
+            State.PageCandidates(step, WarRoomLayout.CANDIDATE_ROWS);
+            Refresh();
+        }
+        else
+            PageList(step);
+    }
+
     private void Pick(int slot)
     {
         if (CandidateNames[slot] is { } name)
@@ -389,9 +404,14 @@ public sealed class WarRoomControl : UIPanel
 
     private void SetBoardVisible(bool visible)
     {
+        //the paging buttons and label are shared: guild list on the board page, candidates on the team page.
+        PrevButton.Visible = true;
+        NextButton.Visible = true;
+        ListPageLabel.Visible = true;
+
         foreach (var control in new UIElement[]
                  {
-                     PrevButton, NextButton, ListPageLabel, DetailName, DetailRecord, DetailLast, HistoryHeader, SizeLabel, RankedButton,
+                     DetailName, DetailRecord, DetailLast, HistoryHeader, SizeLabel, RankedButton,
                      FriendlyButton, WagerLabel, WagerBox, HandPickButton, OpenInviteButton, ChallengeButton, BlockedLabel
                  }.Concat(SizeButtons)
                   .Concat(HistoryLabels)
@@ -466,6 +486,12 @@ public sealed class WarRoomControl : UIPanel
         Subtitle.Text = TeamSubtitle();
         OurHeader.Text = $"{State.OurGuild} {State.OurCountText}";
         TheirHeader.Text = $"{State.TheirGuild} {State.TheirCountText}";
+        State.ClampCandidateOffset(WarRoomLayout.CANDIDATE_ROWS);
+        var maxOffset = State.CandidateMaxOffset(WarRoomLayout.CANDIDATE_ROWS);
+        var pages = State.CandidatePages(WarRoomLayout.CANDIDATE_ROWS);
+        ListPageLabel.Text = $"Page {(State.CandidateOffset / WarRoomLayout.CANDIDATE_ROWS) + 1}/{pages}";
+        PrevButton.Enabled = State.CandidateOffset > 0;
+        NextButton.Enabled = State.CandidateOffset < maxOffset;
 
         for (var i = 0; i < WarRoomLayout.TEAM_ROWS; i++)
         {
@@ -478,14 +504,15 @@ public sealed class WarRoomControl : UIPanel
 
         for (var i = 0; i < CandidateRows.Length; i++)
         {
-            if (i >= State.Candidates.Count)
+            var index = State.CandidateOffset + i;
+            if (index >= State.Candidates.Count)
             {
                 CandidateNames[i] = null;
 
                 continue;
             }
 
-            var name = State.Candidates[i];
+            var name = State.Candidates[index];
             var invited = State.IsInvited(name);
             CandidateNames[i] = name;
             CandidateRows[i].Show(invited ? $"[x] {name}" : $"[ ] {name}", invited ? LegendColors.Lime : LegendColors.White);

@@ -35,6 +35,16 @@ public sealed class WarRoomLayoutTests
     }
 
     [Test]
+    public void The_team_page_reuses_the_list_paging_controls()
+    {
+        var bounds = WarRoomLayout.VisibleBounds(WarRoomPage.Team);
+
+        bounds.Should().Contain(WarRoomLayout.ListPrev);
+        bounds.Should().Contain(WarRoomLayout.ListNext);
+        bounds.Should().Contain(WarRoomLayout.ListPageLabel);
+    }
+
+    [Test]
     public void The_list_and_the_detail_do_not_overlap()
     {
         var list = new Rectangle(10, 30, 230, WarRoomLayout.LIST_ROWS * WarRoomLayout.ROW);

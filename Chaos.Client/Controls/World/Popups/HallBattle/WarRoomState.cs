@@ -27,6 +27,7 @@ public sealed class WarRoomState
     private ushort TeamSeconds;
 
     public List<string> Candidates { get; private set; } = [];
+    public int CandidateOffset { get; private set; }
     public bool CanChallenge { get; private set; }
     public string BlockedReason { get; private set; } = string.Empty;
     public int DetailDraws { get; private set; }
@@ -104,6 +105,8 @@ public sealed class WarRoomState
 
             case HallBattleDisplayKind.Team:
                 Page = WarRoomPage.Team;
+                var newBattle = !OurGuild.Equals(args.OurGuild, StringComparison.OrdinalIgnoreCase)
+                    || !TheirGuild.Equals(args.TheirGuild, StringComparison.OrdinalIgnoreCase);
                 OurGuild = args.OurGuild;
                 TheirGuild = args.TheirGuild;
                 TeamSize = args.TeamSize;
@@ -114,6 +117,8 @@ public sealed class WarRoomState
                 Invited = args.Invited;
                 TeamSeconds = args.SecondsLeft;
                 TeamReceivedAt = DateTime.UtcNow;
+                if (newBattle)
+                    CandidateOffset = 0;
 
                 break;
         }
@@ -131,6 +136,11 @@ public sealed class WarRoomState
         };
 
     public bool IsInvited(string name) => Invited.Contains(name, StringComparer.OrdinalIgnoreCase);
+    public int CandidateMaxOffset(int pageSize) => Candidates.Count == 0 ? 0 : ((Candidates.Count - 1) / pageSize * pageSize);
+    public int CandidatePages(int pageSize) => Math.Max(1, (Candidates.Count + pageSize - 1) / pageSize);
+    public void PageCandidates(int step, int pageSize)
+        => CandidateOffset = Math.Clamp(CandidateOffset + (step * pageSize), 0, CandidateMaxOffset(pageSize));
+    public void ClampCandidateOffset(int pageSize) => CandidateOffset = Math.Min(CandidateOffset, CandidateMaxOffset(pageSize));
 
     public HallBattleActionArgs PickAction(string name)
         => new()
