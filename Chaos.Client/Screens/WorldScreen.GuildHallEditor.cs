@@ -21,6 +21,10 @@ public sealed partial class WorldScreen
     private static readonly Color HallRectOutline = LegendColors.Gold * 0.6f;
     private static readonly Color HallEntranceMark = new Color(80, 220, 120) * 0.5f;
 
+    private static readonly Color HallPieceMark = new Color(230, 60, 60) * 0.5f;
+    private static readonly Color HallAttackerMark = new Color(240, 220, 60) * 0.5f;
+    private static readonly Color HallHeartMark = new Color(60, 220, 230) * 0.5f;
+
     //a burst of Tiles packets sets this; the tab map and pathfinder rebuild once per frame from it
     private bool HallTilesDirty;
 
@@ -85,6 +89,7 @@ public sealed partial class WorldScreen
         {
             case GuildHallEditorDisplayKind.Open:
                 state.Open(args);
+                state.ApplyPlan(args);
 
                 if (GuildHallEditorWindow is { Visible: true } open)
                     open.RefreshFromState();
@@ -112,6 +117,12 @@ public sealed partial class WorldScreen
                 ApplyGuildHallTiles(args.Tiles);
                 //a Tiles broadcast acknowledges an edit, so a stale refusal goes away even before it expires
                 WorldState.GuildHallEditor.ClearRefusal();
+
+                break;
+
+            case GuildHallEditorDisplayKind.Plan:
+                state.ApplyPlan(args);
+                GuildHallEditorWindow?.RefreshFromState();
 
                 break;
 
@@ -301,6 +312,17 @@ public sealed partial class WorldScreen
         DrawHallTileMark(spriteBatch, WorldState.GuildHallEditor.Entrance, HallEntranceMark);
 
         var state = WorldState.GuildHallEditor;
+
+        foreach ((var markTile, var kind) in state.PlanMarkers())
+            DrawHallTileMark(
+                spriteBatch,
+                markTile,
+                kind switch
+                {
+                    GuildHallPlanMarker.AttackerEntrance => HallAttackerMark,
+                    GuildHallPlanMarker.Heart            => HallHeartMark,
+                    _                                    => HallPieceMark
+                });
 
         if (state.PlacesPrefab && !HallStrokeActive && HoveredHallTile() is { } hovered)
             foreach (var tile in state.PrefabFootprint(hovered))

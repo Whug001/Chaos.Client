@@ -42,9 +42,23 @@ public sealed class GuildHallEditorLayoutTests
     }
 
     [Test]
+    public async Task Every_tab_icon_is_an_embedded_asset()
+    {
+        GuildHallEditorControl.TabIconKeys.Should().HaveCount(GuildHallEditorControl.TabNames.Length);
+
+        foreach (var key in GuildHallEditorControl.TabIconKeys)
+        {
+            var open = () => Chaos.Client.Rendering.GuildHallIconAssets.Open(Chaos.Client.Rendering.GuildHallIconAssets.ResourceName(key)).Dispose();
+            open.Should().NotThrow(key);
+        }
+
+        await Task.CompletedTask;
+    }
+
+    [Test]
     public async Task Prefab_tab_is_called_prefabs()
     {
-        GuildHallEditorControl.TabNames.Should().Equal("Floors", "Walls", "Decor", "NPCs", "Prefabs");
+        GuildHallEditorControl.TabNames.Should().Equal("Floors", "Walls", "Decor", "NPCs", "Prefabs", "Defenses");
 
         await Task.CompletedTask;
     }
@@ -60,9 +74,20 @@ public sealed class GuildHallEditorLayoutTests
     [Test]
     public async Task Tab_buttons_fit_in_the_row()
     {
-        var lastRight = GuildHallEditorControl.PAD + (4 * GuildHallEditorControl.TAB_PITCH) + GuildHallEditorControl.TAB_WIDTH;
+        var lastRight = GuildHallEditorControl.PAD + ((Enum.GetValues<GuildHallTab>().Length - 1) * GuildHallEditorControl.TAB_PITCH) + GuildHallEditorControl.TAB_WIDTH;
 
         lastRight.Should().BeLessThanOrEqualTo(GuildHallEditorControl.PANEL_WIDTH - GuildHallEditorControl.PAD);
+
+        await Task.CompletedTask;
+    }
+
+    [Test]
+    public async Task Six_tabs_fit_the_panel()
+    {
+        var tabs = Enum.GetValues<GuildHallTab>().Length;
+
+        tabs.Should().Be(6);
+        ((tabs - 1) * GuildHallEditorControl.TAB_PITCH + GuildHallEditorControl.TAB_WIDTH).Should().BeLessThanOrEqualTo(GuildHallEditorControl.PANEL_WIDTH);
 
         await Task.CompletedTask;
     }

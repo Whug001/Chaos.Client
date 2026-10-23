@@ -40,6 +40,9 @@ public sealed class GuildHallEditorButton : UIElement
 
     public string Caption { get; set; }
     public Texture2D? Icon { get; set; }
+
+    /// <summary>A picture drawn fitted at the left edge, with the caption left-aligned after it (list rows).</summary>
+    public Texture2D? LeadingImage { get; set; }
     public bool Selected { get; set; }
 
     /// <summary>An inactive tab: darker than a plain button, so the open tab reads as raised.</summary>
@@ -76,7 +79,17 @@ public sealed class GuildHallEditorButton : UIElement
                 LegendColors.Gold,
                 false);
 
-        if (Icon is not null && !string.IsNullOrEmpty(Caption))
+        if (LeadingImage is not null)
+        {
+            var side = Height - 2;
+            DrawTextureFitted(spriteBatch, LeadingImage, new Rectangle(bounds.X + 2, bounds.Y + 1, side, side), Color.White);
+            DrawTextClipped(
+                spriteBatch,
+                new Vector2(bounds.X + side + 5, bounds.Y + ((Height - TextRenderer.CHAR_HEIGHT) / 2)),
+                Caption,
+                TextColor(),
+                false);
+        } else if (Icon is not null && !string.IsNullOrEmpty(Caption))
         {
             var iconX = bounds.X + ((Width - Icon.Width) / 2);
             DrawTexture(spriteBatch, Icon, new Vector2(iconX, bounds.Y + 2), IconColor());

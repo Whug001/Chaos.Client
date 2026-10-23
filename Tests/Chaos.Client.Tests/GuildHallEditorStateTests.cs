@@ -532,4 +532,91 @@ public sealed class GuildHallEditorStateTests
 
         await Task.CompletedTask;
     }
+
+    private static GuildHallEditorDisplayArgs PlanArgs(bool practice = false)
+        => new()
+        {
+            Kind = GuildHallEditorDisplayKind.Plan,
+            PlanPieces = [new GuildHallPlanPieceInfo("spikeTrap", 20, 21)],
+            AttackerEntranceX = 10,
+            AttackerEntranceY = 11,
+            PointsUsed = 3,
+            PracticeRunning = practice
+        };
+
+    private static GuildHallEditorState OpenDefenses()
+    {
+        var state = new GuildHallEditorState();
+        state.Open(Open());
+        state.SetTab(GuildHallTab.Defenses);
+        state.SelectedDefense = "spikeTrap";
+
+        return state;
+    }
+
+    [Test]
+    public async Task ApplyPlan_copies_fields()
+    {
+        var state = new GuildHallEditorState();
+
+        state.ApplyPlan(PlanArgs());
+
+        state.PlanPieces.Should().ContainSingle(p => p.Key == "spikeTrap");
+        state.AttackerEntrance.Should().Be((10, 11));
+        state.Heart.Should().BeNull();
+        state.PointsUsed.Should().Be(3);
+        state.PracticeRunning.Should().BeFalse();
+
+        await Task.CompletedTask;
+    }
+
+    [Test]
+    public async Task ArgsAt_builds_plan_actions()
+    {
+        var state = OpenDefenses();
+
+        state.Tool.Should().Be(GuildHallTool.Defense);
+        var place = state.ArgsAt(new Point(20, 21))!;
+        place.Action.Should().Be(GuildHallEditorAction.PlaceDefense);
+        place.NpcKey.Should().Be("spikeTrap");
+        place.X.Should().Be(20);
+        place.Y.Should().Be(21);
+
+        state.SetTool(GuildHallTool.AttackerEntrance);
+        state.ArgsAt(new Point(20, 21))!.Action.Should().Be(GuildHallEditorAction.SetAttackerEntrance);
+
+        state.SetTool(GuildHallTool.Heart);
+        state.ArgsAt(new Point(20, 21))!.Action.Should().Be(GuildHallEditorAction.SetHeart);
+
+        state.SetTool(GuildHallTool.Erase);
+        state.ArgsAt(new Point(20, 21))!.Action.Should().Be(GuildHallEditorAction.RemoveDefense);
+
+        await Task.CompletedTask;
+    }
+
+    [Test]
+    public async Task ArgsAt_during_practice_is_null()
+    {
+        var state = OpenDefenses();
+        state.ApplyPlan(PlanArgs(practice: true));
+
+        state.ArgsAt(new Point(20, 21)).Should().BeNull();
+
+        await Task.CompletedTask;
+    }
+
+    [Test]
+    public async Task PlanMarkers_only_on_the_defenses_tab()
+    {
+        var state = new GuildHallEditorState();
+        state.Open(Open());
+        state.ApplyPlan(PlanArgs());
+
+        state.PlanMarkers().Should().BeEmpty();
+
+        state.SetTab(GuildHallTab.Defenses);
+        state.PlanMarkers().Should().HaveCount(2);
+
+        await Task.CompletedTask;
+    }
 }

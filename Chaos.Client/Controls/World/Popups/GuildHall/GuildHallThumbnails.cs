@@ -41,6 +41,8 @@ public sealed class GuildHallThumbnails : IDisposable
         return pick.Floor != 0 ? Floor(pick.Floor) : Foreground(pick.Left, pick.Right);
     }
 
+    public Texture2D? Defense(ushort icon) => NpcFrame(icon);
+
     public void Clear()
     {
         foreach (var texture in Floors.Values)

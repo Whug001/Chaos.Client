@@ -13,7 +13,10 @@ public enum GuildHallTool
     Fill,
     Erase,
     Npc,
-    Entrance
+    Entrance,
+    Defense,
+    AttackerEntrance,
+    Heart
 }
 
 public enum GuildHallTab
@@ -22,7 +25,15 @@ public enum GuildHallTab
     Walls,
     Decor,
     Npcs,
-    Prefabs
+    Prefabs,
+    Defenses
+}
+
+public enum GuildHallPlanMarker
+{
+    Piece,
+    AttackerEntrance,
+    Heart
 }
 
 /// <summary>One picker cell: a floor (Floor != 0), a foreground pair (Left/Right), or an NPC (NpcKey).</summary>
@@ -51,6 +62,13 @@ public sealed class GuildHallEditorState
     public ushort? SelectedFloor { get; private set; }
     public GuildHallForegroundInfo? SelectedForeground { get; private set; }
     public string? SelectedNpcKey { get; private set; }
+    public IReadOnlyList<GuildHallDefenseOption> Defenses { get; private set; } = [];
+    public IReadOnlyList<GuildHallPlanPieceInfo> PlanPieces { get; private set; } = [];
+    public (int X, int Y)? AttackerEntrance { get; private set; }
+    public (int X, int Y)? Heart { get; private set; }
+    public int PointsUsed { get; private set; }
+    public bool PracticeRunning { get; private set; }
+    public string? SelectedDefense { get; set; }
     public string? LastRefusedReason { get; private set; }
     public DateTime RefusedAtUtc { get; private set; }
     public static readonly TimeSpan RefusalLifetime = TimeSpan.FromSeconds(5);
@@ -73,6 +91,7 @@ public sealed class GuildHallEditorState
             GuildHallTab.Walls  => CurrentSet?.Walls.Select(w => new GuildHallPick(0, w.Left, w.Right, null)).ToList() ?? [],
             GuildHallTab.Decor  => CurrentSet?.Decor.Select(d => new GuildHallPick(0, d.Left, d.Right, null)).ToList() ?? [],
             GuildHallTab.Prefabs => CurrentSet?.Prefabs.Select(p => new GuildHallPick(0, 0, 0, null, p.Key)).ToList() ?? [],
+            GuildHallTab.Defenses => [],
             _                   => Npcs.Select(n => new GuildHallPick(0, 0, 0, n.Key)).ToList()
         };
 
@@ -84,6 +103,7 @@ public sealed class GuildHallEditorState
         => Tab switch
         {
             GuildHallTab.Floors => SelectedFloor is { } floor ? new GuildHallPick(floor, 0, 0, null) : null,
+            GuildHallTab.Defenses => null,
             GuildHallTab.Npcs   => SelectedNpcKey is { } key ? new GuildHallPick(0, 0, 0, key) : null,
             GuildHallTab.Prefabs => SelectedPrefab is { } prefab ? new GuildHallPick(0, 0, 0, null, prefab.Key) : null,
             _                   => SelectedForeground is { } fg ? new GuildHallPick(0, fg.Left, fg.Right, null) : null
@@ -133,6 +153,34 @@ public sealed class GuildHallEditorState
         SelectedForeground = null;
         SelectedNpcKey = null;
         LastRefusedReason = null;
+    }
+
+    public void ApplyPlan(GuildHallEditorDisplayArgs args)
+    {
+        if (args.Kind == GuildHallEditorDisplayKind.Open)
+            Defenses = args.Defenses;
+
+        PlanPieces = args.PlanPieces;
+        AttackerEntrance = args.AttackerEntranceX is { } ex && args.AttackerEntranceY is { } ey ? (ex, ey) : null;
+        Heart = args.HeartX is { } hx && args.HeartY is { } hy ? (hx, hy) : null;
+        PointsUsed = args.PointsUsed;
+        PracticeRunning = args.PracticeRunning;
+    }
+
+    public IReadOnlyList<(Point Tile, GuildHallPlanMarker Kind)> PlanMarkers()
+    {
+        if (Tab != GuildHallTab.Defenses)
+            return [];
+
+        var markers = PlanPieces.Select(p => (new Point(p.X, p.Y), GuildHallPlanMarker.Piece)).ToList();
+
+        if (AttackerEntrance is { } e)
+            markers.Add((new Point(e.X, e.Y), GuildHallPlanMarker.AttackerEntrance));
+
+        if (Heart is { } h)
+            markers.Add((new Point(h.X, h.Y), GuildHallPlanMarker.Heart));
+
+        return markers;
     }
 
     public void SetNpcs(IReadOnlyList<GuildHallNpcOption> npcs)
@@ -235,6 +283,13 @@ public sealed class GuildHallEditorState
         PressOwned = false;
         Sets = [];
         Npcs = [];
+        Defenses = [];
+        PlanPieces = [];
+        AttackerEntrance = null;
+        Heart = null;
+        PointsUsed = 0;
+        PracticeRunning = false;
+        SelectedDefense = null;
         ResetArmed = false;
         ResetArmedFor = TimeSpan.Zero;
         Entrance = Point.Zero;
@@ -257,16 +312,32 @@ public sealed class GuildHallEditorState
         LastRefusedReason = null;
         Page = 0;
 
-        if (tab == GuildHallTab.Prefabs)
+        if (tab == GuildHallTab.Defenses)
+            Tool = GuildHallTool.Defense;
+        else if (tab == GuildHallTab.Prefabs)
             Tool = GuildHallTool.Paint;
         else if (tab == GuildHallTab.Npcs)
             Tool = GuildHallTool.Npc;
-        else if (Tool == GuildHallTool.Npc)
+        else if (Tool is GuildHallTool.Npc or GuildHallTool.Defense or GuildHallTool.AttackerEntrance or GuildHallTool.Heart)
             Tool = GuildHallTool.Paint;
     }
 
     public void SetTool(GuildHallTool tool)
     {
+        if (Tab == GuildHallTab.Defenses)
+        {
+            if (tool is GuildHallTool.Defense or GuildHallTool.AttackerEntrance or GuildHallTool.Heart or GuildHallTool.Erase)
+            {
+                Tool = tool;
+                LastRefusedReason = null;
+            }
+
+            return;
+        }
+
+        if (tool is GuildHallTool.Defense or GuildHallTool.AttackerEntrance or GuildHallTool.Heart)
+            return;
+
         if (Tab == GuildHallTab.Prefabs && tool is GuildHallTool.Rect or GuildHallTool.Fill or GuildHallTool.Erase)
             return;
 
@@ -344,6 +415,32 @@ public sealed class GuildHallEditorState
     {
         if (!IsOpen || (tile.X < 0) || (tile.X > byte.MaxValue) || (tile.Y < 0) || (tile.Y > byte.MaxValue))
             return null;
+
+        if (Tab == GuildHallTab.Defenses)
+        {
+            if (PracticeRunning)
+                return null;
+
+            return Tool switch
+            {
+                GuildHallTool.Defense when SelectedDefense is not null => new GuildHallEditorArgs
+                {
+                    Action = GuildHallEditorAction.PlaceDefense,
+                    X = (byte)tile.X,
+                    Y = (byte)tile.Y,
+                    NpcKey = SelectedDefense
+                },
+                GuildHallTool.AttackerEntrance => new GuildHallEditorArgs
+                {
+                    Action = GuildHallEditorAction.SetAttackerEntrance,
+                    X = (byte)tile.X,
+                    Y = (byte)tile.Y
+                },
+                GuildHallTool.Heart => new GuildHallEditorArgs { Action = GuildHallEditorAction.SetHeart, X = (byte)tile.X, Y = (byte)tile.Y },
+                GuildHallTool.Erase => new GuildHallEditorArgs { Action = GuildHallEditorAction.RemoveDefense, X = (byte)tile.X, Y = (byte)tile.Y },
+                _ => null
+            };
+        }
 
         if (PlacesPrefab)
             return SelectedPrefab is { } prefab
