@@ -95,7 +95,7 @@ public sealed class GuildHallEditorControl : UIPanel
     private readonly UILabel PointsLabel;
     private readonly GuildHallEditorButton[] SideButtons = new GuildHallEditorButton[SideNames.Length];
 
-    public GuildHallEditorControl(CreatureRenderer creatures)
+    public GuildHallEditorControl(CreatureRenderer creatures, EffectRenderer effects)
     {
         Name = "GuildHallEditor";
         Visible = false;
@@ -105,7 +105,7 @@ public sealed class GuildHallEditorControl : UIPanel
         //dark wood at 85% alpha, so the hall stays faintly visible behind the panel
         BackgroundColor = new Color(28, 24, 20, 217);
         BorderColor = new Color(138, 109, 59);
-        Thumbnails = new GuildHallThumbnails(creatures);
+        Thumbnails = new GuildHallThumbnails(creatures, effects);
 
         Label("GUILD HALL EDITOR", PAD, HEADER_Y + ((HEADER_H - TextRenderer.CHAR_HEIGHT) / 2), TITLE_W, LegendColors.Gold);
         CheckButton = Button(string.Empty, CHECK_X, HEADER_Y, CHECK_W, HEADER_H, Done);
@@ -468,7 +468,7 @@ public sealed class GuildHallEditorControl : UIPanel
                 continue;
 
             row.Caption = $"{option.Name}  {option.Points} pts";
-            row.LeadingImage = Thumbnails.Defense(option.Icon);
+            row.LeadingImage = Thumbnails.Defense(option.Kind, option.Icon);
             row.Selected = (state.Tool == GuildHallTool.Defense) && (state.SelectedDefense == option.Key);
             row.Enabled = !practice;
         }

@@ -1,7 +1,9 @@
 #region
+using Chaos.Client.Controls.World.Popups.Effects;
 using Chaos.Client.Data;
 using Chaos.Client.Systems;
 using Chaos.Client.ViewModel;
+using Chaos.DarkAges.Definitions;
 using Chaos.Networking.Entities.Server;
 using Chaos.Geometry.Abstractions.Definitions;
 using DALib.Drawing;
@@ -22,11 +24,13 @@ public sealed class GuildHallThumbnails : IDisposable
     private const int MAX_PREFAB_PIXELS = 1024;
 
     private readonly CreatureRenderer Creatures;
+    private readonly EffectRenderer Effects;
+    private readonly Dictionary<ushort, Texture2D?> EffectCache = [];
     private readonly Dictionary<ushort, Texture2D?> Floors = [];
     private readonly Dictionary<(ushort Left, ushort Right), Texture2D?> Foregrounds = [];
     private readonly Dictionary<string, Texture2D?> PrefabCache = [];
 
-    public GuildHallThumbnails(CreatureRenderer creatures) => Creatures = creatures;
+    public GuildHallThumbnails(CreatureRenderer creatures, EffectRenderer effects) => (Creatures, Effects) = (creatures, effects);
 
     public void Dispose() => Clear();
 
@@ -41,7 +45,11 @@ public sealed class GuildHallThumbnails : IDisposable
         return pick.Floor != 0 ? Floor(pick.Floor) : Foreground(pick.Left, pick.Right);
     }
 
-    public Texture2D? Defense(ushort icon) => NpcFrame(icon);
+    public Texture2D? Defense(GuildHallDefenseKind kind, ushort icon)
+        => UsesEffectFrame(kind) ? Effect(icon) : NpcFrame(icon);
+
+    /// <summary>Which thumbnail source a defense kind uses: the effect's first frame, unless it is a Monster.</summary>
+    internal static bool UsesEffectFrame(GuildHallDefenseKind kind) => kind != GuildHallDefenseKind.Monster;
 
     public void Clear()
     {
@@ -51,6 +59,10 @@ public sealed class GuildHallThumbnails : IDisposable
         foreach (var texture in Foregrounds.Values)
             texture?.Dispose();
 
+        foreach (var texture in EffectCache.Values)
+            texture?.Dispose();
+
+        EffectCache.Clear();
         Floors.Clear();
         Foregrounds.Clear();
 
@@ -195,6 +207,20 @@ public sealed class GuildHallThumbnails : IDisposable
         var palettized = DataContext.Tiles.GetForegroundTile(id);
 
         return palettized is null ? null : Graphics.RenderImage(palettized.Entity.Decompress(), palettized.Palette);
+    }
+
+    private Texture2D? Effect(ushort id)
+    {
+        if (EffectCache.TryGetValue(id, out var cached))
+            return cached;
+
+        //the frame belongs to EffectRenderer's cache: composed into a tile the thumbnails own, like the effects window
+        var texture = Effects.GetFrame(id, 0) is { } frame ? EffectTileRenderer.Compose(null, 0, frame) : null;
+
+        //cache the null too, so a bad effect is not rebuilt every frame
+        EffectCache[id] = texture;
+
+        return texture;
     }
 
     //owned by the creature renderer (cleared on map change), so never disposed here

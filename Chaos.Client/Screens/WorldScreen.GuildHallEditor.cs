@@ -58,7 +58,7 @@ public sealed partial class WorldScreen
         if (GuildHallEditorWindow is not null)
             return GuildHallEditorWindow;
 
-        GuildHallEditorWindow = new GuildHallEditorControl(Game.CreatureRenderer)
+        GuildHallEditorWindow = new GuildHallEditorControl(Game.CreatureRenderer, Game.EffectRenderer)
         {
             ZIndex = 2
         };
