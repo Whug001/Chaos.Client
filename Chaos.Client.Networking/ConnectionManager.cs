@@ -592,6 +592,7 @@ public sealed class ConnectionManager : IDisposable
     ///     Fired when a guild hall editor display packet is received from the server: open, close, refused, tiles or NPCs.
     /// </summary>
     public event GuildHallEditorDisplayHandler? OnGuildHallEditorDisplay;
+    public event HallBattleDisplayHandler? OnHallBattleDisplay;
 
     /// <summary>
     ///     Fired when a fishing window display packet is received from the server.
@@ -1445,6 +1446,8 @@ public sealed class ConnectionManager : IDisposable
     /// <summary>Sends one guild hall editor action. The server checks and expands it.</summary>
     public void SendGuildHallEditor(GuildHallEditorArgs args) => SendIfWorld(args);
 
+    public void SendHallBattleAction(HallBattleActionArgs args) => SendIfWorld(args);
+
     /// <summary>The player pressed and is holding the line.</summary>
     public void SendFishingHold() => SendIfWorld(new FishingInteractionArgs { Type = FishingInteractionType.Hold });
 
@@ -2006,6 +2009,7 @@ public sealed class ConnectionManager : IDisposable
         PacketHandlers[(byte)ServerOpCode.MountWindowDisplay] = HandleMountWindowDisplay;
         PacketHandlers[(byte)ServerOpCode.EffectWindowDisplay] = HandleEffectWindowDisplay;
         PacketHandlers[(byte)ServerOpCode.GuildHallEditorDisplay] = HandleGuildHallEditorDisplay;
+        PacketHandlers[(byte)ServerOpCode.HallBattleDisplay] = HandleHallBattleDisplay;
         PacketHandlers[(byte)ServerOpCode.FishingDisplay] = HandleFishingDisplay;
         PacketHandlers[(byte)ServerOpCode.PumpkinCarvingDisplay] = HandlePumpkinCarvingDisplay;
         PacketHandlers[(byte)ServerOpCode.PumpkinLook] = HandlePumpkinLook;
@@ -2472,6 +2476,12 @@ public sealed class ConnectionManager : IDisposable
     {
         var args = Client.Deserialize<GuildHallEditorDisplayArgs>(in pkt);
         OnGuildHallEditorDisplay?.Invoke(args);
+    }
+
+    private void HandleHallBattleDisplay(ServerPacket pkt)
+    {
+        var args = Client.Deserialize<HallBattleDisplayArgs>(in pkt);
+        OnHallBattleDisplay?.Invoke(args);
     }
 
     private void HandleFishingDisplay(ServerPacket pkt)

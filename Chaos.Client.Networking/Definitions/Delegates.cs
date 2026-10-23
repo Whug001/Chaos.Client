@@ -441,6 +441,8 @@ public delegate void EffectWindowDisplayHandler(EffectWindowDisplayArgs args);
 /// </summary>
 public delegate void GuildHallEditorDisplayHandler(GuildHallEditorDisplayArgs args);
 
+public delegate void HallBattleDisplayHandler(HallBattleDisplayArgs args);
+
 /// <summary>
 ///     Fired when a fishing window display packet is received.
 /// </summary>
