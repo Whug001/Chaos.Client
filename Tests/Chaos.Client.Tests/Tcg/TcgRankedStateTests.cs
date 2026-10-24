@@ -44,8 +44,8 @@ public sealed class TcgRankedStateTests
         state.Apply(Args(TcgRankedDisplayKind.Queue, waited: 10), Now);
 
         state.SecondsWaited(Now).Should().Be(10);
-        state.QueueText(Now.AddSeconds(32)).Should().Be("Searching for a ranked match... 0:42");
-        state.QueueText(Now.AddSeconds(115)).Should().Be("Searching for a ranked match... 2:05");
+        state.QueueText(Now.AddSeconds(32)).Should().Be("Ranked 0:42");
+        state.QueueText(Now.AddSeconds(115)).Should().Be("Ranked 2:05");
     }
 
     [Test]

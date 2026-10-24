@@ -84,7 +84,7 @@ public sealed class TcgRankedState
     {
         var waited = SecondsWaited(now);
 
-        return $"Searching for a ranked match... {waited / 60}:{waited % 60:00}";
+        return $"Ranked {waited / 60}:{waited % 60:00}";
     }
 
     /// <summary>Only a ready deck with nothing already showing can join the queue.</summary>

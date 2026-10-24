@@ -9,17 +9,22 @@ using Microsoft.Xna.Framework;
 namespace Chaos.Client.Controls.World.Popups.Tcg;
 
 /// <summary>
-///     The ranked queue bar at the top centre of the world screen: searching time with Leave, a ready-check box with
-///     a countdown and Accept/Decline, or a waiting line once accepted. Driven by <see cref="TcgRankedState" />,
-///     hidden while the match window is open. Every button only asks: the server answers with a fresh display.
+///     The ranked queue bar at the top centre of the world screen: a 160x26 searching line with Leave, a 200x52
+///     ready-check box with a countdown and Accept/Decline, or a 160x26 waiting line once accepted. Driven by
+///     <see cref="TcgRankedState" />, hidden while the match window is open. Every button only asks: the server
+///     answers with a fresh display.
 /// </summary>
 public sealed class TcgQueueBar : UIPanel
 {
-    private const int BAR_WIDTH = 320;
-    private const int BUTTON_WIDTH = 92;
+    private const int SEARCH_WIDTH = 160;
+    private const int SEARCH_HEIGHT = 26;
+    private const int READY_WIDTH = 200;
+    private const int READY_HEIGHT = 52;
+    private const int ACCEPT_WIDTH = 80;
+    private const int BUTTON_GAP = 8;
+    private const int BOTTOM = 4;
+    private const int LEAVE_SIZE = 22;
     private const int PADDING = 8;
-    private const int SEARCH_HEIGHT = 56;
-    private const int READY_HEIGHT = 122;
     private const int TOP = 4;
 
     private readonly CustomButton AcceptButton;
@@ -27,7 +32,6 @@ public sealed class TcgQueueBar : UIPanel
     private readonly Func<bool> IsMatchOpen;
     private readonly CustomButton LeaveButton;
     private readonly int ScreenWidth;
-    private readonly UILabel Sub;
     private readonly UILabel Title;
 
     public TcgQueueBar(int screenWidth, Func<bool> isMatchOpen)
@@ -35,9 +39,9 @@ public sealed class TcgQueueBar : UIPanel
         Name = "TcgQueueBar";
         IsMatchOpen = isMatchOpen;
         ScreenWidth = screenWidth;
-        Width = BAR_WIDTH;
+        Width = SEARCH_WIDTH;
         Height = SEARCH_HEIGHT;
-        X = (screenWidth - BAR_WIDTH) / 2;
+        X = (screenWidth - SEARCH_WIDTH) / 2;
         Y = TOP;
         Visible = false;
         BackgroundColor = new Color(28, 20, 12);
@@ -46,41 +50,30 @@ public sealed class TcgQueueBar : UIPanel
         Title = new UILabel
         {
             X = PADDING,
-            Y = 6,
-            Width = BAR_WIDTH - (2 * PADDING),
+            Y = (SEARCH_HEIGHT - 20) / 2,
+            Width = SEARCH_WIDTH - (2 * PADDING),
             Height = 20,
             ForegroundColor = LegendColors.Gold,
-            HorizontalAlignment = HorizontalAlignment.Center,
+            HorizontalAlignment = HorizontalAlignment.Left,
             IsHitTestVisible = false
         };
 
-        Sub = new UILabel
+        LeaveButton = new CustomButton("x", LEAVE_SIZE)
         {
-            X = PADDING,
-            Y = 30,
-            Width = BAR_WIDTH - (2 * PADDING),
-            Height = 20,
-            ForegroundColor = LegendColors.White,
-            HorizontalAlignment = HorizontalAlignment.Center,
-            IsHitTestVisible = false
+            X = SEARCH_WIDTH - LEAVE_SIZE - 2,
+            Y = 2
         };
 
-        LeaveButton = new CustomButton("Leave", BUTTON_WIDTH)
+        AcceptButton = new CustomButton("Accept", ACCEPT_WIDTH)
         {
-            X = (BAR_WIDTH - BUTTON_WIDTH) / 2,
-            Y = SEARCH_HEIGHT - CustomButton.HEIGHT - PADDING
+            X = (READY_WIDTH - (ACCEPT_WIDTH + BUTTON_GAP + ACCEPT_WIDTH)) / 2,
+            Y = READY_HEIGHT - CustomButton.HEIGHT - BOTTOM
         };
 
-        AcceptButton = new CustomButton("Accept", BUTTON_WIDTH)
+        DeclineButton = new CustomButton("Decline", ACCEPT_WIDTH)
         {
-            X = (BAR_WIDTH / 2) - BUTTON_WIDTH - 4,
-            Y = READY_HEIGHT - CustomButton.HEIGHT - PADDING
-        };
-
-        DeclineButton = new CustomButton("Decline", BUTTON_WIDTH)
-        {
-            X = BAR_WIDTH / 2 + 4,
-            Y = READY_HEIGHT - CustomButton.HEIGHT - PADDING
+            X = ((READY_WIDTH - (ACCEPT_WIDTH + BUTTON_GAP + ACCEPT_WIDTH)) / 2) + ACCEPT_WIDTH + BUTTON_GAP,
+            Y = READY_HEIGHT - CustomButton.HEIGHT - BOTTOM
         };
 
         LeaveButton.Clicked += () => LeaveClicked?.Invoke();
@@ -88,7 +81,6 @@ public sealed class TcgQueueBar : UIPanel
         DeclineButton.Clicked += () => DeclineClicked?.Invoke();
 
         AddChild(Title);
-        AddChild(Sub);
         AddChild(LeaveButton);
         AddChild(AcceptButton);
         AddChild(DeclineButton);
@@ -116,33 +108,50 @@ public sealed class TcgQueueBar : UIPanel
         switch (ranked.Mode)
         {
             case TcgQueueMode.Searching:
+                Width = SEARCH_WIDTH;
                 Height = SEARCH_HEIGHT;
-                X = (ScreenWidth - BAR_WIDTH) / 2;
+                X = (ScreenWidth - Width) / 2;
                 Title.Text = ranked.QueueText(now);
-                Sub.Visible = false;
+                Title.X = PADDING;
+                Title.Y = (Height - Title.Height) / 2;
+                Title.Width = (Width - LEAVE_SIZE - 2) - PADDING - 4;
+                Title.HorizontalAlignment = HorizontalAlignment.Left;
                 LeaveButton.Visible = true;
+                LeaveButton.X = Width - LEAVE_SIZE - 2;
+                LeaveButton.Y = 2;
                 AcceptButton.Visible = false;
                 DeclineButton.Visible = false;
 
                 break;
 
             case TcgQueueMode.ReadyCheck:
+                Width = READY_WIDTH;
                 Height = READY_HEIGHT;
-                X = (ScreenWidth - BAR_WIDTH) / 2;
-                Title.Text = "Ranked match found! Accept";
-                Sub.Visible = true;
-                Sub.Text = $"{ranked.SecondsLeft(now)} s";
+                X = (ScreenWidth - Width) / 2;
+                Title.Text = $"Match found! {ranked.SecondsLeft(now)} s";
+                Title.X = PADDING;
+                Title.Y = 4;
+                Title.Width = Width - (2 * PADDING);
+                Title.HorizontalAlignment = HorizontalAlignment.Center;
                 LeaveButton.Visible = false;
                 AcceptButton.Visible = true;
+                AcceptButton.X = (Width - (ACCEPT_WIDTH + BUTTON_GAP + ACCEPT_WIDTH)) / 2;
+                AcceptButton.Y = Height - CustomButton.HEIGHT - BOTTOM;
                 DeclineButton.Visible = true;
+                DeclineButton.X = AcceptButton.X + ACCEPT_WIDTH + BUTTON_GAP;
+                DeclineButton.Y = Height - CustomButton.HEIGHT - BOTTOM;
 
                 break;
 
             default:
+                Width = SEARCH_WIDTH;
                 Height = SEARCH_HEIGHT;
-                X = (ScreenWidth - BAR_WIDTH) / 2;
-                Title.Text = $"Waiting for opponent... {ranked.SecondsLeft(now)}";
-                Sub.Visible = false;
+                X = (ScreenWidth - Width) / 2;
+                Title.Text = $"Waiting... {ranked.SecondsLeft(now)}";
+                Title.X = PADDING;
+                Title.Y = (Height - Title.Height) / 2;
+                Title.Width = Width - (2 * PADDING);
+                Title.HorizontalAlignment = HorizontalAlignment.Center;
                 LeaveButton.Visible = false;
                 AcceptButton.Visible = false;
                 DeclineButton.Visible = false;
