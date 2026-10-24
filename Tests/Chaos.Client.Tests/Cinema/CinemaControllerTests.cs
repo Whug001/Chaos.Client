@@ -44,6 +44,15 @@ public class CinemaControllerTests
     private readonly List<FakeVideo> Videos = [];
     private bool NextThrows;
 
+    private CinemaController MakeWithReady(Func<bool> ready)
+        => new(() =>
+        {
+            var video = new FakeVideo { ThrowOnOpen = NextThrows };
+            Videos.Add(video);
+
+            return video;
+        }, ready);
+
     private CinemaController Make()
         => new(() =>
         {
@@ -438,5 +447,92 @@ public class CinemaControllerTests
         c.Update(20_000);
         video.Seeks.Should().HaveCount(2);
         video.Seeks.Last().Should().Be(80_000);
+    }
+
+    [Test]
+    public void Apply_while_video_not_ready_waits_without_creating_video()
+    {
+        var ready = false;
+        var c = MakeWithReady(() => ready);
+
+        c.Apply(Film(), 1000, null);
+
+        Videos.Should().BeEmpty();
+        c.Status.Should().Be(CinemaStatus.Playing);
+        c.IsShowing.Should().BeTrue();
+    }
+
+    [Test]
+    public void Becoming_ready_opens_at_the_expected_position()
+    {
+        var ready = false;
+        var c = MakeWithReady(() => ready);
+
+        c.Apply(Film(positionMs: 10_000), 1000, null);
+        Videos.Should().BeEmpty();
+
+        ready = true;
+        c.Update(4000);
+
+        Videos.Should().ContainSingle();
+        Videos[0].OpenedAtMs.Should().Be(13_000);
+    }
+
+    [Test]
+    public void Paused_film_waits_then_opens_paused_at_its_position()
+    {
+        var ready = false;
+        var c = MakeWithReady(() => ready);
+
+        c.Apply(Film(positionMs: 10_000, paused: true), 1000, null);
+
+        ready = true;
+        c.Update(4000);
+
+        Videos.Should().ContainSingle();
+        Videos[0].OpenedAtMs.Should().Be(10_000);
+        Videos[0].LastPaused.Should().BeTrue();
+    }
+
+    [Test]
+    public void Stop_while_waiting_cancels_the_pending_open()
+    {
+        var ready = false;
+        var c = MakeWithReady(() => ready);
+
+        c.Apply(Film(), 1000, null);
+        c.Stop();
+
+        ready = true;
+        c.Update(4000);
+
+        Videos.Should().BeEmpty();
+    }
+
+    [Test]
+    public void Hide_video_while_waiting_cancels_the_pending_open()
+    {
+        var ready = false;
+        var c = MakeWithReady(() => ready);
+
+        c.Apply(Film(), 1000, null);
+        c.SetShowVideo(false, 2000);
+
+        ready = true;
+        c.Update(4000);
+
+        Videos.Should().BeEmpty();
+    }
+
+    [Test]
+    public void Ready_from_the_start_opens_at_apply()
+    {
+        var c = MakeWithReady(() => true);
+
+        c.Apply(Film(), 1000, 200);
+
+        Videos.Should().ContainSingle();
+        Videos[0].OpenedAtMs.Should().Be(60_100);
+        c.Status.Should().Be(CinemaStatus.Playing);
     }
 }

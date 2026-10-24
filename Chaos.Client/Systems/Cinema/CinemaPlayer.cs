@@ -20,6 +20,30 @@ public sealed class CinemaPlayer : ICinemaVideo
         return new LibVLC("--no-video-title-show");
     });
 
+    private static int WarmStarted;
+    private static volatile bool WarmFailed;
+
+    /// <summary>starts LibVLC on a worker thread so the first film does not stall the game; safe to call every frame.</summary>
+    public static void Warm()
+    {
+        if (Interlocked.Exchange(ref WarmStarted, 1) == 1)
+            return;
+
+        Task.Run(() =>
+        {
+            try
+            {
+                _ = Vlc.Value;
+            } catch (Exception)
+            {
+                WarmFailed = true;
+            }
+        });
+    }
+
+    /// <summary>true once LibVLC has started, or once starting it failed (then building a player throws and the controller shows Film unavailable).</summary>
+    public static bool IsReady => Vlc.IsValueCreated || WarmFailed;
+
     private readonly GraphicsDevice Device;
     private readonly MediaPlayer Player;
     private readonly nint Buffer;

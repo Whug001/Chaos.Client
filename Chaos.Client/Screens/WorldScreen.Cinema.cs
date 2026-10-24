@@ -17,8 +17,10 @@ public sealed partial class WorldScreen
 
     private void WireCinema()
     {
-        Cinema = new CinemaController(() => new CinemaPlayer(Device));
+        Cinema = new CinemaController(() => new CinemaPlayer(Device), () => CinemaPlayer.IsReady);
         Cinema.SetShowVideo(!ClientSettings.CinemaHideVideo, Environment.TickCount64);
+        if (!ClientSettings.CinemaHideVideo)
+            CinemaPlayer.Warm();
         Game.Connection.OnCinemaState += HandleCinemaState;
     }
 
@@ -43,6 +45,9 @@ public sealed partial class WorldScreen
         var now = Environment.TickCount64;
         Cinema.SetShowVideo(!ClientSettings.CinemaHideVideo, now);
         Cinema.SetVolume(ClientSettings.CinemaVolume, ClientSettings.CinemaMute);
+        if (!ClientSettings.CinemaHideVideo)
+            CinemaPlayer.Warm();
+
         Cinema.Update(now);
         Game.SoundSystem.SetCinemaDuck(Cinema.ShouldDuckMusic(ClientSettings.CinemaLowerMusic));
     }

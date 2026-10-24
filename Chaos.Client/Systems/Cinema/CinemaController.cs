@@ -18,7 +18,7 @@ public enum CinemaStatus
 ///     Keeps a video player in step with the server's <see cref="CinemaStateArgs" />. Times are the caller's
 ///     millisecond clock (Environment.TickCount64 in the game).
 /// </summary>
-public sealed class CinemaController(Func<ICinemaVideo> createVideo)
+public sealed class CinemaController(Func<ICinemaVideo> createVideo, Func<bool>? videoReady = null)
 {
     private long AnchorNowMs;
     private long AnchorPositionMs;
@@ -26,6 +26,7 @@ public sealed class CinemaController(Func<ICinemaVideo> createVideo)
     private long RetryAtMs;
     private long EndedSinceMs;
     private bool ShowVideo = true;
+    private bool WaitingForVideo;
     private int Volume = 80;
     private bool Mute;
 
@@ -84,6 +85,14 @@ public sealed class CinemaController(Func<ICinemaVideo> createVideo)
     {
         if (State is null || !ShowVideo)
             return;
+
+        if (WaitingForVideo)
+        {
+            if (videoReady!())
+                Open(ExpectedPositionMs(nowMs), nowMs);
+
+            return;
+        }
 
         if (Status == CinemaStatus.Unavailable)
         {
@@ -156,6 +165,8 @@ public sealed class CinemaController(Func<ICinemaVideo> createVideo)
         {
             DisposeVideo();
 
+            WaitingForVideo = false;
+
             if (State is not null)
                 Status = CinemaStatus.Playing;
 
@@ -179,6 +190,7 @@ public sealed class CinemaController(Func<ICinemaVideo> createVideo)
     public void Stop()
     {
         DisposeVideo();
+        WaitingForVideo = false;
         State = null;
         Status = CinemaStatus.Idle;
     }
@@ -190,6 +202,16 @@ public sealed class CinemaController(Func<ICinemaVideo> createVideo)
     {
         EndedSinceMs = 0;
         DisposeVideo();
+
+        if ((videoReady is not null) && !videoReady())
+        {
+            WaitingForVideo = true;
+            Status = CinemaStatus.Playing;
+
+            return;
+        }
+
+        WaitingForVideo = false;
 
         ICinemaVideo? video = null;
 
