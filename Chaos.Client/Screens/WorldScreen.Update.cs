@@ -295,6 +295,8 @@ public sealed partial class WorldScreen
                 songAnswer.N3,
                 songAnswer.N4);
 
+        UpdateCinema();
+
         //theatre spotlights first: they feed both the light sources and the house darkness
         UpdateSpotlights();
 

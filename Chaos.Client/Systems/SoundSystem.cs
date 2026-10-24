@@ -72,6 +72,7 @@ public sealed class SoundSystem : IDisposable, ITuneOutput
     private int SfxVolume = SdlMixer.MIX_MAX_VOLUME;
     private long SoundCacheTimestamp;
     private readonly MusicDuck Duck = new();
+    private readonly MusicDuck CinemaDuck = new() { DuckedLevel = 0.2, FadeDownSeconds = 1, FadeUpSeconds = 2 };
     private long LastUpdateTimestamp;
     //the chunk on each tune channel, indexed from FIRST_TUNE_CHANNEL; freed only once that channel has been halted or
     //has finished, so the mixer never reads a freed chunk
@@ -279,17 +280,23 @@ public sealed class SoundSystem : IDisposable, ITuneOutput
             list.Add(channel);
     }
 
+    private int DuckedMusicVolume() => (int)Math.Round(MusicVolumeValue * Duck.Level * CinemaDuck.Level);
+
     /// <summary>
     ///     Sets the music volume. Range: 0 (mute) to 10 (max). Applies immediately to the currently playing track; while
-    ///     a College tune holds the music down, the new volume is reached when the music fades back in.
+    ///     a College tune or a film in the cinema hall holds the music down, the new volume is reached when the music
+    ///     fades back in.
     /// </summary>
     public void SetMusicVolume(int volume)
     {
         MusicVolumeValue = Math.Clamp(volume, 0, VOLUME_STEPS) * VOLUME_SCALE;
 
         if (Initialized)
-            SdlMixer.Mix_VolumeMusic(Duck.Apply(MusicVolumeValue));
+            SdlMixer.Mix_VolumeMusic(DuckedMusicVolume());
     }
+
+    /// <summary>Lowers the map music while a film plays, and brings it back after.</summary>
+    public void SetCinemaDuck(bool on) => CinemaDuck.Ducked = on;
 
     /// <summary>
     ///     Sets the sound effect volume. Range: 0 (mute) to 10 (max). Future plays use the new volume; sounds already in
@@ -448,8 +455,8 @@ public sealed class SoundSystem : IDisposable, ITuneOutput
         var elapsed = LastUpdateTimestamp == 0 ? 0 : (now - LastUpdateTimestamp) / (double)Stopwatch.Frequency;
         LastUpdateTimestamp = now;
 
-        if (Duck.Step(elapsed))
-            SdlMixer.Mix_VolumeMusic(Duck.Apply(MusicVolumeValue));
+        if (Duck.Step(elapsed) | CinemaDuck.Step(elapsed))
+            SdlMixer.Mix_VolumeMusic(DuckedMusicVolume());
 
         //detect fade-out completion and start the queued track (if any)
         if (MusicFadingOut && (SdlMixer.Mix_PlayingMusic() == 0))

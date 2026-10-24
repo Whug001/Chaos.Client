@@ -40,4 +40,24 @@ public class MusicDuckTests
         duck.Step(0.5).Should().BeFalse();
         duck.Apply(96).Should().Be(96);
     }
+
+    [Test]
+    public void Cinema_duck_stops_at_its_level_and_rises_slower()
+    {
+        var duck = new MusicDuck { DuckedLevel = 0.2, FadeDownSeconds = 1, FadeUpSeconds = 2, Ducked = true };
+
+        duck.Step(0.5).Should().BeTrue();
+        duck.Level.Should().BeApproximately(0.6, 1e-9);
+
+        duck.Step(5).Should().BeTrue();
+        duck.Level.Should().BeApproximately(0.2, 1e-9);
+        duck.Step(1).Should().BeFalse();
+
+        duck.Ducked = false;
+        duck.Step(1).Should().BeTrue();
+        duck.Level.Should().BeApproximately(0.6, 1e-9);
+
+        duck.Step(5).Should().BeTrue();
+        duck.Level.Should().Be(1);
+    }
 }

@@ -13,6 +13,7 @@ public enum SettingSection
     MapEffects,
     DamageNumbers,
     Sound,
+    Cinema,
     Interaction,
     Hotbars,
     Hotbar1,
@@ -109,7 +110,11 @@ public enum SettingKey
     Hotbar3Locked,
     Hotbar3Dock,
     Hotbar4Locked,
-    Hotbar4Dock
+    Hotbar4Dock,
+    CinemaVolume,
+    CinemaMute,
+    CinemaHideVideo,
+    CinemaLowerMusic
 }
 
 /// <summary>
@@ -329,6 +334,42 @@ public static class SettingDefinitions
         new(SettingKey.ListenToHitSounds, "Listen to hit sounds", SettingSection.Sound, SettingCategory.ServerOption, UserOption.ListenToHitSounds),
         new(SettingKey.WhisperSound, "Sound on whisper", SettingSection.Sound, SettingCategory.ServerOption, UserOption.WhisperSound),
 
+        //── Cinema ──
+        new(
+            SettingKey.CinemaVolume,
+            "Film volume",
+            SettingSection.Cinema,
+            SettingCategory.ClientLocal,
+            Span: SettingSpan.Full,
+            GetSliderValue: () => ClientSettings.CinemaVolume / 10,
+            SetSliderValue: v =>
+            {
+                ClientSettings.CinemaVolume = v * 10;
+                ClientSettings.Save();
+            }),
+        new(
+            SettingKey.CinemaMute,
+            "Mute film sound",
+            SettingSection.Cinema,
+            SettingCategory.ClientLocal,
+            Get: () => ClientSettings.CinemaMute,
+            Set: v => ClientSettings.CinemaMute = v),
+        new(
+            SettingKey.CinemaHideVideo,
+            "Don't show video",
+            SettingSection.Cinema,
+            SettingCategory.ClientLocal,
+            Get: () => ClientSettings.CinemaHideVideo,
+            Set: v => ClientSettings.CinemaHideVideo = v),
+        new(
+            SettingKey.CinemaLowerMusic,
+            "Lower game music during films",
+            SettingSection.Cinema,
+            SettingCategory.ClientLocal,
+            Get: () => ClientSettings.CinemaLowerMusic,
+            Set: v => ClientSettings.CinemaLowerMusic = v,
+            Span: SettingSpan.Full),
+
         //── Interaction ──
         new(SettingKey.LockGear, "Lock gear", SettingSection.Interaction, SettingCategory.ServerOption, UserOption.LockGear),
         new(SettingKey.AllowExchanges, "Allow exchanges", SettingSection.Interaction, SettingCategory.ServerOption, UserOption.AllowExchange),
@@ -461,6 +502,7 @@ public static class SettingDefinitions
         SettingSection.MapEffects,
         SettingSection.DamageNumbers,
         SettingSection.Sound,
+        SettingSection.Cinema,
         SettingSection.Interaction,
         SettingSection.Hotbars,
         SettingSection.Hotbar1,
