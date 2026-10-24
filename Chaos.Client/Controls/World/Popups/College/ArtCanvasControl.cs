@@ -1,6 +1,7 @@
 #region
 using Chaos.Client.Controls.Components;
 using Chaos.Client.Controls.Custom;
+using Chaos.Client.Controls.World.Popups.College.Library;
 using Chaos.Client.Controls.World.Popups.GuildCloak;
 using Chaos.Client.Controls.World.Popups.Theatre;
 using Chaos.Client.Definitions;
@@ -9,6 +10,7 @@ using Chaos.Client.Rendering;
 using Chaos.Client.Rendering.Definitions;
 using Chaos.Client.Systems.College;
 using Chaos.Client.ViewModel.College;
+using Chaos.Client.ViewModel.College.Library;
 using Chaos.DarkAges.Definitions;
 using Chaos.Networking.Entities.Client;
 using Chaos.Networking.Entities.Server;
@@ -21,7 +23,8 @@ public enum ArtCanvasMode
 {
     Draft,
     HandIn,
-    Picture
+    Picture,
+    Library
 }
 
 /// <summary>
@@ -59,6 +62,8 @@ public sealed class ArtCanvasControl : GuildCloakDialogBase
     private const int OK_RIGHT_MARGIN = 20;
     private const int OK_BOTTOM_MARGIN = 3;
     private const string CONFIRM_SUBMIT_CAPTION = "Yes, submit";
+    private const string LIBRARY_CONFIRM_SUBMIT_CAPTION = "Yes, send";
+    private const string UPLOADING_COVER = "Uploading cover...";
     private const string DRAW_MORE = "Draw more before entering it.";
     private const string DRAW_MORE_HAND_IN = "Draw more before handing it in.";
     private const string SAVING = "Saving...";
@@ -96,10 +101,33 @@ public sealed class ArtCanvasControl : GuildCloakDialogBase
     private string SavedTitle = string.Empty;
     private CollegeDisplayArgs? Session;
     private bool SubmitArmed;
+    private int LibraryBookId;
+    private int AwaitingLibraryReplies; //Library saves and sends waiting for a WriterResult; a late reply for the book open before this one is ignored
+    private byte SavedSpine;
+    private readonly LibraryBookOptions LibraryOptions;
+    private string CoverHash = string.Empty;
+    private string SavedCoverHash = string.Empty;
+    private string CoverUpload = string.Empty;
+    private string CoverBeforeUpload = string.Empty;
+    private byte SentSpine;
+    private string SentCoverHash = string.Empty;
+    private Task<(PreparedPicture? Picture, string Error)>? CoverPicking;
+    private CollegeDisplayArgs? CoverPickingSession;
+    private bool CoverChoiceOpen;
+    private readonly CustomButton CoverUploadButton;
+    private readonly CustomButton CoverClearButton;
+    private readonly CollegePictureTransfers? CoverTransfers;
+    private readonly nint GameWindow;
 
-    public ArtCanvasControl()
+    public ArtCanvasControl(CollegePictureTransfers? transfers = null, nint gameWindow = 0)
         : base("_nsett", false)
     {
+        CoverTransfers = transfers;
+        GameWindow = gameWindow;
+
+        if (CoverTransfers is not null)
+            CoverTransfers.UploadFinished += OnUploadFinished;
+
         Name = "ArtCanvas";
         Visible = false;
         UsesControlStack = true;
@@ -220,6 +248,26 @@ public sealed class ArtCanvasControl : GuildCloakDialogBase
         Status = Caption(string.Empty, STATUS_X, footerTextY, LEFT + INNER_WIDTH - COUNTER_WIDTH - 4 - STATUS_X);
         NoteCounter = Caption(string.Empty, LEFT + INNER_WIDTH - COUNTER_WIDTH, footerTextY, COUNTER_WIDTH, HorizontalAlignment.Right, LegendColors.Gray);
 
+        LibraryOptions = new LibraryBookOptions
+        {
+            X = LEFT,
+            Y = NOTE_TOP,
+            Visible = false
+        };
+
+        LibraryOptions.Changed += () =>
+        {
+            DisarmSubmit();
+            CloseArmed = false;
+        };
+
+        LibraryOptions.CoverRequested += ShowCoverChoice;
+        AddChild(LibraryOptions);
+
+        CoverUploadButton = AddButton("Upload", 60, LEFT, NOTE_TOP, OnCoverUploadClicked);
+        CoverClearButton = AddButton("No cover", 70, LEFT + 66, NOTE_TOP, OnCoverClearClicked);
+        HideCoverChoice();
+
         Picker = new StageColorPicker
         {
             X = PALETTE_X - 132,
@@ -242,11 +290,23 @@ public sealed class ArtCanvasControl : GuildCloakDialogBase
 
     public ArtCanvasMode Mode { get; private set; }
 
+    public override void Dispose()
+    {
+        if (CoverTransfers is not null)
+            CoverTransfers.UploadFinished -= OnUploadFinished;
+
+        base.Dispose();
+    }
+
     private bool IsDirty
-        => Editor.Drawing.IsDirty || ((Mode != ArtCanvasMode.Picture) && ((TitleBox.Text != SavedTitle) || (NoteBox.Text != SavedNote)));
+        => Editor.Drawing.IsDirty || ((Mode != ArtCanvasMode.Picture) && ((TitleBox.Text != SavedTitle) || (NoteBox.Text != SavedNote)))
+            || ((Mode == ArtCanvasMode.Library) && ((CoverHash != SavedCoverHash) || (LibraryOptions.Spine != SavedSpine)));
+
+    private bool LibraryMode => Mode == ArtCanvasMode.Library;
 
     private string SubmitCaption
         => Mode == ArtCanvasMode.HandIn ? "Hand in"
+            : Mode == ArtCanvasMode.Library ? "Send for review"
             : Session?.FreeEntries > 0 ? "Submit (free entry)"
             : $"Submit ({Session?.EntryCost} {Marks(Session?.EntryCost ?? 0)})";
 
@@ -255,7 +315,30 @@ public sealed class ArtCanvasControl : GuildCloakDialogBase
     {
         var wasHandIn = Visible && (Mode == ArtCanvasMode.HandIn);
         Session = args;
-        Mode = args.Mode == CollegeWriterMode.HandIn ? ArtCanvasMode.HandIn : ArtCanvasMode.Draft;
+        Mode = args.Mode switch
+        {
+            CollegeWriterMode.HandIn => ArtCanvasMode.HandIn,
+            CollegeWriterMode.Library => ArtCanvasMode.Library,
+            _ => ArtCanvasMode.Draft
+        };
+
+        var library = Mode == ArtCanvasMode.Library;
+
+        if (library)
+        {
+            LibraryBookId = args.Id;
+            CoverHash = args.Hash;
+            AwaitingLibraryReplies = 0;
+            SavedCoverHash = args.Hash;
+            SavedSpine = args.Spine;
+            CoverUpload = string.Empty;
+            CoverBeforeUpload = string.Empty;
+            LibraryOptions.Load(LibraryShelfCode.Artwork, args.Spine, args.Hash, true);
+        }
+
+        SaveButton.Enabled = true;
+        SubmitButton.Enabled = true;
+        HideCoverChoice();
         ReplacingHash = null;
 
         Editor.Load(
@@ -268,6 +351,7 @@ public sealed class ArtCanvasControl : GuildCloakDialogBase
 
         CaptionLabel.Text = Mode == ArtCanvasMode.HandIn
             ? OneLine(args.Prompt.Length > 0 ? $"Hand-in: {args.Prompt}" : "Art: class hand-in")
+            : library ? $"Library: {LibraryLabels.ShelfName(LibraryOptions.Shelf)}"
             : "Art: draft";
 
         Begin();
@@ -304,7 +388,24 @@ public sealed class ArtCanvasControl : GuildCloakDialogBase
         if (Session is null || (Mode == ArtCanvasMode.Picture) || (args.Mode != Session.Mode) || (args.Subject != Session.Subject))
             return false;
 
+        if (LibraryMode)
+        {
+            if (!LibraryReplyGuard.ShouldTake(AwaitingLibraryReplies, LibraryBookId, args.Id))
+                return false;
+
+            AwaitingLibraryReplies--;
+        }
+
         Status.Text = args.Message;
+
+        if (LibraryMode && (args.Id != 0))
+            LibraryBookId = args.Id;
+
+        if (LibraryMode && (args.Result is CollegeWriterResult.Saved or CollegeWriterResult.Submitted))
+        {
+            SavedCoverHash = SentCoverHash;
+            SavedSpine = SentSpine;
+        }
 
         switch (args.Result)
         {
@@ -342,7 +443,7 @@ public sealed class ArtCanvasControl : GuildCloakDialogBase
 
     public void SaveIfDirty()
     {
-        if (Visible && Session is not null && (Mode == ArtCanvasMode.Draft) && IsDirty)
+        if (Visible && Session is not null && ((Mode == ArtCanvasMode.Draft) || LibraryMode) && IsDirty)
             Send(CollegeActionType.SaveDraft);
     }
 
@@ -364,7 +465,9 @@ public sealed class ArtCanvasControl : GuildCloakDialogBase
     {
         if (e.Keycode == Keycode.Escape)
         {
-            if (Picker.Visible)
+            if (CoverChoiceOpen)
+                HideCoverChoice();
+            else if (Picker.Visible)
                 ClosePicker();
             else
                 OnCloseClicked();
@@ -393,12 +496,21 @@ public sealed class ArtCanvasControl : GuildCloakDialogBase
 
     public override void Update(GameTime gameTime)
     {
+        FinishCoverPicking();
+
         if (Visible)
         {
             var counter = $"{NoteBox.Text.Length}/{CollegeProtocol.MAX_ART_NOTE_CHARS}";
 
             if (NoteCounter.Text != counter)
                 NoteCounter.Text = counter;
+
+            if (LibraryMode)
+            {
+                var coverReady = CoverUpload.Length == 0;
+                SaveButton.Enabled = coverReady;
+                SubmitButton.Enabled = coverReady;
+            }
         }
 
         base.Update(gameTime);
@@ -413,13 +525,16 @@ public sealed class ArtCanvasControl : GuildCloakDialogBase
         ClosingOnSave = false;
         ClosePicker();
 
+        HideCoverChoice();
         var picture = Mode == ArtCanvasMode.Picture;
+        var library = Mode == ArtCanvasMode.Library;
         TitleBox.Visible = !picture;
-        NoteBox.Visible = !picture;
-        NoteCounter.Visible = !picture;
+        NoteBox.Visible = !picture && !library;
+        NoteCounter.Visible = !picture && !library;
         TitleBox.IsFocused = false;
         NoteBox.IsFocused = false;
-        SaveButton.Visible = Mode == ArtCanvasMode.Draft;
+        SaveButton.Visible = (Mode == ArtCanvasMode.Draft) || library;
+        LibraryOptions.Visible = library;
         SubmitButton.Visible = !picture;
         SubmitButton.X = Mode == ArtCanvasMode.HandIn ? LEFT : SUBMIT_X;
         InsertButton.Visible = picture;
@@ -490,8 +605,15 @@ public sealed class ArtCanvasControl : GuildCloakDialogBase
         DisarmSubmit();
         CloseArmed = false;
 
-        if ((Mode != ArtCanvasMode.Draft) || Session is null)
+        if (((Mode != ArtCanvasMode.Draft) && !LibraryMode) || Session is null)
             return;
+
+        if (LibraryMode && (CoverUpload.Length > 0))
+        {
+            Status.Text = UPLOADING_COVER;
+
+            return;
+        }
 
         Status.Text = SAVING;
         Send(CollegeActionType.SaveDraft);
@@ -519,6 +641,14 @@ public sealed class ArtCanvasControl : GuildCloakDialogBase
             return;
         }
 
+        if (LibraryMode && (CoverUpload.Length > 0))
+        {
+            DisarmSubmit();
+            Status.Text = UPLOADING_COVER;
+
+            return;
+        }
+
         if (TitleBox.Text.Trim().Length == 0)
         {
             DisarmSubmit();
@@ -538,11 +668,19 @@ public sealed class ArtCanvasControl : GuildCloakDialogBase
         if (!SubmitArmed)
         {
             SubmitArmed = true;
-            SubmitButton.Caption = CONFIRM_SUBMIT_CAPTION;
 
-            Status.Text = Session.FreeEntries > 0
-                ? "Use your free entry? Click Yes, submit."
-                : $"Enter it for {Session.EntryCost} {Marks(Session.EntryCost)}? Click Yes, submit.";
+            if (LibraryMode)
+            {
+                SubmitButton.Caption = LIBRARY_CONFIRM_SUBMIT_CAPTION;
+                Status.Text = "Send this book for review? Click Yes, send.";
+            } else
+            {
+                SubmitButton.Caption = CONFIRM_SUBMIT_CAPTION;
+
+                Status.Text = Session.FreeEntries > 0
+                    ? "Use your free entry? Click Yes, submit."
+                    : $"Enter it for {Session.EntryCost} {Marks(Session.EntryCost)}? Click Yes, submit.";
+            }
 
             return;
         }
@@ -567,8 +705,15 @@ public sealed class ArtCanvasControl : GuildCloakDialogBase
         DisarmSubmit();
 
         //a second Close while the save is on its way hides anyway; a refusal still brings the piece back
-        if ((Mode == ArtCanvasMode.Draft) && Session is not null && !ClosingOnSave && IsDirty)
+        if (((Mode == ArtCanvasMode.Draft) || LibraryMode) && Session is not null && !ClosingOnSave && IsDirty)
         {
+            if (LibraryMode && (CoverUpload.Length > 0))
+            {
+                Status.Text = UPLOADING_COVER;
+
+                return;
+            }
+
             ClosingOnSave = true;
             Status.Text = SAVING;
             Send(CollegeActionType.SaveDraft);
@@ -576,7 +721,7 @@ public sealed class ArtCanvasControl : GuildCloakDialogBase
             return;
         }
 
-        if ((Mode != ArtCanvasMode.Draft) && IsDirty && !CloseArmed)
+        if ((Mode != ArtCanvasMode.Draft) && !LibraryMode && IsDirty && !CloseArmed)
         {
             CloseArmed = true;
             Status.Text = Mode == ArtCanvasMode.HandIn ? "Close without handing in? Click Close again." : "Close without inserting? Click again.";
@@ -591,6 +736,39 @@ public sealed class ArtCanvasControl : GuildCloakDialogBase
 
     private void Send(CollegeActionType type)
     {
+        var library = LibraryMode;
+
+        if (library)
+        {
+            SentSpine = LibraryOptions.Spine;
+            SentCoverHash = CoverHash;
+        }
+        else
+        {
+            SentSpine = 0;
+            SentCoverHash = string.Empty;
+        }
+
+        if (library)
+        {
+            type = type switch
+            {
+                CollegeActionType.SaveDraft => CollegeActionType.LibrarySaveDraft,
+                CollegeActionType.Submit => CollegeActionType.LibrarySend,
+                _ => type
+            };
+
+            if (CoverUpload.Length > 0)
+            {
+                Status.Text = UPLOADING_COVER;
+
+                return;
+            }
+        }
+
+        if (library)
+            AwaitingLibraryReplies++;
+
         var blocks = new List<CollegeBlockInfo>
         {
             new()
@@ -614,11 +792,157 @@ public sealed class ArtCanvasControl : GuildCloakDialogBase
                     Subject = CollegeSubjectCode.Art,
                     Title = TitleBox.Text.Trim(),
                     Blocks = blocks
-                }
+                },
+                Id = library ? LibraryBookId : 0,
+                Shelf = library ? LibraryOptions.Shelf : default,
+                Spine = library ? LibraryOptions.Spine : (byte)0,
+                Hash = library ? CoverHash : string.Empty
             });
 
         //marked saved as it is sent, so drawing done while the reply is on its way still counts as a change
         MarkSaved();
+    }
+
+    private void OnCoverUploadClicked()
+    {
+        if (CoverPicking is not null || !LibraryMode)
+            return;
+
+        if (CoverTransfers is null)
+        {
+            Status.Text = "Cover upload isn't ready.";
+
+            return;
+        }
+
+        DisarmSubmit();
+        CloseArmed = false;
+        HideCoverChoice();
+        Status.Text = "Choose a cover...";
+
+        var owner = Sdl.GetWin32Window(GameWindow);
+        CoverPickingSession = Session;
+        CoverPicking = Task.Run(() => PickAndPrepareCoverAsync(owner));
+    }
+
+    private void OnCoverClearClicked()
+    {
+        if (!LibraryMode)
+            return;
+
+        DisarmSubmit();
+        CloseArmed = false;
+
+        if (CoverUpload.Length > 0)
+        {
+            HideCoverChoice();
+            Status.Text = UPLOADING_COVER;
+
+            return;
+        }
+
+        CoverHash = string.Empty;
+        LibraryOptions.CoverHash = string.Empty;
+        HideCoverChoice();
+    }
+
+    private static async Task<(PreparedPicture? Picture, string Error)> PickAndPrepareCoverAsync(nint owner)
+    {
+        var path = await PictureFilePicker.PickAsync(owner);
+
+        if (path is null)
+            return (null, string.Empty);
+
+        if (new FileInfo(path).Length > PicturePrep.MAX_FILE_BYTES)
+            return (null, PicturePrep.FILE_TOO_BIG);
+
+        var picture = PicturePrep.PrepareCover(await File.ReadAllBytesAsync(path), out var error);
+
+        return (picture, error);
+    }
+
+    private void FinishCoverPicking()
+    {
+        if (CoverPicking is not { IsCompleted: true } done)
+            return;
+
+        CoverPicking = null;
+
+        var failed = done.Exception is not null || !done.IsCompletedSuccessfully;
+
+        if (!Visible || !LibraryMode || !ReferenceEquals(CoverPickingSession, Session))
+            return;
+
+        if (failed)
+        {
+            Status.Text = "That file couldn't be opened.";
+
+            return;
+        }
+
+        var (picture, error) = done.Result;
+
+        if (picture is null)
+        {
+            Status.Text = error;
+
+            return;
+        }
+
+        CoverBeforeUpload = CoverHash;
+        CoverUpload = picture.Hash;
+        CoverHash = picture.Hash;
+        LibraryOptions.CoverHash = picture.Hash;
+        Status.Text = UPLOADING_COVER;
+        CoverTransfers!.Upload(picture);
+    }
+
+    private void OnUploadFinished(string hash, bool ok, string message)
+    {
+        if (!LibraryMode || (CoverUpload.Length == 0) || (hash != CoverUpload))
+            return;
+
+        CoverUpload = string.Empty;
+
+        if (ok)
+        {
+            CoverBeforeUpload = string.Empty;
+            Status.Text = "Cover added.";
+
+            return;
+        }
+
+        Status.Text = message.Length > 0 ? message : "That picture was refused.";
+
+        if (CoverHash == hash)
+        {
+            CoverHash = CoverBeforeUpload;
+            LibraryOptions.CoverHash = CoverBeforeUpload;
+        }
+
+        CoverBeforeUpload = string.Empty;
+    }
+
+    private void ShowCoverChoice()
+    {
+        if (!LibraryMode)
+            return;
+
+        DisarmSubmit();
+        CloseArmed = false;
+        CoverChoiceOpen = true;
+        LibraryOptions.Visible = false;
+        CoverUploadButton.Visible = true;
+        CoverClearButton.Visible = CoverHash.Length > 0;
+        Status.Text = "Upload a cover, or press Esc.";
+    }
+
+    private void HideCoverChoice()
+    {
+        CoverChoiceOpen = false;
+        CoverUploadButton.Visible = false;
+        CoverClearButton.Visible = false;
+        LibraryOptions.Visible = LibraryMode;
     }
 
     private void SendHandInWindow(bool open)

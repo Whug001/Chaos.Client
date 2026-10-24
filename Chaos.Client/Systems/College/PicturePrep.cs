@@ -19,20 +19,30 @@ public static class PicturePrep
     public const long MAX_DECODE_PIXELS = 40_000_000;
 
     public static (int Width, int Height) FitSize(int width, int height)
+        => FitWithin(width, height, CollegeProtocol.MAX_PICTURE_WIDTH, CollegeProtocol.MAX_PICTURE_HEIGHT);
+
+    private static (int Width, int Height) FitWithin(int width, int height, int maxWidth, int maxHeight)
     {
-        if ((width <= CollegeProtocol.MAX_PICTURE_WIDTH) && (height <= CollegeProtocol.MAX_PICTURE_HEIGHT))
+        if ((width <= maxWidth) && (height <= maxHeight))
             return (width, height);
 
-        var scale = Math.Min((double)CollegeProtocol.MAX_PICTURE_WIDTH / width, (double)CollegeProtocol.MAX_PICTURE_HEIGHT / height);
+        var scale = Math.Min((double)maxWidth / width, (double)maxHeight / height);
 
         return (Math.Max(1, (int)Math.Floor(width * scale)), Math.Max(1, (int)Math.Floor(height * scale)));
     }
 
     public static string Hash(ReadOnlySpan<byte> bytes) => Convert.ToHexString(SHA256.HashData(bytes)).ToLowerInvariant();
 
+    /// <summary>Turns a picture file into a book cover: at most 240 x 340, refusing files over 20 MB like <see cref="Prepare" />.</summary>
+    public static PreparedPicture? PrepareCover(byte[] file, out string error)
+        => PrepareSized(file, CollegeProtocol.MAX_COVER_WIDTH, CollegeProtocol.MAX_COVER_HEIGHT, MAX_DECODE_PIXELS, out error);
+
     public static PreparedPicture? Prepare(byte[] file, out string error) => Prepare(file, MAX_DECODE_PIXELS, out error);
 
     public static PreparedPicture? Prepare(byte[] file, long maxDecodePixels, out string error)
+        => PrepareSized(file, CollegeProtocol.MAX_PICTURE_WIDTH, CollegeProtocol.MAX_PICTURE_HEIGHT, maxDecodePixels, out error);
+
+    private static PreparedPicture? PrepareSized(byte[] file, int maxWidth, int maxHeight, long maxDecodePixels, out string error)
     {
         error = string.Empty;
 
@@ -56,7 +66,7 @@ public static class PicturePrep
         var origin = codec.EncodedOrigin;
         var turned = IsQuarterTurn(origin);
         var (storedWidth, storedHeight) = (codec.Info.Width, codec.Info.Height);
-        var (width, height) = turned ? FitSize(storedHeight, storedWidth) : FitSize(storedWidth, storedHeight);
+        var (width, height) = turned ? FitWithin(storedHeight, storedWidth, maxWidth, maxHeight) : FitWithin(storedWidth, storedHeight, maxWidth, maxHeight);
         var (fitWidth, fitHeight) = turned ? (height, width) : (width, height);
         var decodeSize = DecodeSize(codec, fitWidth, fitHeight);
 

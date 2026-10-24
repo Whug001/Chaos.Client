@@ -1219,6 +1219,7 @@ public sealed partial class WorldScreen : IScreen
         College?.Transfers.Clear();
         PortraitPictures?.Clear();
         College?.Drawings.Clear();
+        College?.LibraryDrawings.Clear();
         College?.Tunes.Clear();
         College?.Marks.Clear();
         College?.Work.Clear();

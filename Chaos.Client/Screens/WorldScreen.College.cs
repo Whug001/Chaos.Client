@@ -3,6 +3,7 @@ using Chaos.Client.Collections;
 using Chaos.Client.Controls.Components;
 using Chaos.Client.Controls.Generic;
 using Chaos.Client.Controls.World.Popups.College;
+using Chaos.Client.Controls.World.Popups.College.Library;
 using Chaos.Client.Systems.College;
 using Chaos.Client.ViewModel.College;
 using Chaos.DarkAges.Definitions;
@@ -55,6 +56,7 @@ public sealed partial class WorldScreen
     {
         var transfers = new CollegePictureTransfers(SendCollegeAction, new CollegePictureCache());
         var drawings = new CollegeDrawings();
+        var libraryDrawings = new CollegeDrawings();
         var tunes = new CollegeTunes();
 
         //above the reader, which shares the screen's ZIndex 2 with the other popups
@@ -76,7 +78,7 @@ public sealed partial class WorldScreen
             {
                 ZIndex = 2
             },
-            Canvas = new ArtCanvasControl
+            Canvas = new ArtCanvasControl(transfers, Game.Window.Handle)
             {
                 ZIndex = 2
             },
@@ -92,6 +94,23 @@ public sealed partial class WorldScreen
             {
                 ZIndex = 2
             },
+            LibraryCarousel = new LibraryCarouselControl(transfers, libraryDrawings)
+            {
+                ZIndex = 2
+            },
+            LibrarySubmissions = new LibrarySubmissionsControl
+            {
+                ZIndex = 2
+            },
+            LibraryReview = new LibraryReviewControl
+            {
+                ZIndex = 2
+            },
+            LibraryCollegePieces = new LibraryCollegePiecesControl
+            {
+                ZIndex = 2
+            },
+            LibraryDrawings = libraryDrawings,
             Writer = new CollegeWriterControl(transfers, Game.Window.Handle)
             {
                 ZIndex = 2
@@ -214,14 +233,6 @@ public sealed partial class WorldScreen
             windows.BoardSaved.Open();
         };
 
-        windows.PictureCanvas.PictureMade += windows.Writer.InsertDrawnPicture;
-
-        windows.Writer.DrawRequested += (drawing, replacing) =>
-        {
-            BringToFront(windows.PictureCanvas);
-            windows.PictureCanvas.OpenPicture(drawing, replacing);
-        };
-
         Root!.AddChild(windows.Judging);
         Root.AddChild(windows.Gallery);
         Root.AddChild(windows.HandIns);
@@ -248,6 +259,8 @@ public sealed partial class WorldScreen
         Root.AddChild(windows.BoardSaved);
         Root.AddChild(votesPopup);
 
+        BuildLibrary(windows);
+
         return windows;
     }
 
@@ -258,6 +271,9 @@ public sealed partial class WorldScreen
             return;
 
         College ??= BuildCollege();
+
+        if (HandleLibraryDisplay(args))
+            return;
 
         switch (args.Type)
         {
@@ -530,6 +546,11 @@ public sealed partial class WorldScreen
         public required CollegeDrawings Drawings { get; init; }
         public required CollegeGalleryControl Gallery { get; init; }
         public required CollegeHandInsControl HandIns { get; init; }
+        public required LibraryCarouselControl LibraryCarousel { get; init; }
+        public required LibrarySubmissionsControl LibrarySubmissions { get; init; }
+        public required LibraryReviewControl LibraryReview { get; init; }
+        public required LibraryCollegePiecesControl LibraryCollegePieces { get; init; }
+        public required CollegeDrawings LibraryDrawings { get; init; }
         public required CollegeJudgingControl Judging { get; init; }
         public required DebatePanel Debate { get; init; }
         public required DebateVoteCard DebateVote { get; init; }
