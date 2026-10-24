@@ -13,46 +13,36 @@ using Microsoft.Xna.Framework;
 namespace Chaos.Client.Controls.World.Popups.Options;
 
 /// <summary>
-///     Settings panel (F4). Re-skinned into the ornate dialog frame (FramedDialogPanelBase) with checkbox rows grouped into
-///     Display / Sound / Interaction sections, driven by <see cref="SettingDefinitions" />. Same footprint as the legacy
-///     _nsett panel (the prefab is still used for sizing + the OK button; its background is replaced by the frame). The rows
-///     live inside a clipped <see cref="Viewport" />/<see cref="Content" /> pair scrolled by a right-edge
-///     <see cref="ScrollBar" />; the scrollbar is always shown and renders dormant (no thumb, ignores input) while the
-///     content fits, and becomes active automatically once the setting list grows past the viewport.
+///     Settings panel (F4). Re-skinned into the ornate dialog frame (FramedDialogPanelBase) with a clickable category
+///     list on the left (Display, Map effects, Damage numbers, Sound and film, Controls, Hotbars, Chat) and the
+///     selected category's rows on the right, driven by <see cref="SettingDefinitions" />. The right column is
+///     single-column: every row is full width. Same footprint as the legacy _nsett panel (the prefab is still used
+///     for sizing + the OK button; its background is replaced by the frame); the window is widened past the prefab
+///     only when the list plus the longest one-column label needs it, never past 640x480 total. The rows live
+///     inside a clipped <see cref="Viewport" />/<see cref="Content" /> pair scrolled by a right-edge
+///     <see cref="ScrollBar" />; the scrollbar is always shown and renders dormant (no thumb, ignores input) while
+///     the content fits, and becomes active automatically if a category overflows.
 /// </summary>
 public sealed class SettingsControl : FramedDialogPanelBase
 {
-    private const int CONTENT_LEFT = 22;
-    private const int CONTENT_TOP = 28;
-    private const int CONTENT_RIGHT = 22;
-    private const int ROW_HEIGHT = 21;
-    private const int HEADER_HEIGHT = 16;
-    private const int SECTION_GAP = 4;
-    private const int LABEL_GAP = 6;
     private const int OK_RIGHT_MARGIN = 20;
     private const int OK_BOTTOM_MARGIN = 3;
 
-    //help text drawn under a row: one line per TextRenderer.CHAR_HEIGHT, with a small gap above and below the block.
-    private const int HELP_LINE_HEIGHT = TextRenderer.CHAR_HEIGHT;
-    private const int HELP_GAP = 3;
-
-    //height of the frame's bottom border (mirrors FramedDialogPanelBase.BORDER_BOTTOM, which is private); the
-    //scrollable viewport ends above it so scrolled content never overlaps the OK/rivet edge.
-    private const int FRAME_BOTTOM = 47;
-
-    //spacer between the content columns and the scrollbar gutter.
-    private const int GUTTER_GAP = 3;
-
     //pixels scrolled per wheel notch / arrow click.
-    private const int SCROLL_STEP = ROW_HEIGHT;
+    private const int SCROLL_STEP = SettingsLayout.RowHeight;
 
     private readonly Dictionary<SettingKey, CustomCheckBox> Checkboxes = [];
     private readonly Dictionary<SettingKey, CustomComboBox> Combos = [];
     private readonly Dictionary<SettingKey, SliderControl> Sliders = [];
     private readonly Dictionary<SettingKey, UILabel> SliderReadouts = [];
+    private readonly Dictionary<SettingPanelCategory, CustomButton> CategoryButtons = [];
+    private readonly Dictionary<SettingPanelCategory, UIPanel> CategoryPanels = [];
+    private readonly Dictionary<SettingPanelCategory, int> CategoryHeights = [];
+    private readonly Dictionary<int, UIPanel> HotbarBarPanels = [];
+    private readonly Dictionary<int, CustomButton> HotbarPickerButtons = [];
     private readonly UserOptions Options;
 
-    //scrolled surface; its Y is offset negatively to scroll. Rows are children of this.
+    //scrolled surface; its Y is offset negatively to scroll. One child panel per category, toggled on selection.
     private readonly UIPanel Content;
 
     //clip + scroll host wrapping Content; implements IVerticalScrollable in SCROLL_STEP units.
@@ -60,6 +50,10 @@ public sealed class SettingsControl : FramedDialogPanelBase
 
     //owns the always-visible scrollbar (dormant while content fits) + the mouse wheel; clips/sizes Viewport per frame.
     private readonly ScrollViewerControl Viewer;
+
+    //the last-picked category and hotbar bar. Instance state, so reopening F4 shows them again; never saved to disk.
+    private SettingPanelCategory SelectedCategory = SettingPanelCategory.Display;
+    private int SelectedHotbar;
 
     private SlideAnimator Slide;
     private int SlideAnchorY;
@@ -78,6 +72,11 @@ public sealed class SettingsControl : FramedDialogPanelBase
         if (OkButton is not null)
             OkButton.Clicked += Close;
 
+        //keep the prefab size when the list plus the longest one-column label fits; widen otherwise, never past 640x480.
+        (Width, Height) = SettingsLayout.ResolveWindowSize(Width, Height);
+
+        BuildCategoryList();
+
         Content = new UIPanel
         {
             Name = "SettingsContent",
@@ -91,13 +90,35 @@ public sealed class SettingsControl : FramedDialogPanelBase
         };
         Viewport.AddChild(Content);
 
-        //the viewer clips Viewport to its bounds, owns the always-visible scrollbar (dormant while content fits) and
-        //the wheel, and drives scrolling via IVerticalScrollable. ContentRightPadding reproduces the original
-        //GUTTER_GAP between the rows and the scrollbar.
-        Viewer = new ScrollViewerControl(Viewport) { ContentRightPadding = GUTTER_GAP };
+        //the viewer sits right of the category list; it reserves the scrollbar gutter on the right, so the resolved
+        //content width matches the rows and the bar lands at the same X as the pre-migration scrollbar.
+        Viewer = new ScrollViewerControl(Viewport) { ContentRightPadding = SettingsLayout.GutterGap };
+        Viewer.X = SettingsLayout.ContentLeft + SettingsLayout.ListWidth + SettingsLayout.ListGap;
+        Viewer.Y = SettingsLayout.ContentTop;
+        Viewer.Width = Width - Viewer.X - SettingsLayout.ContentRight;
+        Viewer.Height = SettingsLayout.ViewerHeight(Height);
         AddChild(Viewer);
 
-        BuildRows();
+        BuildCategoryPanels();
+
+        //Viewport's X/Y/Width/Height are set by the viewer each frame; seed Height now so the host reports a correct
+        //viewport on the first frame (the wheel handler runs before the viewer's first Update sizes it).
+        Viewport.Height = Viewer.Height;
+
+        Content.X = 0;
+        Content.Y = 0;
+        Content.Width = SettingsLayout.RightContentWidth(Width);
+        Content.Height = 0; //set by SelectCategory below
+
+        SelectHotbar(SelectedHotbar);
+        SelectCategory(SelectedCategory);
+
+        if (OkButton is not null)
+        {
+            OkButton.X = Width - OkButton.Width - OK_RIGHT_MARGIN;
+            OkButton.Y = Height - OkButton.Height - OK_BOTTOM_MARGIN;
+        }
+
         RefreshAll();
 
         Options.ValueChanged += OnValueChanged;
@@ -112,156 +133,216 @@ public sealed class SettingsControl : FramedDialogPanelBase
         };
     }
 
-    private static string SectionTitle(SettingSection section)
-        => section switch
-        {
-            SettingSection.Display       => "Display",
-            SettingSection.MapEffects    => "Triggering or Unsettling Map Effects",
-            SettingSection.DamageNumbers => "Damage Numbers",
-            SettingSection.Sound         => "Sound",
-            SettingSection.Cinema        => "Cinema",
-            SettingSection.Interaction   => "Interaction",
-            SettingSection.Hotbars       => "Hotbars",
-            SettingSection.Hotbar1       => "Hotbar 1",
-            SettingSection.Hotbar2       => "Hotbar 2",
-            SettingSection.Hotbar3       => "Hotbar 3",
-            SettingSection.Hotbar4       => "Hotbar 4",
-            SettingSection.Chat          => "Chat",
-            _                            => string.Empty
-        };
-
-    private void BuildRows()
+    //The left list: one wooden button per category, the picked one lit gold.
+    private void BuildCategoryList()
     {
-        var contentW = Width - CONTENT_LEFT - CONTENT_RIGHT - ScrollBarControl.DEFAULT_WIDTH - GUTTER_GAP;
-        var viewportH = Height - CONTENT_TOP - FRAME_BOTTOM;
-        var columnW = contentW / 2;
-        var y = 0;
-
-        foreach (var section in SettingDefinitions.PanelSections)
+        foreach (var category in SettingDefinitions.PanelCategories)
         {
-            Content.AddChild(
-                new UILabel
-                {
-                    Name = $"Header_{section}",
-                    X = 0,
-                    Y = y,
-                    Width = contentW,
-                    Height = HEADER_HEIGHT,
-                    PaddingLeft = 0,
-                    PaddingTop = 0,
-                    ForegroundColor = LegendColors.White,
-                    Text = SectionTitle(section)
-                });
-
-            y += HEADER_HEIGHT;
-
-            var defs = SettingDefinitions.PanelRows(section)
-                                         .ToList();
-
-            //a Half cell holding the left column open, waiting for a right partner.
-            UIPanel? pendingHalf = null;
-            var pendingHalfHeight = 0;
-
-            foreach (var def in defs)
+            var index = CategoryButtons.Count;
+            var button = new CustomButton(SettingDefinitions.CategoryDisplayName(category), SettingsLayout.ListWidth)
             {
-                var full = (def.Help is not null) || (ResolveSpan(def, columnW) == SettingSpan.Full);
-                var width = full ? contentW : columnW;
-                (var cell, var height) = BuildSettingCell(def, width);
-                Content.AddChild(cell);
+                Name = $"cat_{category}",
+                X = SettingsLayout.ContentLeft,
+                Y = SettingsLayout.ContentTop + (index * SettingsLayout.CategoryStep)
+            };
 
-                if (full)
-                {
-                    //close any half-open row before taking a full-width row.
-                    if (pendingHalf is not null)
-                    {
-                        y += pendingHalfHeight;
-                        pendingHalf = null;
-                    }
+            button.Clicked += () => SelectCategory(category);
+            CategoryButtons[category] = button;
+            AddChild(button);
+        }
+    }
 
-                    cell.X = 0;
-                    cell.Y = y;
-                    y += height;
+    //Builds one panel per category (all bars for Hotbars) once; switching only toggles visibility, so the
+    //Checkboxes/Combos/Sliders dictionaries stay correct for RefreshAll.
+    private void BuildCategoryPanels()
+    {
+        var contentWidth = SettingsLayout.RightContentWidth(Width);
 
-                    if (def.Help is not null)
-                        y += AddHelp(def, y, contentW);
-                } else if (pendingHalf is null)
-                {
-                    //left column — hold open until a right partner or the section ends.
-                    cell.X = 0;
-                    cell.Y = y;
-                    pendingHalf = cell;
-                    pendingHalfHeight = height;
-                } else
-                {
-                    //right column — closes the row; advance by the taller of the pair.
-                    cell.X = columnW;
-                    cell.Y = y;
-                    y += Math.Max(pendingHalfHeight, height);
-                    pendingHalf = null;
-                }
+        foreach (var category in SettingDefinitions.PanelCategories)
+        {
+            var panel = new UIPanel
+            {
+                Name = $"panel_{category}",
+                X = 0,
+                Y = 0,
+                Width = contentWidth,
+                IsPassThrough = true,
+                Visible = false
+            };
+
+            panel.Height = category == SettingPanelCategory.Hotbars
+                ? BuildHotbarPanel(panel, contentWidth)
+                : BuildCategorySectionRows(panel, category, contentWidth);
+
+            CategoryPanels[category] = panel;
+            CategoryHeights[category] = panel.Height;
+            Content.AddChild(panel);
+        }
+    }
+
+    //Builds every section of a plain category into `panel`; returns the panel height. Matches
+    //SettingsLayout.CategoryContentHeight so the no-scroll layout test holds by construction.
+    private int BuildCategorySectionRows(UIPanel panel, SettingPanelCategory category, int contentWidth)
+    {
+        var y = 0;
+        var first = true;
+
+        foreach (var section in SettingDefinitions.CategorySections(category))
+        {
+            if (!first)
+                y += SettingsLayout.SectionGap;
+
+            first = false;
+
+            if (SettingsLayout.ShowsSectionHeader(category, section))
+            {
+                AddHeader(panel, section, y, contentWidth);
+                y += SettingsLayout.HeaderHeight;
             }
 
-            //flush a trailing unpaired Half.
-            if (pendingHalf is not null)
-                y += pendingHalfHeight;
+            foreach (var definition in SettingDefinitions.PanelRows(section))
+            {
+                (var cell, var height) = BuildSettingCell(definition, contentWidth);
+                cell.X = 0;
+                cell.Y = y;
+                panel.AddChild(cell);
+                y += height;
 
-            y += SECTION_GAP;
+                if (definition.Help is not null)
+                    y += AddHelp(panel, definition, y, contentWidth);
+            }
         }
 
-        //bottom of the last row (drop the trailing section gap).
-        var contentHeight = Math.Max(0, y - SECTION_GAP);
+        return y;
+    }
 
-        //the viewer spans from the left content edge to the right frame margin; it reserves the scrollbar gutter
-        //(DEFAULT_WIDTH) + GUTTER_GAP on the right, so its resolved content width equals contentW (matching the rows),
-        //and the bar lands at the same X as the pre-migration scrollbar.
-        Viewer.X = CONTENT_LEFT;
-        Viewer.Y = CONTENT_TOP;
-        Viewer.Width = Width - CONTENT_LEFT - CONTENT_RIGHT;
-        Viewer.Height = viewportH;
+    private static void AddHeader(UIPanel panel, SettingSection section, int y, int contentWidth)
+        => panel.AddChild(
+            new UILabel
+            {
+                Name = $"Header_{section}",
+                X = 0,
+                Y = y,
+                Width = contentWidth,
+                Height = SettingsLayout.HeaderHeight,
+                PaddingLeft = 0,
+                PaddingTop = 0,
+                ForegroundColor = LegendColors.White,
+                Text = SettingsLayout.SectionTitle(section)
+            });
 
-        //Viewport's X/Y/Width/Height are set by the viewer each frame; seed Height now so the host reports a correct
-        //viewport on the first frame (the wheel handler runs before the viewer's first Update sizes it).
-        Viewport.Height = viewportH;
+    //The Hotbars category: the "Solid hotbars" row, a row of four small bar buttons ("1".."4", the picked one
+    //lit), then only the picked bar's five rows under its "Hotbar N" header. Matches
+    //SettingsLayout.CategoryContentHeight so the no-scroll layout test holds by construction.
+    private int BuildHotbarPanel(UIPanel panel, int contentWidth)
+    {
+        var y = 0;
 
-        Content.X = 0;
-        Content.Y = 0;
-        Content.Width = contentW;
-        Content.Height = contentHeight;
+        (var solid, var solidHeight) = BuildSettingCell(SettingDefinitions.ByKey(SettingKey.SolidHotbars), contentWidth);
+        solid.X = 0;
+        solid.Y = y;
+        panel.AddChild(solid);
+        y += solidHeight + SettingsLayout.SectionGap;
 
-        if (OkButton is not null)
+        for (var bar = 0; bar < 4; bar++)
         {
-            OkButton.X = Width - OkButton.Width - OK_RIGHT_MARGIN;
-            OkButton.Y = Height - OkButton.Height - OK_BOTTOM_MARGIN;
+            var picked = bar;
+            var button = new CustomButton((bar + 1).ToString(), SettingsLayout.HotbarButtonWidth)
+            {
+                Name = $"hotbar_{bar}",
+                X = bar * (SettingsLayout.HotbarButtonWidth + SettingsLayout.HotbarButtonGap),
+                Y = y
+            };
+
+            button.Clicked += () => SelectHotbar(picked);
+            HotbarPickerButtons[bar] = button;
+            panel.AddChild(button);
         }
+
+        y += SettingsLayout.HotbarPickerRowHeight + SettingsLayout.SectionGap;
+
+        for (var bar = 0; bar < 4; bar++)
+        {
+            var section = SettingsLayout.HotbarSection(bar);
+            var barPanel = new UIPanel
+            {
+                Name = $"barpanel_{bar}",
+                X = 0,
+                Y = y,
+                Width = contentWidth,
+                IsPassThrough = true,
+                Visible = bar == SelectedHotbar
+            };
+
+            var barY = 0;
+            AddHeader(barPanel, section, barY, contentWidth);
+            barY += SettingsLayout.HeaderHeight;
+
+            foreach (var definition in SettingDefinitions.PanelRows(section))
+            {
+                (var cell, var height) = BuildSettingCell(definition, contentWidth);
+                cell.X = 0;
+                cell.Y = barY;
+                barPanel.AddChild(cell);
+                barY += height;
+            }
+
+            barPanel.Height = barY;
+            HotbarBarPanels[bar] = barPanel;
+            panel.AddChild(barPanel);
+        }
+
+        //every bar holds the same five widget kinds, so every bar panel is the same height.
+        return y + HotbarBarPanels[0].Height;
+    }
+
+    private void SelectCategory(SettingPanelCategory category)
+    {
+        SelectedCategory = category;
+
+        foreach ((var other, var panel) in CategoryPanels)
+            panel.Visible = other == category;
+
+        foreach ((var other, var button) in CategoryButtons)
+            button.Selected = other == category;
+
+        Content.Height = CategoryHeights[category];
+        ((IVerticalScrollable)Viewport).VerticalOffset = 0;
+    }
+
+    private void SelectHotbar(int bar)
+    {
+        SelectedHotbar = Math.Clamp(bar, 0, 3);
+
+        foreach ((var other, var panel) in HotbarBarPanels)
+            panel.Visible = other == SelectedHotbar;
+
+        foreach ((var other, var button) in HotbarPickerButtons)
+            button.Selected = other == SelectedHotbar;
     }
 
     /// <summary>
     ///     Word-wraps help paragraphs to <paramref name="width" /> pixels. Returns every wrapped line in order plus the
-    ///     block's total height (a line per <see cref="HELP_LINE_HEIGHT" /> plus the gap above and below); an empty list
+    ///     block's total height (a line per help line height plus the gap above and below); an empty list
     ///     is zero height.
     /// </summary>
     public static (IReadOnlyList<string> Lines, int Height) HelpLayout(IReadOnlyList<string> paragraphs, int width)
-    {
-        var lines = paragraphs.SelectMany(paragraph => TextRenderer.WrapLines(paragraph, width))
-                              .ToList();
+        => SettingsLayout.HelpBlock(paragraphs, width);
 
-        return (lines, lines.Count == 0 ? 0 : (lines.Count * HELP_LINE_HEIGHT) + (2 * HELP_GAP));
-    }
-
-    //Mounts the setting's help lines (dim, one UILabel per wrapped line) on Content starting at `y`; returns the block height.
-    private int AddHelp(SettingDefinition def, int y, int width)
+    //Mounts the setting's help lines (dim, one UILabel per wrapped line) on `parent` starting at `y`; returns the block height.
+    private static int AddHelp(UIPanel parent, SettingDefinition def, int y, int width)
     {
         (var lines, var height) = HelpLayout(def.Help!, width);
 
         for (var i = 0; i < lines.Count; i++)
-            Content.AddChild(
+            parent.AddChild(
                 new UILabel
                 {
                     Name = $"help_{def.Key}_{i}",
                     X = 0,
-                    Y = y + HELP_GAP + (i * HELP_LINE_HEIGHT),
+                    Y = y + SettingsLayout.HelpGap + (i * SettingsLayout.HelpLineHeight),
                     Width = width,
-                    Height = HELP_LINE_HEIGHT,
+                    Height = SettingsLayout.HelpLineHeight,
                     PaddingLeft = 0,
                     PaddingRight = 0,
                     PaddingTop = 0,
@@ -272,22 +353,6 @@ public sealed class SettingsControl : FramedDialogPanelBase
                 });
 
         return height;
-    }
-
-    //Decides a setting's column span. Explicit Full always wins; an unmarked (Half) setting is
-    //auto-promoted to Full when its label is too wide for the half-column label area, so it never
-    //clips. TextRenderer.MeasureWidth is the same measurement UILabel uses for its own truncation,
-    //so the threshold matches exactly what the label would clip at.
-    private static SettingSpan ResolveSpan(SettingDefinition def, int columnW)
-    {
-        if (def.Span == SettingSpan.Full)
-            return SettingSpan.Full;
-
-        var halfLabelWidth = columnW - CustomCheckBox.CHECKBOX_SIZE - CustomCheckBox.CAPTION_GAP;
-
-        return TextRenderer.MeasureWidth(def.Label) > halfLabelWidth
-            ? SettingSpan.Full
-            : SettingSpan.Half;
     }
 
     //Builds the control(s) for one setting into a pass-through cell container sized to `width`,
@@ -309,14 +374,14 @@ public sealed class SettingsControl : FramedDialogPanelBase
             X = 0,
             Y = 0,
             Width = width,
-            Height = ROW_HEIGHT,
+            Height = SettingsLayout.RowHeight,
             Text = def.Label
         };
         checkbox.Clicked += () => Options.Toggle(key);
 
         Checkboxes[def.Key] = checkbox;
 
-        return (checkbox, ROW_HEIGHT);
+        return (checkbox, SettingsLayout.RowHeight);
     }
 
     //Builds a label + dropdown row for a multi-choice setting. The combobox is tracked in Combos so
@@ -327,14 +392,14 @@ public sealed class SettingsControl : FramedDialogPanelBase
         //place the dropdown just to the right of the (text-width) label and size it to its widest
         //option (clamped to the row), rather than filling the whole row width.
         var labelW = TextRenderer.MeasureWidth(def.Label) + 2;
-        var comboX = labelW + LABEL_GAP;
-        var comboW = Math.Min(CustomComboBox.MeasureRequiredWidth(def.Choices!), width - comboX);
+        var comboX = labelW + SettingsLayout.LabelGap;
+        var comboW = Math.Max(1, Math.Min(CustomComboBox.MeasureRequiredWidth(def.Choices!), width - comboX));
         var combo = new CustomComboBox(comboW)
         {
             Name = $"combo_{def.Key}"
         };
 
-        var rowH = Math.Max(ROW_HEIGHT, combo.Height);
+        var rowH = Math.Max(SettingsLayout.RowHeight, combo.Height);
         combo.X = comboX;
         combo.Y = (rowH - combo.Height) / 2;
         combo.SetItems(def.Choices!, def.GetChoice?.Invoke() ?? 0);
@@ -349,7 +414,7 @@ public sealed class SettingsControl : FramedDialogPanelBase
 
     //Creates a pass-through row cell of `height` with the setting's left-aligned label already mounted.
     //Shared by the dropdown and slider builders; callers mount their widget at labelW + LABEL_GAP.
-    private UIPanel MakeLabeledCell(SettingDefinition def, int width, int height, int labelW)
+    private static UIPanel MakeLabeledCell(SettingDefinition def, int width, int height, int labelW)
     {
         var cell = new UIPanel
         {
@@ -377,32 +442,28 @@ public sealed class SettingsControl : FramedDialogPanelBase
         return cell;
     }
 
-    //Builds a label + 0–10 slider + live numeric readout for an integer setting. The slider is tracked in
+    //Builds a label + 0-10 slider + live numeric readout for an integer setting. The slider is tracked in
     //Sliders (its readout in SliderReadouts) so RefreshAll can re-sync from the model on reopen, mirroring Combos.
     private (UIPanel cell, int height) BuildSliderCell(SettingDefinition def, int width)
     {
-        const int SLIDER_WIDTH = 90;
-        const int READOUT_WIDTH = 18;
-        const int TRACK_HEIGHT = 4;
-
         var labelW = TextRenderer.MeasureWidth(def.Label) + 2;
-        var trackX = labelW + LABEL_GAP;
+        var trackX = labelW + SettingsLayout.LabelGap;
         var initial = def.GetSliderValue!();
 
-        var cell = MakeLabeledCell(def, width, ROW_HEIGHT, labelW);
+        var cell = MakeLabeledCell(def, width, SettingsLayout.RowHeight, labelW);
 
         var thumb = UiRenderer.Instance!.GetEpfTexture("option04.epf", 0);
-        var trackRect = new Rectangle(trackX, (ROW_HEIGHT - TRACK_HEIGHT) / 2, SLIDER_WIDTH, TRACK_HEIGHT);
+        var trackRect = new Rectangle(trackX, (SettingsLayout.RowHeight - TRACK_HEIGHT) / 2, SettingsLayout.SliderTrackWidth, TRACK_HEIGHT);
         var slider = new SliderControl(trackRect, thumb, drawTrack: true) { Name = $"slider_{def.Key}" };
         slider.SetValue(initial);
 
         var readout = new UILabel
         {
             Name = $"val_{def.Key}",
-            X = trackX + SLIDER_WIDTH + LABEL_GAP + 6,
+            X = trackX + SettingsLayout.SliderTrackWidth + SettingsLayout.LabelGap + SettingsLayout.SliderReadoutGap,
             Y = 0,
-            Width = READOUT_WIDTH,
-            Height = ROW_HEIGHT,
+            Width = SettingsLayout.SliderReadoutWidth,
+            Height = SettingsLayout.RowHeight,
             PaddingLeft = 0,
             PaddingRight = 0,
             PaddingTop = 0,
@@ -422,8 +483,10 @@ public sealed class SettingsControl : FramedDialogPanelBase
         cell.AddChild(slider);
         cell.AddChild(readout);
 
-        return (cell, ROW_HEIGHT);
+        return (cell, SettingsLayout.RowHeight);
     }
+
+    private const int TRACK_HEIGHT = 4;
 
     private void OnValueChanged(SettingKey key, bool value)
     {
@@ -567,12 +630,12 @@ public sealed class SettingsControl : FramedDialogPanelBase
         }
     }
 
-    //── scroll host ─────────────────────────────────────────────────────────────────────────────────────────────
+    //-- scroll host --
     //The clip + scroll surface the ScrollViewerControl hosts. The viewer forces this element's X/Y to 0 and sizes it
     //to the viewport each frame, then drives scrolling through IVerticalScrollable; we translate the unit offset into
     //the inner Content surface's pixel Y (one unit = SCROLL_STEP px), preserving the pre-migration wheel/scrollbar
     //feel. Units mirror the old scrollbar exactly: VerticalViewport = Height/STEP visible units; the hidden remainder
-    //is ceil(overflow / STEP); the extent is their sum (so extent − viewport = the old MaxValue).
+    //is ceil(overflow / STEP); the extent is their sum (so extent - viewport = the old MaxValue).
     private sealed class SettingsViewport(UIPanel content, int step) : UIPanel, IVerticalScrollable
     {
         private int OffsetUnits;

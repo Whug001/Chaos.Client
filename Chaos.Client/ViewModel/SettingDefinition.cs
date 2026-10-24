@@ -23,6 +23,21 @@ public enum SettingSection
     Chat
 }
 
+/// <summary>
+///     The F4 window's left-hand categories, in display order. Each category holds one or more
+///     <see cref="SettingSection" />s; every section belongs to exactly one category.
+/// </summary>
+public enum SettingPanelCategory
+{
+    Display,
+    MapEffects,
+    DamageNumbers,
+    SoundAndFilm,
+    Controls,
+    Hotbars,
+    Chat
+}
+
 public enum SettingCategory
 {
     /// <summary>Toggled on the server via opcode 0x1B; value updates when the server responds.</summary>
@@ -607,6 +622,75 @@ public static class SettingDefinitions
         All.Where(d => d.UserOption is not null)
            .ToDictionary(d => d.UserOption!.Value);
 
+
+    /// <summary>The F4 categories in left-list order.</summary>
+    public static IReadOnlyList<SettingPanelCategory> PanelCategories { get; } =
+    [
+        SettingPanelCategory.Display,
+        SettingPanelCategory.MapEffects,
+        SettingPanelCategory.DamageNumbers,
+        SettingPanelCategory.SoundAndFilm,
+        SettingPanelCategory.Controls,
+        SettingPanelCategory.Hotbars,
+        SettingPanelCategory.Chat
+    ];
+
+    /// <summary>The name F4 shows in the left list for <paramref name="category" />.</summary>
+    public static string CategoryDisplayName(SettingPanelCategory category)
+        => category switch
+        {
+            SettingPanelCategory.Display => "Display",
+            SettingPanelCategory.MapEffects => "Map effects",
+            SettingPanelCategory.DamageNumbers => "Damage numbers",
+            SettingPanelCategory.SoundAndFilm => "Sound & film",
+            SettingPanelCategory.Controls => "Controls",
+            SettingPanelCategory.Hotbars => "Hotbars",
+            SettingPanelCategory.Chat => "Chat",
+            _ => string.Empty
+        };
+
+    /// <summary>The sections F4 draws under <paramref name="category" />, in order.</summary>
+    public static IReadOnlyList<SettingSection> CategorySections(SettingPanelCategory category)
+        => category switch
+        {
+            SettingPanelCategory.Display => [SettingSection.Display],
+            SettingPanelCategory.MapEffects => [SettingSection.MapEffects],
+            SettingPanelCategory.DamageNumbers => [SettingSection.DamageNumbers],
+            SettingPanelCategory.SoundAndFilm => [SettingSection.Sound, SettingSection.Cinema],
+            SettingPanelCategory.Controls => [SettingSection.Interaction],
+            SettingPanelCategory.Hotbars =>
+            [
+                SettingSection.Hotbars,
+                SettingSection.Hotbar1,
+                SettingSection.Hotbar2,
+                SettingSection.Hotbar3,
+                SettingSection.Hotbar4
+            ],
+            SettingPanelCategory.Chat => [SettingSection.Chat],
+            _ => []
+        };
+
+    /// <summary>
+    ///     The settings F4 draws a row for under <paramref name="category" />, in order. The Hotbars category
+    ///     shows its own row plus only the picked bar section.
+    /// </summary>
+    public static IEnumerable<SettingDefinition> CategoryRows(SettingPanelCategory category, int hotbar = 0)
+    {
+        if (category == SettingPanelCategory.Hotbars)
+        {
+            var section = Math.Clamp(hotbar, 0, 3) switch
+            {
+                0 => SettingSection.Hotbar1,
+                1 => SettingSection.Hotbar2,
+                2 => SettingSection.Hotbar3,
+                _ => SettingSection.Hotbar4
+            };
+
+            return PanelRows(SettingSection.Hotbars).Concat(PanelRows(section));
+        }
+
+        return CategorySections(category).SelectMany(PanelRows);
+    }
     public static SettingDefinition ByKey(SettingKey key) => ByKeyLookup[key];
 
     public static SettingDefinition? ByUserOption(UserOption opt)
