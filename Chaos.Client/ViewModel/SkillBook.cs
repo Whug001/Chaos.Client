@@ -124,6 +124,11 @@ public sealed class SkillBook
             if (Slots[i].IsOccupied && (Slots[i].AbilityName?.EqualsI(abilityName) ?? false))
                 return (byte)(i + 1);
 
+        //an upgrade renames the skill ("Sever 2" -> "Sever 3"), so any tier of it will do
+        for (var i = 0; i < MAX_SLOTS; i++)
+            if (Slots[i].IsOccupied && AbilityTierName.SameAbility(Slots[i].AbilityName, abilityName))
+                return (byte)(i + 1);
+
         return 0;
     }
 

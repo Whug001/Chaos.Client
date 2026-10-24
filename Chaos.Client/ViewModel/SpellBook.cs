@@ -130,6 +130,11 @@ public sealed class SpellBook
             if (Slots[i].IsOccupied && string.Equals(Slots[i].AbilityName, abilityName, StringComparison.OrdinalIgnoreCase))
                 return (byte)(i + 1);
 
+        //an upgrade renames the spell ("Ignis 2" -> "Ignis 3"), so any tier of it will do
+        for (var i = 0; i < MAX_SLOTS; i++)
+            if (Slots[i].IsOccupied && AbilityTierName.SameAbility(Slots[i].AbilityName, abilityName))
+                return (byte)(i + 1);
+
         return 0;
     }
 
