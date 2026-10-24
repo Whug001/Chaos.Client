@@ -1,3 +1,4 @@
+using Chaos.Client.Controls.Components;
 using Chaos.Client.Controls.World.Popups.HallBattle;
 using FluentAssertions;
 using Microsoft.Xna.Framework;
@@ -47,8 +48,36 @@ public sealed class WarRoomLayoutTests
     [Test]
     public void The_list_and_the_detail_do_not_overlap()
     {
-        var list = new Rectangle(10, 30, 230, WarRoomLayout.LIST_ROWS * WarRoomLayout.ROW);
+        var first = WarRoomLayout.ListRow(0);
+        var list = new Rectangle(first.X, first.Y, first.Width, WarRoomLayout.LIST_ROWS * WarRoomLayout.ROW);
 
         list.Right.Should().BeLessThan(WarRoomLayout.DetailName.X);
+    }
+
+    [Test]
+    [Arguments(WarRoomPage.Board)]
+    [Arguments(WarRoomPage.Team)]
+    public void Every_control_clears_the_ornate_frame(WarRoomPage page)
+    {
+        var interior = new Rectangle(
+            WarRoomLayout.FRAME_LEFT,
+            OrnateFrame.CORNER_TOP_HEIGHT,
+            WarRoomLayout.WIDTH - WarRoomLayout.FRAME_LEFT - WarRoomLayout.FRAME_RIGHT,
+            WarRoomLayout.HEIGHT - OrnateFrame.CORNER_TOP_HEIGHT - OrnateFrame.BORDER_BOTTOM_HEIGHT);
+
+        foreach (var rect in WarRoomLayout.VisibleBounds(page))
+        {
+            if (rect == WarRoomLayout.CloseButton)
+            {
+                rect.Top.Should()
+                    .BeGreaterThanOrEqualTo(WarRoomLayout.HEIGHT - OrnateFrame.BORDER_BOTTOM_HEIGHT);
+
+                continue;
+            }
+
+            interior.Contains(rect)
+                    .Should()
+                    .BeTrue();
+        }
     }
 }

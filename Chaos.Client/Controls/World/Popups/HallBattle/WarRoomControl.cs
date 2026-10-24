@@ -1,17 +1,24 @@
 #region
 using Chaos.Client.Controls.Components;
 using Chaos.Client.Controls.Custom;
+using Chaos.Client.Controls.Generic;
 using Chaos.Client.Controls.World.Popups.ArenaHost;
 using Chaos.Client.Rendering.Definitions;
 using Chaos.DarkAges.Definitions;
 using Chaos.Networking.Entities.Client;
 using Chaos.Networking.Entities.Server;
 using Microsoft.Xna.Framework;
+using Microsoft.Xna.Framework.Graphics;
 #endregion
 
 namespace Chaos.Client.Controls.World.Popups.HallBattle;
 
-/// <summary>Where every war room control sits, relative to the window. The control and its layout test both read this.</summary>
+/// <summary>
+///     Where every war room control sits, relative to the window. The control and its layout test both read this.
+///     Every rect clears the ornate frame: below the 24px top border, above the 47px bottom border, and inside
+///     the side edges by FRAME_LEFT/FRAME_RIGHT. The title sits just below the top border where the F4 settings
+///     window starts its content; Close lives in the bottom border like a dialog OK button.
+/// </summary>
 public static class WarRoomLayout
 {
     public const int WIDTH = 600;
@@ -24,39 +31,43 @@ public static class WarRoomLayout
     public const int LABEL = 14;
     public const int BUTTON = CustomButton.HEIGHT;
 
-    public static readonly Rectangle Title = new(10, 8, 580, LABEL);
-    public static readonly Rectangle Subtitle = new(10, 24, 580, LABEL);
-    public static readonly Rectangle CloseButton = new(480, 388, 110, BUTTON);
+    //side insets clearing the frame left and right edges (the 16px the hand-built college panels use).
+    public const int FRAME_LEFT = 16;
+    public const int FRAME_RIGHT = 16;
+
+    public static readonly Rectangle Title = new(FRAME_LEFT, 28, WIDTH - FRAME_LEFT - FRAME_RIGHT, LABEL);
+    public static readonly Rectangle Subtitle = new(FRAME_LEFT, 46, WIDTH - FRAME_LEFT - FRAME_RIGHT, LABEL);
+    public static readonly Rectangle CloseButton = new(WIDTH - 110 - 20, HEIGHT - BUTTON - 3, 110, BUTTON);
 
     //board page
-    public static readonly Rectangle ListPrev = new(10, 288, 56, BUTTON);
-    public static readonly Rectangle ListNext = new(70, 288, 56, BUTTON);
-    public static readonly Rectangle ListPageLabel = new(132, 294, 100, LABEL);
-    public static readonly Rectangle DetailName = new(252, 30, 338, LABEL);
-    public static readonly Rectangle DetailRecord = new(252, 46, 338, LABEL);
-    public static readonly Rectangle DetailLast = new(252, 62, 338, LABEL);
-    public static readonly Rectangle HistoryHeader = new(252, 80, 338, LABEL);
-    public static readonly Rectangle SizeLabel = new(252, 190, 50, LABEL);
-    public static readonly Rectangle RankedButton = new(252, 212, 100, BUTTON);
-    public static readonly Rectangle FriendlyButton = new(358, 212, 100, BUTTON);
-    public static readonly Rectangle WagerLabel = new(252, 244, 50, LABEL);
-    public static readonly Rectangle WagerBox = new(306, 238, 100, BUTTON);
-    public static readonly Rectangle HandPickButton = new(252, 266, 150, BUTTON);
-    public static readonly Rectangle OpenInviteButton = new(408, 266, 150, BUTTON);
-    public static readonly Rectangle ChallengeButton = new(252, 294, 120, BUTTON);
-    public static readonly Rectangle BlockedReason = new(252, 298, 338, 2 * LABEL);
+    public static readonly Rectangle ListPrev = new(16, 304, 56, BUTTON);
+    public static readonly Rectangle ListNext = new(76, 304, 56, BUTTON);
+    public static readonly Rectangle ListPageLabel = new(138, 310, 100, LABEL);
+    public static readonly Rectangle DetailName = new(256, 46, 328, LABEL);
+    public static readonly Rectangle DetailRecord = new(256, 62, 328, LABEL);
+    public static readonly Rectangle DetailLast = new(256, 78, 328, LABEL);
+    public static readonly Rectangle HistoryHeader = new(256, 96, 328, LABEL);
+    public static readonly Rectangle SizeLabel = new(256, 202, 50, LABEL);
+    public static readonly Rectangle RankedButton = new(256, 224, 100, BUTTON);
+    public static readonly Rectangle FriendlyButton = new(362, 224, 100, BUTTON);
+    public static readonly Rectangle WagerLabel = new(256, 252, 50, LABEL);
+    public static readonly Rectangle WagerBox = new(310, 246, 100, BUTTON);
+    public static readonly Rectangle HandPickButton = new(256, 274, 150, BUTTON);
+    public static readonly Rectangle OpenInviteButton = new(412, 274, 150, BUTTON);
+    public static readonly Rectangle ChallengeButton = new(256, 302, 120, BUTTON);
+    public static readonly Rectangle BlockedReason = new(256, 302, 328, 2 * LABEL);
 
     //team page
-    public static readonly Rectangle OurHeader = new(10, 44, 180, LABEL);
-    public static readonly Rectangle TheirHeader = new(200, 44, 180, LABEL);
-    public static readonly Rectangle CandidateHeader = new(390, 44, 200, LABEL);
+    public static readonly Rectangle OurHeader = new(16, 64, 180, LABEL);
+    public static readonly Rectangle TheirHeader = new(206, 64, 180, LABEL);
+    public static readonly Rectangle CandidateHeader = new(396, 64, 188, LABEL);
 
-    public static Rectangle ListRow(int index) => new(10, 30 + (index * ROW), 230, ROW);
-    public static Rectangle HistoryRow(int index) => new(252, 94 + (index * ROW), 338, ROW);
-    public static Rectangle SizeButton(int index) => new(306 + (index * 52), 184, 48, BUTTON);
-    public static Rectangle OurRow(int index) => new(10, 60 + (index * ROW), 180, ROW);
-    public static Rectangle TheirRow(int index) => new(200, 60 + (index * ROW), 180, ROW);
-    public static Rectangle CandidateRow(int index) => new(390, 60 + (index * ROW), 200, ROW);
+    public static Rectangle ListRow(int index) => new(16, 46 + (index * ROW), 230, ROW);
+    public static Rectangle HistoryRow(int index) => new(256, 110 + (index * ROW), 328, ROW);
+    public static Rectangle SizeButton(int index) => new(310 + (index * 52), 196, 48, BUTTON);
+    public static Rectangle OurRow(int index) => new(16, 80 + (index * ROW), 180, ROW);
+    public static Rectangle TheirRow(int index) => new(206, 80 + (index * ROW), 180, ROW);
+    public static Rectangle CandidateRow(int index) => new(396, 80 + (index * ROW), 188, ROW);
 
     /// <summary>Every control the page can show, relative to the window.</summary>
     public static IEnumerable<Rectangle> VisibleBounds(WarRoomPage page)
@@ -116,6 +127,7 @@ public sealed class WarRoomControl : UIPanel
     private readonly string?[] CandidateNames = new string[WarRoomLayout.CANDIDATE_ROWS];
     private readonly ArenaHostRow[] CandidateRows = new ArenaHostRow[WarRoomLayout.CANDIDATE_ROWS];
     private readonly CustomButton ChallengeButton;
+    private readonly CustomButton CloseButton;
     private readonly UILabel CandidateHeader;
     private readonly UILabel DetailLast;
     private readonly UILabel DetailName;
@@ -153,8 +165,6 @@ public sealed class WarRoomControl : UIPanel
         Y = (screenHeight - WarRoomLayout.HEIGHT) / 2;
         Visible = false;
         UsesControlStack = true;
-        BackgroundColor = new Color(28, 20, 12);
-        BorderColor = LegendColors.Gold;
 
         Title = Label(WarRoomLayout.Title, LegendColors.Gold);
         Subtitle = Label(WarRoomLayout.Subtitle, LegendColors.White);
@@ -217,7 +227,7 @@ public sealed class WarRoomControl : UIPanel
         ChallengeButton = Button("Challenge", WarRoomLayout.ChallengeButton);
         PrevButton = Button("Prev", WarRoomLayout.ListPrev);
         NextButton = Button("Next", WarRoomLayout.ListNext);
-        var close = Button("Close", WarRoomLayout.CloseButton);
+        CloseButton = Button("Close", WarRoomLayout.CloseButton);
 
         WagerBox = new CustomTextBox
         {
@@ -238,7 +248,7 @@ public sealed class WarRoomControl : UIPanel
         OpenInviteButton.Clicked += () => SetOpenInvite(true);
         PrevButton.Clicked += () => TurnPage(-1);
         NextButton.Clicked += () => TurnPage(1);
-        close.Clicked += Hide;
+        CloseButton.Clicked += Hide;
 
         ChallengeButton.Clicked += () =>
         {
@@ -247,6 +257,33 @@ public sealed class WarRoomControl : UIPanel
         };
 
         Refresh();
+    }
+
+    public override void Draw(SpriteBatch spriteBatch)
+    {
+        if (!Visible)
+            return;
+
+        UpdateClipRect();
+
+        if ((ClipRect.Width <= 0) || (ClipRect.Height <= 0))
+            return;
+
+        OrnateFrame.Draw(
+            spriteBatch,
+            ScreenX,
+            ScreenY,
+            Width,
+            Height,
+            CloseButton.X);
+
+        //children (content controls)
+        foreach (var child in Children)
+            if (child.Visible)
+            {
+                child.Draw(spriteBatch);
+                DebugOverlay.DrawElement(spriteBatch, child);
+            }
     }
 
     public event Action<HallBattleActionArgs>? Action;
