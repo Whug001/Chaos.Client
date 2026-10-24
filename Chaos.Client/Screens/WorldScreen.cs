@@ -902,6 +902,7 @@ public sealed partial class WorldScreen : IScreen
             ZIndex = 2
         };
         WireStageLighting();
+        WireCinema();
         WireMirrors();
         WireTumbleTower();
         WireCauseway();
@@ -1154,6 +1155,7 @@ public sealed partial class WorldScreen : IScreen
         Game.Connection.OnFittingRoomDisplay -= HandleFittingRoomDisplay;
         Game.Connection.OnBugReportOpen -= HandleBugReportOpen;
         UnwireStageLighting();
+        UnwireCinema();
         UnwireMirrors();
         UnwireTumbleTower();
         UnwireCauseway();

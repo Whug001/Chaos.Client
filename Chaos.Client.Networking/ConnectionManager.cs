@@ -637,6 +637,7 @@ public sealed class ConnectionManager : IDisposable
     ///     Fired when the Theatre's lighting setup arrives (on entering the Theatre and after each change).
     /// </summary>
     public event StageLightingStateHandler? OnStageLightingState;
+    public event CinemaStateHandler? OnCinemaState;
 
     /// <summary>Fired when the current map's mirrors arrive (on entering a map with the mirror script).</summary>
     public event MirrorLayoutHandler? OnMirrorLayout;
@@ -2020,6 +2021,7 @@ public sealed class ConnectionManager : IDisposable
         PacketHandlers[(byte)ServerOpCode.FittingRoomDisplay] = HandleFittingRoomDisplay;
         PacketHandlers[(byte)ServerOpCode.BugReportOpen] = HandleBugReportOpen;
         PacketHandlers[(byte)ServerOpCode.StageLightingState] = HandleStageLightingState;
+        PacketHandlers[(byte)ServerOpCode.CinemaState] = HandleCinemaState;
         PacketHandlers[(byte)ServerOpCode.MirrorLayout] = HandleMirrorLayout;
         PacketHandlers[(byte)ServerOpCode.TumbleTowerState] = HandleTumbleTowerState;
         PacketHandlers[(byte)ServerOpCode.DrownedCausewayState] = HandleDrownedCausewayState;
@@ -2543,6 +2545,12 @@ public sealed class ConnectionManager : IDisposable
     {
         var args = Client.Deserialize<StageLightingStateArgs>(in pkt);
         OnStageLightingState?.Invoke(args);
+    }
+
+    private void HandleCinemaState(ServerPacket pkt)
+    {
+        var args = Client.Deserialize<CinemaStateArgs>(in pkt);
+        OnCinemaState?.Invoke(args);
     }
 
     private void HandleMirrorLayout(ServerPacket pkt)

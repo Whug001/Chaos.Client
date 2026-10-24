@@ -490,6 +490,7 @@ public delegate void BugReportOpenHandler(BugReportOpenArgs args);
 ///     Fired when the Theatre's lighting setup arrives.
 /// </summary>
 public delegate void StageLightingStateHandler(StageLightingStateArgs args);
+public delegate void CinemaStateHandler(CinemaStateArgs args);
 
 public delegate void MirrorLayoutHandler(MirrorLayoutArgs args);
 

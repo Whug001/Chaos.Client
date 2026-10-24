@@ -119,6 +119,7 @@ public sealed class SettingsControl : FramedDialogPanelBase
             SettingSection.MapEffects    => "Triggering or Unsettling Map Effects",
             SettingSection.DamageNumbers => "Damage Numbers",
             SettingSection.Sound         => "Sound",
+            SettingSection.Cinema        => "Cinema",
             SettingSection.Interaction   => "Interaction",
             SettingSection.Hotbars       => "Hotbars",
             SettingSection.Hotbar1       => "Hotbar 1",

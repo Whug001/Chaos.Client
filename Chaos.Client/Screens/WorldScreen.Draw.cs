@@ -9,6 +9,7 @@ using Chaos.Client.Rendering.Fishing;
 using Chaos.Client.Rendering.Models;
 using Chaos.Client.Rendering.Utility;
 using Chaos.Client.Systems;
+using Chaos.Client.Systems.Cinema;
 using Chaos.DarkAges.Definitions;
 using Chaos.Networking.Entities.Server;
 using Microsoft.Xna.Framework;
@@ -426,8 +427,13 @@ public sealed partial class WorldScreen
         var mirrorsOn = WorldState.Mirrors.HasMirrors && MirrorRenderer.FacesReady;
         var collegeWallOn = College?.Wall.HasWall == true;
 
+        var cinemaStripe = CinemaScreenOn ? CinemaScreenLayout.DrawStripe(CinemaScreenLayout.Hall.Depth, minDepth, maxDepth) : int.MinValue;
+
         for (var depth = minDepth; depth <= maxDepth; depth++)
         {
+            if (depth == cinemaStripe)
+                DrawCinemaScreen(scope);
+
             //collect entities at this depth stripe
             var stripeStart = entityIndex;
 

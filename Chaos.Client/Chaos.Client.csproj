@@ -37,7 +37,16 @@
         <ProjectReference Include="$(UnoraServerPath)\Chaos.Pathfinding\Chaos.Pathfinding.csproj"/>
     </ItemGroup>
 
+    <!-- The game ships for 64-bit Windows only: skip the x86/arm64 libvlc copies (see VlcWindowsX86Enabled/
+         VlcWindowsArm64Enabled in VideoLAN.LibVLC.Windows/build/VideoLAN.LibVLC.Windows.targets). -->
+    <PropertyGroup>
+        <VlcWindowsX86Enabled>false</VlcWindowsX86Enabled>
+        <VlcWindowsArm64Enabled>false</VlcWindowsArm64Enabled>
+    </PropertyGroup>
+
     <ItemGroup>
         <PackageReference Include="TextCopy"/>
+        <PackageReference Include="LibVLCSharp"/>
+        <PackageReference Include="VideoLAN.LibVLC.Windows"/>
     </ItemGroup>
 </Project>

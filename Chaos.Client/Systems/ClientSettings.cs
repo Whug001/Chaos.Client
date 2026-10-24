@@ -118,6 +118,11 @@ public static class ClientSettings
     // arrows, Enter and F1-F8 pick and cast spell targets instead of doing their usual jobs. ---
     public static bool TabTargeting { get; set; }
 
+    public static int CinemaVolume { get; set; } = 80;
+    public static bool CinemaMute { get; set; }
+    public static bool CinemaHideVideo { get; set; }
+    public static bool CinemaLowerMusic { get; set; } = true;
+
     //J keeps group members highlighted until pressed again, instead of the one-second flash
     public static bool ToggleGroupHighlight { get; set; }
 
@@ -376,6 +381,27 @@ public static class ClientSettings
 
                         break;
 
+                    case "CinemaVolume":
+                        if (int.TryParse(value, out var cinemaVolume))
+                            CinemaVolume = Math.Clamp(cinemaVolume, 0, 100);
+
+                        break;
+
+                    case "CinemaMute":
+                        CinemaMute = value == "1";
+
+                        break;
+
+                    case "CinemaHideVideo":
+                        CinemaHideVideo = value == "1";
+
+                        break;
+
+                    case "CinemaLowerMusic":
+                        CinemaLowerMusic = value == "1";
+
+                        break;
+
                     case "ToggleGroupHighlight":
                         ToggleGroupHighlight = value == "1";
 
@@ -560,6 +586,10 @@ public static class ClientSettings
 
             writer.WriteLine($"GroundTargetSnapToEntity : {(GroundTargetSnapToEntity ? 1 : 0)}");
             writer.WriteLine($"TabTargeting : {(TabTargeting ? 1 : 0)}");
+            writer.WriteLine($"CinemaVolume : {CinemaVolume}");
+            writer.WriteLine($"CinemaMute : {(CinemaMute ? 1 : 0)}");
+            writer.WriteLine($"CinemaHideVideo : {(CinemaHideVideo ? 1 : 0)}");
+            writer.WriteLine($"CinemaLowerMusic : {(CinemaLowerMusic ? 1 : 0)}");
             writer.WriteLine($"ToggleGroupHighlight : {(ToggleGroupHighlight ? 1 : 0)}");
             writer.WriteLine($"HideOwnBodyAnimations : {(HideOwnBodyAnimations ? 1 : 0)}");
             writer.WriteLine($"MaxEffectAnimations : {MaxEffectAnimationsPerEntity}");
