@@ -47,8 +47,9 @@ public sealed class TcgRankedStateTests
 
         state.SecondsWaited(Now).Should().Be(10);
         state.QueueSize.Should().Be(3);
-        state.QueueText(Now).Should().Be("Searching... (3)");
-        state.QueueText(Now.AddMinutes(2)).Should().Be("Searching... (3)");
+        state.QueueText(Now).Should().Be("Searching 0:10 (3)");
+        state.QueueText(Now.AddSeconds(73)).Should().Be("Searching 1:23 (3)");
+        state.QueueText(Now.AddMinutes(2)).Should().Be("Searching 2:10 (3)");
     }
 
     [Test]
@@ -207,4 +208,3 @@ public sealed class TcgRankedStateTests
         WorldState.TcgRanked.Info.Should().BeNull();
     }
 }
-

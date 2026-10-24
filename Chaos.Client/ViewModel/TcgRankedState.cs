@@ -86,7 +86,9 @@ public sealed class TcgRankedState
 
     public string QueueText(DateTime now)
     {
-        return $"Searching... ({QueueSize})";
+        var waited = SecondsWaited(now);
+
+        return $"Searching {waited / 60}:{waited % 60:00} ({QueueSize})";
     }
 
     /// <summary>Only a ready deck with nothing already showing can join the queue.</summary>
@@ -128,4 +130,3 @@ public sealed class TcgRankedState
         ReadyEnd = DateTime.MinValue;
     }
 }
-
