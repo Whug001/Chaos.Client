@@ -640,9 +640,9 @@ public static class SettingDefinitions
         => category switch
         {
             SettingPanelCategory.Display => "Display",
-            SettingPanelCategory.MapEffects => "Map effects",
-            SettingPanelCategory.DamageNumbers => "Damage numbers",
-            SettingPanelCategory.SoundAndFilm => "Sound & film",
+            SettingPanelCategory.MapEffects => "Map Effects",
+            SettingPanelCategory.DamageNumbers => "Damage Numbers",
+            SettingPanelCategory.SoundAndFilm => "Sound and Film",
             SettingPanelCategory.Controls => "Controls",
             SettingPanelCategory.Hotbars => "Hotbars",
             SettingPanelCategory.Chat => "Chat",

@@ -95,7 +95,7 @@ public static class SettingsLayout
     /// <summary>
     ///     Whether <paramref name="section" /> shows its header above its rows. A multi-section category shows each
     ///     section's header; a single-section category shows it only when it differs from the category name (so
-    ///     Display hides "Display" while Map effects keeps "Triggering or Unsettling Map Effects"). The Hotbars
+    ///     Display hides "Display" while Map Effects keeps "Triggering or Unsettling Map Effects"). The Hotbars
     ///     category lays out its sections around the bar picker and does not use this.
     /// </summary>
     public static bool ShowsSectionHeader(SettingPanelCategory category, SettingSection section)

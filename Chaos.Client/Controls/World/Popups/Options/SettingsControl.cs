@@ -14,7 +14,7 @@ namespace Chaos.Client.Controls.World.Popups.Options;
 
 /// <summary>
 ///     Settings panel (F4). Re-skinned into the ornate dialog frame (FramedDialogPanelBase) with a clickable category
-///     list on the left (Display, Map effects, Damage numbers, Sound and film, Controls, Hotbars, Chat) and the
+///     list on the left (Display, Map Effects, Damage Numbers, Sound and Film, Controls, Hotbars, Chat) and the
 ///     selected category's rows on the right, driven by <see cref="SettingDefinitions" />. The right column is
 ///     single-column: every row is full width. Same footprint as the legacy _nsett panel (the prefab is still used
 ///     for sizing + the OK button; its background is replaced by the frame); the window is widened past the prefab

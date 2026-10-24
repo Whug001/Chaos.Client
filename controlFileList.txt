@@ -356,7 +356,7 @@ _nmacro.txt
 _nsett.txt
   Class:    SettingsControl : PrefabPanel
   File:     Controls/World/Options/SettingsControl.cs
-  Purpose:  Settings dialog (F4) — left category list (Display, Map effects, Damage numbers, Sound & film, Controls, Hotbars, Chat), right shows the picked category's full-width rows (Hotbars adds a 1-4 bar picker above the picked bar's rows), OK button
+  Purpose:  Settings dialog (F4) — left category list (Display, Map Effects, Damage Numbers, Sound and Film, Controls, Hotbars, Chat), right shows the picked category's full-width rows (Hotbars adds a 1-4 bar picker above the picked bar's rows), OK button
   Images referenced by controls:
     _nsett.epf/.spf      — Anchor background
     _nbtn.epf/.spf       — OK/Cancel button frames
