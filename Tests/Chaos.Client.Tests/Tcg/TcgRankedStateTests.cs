@@ -17,13 +17,15 @@ public sealed class TcgRankedStateTests
         TcgRankedDisplayKind kind,
         uint waited = 0,
         byte left = 0,
-        string message = "")
+        string message = "",
+        ushort count = 0)
         => new()
         {
             Kind = kind,
             SecondsWaited = waited,
             SecondsLeft = left,
-            Message = message
+            Message = message,
+            QueueSize = count
         };
 
     [Test]
@@ -38,14 +40,15 @@ public sealed class TcgRankedStateTests
     }
 
     [Test]
-    public void Queue_counts_waited_seconds_from_search_start()
+    public void Queue_shows_how_many_players_are_waiting()
     {
         var state = new TcgRankedState();
-        state.Apply(Args(TcgRankedDisplayKind.Queue, waited: 10), Now);
+        state.Apply(Args(TcgRankedDisplayKind.Queue, waited: 10, count: 3), Now);
 
         state.SecondsWaited(Now).Should().Be(10);
-        state.QueueText(Now.AddSeconds(32)).Should().Be("Ranked 0:42");
-        state.QueueText(Now.AddSeconds(115)).Should().Be("Ranked 2:05");
+        state.QueueSize.Should().Be(3);
+        state.QueueText(Now).Should().Be("Searching... (3)");
+        state.QueueText(Now.AddMinutes(2)).Should().Be("Searching... (3)");
     }
 
     [Test]
@@ -166,6 +169,18 @@ public sealed class TcgRankedStateTests
     }
 
     [Test]
+    public void Clear_resets_the_queue_count()
+    {
+        var state = new TcgRankedState();
+        state.Apply(Args(TcgRankedDisplayKind.Queue, count: 3), Now);
+        state.QueueSize.Should().Be(3);
+
+        state.Clear();
+
+        state.QueueSize.Should().Be(0);
+    }
+
+    [Test]
     public void WorldState_Clear_keeps_the_queue_across_maps()
     {
         WorldState.TcgRanked.Should().NotBeNull();
@@ -192,3 +207,4 @@ public sealed class TcgRankedStateTests
         WorldState.TcgRanked.Info.Should().BeNull();
     }
 }
+

@@ -32,6 +32,9 @@ public sealed class TcgRankedState
 
     public TcgQueueMode Mode { get; private set; } = TcgQueueMode.Hidden;
 
+    /// <summary>How many players are waiting in the ranked queue, including the viewer.</summary>
+    public ushort QueueSize { get; private set; }
+
     /// <summary>The last ranked info snapshot, or null before the first one arrives.</summary>
     public TcgRankedDisplayArgs? Info { get; private set; }
 
@@ -46,6 +49,7 @@ public sealed class TcgRankedState
             case TcgRankedDisplayKind.Queue:
                 Mode = TcgQueueMode.Searching;
                 SearchStart = now.AddSeconds(-args.SecondsWaited);
+                QueueSize = args.QueueSize;
 
                 break;
             case TcgRankedDisplayKind.QueueEnded:
@@ -82,9 +86,7 @@ public sealed class TcgRankedState
 
     public string QueueText(DateTime now)
     {
-        var waited = SecondsWaited(now);
-
-        return $"Ranked {waited / 60}:{waited % 60:00}";
+        return $"Searching... ({QueueSize})";
     }
 
     /// <summary>Only a ready deck with nothing already showing can join the queue.</summary>
@@ -122,6 +124,8 @@ public sealed class TcgRankedState
         Mode = TcgQueueMode.Hidden;
         Info = null;
         SearchStart = DateTime.MaxValue;
+        QueueSize = 0;
         ReadyEnd = DateTime.MinValue;
     }
 }
+
