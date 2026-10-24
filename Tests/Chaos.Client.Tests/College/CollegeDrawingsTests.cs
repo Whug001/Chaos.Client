@@ -35,6 +35,28 @@ public class CollegeDrawingsTests
     }
 
     [Test]
+    public void A_drawing_that_runs_out_of_attempts_is_given_up()
+    {
+        var drawings = new CollegeDrawings();
+        drawings.HasGivenUp(7, Start).Should().BeFalse();
+
+        drawings.NeedsFetch(7, Start).Should().BeTrue();
+        drawings.HasGivenUp(7, Start.AddSeconds(29)).Should().BeFalse();
+
+        var sent = 1;
+
+        for (var second = 1; second <= 600; second++)
+            if (drawings.NeedsFetch(7, Start.AddSeconds(second)))
+                sent++;
+
+        sent.Should().Be(FetchRetry.MAX_ATTEMPTS);
+        drawings.HasGivenUp(7, Start.AddSeconds(601)).Should().BeTrue();
+
+        drawings.OnDrawing(Drawing(7));
+        drawings.HasGivenUp(7, Start.AddSeconds(602)).Should().BeFalse();
+    }
+
+    [Test]
     public void An_arriving_drawing_is_kept_and_announced()
     {
         var drawings = new CollegeDrawings();

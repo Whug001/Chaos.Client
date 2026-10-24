@@ -44,6 +44,12 @@ public sealed class CollegeDrawings(Func<PixelDrawing, Texture2D>? makeTexture =
         return true;
     }
 
+    /// <summary>True when the drawing's fetches ran out with no reply; the caller should stop asking and fall back.</summary>
+    public bool HasGivenUp(int id, DateTime now)
+        => !Has(id)
+           && Requested.TryGetValue(id, out var request)
+           && FetchRetry.HasGivenUp(request.SentAt, request.Attempts, now);
+
     public void OnDrawing(CollegeDisplayArgs args)
     {
         Entries.Add(Key(args.Id), new Entry(PixelDrawing.From(args.Palette, args.Pixels)));

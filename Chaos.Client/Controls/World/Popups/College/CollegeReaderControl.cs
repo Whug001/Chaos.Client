@@ -9,9 +9,11 @@ using Chaos.Client.Rendering;
 using Chaos.Client.Rendering.Definitions;
 using Chaos.Client.Systems.College;
 using Chaos.Client.ViewModel.College;
+using Chaos.Client.ViewModel.College.Library;
 using Chaos.DarkAges.Definitions;
 using Chaos.Networking.Entities.Client;
 using Chaos.Networking.Entities.Server;
+using Microsoft.Xna.Framework;
 #endregion
 
 namespace Chaos.Client.Controls.World.Popups.College;
@@ -45,6 +47,8 @@ public sealed class CollegeReaderControl : GuildCloakDialogBase
     private const int COMMENT_LINES = 3;
     private const string REMOVE_CAPTION = "Remove entry";
     private const string CONFIRM_REMOVE_CAPTION = "Confirm remove";
+    private const string TAKE_DOWN_CAPTION = "Take down";
+    private const string CONFIRM_TAKE_DOWN_CAPTION = "Confirm take down";
 
     private readonly CustomTextBox CommentBox;
     private readonly List<CustomButton> FooterButtons = [];
@@ -60,6 +64,10 @@ public sealed class CollegeReaderControl : GuildCloakDialogBase
     private CustomButton? RemoveButton;
     private bool RemoveArmed;
     private CustomButton? SubmitButton;
+    private CustomButton? ReportButton;
+    private CustomButton? LibraryTakeDownButton;
+    private CustomButton? RejectButton;
+    private bool LibraryAuthor;
     private byte SelectedTier = CollegeProtocol.NO_TIER;
     private int[] Siblings = [];
 
@@ -175,6 +183,10 @@ public sealed class CollegeReaderControl : GuildCloakDialogBase
         SubmitButton = null;
         RemoveButton = null;
         RemoveArmed = false;
+        ReportButton = null;
+        LibraryTakeDownButton = null;
+        RejectButton = null;
+        LibraryAuthor = false;
         CommentBox.IsFocused = false;
 
         switch (args.Context)
@@ -196,6 +208,38 @@ public sealed class CollegeReaderControl : GuildCloakDialogBase
                 RemoveButton = FooterAction(REMOVE_CAPTION, 110, OnRemoveClicked);
 
                 break;
+            case CollegePieceContext.LibraryShelf:
+                if (args.CanReport)
+                    ReportButton = FooterAction("Report", 80, () => SendLibrary(CollegeActionType.LibraryReport));
+
+                if (args.CanTakeDown)
+                    LibraryTakeDownButton = FooterAction(TAKE_DOWN_CAPTION, 150, OnLibraryTakeDownClicked);
+
+                break;
+            case CollegePieceContext.LibraryWaiting:
+                FooterAction("Approve", 80, () => SendLibrary(CollegeActionType.LibraryApprove, true));
+                RejectButton = FooterAction("Reject", 80, () => SendLibrary(CollegeActionType.LibraryReject, true));
+
+                if (args.HasShelfVersion)
+                {
+                    FooterAction("Shelf version", 120, () => SendLibraryOpen(LibraryOpenMode.ReviewShelf));
+                    FooterAction("New version", 110, () => SendLibraryOpen(LibraryOpenMode.ReviewWaiting));
+                }
+
+                break;
+            case CollegePieceContext.LibraryReported:
+                if (args.CanTakeDown)
+                    LibraryTakeDownButton = FooterAction(TAKE_DOWN_CAPTION, 150, OnLibraryTakeDownClicked);
+
+                FooterAction("Dismiss", 80, () => SendLibrary(CollegeActionType.LibraryDismiss));
+                FooterAction($"Reports ({args.Votes.Count})", 110, ShowReports);
+
+                break;
+            case CollegePieceContext.LibraryOwn:
+                if (args.CanTakeDown)
+                    LibraryTakeDownButton = FooterAction(TAKE_DOWN_CAPTION, 150, OnLibraryTakeDownClicked);
+
+                break;
             case CollegePieceContext.HandIn:
                 FooterAction("Show to class", 120, () => Send(CollegeActionType.ShowToClass));
 
@@ -204,8 +248,30 @@ public sealed class CollegeReaderControl : GuildCloakDialogBase
 
         var voting = args.Context is CollegePieceContext.Judge or CollegePieceContext.Verdict;
         var y = FooterButtons.Count > 0 ? ACTIONS_TOP - GAP : FOOTER_BOTTOM;
+        var reason = args.Context
+            is CollegePieceContext.LibraryShelf
+            or CollegePieceContext.LibraryWaiting
+            or CollegePieceContext.LibraryReported
+            or CollegePieceContext.LibraryOwn;
 
-        CommentBox.Visible = voting;
+        if (reason)
+        {
+            LibraryAuthor = !args.CanReview && args.CanTakeDown;
+            CommentBox.MaxLength = CollegeProtocol.MAX_REASON_CHARS;
+            CommentBox.HintText = args.Context switch
+            {
+                CollegePieceContext.LibraryShelf => "Why report this book?",
+                CollegePieceContext.LibraryWaiting => "Why reject this book?",
+                _ => "Why take this book down?"
+            };
+            CommentBox.Text = string.Empty;
+
+            y -= CommentBox.Height;
+            CommentBox.Y = y;
+            y -= GAP;
+        }
+
+        CommentBox.Visible = voting || reason;
 
         foreach (var button in TierButtons)
             button.Visible = voting;
@@ -242,6 +308,7 @@ public sealed class CollegeReaderControl : GuildCloakDialogBase
             CollegePieceContext.Judge   => "Your vote (comments go to the Director only):",
             CollegePieceContext.Verdict => $"Votes: {CollegeTiers.VoteSummary(args.Votes)}",
             CollegePieceContext.Gallery => $"by {args.Author}",
+            CollegePieceContext.LibraryShelf or CollegePieceContext.LibraryWaiting or CollegePieceContext.LibraryReported or CollegePieceContext.LibraryOwn => $"by {args.Author}",
             _                           => string.Empty
         };
 
@@ -324,6 +391,95 @@ public sealed class CollegeReaderControl : GuildCloakDialogBase
 
         if (type is CollegeActionType.Verdict or CollegeActionType.RemoveEntry)
             Hide();
+    }
+
+    public override void Update(GameTime gameTime)
+    {
+        base.Update(gameTime);
+
+        if (!Visible || (Current is null))
+            return;
+
+        var reasonOk = ReasonRule.Allows(CommentBox.Text, true);
+
+        switch (Current.Context)
+        {
+            case CollegePieceContext.LibraryShelf:
+            case CollegePieceContext.LibraryOwn:
+                if (ReportButton is not null)
+                    ReportButton.Enabled = Current.CanReport && reasonOk;
+
+                if (LibraryTakeDownButton is not null)
+                    LibraryTakeDownButton.Enabled = LibraryAuthor || reasonOk;
+
+                break;
+            case CollegePieceContext.LibraryWaiting:
+                if (RejectButton is not null)
+                    RejectButton.Enabled = reasonOk;
+
+                break;
+            case CollegePieceContext.LibraryReported:
+                if (LibraryTakeDownButton is not null)
+                    LibraryTakeDownButton.Enabled = reasonOk;
+
+                break;
+        }
+    }
+
+    private void SendLibrary(CollegeActionType type, bool hide = false)
+    {
+        if (Current is null)
+            return;
+
+        ActionRequested?.Invoke(
+            new CollegeActionArgs
+            {
+                Type = type,
+                Id = Current.Id,
+                Text = CommentBox.Text.Trim()
+            });
+
+        if (hide)
+            Hide();
+    }
+
+    private void SendLibraryOpen(LibraryOpenMode mode)
+    {
+        if (Current is null)
+            return;
+
+        ActionRequested?.Invoke(
+            new CollegeActionArgs
+            {
+                Type = CollegeActionType.LibraryOpenBook,
+                Id = Current.Id,
+                OpenMode = mode
+            });
+    }
+
+    //taking a book down can't be undone from the window, so it takes a second click
+    private void OnLibraryTakeDownClicked()
+    {
+        if (!RemoveArmed)
+        {
+            RemoveArmed = true;
+            LibraryTakeDownButton!.Caption = CONFIRM_TAKE_DOWN_CAPTION;
+
+            return;
+        }
+
+        SendLibrary(CollegeActionType.LibraryTakeDown);
+    }
+
+    private void ShowReports()
+    {
+        if (Current is null)
+            return;
+
+        VotesPopup.Show(
+            Current.Votes.Count == 0
+                ? "No reports yet."
+                : string.Join("\n\n", Current.Votes.Select(v => $"{v.Judge}: {v.Comment}")));
     }
 
     private void ShowVotes()
