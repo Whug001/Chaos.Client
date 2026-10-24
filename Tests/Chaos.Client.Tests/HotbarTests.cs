@@ -318,6 +318,41 @@ public class HotbarTests
         book.FindSlotByAbilityName("Beag Ioc").Should().Be(50);
         book.FindSlotByAbilityName("ioc").Should().Be(0);
     }
+
+    [Test]
+    public void A_skill_is_still_found_after_it_is_upgraded()
+    {
+        var book = new SkillBook();
+        book.SetSlot(12, 7, "Sever 3 (Lev:1/100)");
+
+        book.FindSlotByAbilityName("Sever 2").Should().Be(12);
+        book.FindSlotByAbilityName("Sever").Should().Be(12);
+        book.FindSlotByAbilityName("Sev").Should().Be(0);
+    }
+
+    [Test]
+    public void A_spell_is_still_found_after_it_is_upgraded()
+    {
+        var book = new SpellBook();
+        book.SetSlot(30, 12, "Ignis 2 (Lev:1/100)");
+        book.SetSlot(31, 13, "Ignis 3 (Lev:1/100)");
+
+        //the exact tier wins over another tier of the same spell
+        book.FindSlotByAbilityName("Ignis 3").Should().Be(31);
+        book.FindSlotByAbilityName("ignis 1").Should().Be(30);
+        book.FindSlotByAbilityName("Nera 3").Should().Be(0);
+    }
+
+    //formatter:off
+    [Test]
+    [Arguments("Sever 3", "Sever")]
+    [Arguments("Focused Strike 10", "Focused Strike")]
+    [Arguments("Sever", "Sever")]
+    [Arguments("Rune7", "Rune7")]
+    [Arguments("12", "12")]
+    //formatter:on
+    public void The_base_name_drops_only_a_spaced_tier_number(string name, string expected)
+        => AbilityTierName.BaseName(name).Should().Be(expected);
     #endregion
 
     #region Key bindings
