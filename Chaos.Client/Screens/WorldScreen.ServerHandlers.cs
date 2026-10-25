@@ -284,6 +284,13 @@ public sealed partial class WorldScreen
 
     //--- chat / messages ---
 
+    /// <summary>
+    ///     Rewrites server UTC timestamps to local time for display. A line carrying filter tags keeps its
+    ///     original text: tags index into its character positions, so a rewrite would shift them.
+    /// </summary>
+    private static string WithLocalTime(string message, IReadOnlyList<ChatTag> tags)
+        => tags is { Count: > 0 } ? message : LocalTimeText.Rewrite(message, DateTime.UtcNow, TimeZoneInfo.Local);
+
     private void HandleDisplayPublicMessage(DisplayPublicMessageArgs args)
     {
         var entityExists = WorldState.GetEntity(args.SourceId) is not null;
@@ -305,9 +312,12 @@ public sealed partial class WorldScreen
             _                       => LegendColors.White
         };
 
+        //server UTC timestamps become local time, unless tags index into the original text
+        var message = WithLocalTime(args.Message, args.Tags);
+
         //single render boundary: the body transforms once here; the chat log and both bubbles share it
         var publicMessage = ChatDisplayBuilder.BuildPublic(
-            args.Message,
+            message,
             args.Tags,
             WorldState.UserOptions.ChatFilterMode,
             FantasyDictionary.Default);
@@ -329,7 +339,7 @@ public sealed partial class WorldScreen
             args.SourceId,
             isShout,
             color,
-            args.Message);
+            message);
 
         //over the speaker's portrait if they are sitting at the poker table, whose panel is covering the floor
         //the bubble below would be drawn on. Ahead of the entity check on purpose: the panel resolves seats by
@@ -365,6 +375,9 @@ public sealed partial class WorldScreen
 
     private void HandleServerMessage(ServerMessageArgs args)
     {
+        //server UTC timestamps become local time, unless tags index into the original text
+        var message = WithLocalTime(args.Message, args.Tags);
+
         switch (args.ServerMessageType)
         {
             case ServerMessageType.Whisper:
@@ -373,13 +386,13 @@ public sealed partial class WorldScreen
                 //single render boundary: the body transforms once here; the chat log, orange bar, and
                 //message pane share the display string, with the original plus tags beside it
                 var whisper = ChatDisplayBuilder.BuildWhisper(
-                    args.Message,
+                    message,
                     args.Tags,
                     WorldState.UserOptions.ChatFilterMode,
                     FantasyDictionary.Default);
 
                 WorldState.Chat.AddMessage(whisper.DisplayText, TextColors.Whisper, whisper.OriginalText, whisper.Tags, args.LineId);
-                RememberTranslatableLine(args.LineId, TranslatedLineKind.Whisper, 0, false, TextColors.Whisper, args.Message);
+                RememberTranslatableLine(args.LineId, TranslatedLineKind.Whisper, 0, false, TextColors.Whisper, message);
                 WorldState.Chat.AddOrangeBarMessage(whisper.DisplayText, TextColors.Whisper);
                 SystemMessagePane.AddMessage(whisper.DisplayText, TextColors.Whisper);
                 if (TcgMatchOpen && !TcgMatchWindow!.Spectating)
@@ -390,13 +403,13 @@ public sealed partial class WorldScreen
             case ServerMessageType.GroupChat:
                 //single render boundary (group and guild share the [!channel] Name: wire shape)
                 var groupChat = ChatDisplayBuilder.BuildGroupChat(
-                    args.Message,
+                    message,
                     args.Tags,
                     WorldState.UserOptions.ChatFilterMode,
                     FantasyDictionary.Default);
 
                 WorldState.Chat.AddMessage(groupChat.DisplayText, TextColors.GroupChat, groupChat.OriginalText, groupChat.Tags, args.LineId);
-                RememberTranslatableLine(args.LineId, TranslatedLineKind.Group, 0, false, TextColors.GroupChat, args.Message);
+                RememberTranslatableLine(args.LineId, TranslatedLineKind.Group, 0, false, TextColors.GroupChat, message);
                 WorldState.Chat.AddOrangeBarMessage(groupChat.DisplayText, TextColors.GroupChat);
                 SystemMessagePane.AddMessage(groupChat.DisplayText, TextColors.GroupChat);
 
@@ -405,21 +418,21 @@ public sealed partial class WorldScreen
             case ServerMessageType.GuildChat:
                 //single render boundary (group and guild share the [!channel] Name: wire shape)
                 var guildChat = ChatDisplayBuilder.BuildGroupChat(
-                    args.Message,
+                    message,
                     args.Tags,
                     WorldState.UserOptions.ChatFilterMode,
                     FantasyDictionary.Default);
 
                 WorldState.Chat.AddMessage(guildChat.DisplayText, TextColors.GuildChat, guildChat.OriginalText, guildChat.Tags, args.LineId);
-                RememberTranslatableLine(args.LineId, TranslatedLineKind.Guild, 0, false, TextColors.GuildChat, args.Message);
+                RememberTranslatableLine(args.LineId, TranslatedLineKind.Guild, 0, false, TextColors.GuildChat, message);
                 WorldState.Chat.AddOrangeBarMessage(guildChat.DisplayText, TextColors.GuildChat);
                 SystemMessagePane.AddMessage(guildChat.DisplayText, TextColors.GuildChat);
 
                 break;
 
             case ServerMessageType.ActiveMessage:
-                WorldState.Chat.AddOrangeBarMessage(args.Message);
-                SystemMessagePane.AddMessage(args.Message);
+                WorldState.Chat.AddOrangeBarMessage(message);
+                SystemMessagePane.AddMessage(message);
 
                 break;
 
@@ -430,7 +443,7 @@ public sealed partial class WorldScreen
                  or ServerMessageType.OrangeBar5:
                 //channel messages (world shout) put a tagged copy of the chat log line here; it filters the same way
                 var orangeBar = ChatDisplayBuilder.BuildOrangeBar(
-                    args.Message,
+                    message,
                     args.Tags,
                     WorldState.UserOptions.ChatFilterMode,
                     FantasyDictionary.Default);
@@ -440,22 +453,22 @@ public sealed partial class WorldScreen
                 break;
 
             case ServerMessageType.PersistentMessage:
-                UpdateHuds(HudOps.ShowPersistentMessage, args.Message);
+                UpdateHuds(HudOps.ShowPersistentMessage, message);
 
                 break;
 
             case ServerMessageType.ScrollWindow:
-                TextPopup.Show(args.Message);
+                TextPopup.Show(message);
 
                 break;
 
             case ServerMessageType.NonScrollWindow:
-                TextPopup.Show(args.Message, PopupStyle.NonScroll);
+                TextPopup.Show(message, PopupStyle.NonScroll);
 
                 break;
 
             case ServerMessageType.WoodenBoard:
-                TextPopup.Show(args.Message, PopupStyle.Wooden);
+                TextPopup.Show(message, PopupStyle.Wooden);
 
                 break;
 
@@ -465,7 +478,7 @@ public sealed partial class WorldScreen
                 break;
 
             default:
-                WorldState.Chat.AddOrangeBarMessage(args.Message);
+                WorldState.Chat.AddOrangeBarMessage(message);
 
                 break;
         }
