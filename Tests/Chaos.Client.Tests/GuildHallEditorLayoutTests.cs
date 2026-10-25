@@ -56,9 +56,9 @@ public sealed class GuildHallEditorLayoutTests
     }
 
     [Test]
-    public async Task Prefab_tab_is_called_prefabs()
+    public async Task Tabs_use_the_short_names()
     {
-        GuildHallEditorControl.TabNames.Should().Equal("Floors", "Walls", "Decor", "NPCs", "Prefabs", "Defenses");
+        GuildHallEditorControl.TabNames.Should().Equal("Floor", "Walls", "Decor", "NPCs", "Prefab", "Siege");
 
         await Task.CompletedTask;
     }
@@ -74,9 +74,10 @@ public sealed class GuildHallEditorLayoutTests
     [Test]
     public async Task Tab_buttons_fit_in_the_row()
     {
-        var lastRight = GuildHallEditorControl.PAD + ((Enum.GetValues<GuildHallTab>().Length - 1) * GuildHallEditorControl.TAB_PITCH) + GuildHallEditorControl.TAB_WIDTH;
+        var last = GuildHallEditorControl.TabNames.Length - 1;
+        var lastRight = GuildHallEditorControl.TabX(last) + GuildHallEditorControl.TabWidths[last];
 
-        lastRight.Should().BeLessThanOrEqualTo(GuildHallEditorControl.PANEL_WIDTH - GuildHallEditorControl.PAD);
+        lastRight.Should().Be(GuildHallEditorControl.PANEL_WIDTH - GuildHallEditorControl.PAD);
 
         await Task.CompletedTask;
     }
@@ -84,10 +85,21 @@ public sealed class GuildHallEditorLayoutTests
     [Test]
     public async Task Six_tabs_fit_the_panel()
     {
-        var tabs = Enum.GetValues<GuildHallTab>().Length;
+        Enum.GetValues<GuildHallTab>().Should().HaveCount(6);
+        GuildHallEditorControl.TabWidths.Should().HaveCount(6);
 
-        tabs.Should().Be(6);
-        ((tabs - 1) * GuildHallEditorControl.TAB_PITCH + GuildHallEditorControl.TAB_WIDTH).Should().BeLessThanOrEqualTo(GuildHallEditorControl.PANEL_WIDTH);
+        await Task.CompletedTask;
+    }
+
+    [Test]
+    public async Task Every_tab_caption_fits_its_button()
+    {
+        for (var i = 0; i < GuildHallEditorControl.TabNames.Length; i++)
+        {
+            var name = GuildHallEditorControl.TabNames[i];
+
+            Chaos.Client.Rendering.TextRenderer.MeasureWidth(name).Should().BeLessThanOrEqualTo(GuildHallEditorControl.TabWidths[i] - 4, name);
+        }
 
         await Task.CompletedTask;
     }

@@ -21,6 +21,7 @@ public sealed class GuildHallEditorControl : UIPanel
     public const int PANEL_WIDTH = 222;
     public const int PANEL_HEIGHT = 290;
     public const int PAD = 6;
+    public const int CONTENT_W = PANEL_WIDTH - (2 * PAD);
     public const int HEADER_Y = 2;
     public const int HEADER_H = 16;
     public const int TITLE_W = 140;
@@ -30,8 +31,7 @@ public sealed class GuildHallEditorControl : UIPanel
     public const int CHECK_W = 16;
     public const int TAB_Y = 20;
     public const int TAB_H = 28;
-    public const int TAB_WIDTH = 33;
-    public const int TAB_PITCH = 35;
+    public const int TAB_GAP = 1;
     public const int SET_Y = 50;
     public const int SET_H = 16;
     public const int ARROW_W = 16;
@@ -62,7 +62,8 @@ public sealed class GuildHallEditorControl : UIPanel
     public const int DEFENSE_BUTTON_X2 = PAD + DEFENSE_BUTTON_W + 6;
     public const int POINTS_Y = 226;
 
-    internal static readonly string[] TabNames = ["Floors", "Walls", "Decor", "NPCs", "Prefabs", "Defenses"];
+    internal static readonly string[] TabNames = ["Floor", "Walls", "Decor", "NPCs", "Prefab", "Siege"];
+    internal static readonly int[] TabWidths = FitTabWidths();
     internal static readonly string[] ToolNames = ["Paint", "Box", "Fill", "Erase", "Door"];
     public static readonly string[] TabIconKeys = ["tab_floors", "tab_walls", "tab_decor", "tab_npcs", "tab_rooms", "tab_walls"];
     private static readonly string[] ToolIconKeys = ["tool_paint", "tool_box", "tool_fill", "tool_erase", "tool_door"];
@@ -115,7 +116,7 @@ public sealed class GuildHallEditorControl : UIPanel
         for (var i = 0; i < TabButtons.Length; i++)
         {
             var tab = (GuildHallTab)i;
-            TabButtons[i] = Button(TabNames[i], PAD + (i * TAB_PITCH), TAB_Y, TAB_WIDTH, TAB_H, () => Act(() => State.SetTab(tab)));
+            TabButtons[i] = Button(TabNames[i], TabX(i), TAB_Y, TabWidths[i], TAB_H, () => Act(() => State.SetTab(tab)));
             TabButtons[i].Recessed = true;
         }
 
@@ -189,6 +190,28 @@ public sealed class GuildHallEditorControl : UIPanel
             Math.Clamp(viewport.Right - PANEL_WIDTH - 2, 0, ChaosGame.VIRTUAL_WIDTH - PANEL_WIDTH),
             Math.Clamp(viewport.Y + 2, 0, ChaosGame.VIRTUAL_HEIGHT - PANEL_HEIGHT));
 
+    public static int TabX(int index)
+    {
+        var x = PAD;
+
+        for (var i = 0; i < index; i++)
+            x += TabWidths[i] + TAB_GAP;
+
+        return x;
+    }
+
+    /// <summary>Each tab is as wide as its caption, and the space left over is shared out so the row fills the panel.</summary>
+    private static int[] FitTabWidths()
+    {
+        var widths = TabNames.Select(name => TextRenderer.MeasureWidth(name) + 4).ToArray();
+        var spare = CONTENT_W - widths.Sum() - ((widths.Length - 1) * TAB_GAP);
+
+        for (var i = 0; spare > 0; i = (i + 1) % widths.Length, spare--)
+            widths[i]++;
+
+        return widths;
+    }
+
     /// <summary>Every visible control's bounds for <paramref name="tab" />, for layout tests.</summary>
     public static IReadOnlyList<Rectangle> VisibleBounds(GuildHallTab tab)
     {
@@ -200,7 +223,7 @@ public sealed class GuildHallEditorControl : UIPanel
         };
 
         for (var i = 0; i < TabNames.Length; i++)
-            bounds.Add(new Rectangle(PAD + (i * TAB_PITCH), TAB_Y, TAB_WIDTH, TAB_H));
+            bounds.Add(new Rectangle(TabX(i), TAB_Y, TabWidths[i], TAB_H));
 
         if (tab == GuildHallTab.Defenses)
         {
