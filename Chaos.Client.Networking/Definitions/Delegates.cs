@@ -458,6 +458,8 @@ public delegate void PumpkinCarvingDisplayHandler(PumpkinCarvingDisplayArgs args
 /// </summary>
 public delegate void PumpkinLookHandler(PumpkinLookArgs args);
 
+public delegate void EntityLanternHandler(EntityLanternArgs args);
+
 /// <summary>
 ///     Fired when the quest log list is received.
 /// </summary>

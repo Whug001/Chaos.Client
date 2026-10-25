@@ -251,6 +251,12 @@ public static class WorldState
     public static PumpkinLookStore PumpkinLooks { get; } = new();
 
     /// <summary>
+    ///     Lights the server has given non-player entities, by entity id, from EntityLantern. Kept across display updates
+    ///     so a redrawn lantern stays lit; cleared with the entities.
+    /// </summary>
+    public static Dictionary<uint, LanternSize> EntityLanterns { get; } = [];
+
+    /// <summary>
     ///     Authoritative beauty shop state (catalog, prices, current look, and the look being tried on).
     /// </summary>
     public static BeautyShop BeautyShop { get; } = new();
@@ -394,7 +400,7 @@ public static class WorldState
                     entity.CreatureType = creature.CreatureType;
                     entity.Direction = creature.Direction;
                     entity.Name = creature.Name ?? string.Empty;
-                    entity.LanternSize = PumpkinLookStore.LanternFor(PumpkinLooks.Get(obj.Id));
+                    entity.LanternSize = LanternFor(obj.Id);
 
                     break;
 
@@ -454,6 +460,7 @@ public static class WorldState
         Entities.Clear();
         GuildCloakLooks.Clear();
         PumpkinLooks.Clear();
+        EntityLanterns.Clear();
         ActiveEffects.Clear();
         ActiveProjectiles.Clear();
 
@@ -872,6 +879,7 @@ public static class WorldState
         Entities.Remove(id);
         GuildCloakLooks.Remove(id);
         PumpkinLooks.Remove(id);
+        EntityLanterns.Remove(id);
         Causeway.Rides.Forget(id);
         SortVersion++;
     }
@@ -891,10 +899,33 @@ public static class WorldState
     /// <summary>Records a pumpkin's look and gives a lit pumpkin its light.</summary>
     public static void ApplyPumpkinLook(uint entityId, PumpkinLookState state, byte[]? grid)
     {
-        var look = PumpkinLooks.Apply(entityId, state, grid);
+        PumpkinLooks.Apply(entityId, state, grid);
 
         if (Entities.TryGetValue(entityId, out var entity))
-            entity.LanternSize = PumpkinLookStore.LanternFor(look);
+            entity.LanternSize = LanternFor(entityId);
+    }
+
+    /// <summary>Records a light the server has given a non-player entity, and lights (or darkens) it.</summary>
+    public static void ApplyEntityLantern(uint entityId, LanternSize lanternSize)
+    {
+        if (lanternSize == LanternSize.None)
+            EntityLanterns.Remove(entityId);
+        else
+            EntityLanterns[entityId] = lanternSize;
+
+        if (Entities.TryGetValue(entityId, out var entity) && (entity.Type == ClientEntityType.Creature))
+            entity.LanternSize = LanternFor(entityId);
+    }
+
+    /// <summary>
+    ///     A creature's light: the larger of a lit pumpkin's and one the server set with EntityLantern.
+    /// </summary>
+    public static LanternSize LanternFor(uint entityId)
+    {
+        var pumpkin = PumpkinLookStore.LanternFor(PumpkinLooks.Get(entityId));
+        var lantern = EntityLanterns.GetValueOrDefault(entityId, LanternSize.None);
+
+        return (LanternSize)Math.Max((byte)pumpkin, (byte)lantern);
     }
 
     /// <summary>
@@ -915,6 +946,8 @@ public static class WorldState
         };
 
         connection.OnRemoveSkillFromPane += args => SkillBook.ClearSlot(args.Slot);
+
+        connection.OnEntityLantern += args => ApplyEntityLantern(args.EntityId, args.LanternSize);
 
         connection.OnAddSpellToPane += args =>
         {
