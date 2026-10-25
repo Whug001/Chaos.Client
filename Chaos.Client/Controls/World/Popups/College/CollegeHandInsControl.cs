@@ -50,7 +50,7 @@ public sealed class CollegeHandInsControl : CollegeListWindow<CollegeHandInRowIn
             Show();
     }
 
-    //UTC, like the reader's header and the class timetable
+    //UTC, shown as the Mileth bell like the reader's header and the class timetable
     private static string HandedIn(uint unix)
         => DateTimeOffset.FromUnixTimeSeconds(unix)
                          .ToString("ddd HH:mm 'bell'", CultureInfo.InvariantCulture);
