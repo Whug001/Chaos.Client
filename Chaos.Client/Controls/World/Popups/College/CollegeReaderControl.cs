@@ -209,6 +209,9 @@ public sealed class CollegeReaderControl : GuildCloakDialogBase
 
                 break;
             case CollegePieceContext.LibraryShelf:
+                if (args.CanCheckOut)
+                    FooterAction("Check out", 90, () => SendLibrary(CollegeActionType.LibraryCheckOut));
+
                 if (args.CanReport)
                     ReportButton = FooterAction("Report", 80, () => SendLibrary(CollegeActionType.LibraryReport));
 
@@ -216,6 +219,9 @@ public sealed class CollegeReaderControl : GuildCloakDialogBase
                     LibraryTakeDownButton = FooterAction(TAKE_DOWN_CAPTION, 150, OnLibraryTakeDownClicked);
 
                 break;
+            case CollegePieceContext.LibraryCopy:
+                break;
+
             case CollegePieceContext.LibraryWaiting:
                 FooterAction("Approve", 80, () => SendLibrary(CollegeActionType.LibraryApprove, true));
                 RejectButton = FooterAction("Reject", 80, () => SendLibrary(CollegeActionType.LibraryReject, true));
@@ -250,6 +256,7 @@ public sealed class CollegeReaderControl : GuildCloakDialogBase
         var y = FooterButtons.Count > 0 ? ACTIONS_TOP - GAP : FOOTER_BOTTOM;
         var reason = args.Context
             is CollegePieceContext.LibraryShelf
+            or CollegePieceContext.LibraryCopy
             or CollegePieceContext.LibraryWaiting
             or CollegePieceContext.LibraryReported
             or CollegePieceContext.LibraryOwn;
@@ -260,7 +267,7 @@ public sealed class CollegeReaderControl : GuildCloakDialogBase
             CommentBox.MaxLength = CollegeProtocol.MAX_REASON_CHARS;
             CommentBox.HintText = args.Context switch
             {
-                CollegePieceContext.LibraryShelf => "Why report this book?",
+                CollegePieceContext.LibraryShelf or CollegePieceContext.LibraryCopy => "Why report this book?",
                 CollegePieceContext.LibraryWaiting => "Why reject this book?",
                 _ => "Why take this book down?"
             };
@@ -308,7 +315,7 @@ public sealed class CollegeReaderControl : GuildCloakDialogBase
             CollegePieceContext.Judge   => "Your vote (comments go to the Director only):",
             CollegePieceContext.Verdict => $"Votes: {CollegeTiers.VoteSummary(args.Votes)}",
             CollegePieceContext.Gallery => $"by {args.Author}",
-            CollegePieceContext.LibraryShelf or CollegePieceContext.LibraryWaiting or CollegePieceContext.LibraryReported or CollegePieceContext.LibraryOwn => $"by {args.Author}",
+            CollegePieceContext.LibraryShelf or CollegePieceContext.LibraryCopy or CollegePieceContext.LibraryWaiting or CollegePieceContext.LibraryReported or CollegePieceContext.LibraryOwn => $"by {args.Author}",
             _                           => string.Empty
         };
 
@@ -405,6 +412,7 @@ public sealed class CollegeReaderControl : GuildCloakDialogBase
         switch (Current.Context)
         {
             case CollegePieceContext.LibraryShelf:
+            case CollegePieceContext.LibraryCopy:
             case CollegePieceContext.LibraryOwn:
                 if (ReportButton is not null)
                     ReportButton.Enabled = Current.CanReport && reasonOk;
