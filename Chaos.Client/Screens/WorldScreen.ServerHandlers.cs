@@ -284,6 +284,13 @@ public sealed partial class WorldScreen
 
     //--- chat / messages ---
 
+    /// <summary>
+    ///     Rewrites server UTC timestamps to local time for display. A line carrying filter tags keeps its
+    ///     original text: tags index into its character positions, so a rewrite would shift them.
+    /// </summary>
+    private static string WithLocalTime(string message, IReadOnlyList<ChatTag> tags)
+        => tags is { Count: > 0 } ? message : LocalTimeText.Rewrite(message, DateTime.UtcNow, TimeZoneInfo.Local);
+
     private void HandleDisplayPublicMessage(DisplayPublicMessageArgs args)
     {
         var entityExists = WorldState.GetEntity(args.SourceId) is not null;
@@ -305,8 +312,8 @@ public sealed partial class WorldScreen
             _                       => LegendColors.White
         };
 
-        //server UTC timestamps become local time before anything reads the line
-        var message = LocalTimeText.Rewrite(args.Message, DateTime.UtcNow, TimeZoneInfo.Local);
+        //server UTC timestamps become local time, unless tags index into the original text
+        var message = WithLocalTime(args.Message, args.Tags);
 
         //single render boundary: the body transforms once here; the chat log and both bubbles share it
         var publicMessage = ChatDisplayBuilder.BuildPublic(
@@ -368,8 +375,8 @@ public sealed partial class WorldScreen
 
     private void HandleServerMessage(ServerMessageArgs args)
     {
-        //server UTC timestamps become local time before anything reads the line
-        var message = LocalTimeText.Rewrite(args.Message, DateTime.UtcNow, TimeZoneInfo.Local);
+        //server UTC timestamps become local time, unless tags index into the original text
+        var message = WithLocalTime(args.Message, args.Tags);
 
         switch (args.ServerMessageType)
         {

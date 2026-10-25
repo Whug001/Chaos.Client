@@ -818,6 +818,8 @@ public static class WorldState
     ///     Marks the entity sort buffer as dirty so the next <see cref="GetSortedEntities" /> call re-sorts. Call when entity
     ///     positions are modified outside of WorldState methods (e.g. client-side prediction).
     /// </summary>
+    public static void MarkSortDirty() => SortVersion++;
+
     /// <summary>
     ///     Returns a copy of <paramref name="args" /> with UTC timestamps rewritten to local time for display.
     ///     Only the dialog text and option texts change; responses send indices, never option text.
@@ -871,8 +873,6 @@ public static class WorldState
 
         return changed ? args with { Text = text, Options = options ?? args.Options } : args;
     }
-
-    public static void MarkSortDirty() => SortVersion++;
 
     /// <summary>
     ///     Re-applies chant data to all occupied skill/spell slots. Call after PlayerData becomes available (first
