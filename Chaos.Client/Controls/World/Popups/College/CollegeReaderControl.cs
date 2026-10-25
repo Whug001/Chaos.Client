@@ -256,7 +256,6 @@ public sealed class CollegeReaderControl : GuildCloakDialogBase
         var y = FooterButtons.Count > 0 ? ACTIONS_TOP - GAP : FOOTER_BOTTOM;
         var reason = args.Context
             is CollegePieceContext.LibraryShelf
-            or CollegePieceContext.LibraryCopy
             or CollegePieceContext.LibraryWaiting
             or CollegePieceContext.LibraryReported
             or CollegePieceContext.LibraryOwn;
@@ -267,7 +266,7 @@ public sealed class CollegeReaderControl : GuildCloakDialogBase
             CommentBox.MaxLength = CollegeProtocol.MAX_REASON_CHARS;
             CommentBox.HintText = args.Context switch
             {
-                CollegePieceContext.LibraryShelf or CollegePieceContext.LibraryCopy => "Why report this book?",
+                CollegePieceContext.LibraryShelf => "Why report this book?",
                 CollegePieceContext.LibraryWaiting => "Why reject this book?",
                 _ => "Why take this book down?"
             };
@@ -412,7 +411,6 @@ public sealed class CollegeReaderControl : GuildCloakDialogBase
         switch (Current.Context)
         {
             case CollegePieceContext.LibraryShelf:
-            case CollegePieceContext.LibraryCopy:
             case CollegePieceContext.LibraryOwn:
                 if (ReportButton is not null)
                     ReportButton.Enabled = Current.CanReport && reasonOk;
