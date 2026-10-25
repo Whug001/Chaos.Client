@@ -238,6 +238,7 @@ public sealed class MusicComposerControl : GuildCloakDialogBase
     /// <summary>Opens the composer for a town song contest entry, loaded with the player's entry so far.</summary>
     public void OpenContest(TownContestDisplayArgs args)
     {
+        var wasHandIn = Visible && (Mode == MusicComposerMode.HandIn);
         Session = null;
         Contest = args;
         Mode = MusicComposerMode.Contest;
@@ -245,11 +246,15 @@ public sealed class MusicComposerControl : GuildCloakDialogBase
         TitleBox.Text = string.Empty;
         NoteBox.Text = string.Empty;
         Begin();
+
+        if (wasHandIn)
+            SendHandInWindow(false);
     }
 
     /// <summary>Opens a Music draft or hand-in (a null piece is a blank tune).</summary>
     public void Open(CollegeDisplayArgs args)
     {
+        var wasHandIn = Visible && (Mode == MusicComposerMode.HandIn);
         Contest = null;
         Session = args;
         Mode = args.Mode == CollegeWriterMode.HandIn ? MusicComposerMode.HandIn : MusicComposerMode.Draft;
@@ -262,6 +267,18 @@ public sealed class MusicComposerControl : GuildCloakDialogBase
         TitleBox.Text = args.Piece?.Title ?? string.Empty;
         NoteBox.Text = args.Piece?.Blocks.FirstOrDefault(b => b.Kind == CollegeBlockKind.Text)?.Text ?? string.Empty;
         Begin();
+
+        if (Mode == MusicComposerMode.HandIn)
+            SendHandInWindow(true);
+        else if (wasHandIn)
+            SendHandInWindow(false);
+    }
+
+    /// <summary>Tells the server the hand-in window is open, so the room shows "Composing" over this player. Sent again on each map change.</summary>
+    public void ReportHandInWindow()
+    {
+        if (Visible && (Mode == MusicComposerMode.HandIn) && Session is not null)
+            SendHandInWindow(true);
     }
 
     /// <summary>Applies a WriterResult for this window's session. True when a hidden window was shown again (a refused save).</summary>
@@ -295,6 +312,7 @@ public sealed class MusicComposerControl : GuildCloakDialogBase
                 if (!Visible)
                 {
                     Show();
+                    ReportHandInWindow();
 
                     return true;
                 }
@@ -320,6 +338,9 @@ public sealed class MusicComposerControl : GuildCloakDialogBase
         TitleBox.IsFocused = false;
         NoteBox.IsFocused = false;
         base.Hide();
+
+        if ((Mode == MusicComposerMode.HandIn) && Session is not null)
+            SendHandInWindow(false);
     }
 
     public override void OnKeyDown(KeyDownEvent e)
@@ -632,6 +653,9 @@ public sealed class MusicComposerControl : GuildCloakDialogBase
         MarkSaved();
         Status.Text = "Entered. You can change it until entries close.";
     }
+
+    private void SendHandInWindow(bool open)
+        => ActionRequested?.Invoke(new CollegeActionArgs { Type = CollegeActionType.HandInWindow, Raised = open });
 
     private void MarkSaved()
     {

@@ -521,6 +521,7 @@ public sealed partial class WorldScreen
 
         College.Work.Clear();
         College.Canvas.ReportHandInWindow();
+        College.Composer.ReportHandInWindow();
     }
 
     /// <summary>Keeps the Teacher's quiz panel and the debate panel at the viewport's top right, under the poll box while it shows.</summary>
