@@ -893,6 +893,15 @@ public sealed partial class WorldScreen
         //the quest log stays off the control stack so the player can walk with it open, which is why it is closed here
         if (e.Scancode == Scancode.Escape)
         {
+            if (SeatedView.IsOn)
+            {
+                SeatedView.Close();
+                LeaveSeatedUi();
+                e.Handled = true;
+
+                return;
+            }
+
             //a rect drag is the only editor state Escape touches; it cancels the drag and does nothing else
             if (HallStrokeActive && (HallStrokeTool == GuildHallTool.Rect))
             {
@@ -1521,6 +1530,9 @@ public sealed partial class WorldScreen
     /// </summary>
     private void OnRootDoubleClick(DoubleClickEvent e)
     {
+        if (SeatedView.IsOn)
+            return;
+
         if (MapFile is null)
             return;
 
@@ -1765,6 +1777,9 @@ public sealed partial class WorldScreen
 
     private void HandleWorldClick(int mouseX, int mouseY)
     {
+        if (SeatedView.IsOn)
+            return;
+
         if (MapFile is null)
             return;
 
@@ -1827,6 +1842,9 @@ public sealed partial class WorldScreen
 
     private void HandleCtrlClick(int mouseX, int mouseY)
     {
+        if (SeatedView.IsOn)
+            return;
+
         if (MapFile is null)
             return;
 
@@ -1861,6 +1879,9 @@ public sealed partial class WorldScreen
 
     private void HandleWorldRightClick(int mouseX, int mouseY)
     {
+        if (SeatedView.IsOn)
+            return;
+
         if (MapFile is null || MapPathfinder is null)
             return;
 
@@ -1909,6 +1930,9 @@ public sealed partial class WorldScreen
     /// </summary>
     private void HandleShiftRightClick(int mouseX, int mouseY)
     {
+        if (SeatedView.IsOn)
+            return;
+
         Pathfinding.Clear();
 
         if (MapFile is null)

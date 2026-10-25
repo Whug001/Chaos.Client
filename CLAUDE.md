@@ -145,7 +145,8 @@ Chaos.Client/
   - `WorldScreen.College.cs` / `WorldScreen.CollegeWall.cs` -- College writing/quiz/game windows and wall frames/board
   - `WorldScreen.Library.cs` -- Library window wiring and display routing
   - `WorldScreen.StageLighting.cs` -- Theatre stage lighting window
-  - `WorldScreen.Cinema.cs` -- Cinema: CinemaState packets to `CinemaController`, the music duck, and the film screen on the Loures 2 Floor Hall wall (map 15)
+  - `WorldScreen.Cinema.cs` -- Cinema: CinemaState packets to `CinemaController`, the music duck, and the film screen on the Loures Cinema wall (map 788)
+  - `WorldScreen.CinemaSeat.cs` -- the seated view: drawn instead of the map, HUD hidden, chat line moved to the bottom
   - `WorldScreen.Mirrors.cs` -- Beauty shop and fitting room windows
   - `WorldScreen.TabTargeting.cs` -- Tab-targeting selection and indicator
   - `WorldScreen.Hotbars.cs` -- Hotbar windows
@@ -181,7 +182,7 @@ Chaos.Client/
 - **`Pathfinder`** -- A* pathfinding algorithm.
 - **`LightingSystem`** -- Owns the per-frame light source buffer. Walks world entities, reads `LanternSize`, and gathers into a span consumed read-only by `DarknessRenderer` and `TabMapRenderer` (neither stores its own copy). Caches Euclidean circle offset arrays (radius 3/5) and exposes `BaselineVisibilityOffsets` for the unconditional player-tile reveal on darkness maps.
 - **`StageLightAnimator`** -- Holds the Theatre lighting setup (`StageLightingState`) and computes each spotlight's tile, colour and strength per frame: sweep/circle/follow, pulse/flicker/colour cycle, fades, and lights held while the director drags. Lives on `WorldState.StageLights`; not cleared by `WorldState.Clear()`.
-- **`Cinema/`** -- Films in the hall. `CinemaController` keeps an `ICinemaVideo` in step with the server's `CinemaStateArgs` (drift check every 5 s, seek past 1.5 s, retry a failed film after 15 s; no seek while VLC buffers); `CinemaSync` holds the pure timing maths; `CinemaPlayer` is the LibVLC player (HLS into a 854 x 480 `Texture2D`); `CinemaScreenLayout` holds the screen spot and picture fitting.
+- **`Cinema/`** -- Films in the hall. `CinemaController` keeps an `ICinemaVideo` in step with the server's `CinemaStateArgs` (drift check every 5 s, seek past 1.5 s, retry a failed film after 15 s; no seek while VLC buffers); `CinemaSync` holds the pure timing maths; `CinemaPlayer` is the LibVLC player (HLS into a 854 x 480 `Texture2D`); `CinemaScreenLayout` holds the screen spot and picture fitting; `CinemaSeats` (map 788's 24 seats), `SeatedViewState` (on while standing on a seat; Esc closes it), `SeatedViewLayout` (the seated view's rectangles), `SeatedChatLines` (fading chat above the chat line), `CinemaHeadRenderer` (back-of-head crops).
 - **`LatencyMonitor`** -- Static class. Background ICMP ping loop (15s interval) against the connected server endpoint. Exposes `LatencyMs` and fires `LatencyChanged` for the HUD ping indicator. Started/stopped by `ChaosGame` on connect/disconnect. Events fire on thread-pool threads — consumers must poll from the game-loop thread.
 - **`MachineIdentity`** -- Machine-specific identification for the client.
 - **`ClientSettings`** -- Static class. Persistent user settings. Access via `ClientSettings.SoundVolume`, etc.

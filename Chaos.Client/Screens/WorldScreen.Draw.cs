@@ -41,6 +41,7 @@ public sealed partial class WorldScreen
     {
         //sort once per frame — cached via dirty flag, reused by all draw sub-passes
         var sortedEntities = WorldState.CurrentFrame.SortedEntities;
+        var seated = SeatedView.IsOn;
 
         RefreshTumbleView();
         RefreshGlassView();
@@ -49,7 +50,7 @@ public sealed partial class WorldScreen
         //drawing. each entity is redrawn at 50% over the finished world: invisible in the open (self-blend over
         //identical pixels) but shown through where a foreground tile occluded it. transparent entities compound
         //multiplicatively (~50% open, ~25% behind walls). extends retail's local-player overdraw (FUN_005d4360).
-        if (MapFile is not null && MapPreloaded)
+        if (MapFile is not null && MapPreloaded && !seated)
         {
             SilhouetteRenderer.Clear();
 
@@ -88,7 +89,7 @@ public sealed partial class WorldScreen
         }
 
         //pass 1: world rendering — clipped to the hud viewport area, camera transform
-        if (MapFile is not null && MapPreloaded)
+        if (MapFile is not null && MapPreloaded && !seated)
         {
             var viewportRect = WorldHud.ViewportBounds;
             Device.ScissorRectangle = viewportRect;
@@ -170,6 +171,9 @@ public sealed partial class WorldScreen
                 DarknessRenderer.Draw(spriteBatch, viewport);
                 spriteBatch.End();
             }
+
+            //loures cinema house dim — the room goes dark like the theatre's house lights, the film stays bright
+            DrawCinemaDim(spriteBatch);
 
             //theatre spotlight colour — over the darkness, under weather and ambient effects
             DrawSpotlights(spriteBatch);
@@ -283,7 +287,7 @@ public sealed partial class WorldScreen
         //tab map overlay — drawn on top of world, under hud
         //tabmaprenderer manages its own spritebatch begin/end blocks (stencil passes for entity overlap)
         //NoTabMap map flag (0x40) suppresses both the toggle (InputHandlers) and the render
-        if (TabMapVisible && MapFile is not null && !CurrentMapFlags.HasFlag(MapFlags.NoTabMap))
+        if (TabMapVisible && MapFile is not null && !seated && !CurrentMapFlags.HasFlag(MapFlags.NoTabMap))
         {
             var player = WorldState.GetPlayerEntity();
 
@@ -333,6 +337,9 @@ public sealed partial class WorldScreen
         }
 
         //pass 2: ui overlay — full screen, no transform
+        if (seated)
+            DrawSeatedView(spriteBatch);
+
         spriteBatch.Begin(samplerState: GlobalSettings.Sampler);
         Root!.Draw(spriteBatch);
         DrawStatusStrips(spriteBatch, gameTime);
@@ -427,12 +434,12 @@ public sealed partial class WorldScreen
         var mirrorsOn = WorldState.Mirrors.HasMirrors && MirrorRenderer.FacesReady;
         var collegeWallOn = College?.Wall.HasWall == true;
 
-        var cinemaStripe = CinemaScreenOn ? CinemaScreenLayout.DrawStripe(CinemaScreenLayout.Hall.Depth, minDepth, maxDepth) : int.MinValue;
+        var cinemaOn = CinemaScreenOn;
 
         for (var depth = minDepth; depth <= maxDepth; depth++)
         {
-            if (depth == cinemaStripe)
-                DrawCinemaScreen(scope);
+            if (cinemaOn)
+                DrawCinemaWall(scope, depth, minDepth, maxDepth);
 
             //collect entities at this depth stripe
             var stripeStart = entityIndex;

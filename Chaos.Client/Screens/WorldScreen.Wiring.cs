@@ -1226,6 +1226,8 @@ public sealed partial class WorldScreen
 
     private void SwapHudLayout()
     {
+        LeaveSeatedUi();
+
         WorldHud.Inventory.ForceHoverExit();
 
         var activeTab = WorldHud.ActiveTab;

@@ -46,6 +46,12 @@
         <EmbeddedResource Include="Assets\GlassWay\*.png">
             <LogicalName>glassway.%(Filename)%(Extension)</LogicalName>
         </EmbeddedResource>
+
+        <!-- Loures Cinema seated view (backdrop, curtains, seat back), made by Unora Tools/Cinema/art/draw_seated.py;
+             read back as "cinema.<file>". -->
+        <EmbeddedResource Include="Assets\Cinema\*.png">
+            <LogicalName>cinema.%(Filename)%(Extension)</LogicalName>
+        </EmbeddedResource>
     </ItemGroup>
     <ItemGroup>
         <!-- Guild hall editor glyphs, white-on-transparent 12px icons; read back by GuildHallIconAssets as "guildhallicon.<file>". -->
