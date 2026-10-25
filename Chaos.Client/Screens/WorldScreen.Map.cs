@@ -34,6 +34,9 @@ public sealed partial class WorldScreen
 
     private void HandleMapInfo(MapInfoArgs args)
     {
+        LeaveSeatedUi();
+        SeatedView.Reset();
+
         WorldMap.HideMap();
         
         //same map (refresh) — skip expensive teardown, just clear transient entity state. checksum must
