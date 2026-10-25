@@ -24,6 +24,11 @@ public enum ParticleShape
 
     /// <summary>Thin line aligned to its motion — blowing sand.</summary>
     Streak,
+    /// <summary>Paper strip that spins and flips as it falls — confetti.</summary>
+    Confetti,
+
+    /// <summary>Round balloon with a hanging string; the body takes the particle colour, the shine and string stay pale.</summary>
+    Balloon,
 
     /// <summary>
     ///     Pixel-art sheet ghost with a rippling hem, drawn 1:1 from <see cref="SpriteGrid.GhostFrames" />. Size and
@@ -464,6 +469,49 @@ public sealed record ParticleStyle
         TwinkleFreqMax = 2.5f,
         HaloScale = 3f,
         HaloAlpha = 0.3f
+    };
+
+    /// <summary>Party-coloured paper strips tumbling down and flipping. Mileth festivals turn it on for the fair.</summary>
+    public static ParticleStyle Confetti { get; } = new()
+    {
+        Count = 70,
+        Shape = ParticleShape.Confetti,
+        Colors =
+        [
+            new Color(255, 77, 109), new Color(255, 210, 63), new Color(62, 193, 255), new Color(107, 227, 122),
+            new Color(199, 125, 255), new Color(255, 159, 28), Color.White
+        ],
+        SizeMin = 4f,
+        SizeMax = 7f,
+        VelocityMin = new Vector2(-6f, 18f),
+        VelocityMax = new Vector2(6f, 34f),
+        Sway = new Vector2(10f, 0f),
+        SwayFreqMin = 0.2f,
+        SwayFreqMax = 0.3f,
+        Spin = 6f,
+        AlphaMin = 0.9f,
+        AlphaMax = 1f
+    };
+
+    /// <summary>A few balloons drifting slowly up with a gentle sway. Mileth festivals turn it on for the fair.</summary>
+    public static ParticleStyle Balloons { get; } = new()
+    {
+        Count = 9,
+        Shape = ParticleShape.Balloon,
+        Colors =
+        [
+            new Color(255, 77, 109), new Color(255, 210, 63), new Color(62, 193, 255), new Color(107, 227, 122),
+            new Color(199, 125, 255), new Color(255, 159, 28)
+        ],
+        SizeMin = 12f,
+        SizeMax = 16f,
+        VelocityMin = new Vector2(0f, -24f),
+        VelocityMax = new Vector2(0f, -14f),
+        Sway = new Vector2(6f, 0f),
+        SwayFreqMin = 0.1f,
+        SwayFreqMax = 0.15f,
+        AlphaMin = 1f,
+        AlphaMax = 1f
     };
 
     /// <summary>

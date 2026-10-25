@@ -137,6 +137,8 @@ public static class ClientSettings
     public static bool HideSandstorm { get; set; }
     public static bool HideFrost { get; set; }
     public static bool HideBlizzard { get; set; }
+    public static bool HideConfetti { get; set; }
+    public static bool HideBalloons { get; set; }
 
     //swaps the Tumble Tower and Glass Way dives for a fade through black; not a map flag, so MapEffectFilter ignores it
     public static bool ReduceTumbleMotion { get; set; }
@@ -341,6 +343,16 @@ public static class ClientSettings
 
                     case "HideBlizzard":
                         HideBlizzard = value == "1";
+
+                        break;
+
+                    case "HideConfetti":
+                        HideConfetti = value == "1";
+
+                        break;
+
+                    case "HideBalloons":
+                        HideBalloons = value == "1";
 
                         break;
 
@@ -599,6 +611,8 @@ public static class ClientSettings
             writer.WriteLine($"HideSandstorm : {(HideSandstorm ? 1 : 0)}");
             writer.WriteLine($"HideFrost : {(HideFrost ? 1 : 0)}");
             writer.WriteLine($"HideBlizzard : {(HideBlizzard ? 1 : 0)}");
+            writer.WriteLine($"HideConfetti : {(HideConfetti ? 1 : 0)}");
+            writer.WriteLine($"HideBalloons : {(HideBalloons ? 1 : 0)}");
             writer.WriteLine($"ReduceTumbleMotion : {(ReduceTumbleMotion ? 1 : 0)}");
 
             for (var i = 0; i < EmoteCatalog.SLOT_COUNT; i++)

@@ -24,6 +24,12 @@ public class AmbientEffectsTests
     }
 
     [Test]
+    public void Balloons_StayInsideTheWrapMargin()
+        => (ParticleStyle.Balloons.SizeMax / ParticleRenderer.BALLOON_TEX_W * ParticleRenderer.BALLOON_TEX_H / 2f)
+           .Should()
+           .BeLessThanOrEqualTo(ParticleRenderer.WRAP_MARGIN, "a balloon that wraps while still on screen pops in and out");
+
+    [Test]
     public void ExtendedFlags_CoverEveryBitAboveTheLowByte()
         => ((ulong)AmbientEffects.EXTENDED_FLAGS).Should()
                                                   .Be(0xFFFF_FFFF_FFFF_FF00UL, "SetMapEffects carries every bit above the low byte");

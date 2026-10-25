@@ -17,12 +17,15 @@ namespace Chaos.Client.Rendering;
 public sealed class ParticleRenderer : IAmbientOverlay
 {
     private const float REFERENCE_AREA = 640f * 480f; // viewport area ParticleStyle.Count is tuned for
-    private const float WRAP_MARGIN = 24f;            // px past each edge before a particle wraps, so it never pops in view
+    internal const float WRAP_MARGIN = 24f;            // px past each edge before a particle wraps, so it never pops in view
     private const int SOFT_TEX = 32;                  // soft dot / bubble texture size
     private const int LEAF_TEX_W = 16;
     private const int LEAF_TEX_H = 8;
     private const int WING_TEX_W = 32;
     private const int WING_TEX_H = 16;
+    internal const int BALLOON_TEX_W = 16;         // balloon body + string texture; the body fills the top half
+    internal const int BALLOON_TEX_H = 40;
+    private static readonly Color BalloonDetailColor = new(240, 240, 240);
     private const float UPPER_WING_ANGLE = -0.45f; // radians from horizontal for the right wing; negative tilts up
     private const float LOWER_WING_ANGLE = 0.55f;
     private const float LOWER_WING_LENGTH = 0.7f;  // lower wings are this fraction of the upper ones
@@ -45,6 +48,8 @@ public sealed class ParticleRenderer : IAmbientOverlay
     private Texture2D? LeafTexture;
     private Texture2D? BubbleTexture;
     private Texture2D? WingTexture;
+    private Texture2D? BalloonTexture;
+    private Texture2D? BalloonDetailTexture;
     private Texture2D[]? GhostTextures;
 
     private bool Active;
@@ -198,6 +203,21 @@ public sealed class ParticleRenderer : IAmbientOverlay
                 scale,
                 SpriteEffects.None,
                 0f);
+            if (Style.Shape == ParticleShape.Balloon)
+            {
+                BalloonDetailTexture ??= BuildBalloonDetailTexture(device);
+
+                spriteBatch.Draw(
+                    BalloonDetailTexture,
+                    position,
+                    null,
+                    WithAlpha(BalloonDetailColor, alpha),
+                    rotation,
+                    textureCenter,
+                    scale,
+                    SpriteEffects.None,
+                    0f);
+            }
         }
     }
 
@@ -214,6 +234,10 @@ public sealed class ParticleRenderer : IAmbientOverlay
         BubbleTexture = null;
         WingTexture?.Dispose();
         WingTexture = null;
+        BalloonTexture?.Dispose();
+        BalloonTexture = null;
+        BalloonDetailTexture?.Dispose();
+        BalloonDetailTexture = null;
 
         if (GhostTextures is not null)
             foreach (var ghostTexture in GhostTextures)
@@ -287,6 +311,7 @@ public sealed class ParticleRenderer : IAmbientOverlay
             ParticleShape.Streak => (MathF.Atan2(CurrentVelocity(in p).Y, CurrentVelocity(in p).X), new Vector2(p.Size, 1f)),
             ParticleShape.Leaf   => (p.Rotation, new Vector2(p.Size / texture.Width, p.Size / texture.Width * tumble)),
             ParticleShape.Petal  => (p.Rotation, new Vector2(p.Size / texture.Width, p.Size * 0.6f / texture.Width * tumble)),
+            ParticleShape.Confetti => (p.Rotation, new Vector2(p.Size * 0.55f, p.Size * tumble)),
             _                    => (0f, new Vector2(p.Size / texture.Width))
         };
     }
@@ -341,10 +366,11 @@ public sealed class ParticleRenderer : IAmbientOverlay
     private Texture2D GetShapeTexture(GraphicsDevice device)
         => Style.Shape switch
         {
-            ParticleShape.Square or ParticleShape.Streak => PixelTexture ??= BuildPixelTexture(device),
+            ParticleShape.Square or ParticleShape.Streak or ParticleShape.Confetti => PixelTexture ??= BuildPixelTexture(device),
             ParticleShape.Leaf                           => LeafTexture ??= BuildLeafTexture(device),
             ParticleShape.Ghost                          => (GhostTextures ??= BuildGhostTextures(device))[0],
             ParticleShape.Bubble                         => BubbleTexture ??= BuildBubbleTexture(device),
+            ParticleShape.Balloon                        => BalloonTexture ??= BuildBalloonTexture(device),
             _                                            => SoftDotTexture ??= BuildSoftDotTexture(device)
         };
 
@@ -423,6 +449,40 @@ public sealed class ParticleRenderer : IAmbientOverlay
                 var edge = 1f - (MathF.Abs(v) / half);
 
                 return Math.Clamp(edge * 2.5f, 0f, 1f) * (0.55f + (0.45f * along));
+            });
+
+    //body: an oval in the top half, 1.2 times taller than wide, with a soft one-pixel edge. tinted by the particle colour
+    private static Texture2D BuildBalloonTexture(GraphicsDevice device)
+        => BuildTexture(
+            device,
+            BALLOON_TEX_W,
+            BALLOON_TEX_H,
+            (u, v) =>
+            {
+                var bv = (v + 0.52f) / 0.48f;
+                var r = MathF.Sqrt((u * u) + (bv * bv));
+
+                return Math.Clamp((1f - r) * 6f, 0f, 1f);
+            });
+
+    //drawn pale over the body: a small shine up-left on the body and a thin wavy string from the knot to the bottom
+    private static Texture2D BuildBalloonDetailTexture(GraphicsDevice device)
+        => BuildTexture(
+            device,
+            BALLOON_TEX_W,
+            BALLOON_TEX_H,
+            (u, v) =>
+            {
+                var hu = (u + 0.35f) / 0.25f;
+                var hv = (v + 0.72f) / 0.1f;
+                var shine = Math.Clamp(1f - MathF.Sqrt((hu * hu) + (hv * hv)), 0f, 1f) * 0.8f;
+
+                if (v < -0.04f)
+                    return shine;
+
+                var stringX = 0.18f * MathF.Sin((v + 0.04f) * 7f);
+
+                return Math.Clamp(1f - (MathF.Abs(u - stringX) / 0.13f), 0f, 1f) * 0.7f;
             });
 
     //builds a white texture whose alpha is shape(u, v), with u and v the pixel center mapped to [-1, 1]

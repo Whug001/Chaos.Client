@@ -20,7 +20,9 @@ public static class MapEffectFilter
         SettingKey.HideBloodMoon,
         SettingKey.HideSandstorm,
         SettingKey.HideFrost,
-        SettingKey.HideBlizzard
+        SettingKey.HideBlizzard,
+        SettingKey.HideConfetti,
+        SettingKey.HideBalloons
     ];
 
     /// <summary>The effect flags the player has ticked off, read fresh from <see cref="ClientSettings" /> each call.</summary>
@@ -47,6 +49,12 @@ public static class MapEffectFilter
 
             if (ClientSettings.HideBlizzard)
                 hidden |= MapFlags.Blizzard;
+
+            if (ClientSettings.HideConfetti)
+                hidden |= MapFlags.Confetti;
+
+            if (ClientSettings.HideBalloons)
+                hidden |= MapFlags.Balloons;
 
             return hidden;
         }

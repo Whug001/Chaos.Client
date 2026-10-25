@@ -58,6 +58,8 @@ public sealed class AmbientEffects : IDisposable
         (MapFlags.Wisps, new ParticleRenderer(ParticleStyle.Wisps)),
         (MapFlags.Drips, new ParticleRenderer(ParticleStyle.Drips)),
         (MapFlags.HarvestMoon, new ParticleRenderer(ParticleStyle.HarvestSparks)),
+        (MapFlags.Confetti, new ParticleRenderer(ParticleStyle.Confetti)),
+        (MapFlags.Balloons, new ParticleRenderer(ParticleStyle.Balloons)),
         (MapFlags.Ghosts, new ParticleRenderer(ParticleStyle.Ghosts)),
         (MapFlags.Bats, new FlyByRenderer(FlyByStyle.Bats))
     ];

@@ -112,7 +112,9 @@ public class MapEffectFilterTests
         [SettingKey.HideBloodMoon] = MapFlags.BloodMoon,
         [SettingKey.HideSandstorm] = MapFlags.Sandstorm,
         [SettingKey.HideFrost] = MapFlags.Frost,
-        [SettingKey.HideBlizzard] = MapFlags.Blizzard
+        [SettingKey.HideBlizzard] = MapFlags.Blizzard,
+        [SettingKey.HideConfetti] = MapFlags.Confetti,
+        [SettingKey.HideBalloons] = MapFlags.Balloons
     };
 
     private static Dictionary<SettingKey, bool> Capture()
