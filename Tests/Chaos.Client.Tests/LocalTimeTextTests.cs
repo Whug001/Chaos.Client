@@ -41,6 +41,42 @@ public sealed class LocalTimeTextTests
 
     private static readonly TimeZoneInfo Pacific = PacificZone();
 
+    private static TimeZoneInfo EasternZone()
+    {
+        foreach (var id in new[] { "America/New_York", "Eastern Standard Time" })
+        {
+            try
+            {
+                return TimeZoneInfo.FindSystemTimeZoneById(id);
+            }
+            catch (TimeZoneNotFoundException)
+            {
+            }
+            catch (InvalidTimeZoneException)
+            {
+            }
+        }
+
+        //fallback so the tests run anywhere: US Eastern rules (UTC-5, DST +1h,
+        //second Sunday of March through first Sunday of November)
+        var rule = TimeZoneInfo.AdjustmentRule.CreateAdjustmentRule(
+            new DateTime(2000, 1, 1),
+            DateTime.MaxValue.Date,
+            TimeSpan.FromHours(1),
+            TimeZoneInfo.TransitionTime.CreateFloatingDateRule(new DateTime(1, 1, 1, 2, 0, 0), 3, 2, DayOfWeek.Sunday),
+            TimeZoneInfo.TransitionTime.CreateFloatingDateRule(new DateTime(1, 1, 1, 2, 0, 0), 11, 1, DayOfWeek.Sunday));
+
+        return TimeZoneInfo.CreateCustomTimeZone(
+            "Test Eastern",
+            TimeSpan.FromHours(-5),
+            "Test Eastern",
+            "Test Eastern",
+            "Test Eastern Daylight",
+            [rule]);
+    }
+
+    private static readonly TimeZoneInfo Eastern = EasternZone();
+
     private static DateTime Utc(int year, int month, int day, int hour, int minute)
         => new(year, month, day, hour, minute, 0, DateTimeKind.Utc);
 
@@ -148,5 +184,98 @@ public sealed class LocalTimeTextTests
                      .Should()
                      .Be("The UTC offset confuses me.");
         LocalTimeText.Rewrite("Meet at 25:00 UTC.", now, Pacific).Should().Be("Meet at 25:00 UTC.");
+    }
+
+    [Test]
+    public void LongMonthDay_CrossesMidnight_UsesThatDatesOffset()
+    {
+        //Nov 3 2026 is past the Nov 1 fallback, so 02:00 UTC is Nov 2 9:00 PM in EST (UTC-5)
+        var now = Utc(2026, 10, 26, 12, 0);
+
+        LocalTimeText.Rewrite("Entries close November 3, 02:00 UTC", now, Eastern)
+                     .Should()
+                     .Be("Entries close November 2, 9:00 PM");
+    }
+
+    [Test]
+    public void LongMonthDay_AcrossDstChange_UsesStandardOffset()
+    {
+        //Nov 2 2026 is past the Nov 1 fallback: 06:30 UTC is 1:30 AM in EST (UTC-5)
+        var now = Utc(2026, 10, 26, 12, 0);
+
+        LocalTimeText.Rewrite("November 2, 06:30 UTC", now, Eastern).Should().Be("November 2, 1:30 AM");
+    }
+
+    [Test]
+    public void IsoDateTime_ConvertsWithThatDatesOffset()
+    {
+        //Nov 5 2026 is EST (UTC-5): 14:00 UTC is 9:00 AM the same local date
+        var now = Utc(2026, 10, 26, 12, 0);
+
+        LocalTimeText.Rewrite("Season 3 ends 2026-11-05 14:00 UTC.", now, Eastern)
+                     .Should()
+                     .Be("Season 3 ends 2026-11-05 9:00 AM.");
+    }
+
+    [Test]
+    public void LotteryDate_CrossesMidnight_ShowsLocalDate()
+    {
+        //Nov 7 2026 03:00 UTC is Nov 6 10:00 PM in EST (UTC-5)
+        var now = Utc(2026, 10, 26, 12, 0);
+
+        LocalTimeText.Rewrite("Next Drawing: Nov 07, 2026 03:00 UTC", now, Eastern)
+                     .Should()
+                     .Be("Next Drawing: Nov 06, 2026 10:00 PM");
+    }
+
+    [Test]
+    public void ModerationStamp_ConvertsWithThatDatesOffset()
+    {
+        //Oct 27 2026 is still EDT (UTC-4): 18:00 UTC is 2:00 PM the same local date
+        var now = Utc(2026, 10, 26, 12, 0);
+
+        LocalTimeText.Rewrite("You are muted until 27 Oct 2026 18:00 UTC", now, Eastern)
+                     .Should()
+                     .Be("You are muted until 27 Oct 2026 2:00 PM");
+    }
+
+    [Test]
+    public void BellSuffix_FullDate_MatchesUtcResult()
+    {
+        var now = Utc(2026, 10, 26, 12, 0);
+
+        var utc = LocalTimeText.Rewrite("The event begins Sat Oct 31 01:00 UTC, do not be late.", now, Eastern);
+        var bell = LocalTimeText.Rewrite("The event begins Sat Oct 31 01:00 bell, do not be late.", now, Eastern);
+
+        bell.Should().Be(utc);
+        bell.Should().Be("The event begins Fri 9:00 PM, do not be late.");
+    }
+
+    [Test]
+    public void BellSuffix_WeekdayTime_ResolvesNearestWeekday()
+    {
+        //Mon Oct 26 14:00 UTC is Mon 10:00 AM in EDT (UTC-4)
+        var now = Utc(2026, 10, 26, 12, 0);
+
+        LocalTimeText.Rewrite("Ana, Mon 14:00 bell", now, Eastern).Should().Be("Ana, Mon 10:00 AM");
+    }
+
+    [Test]
+    public void BellSuffix_DatedForm_MatchesUtcResult()
+    {
+        var now = Utc(2026, 10, 26, 12, 0);
+
+        LocalTimeText.Rewrite("Season 3 ends 2026-11-05 14:00 bell.", now, Eastern)
+                     .Should()
+                     .Be(LocalTimeText.Rewrite("Season 3 ends 2026-11-05 14:00 UTC.", now, Eastern));
+    }
+
+    [Test]
+    public void BellWithoutTime_LeftUnchanged()
+    {
+        var now = Utc(2026, 10, 26, 12, 0);
+
+        LocalTimeText.Rewrite("the cdbell rang", now, Eastern).Should().Be("the cdbell rang");
+        LocalTimeText.Rewrite("ring the bell", now, Eastern).Should().Be("ring the bell");
     }
 }
