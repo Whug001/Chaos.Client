@@ -12,12 +12,18 @@ namespace Chaos.Client.Controls.World.ViewPort;
 public sealed class PersistentMessageControl : UILabel
 {
     private const int MAX_CHARS = 25;
+    private const int EDGE_MARGIN = 2;
     private static readonly int LABEL_WIDTH = MAX_CHARS * TextRenderer.CHAR_WIDTH;
+
+    private readonly int ViewportRight;
+    private readonly int MaxWidth;
 
     public PersistentMessageControl(Rectangle viewportBounds)
     {
         Name = "PersistentMessage";
-        X = viewportBounds.Right - LABEL_WIDTH - 2;
+        ViewportRight = viewportBounds.Right;
+        MaxWidth = Math.Max(LABEL_WIDTH, viewportBounds.Width - EDGE_MARGIN * 2);
+        X = ViewportRight - LABEL_WIDTH - EDGE_MARGIN;
         Y = viewportBounds.Top + 10;
         Width = LABEL_WIDTH;
         Height = TextRenderer.CHAR_HEIGHT;
@@ -40,6 +46,8 @@ public sealed class PersistentMessageControl : UILabel
             return;
         }
 
+        Width = Math.Min(Math.Max(TextRenderer.MeasureWidth(text), LABEL_WIDTH), MaxWidth);
+        X = ViewportRight - Width - EDGE_MARGIN;
         Text = text;
         Visible = true;
     }
