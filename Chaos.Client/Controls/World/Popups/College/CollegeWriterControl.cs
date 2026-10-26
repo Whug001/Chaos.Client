@@ -124,6 +124,7 @@ public sealed class CollegeWriterControl : GuildCloakDialogBase
     private int AwaitingLibraryReplies;
     private LibraryShelfCode SavedShelf;
     private byte SavedSpine;
+    private LibraryCoverStyle SavedCoverStyle;
     private readonly LibraryBookOptions LibraryOptions;
     private string CoverHash = string.Empty;
     private string SavedCoverHash = string.Empty;
@@ -131,6 +132,7 @@ public sealed class CollegeWriterControl : GuildCloakDialogBase
     private string CoverBeforeUpload = string.Empty;
     private LibraryShelfCode SentShelf;
     private byte SentSpine;
+    private LibraryCoverStyle SentCoverStyle;
     private string SentCoverHash = string.Empty;
     private Task<(PreparedPicture? Picture, string Error)>? CoverPicking;
     private CollegeDisplayArgs? CoverPickingSession;
@@ -254,7 +256,7 @@ public sealed class CollegeWriterControl : GuildCloakDialogBase
     private bool HandInMode => Session?.Mode == CollegeWriterMode.HandIn;
     private bool LibraryMode => Session?.Mode == CollegeWriterMode.Library;
     private bool CoverDirty => LibraryMode && (CoverHash != SavedCoverHash);
-    private bool OptionsDirty => LibraryMode && ((LibraryOptions.Shelf != SavedShelf) || (LibraryOptions.Spine != SavedSpine));
+    private bool OptionsDirty => LibraryMode && ((LibraryOptions.Shelf != SavedShelf) || (LibraryOptions.Spine != SavedSpine) || (LibraryOptions.CoverStyle != SavedCoverStyle));
 
     private string SubmitCaption
         => LibraryMode ? "Send for review"
@@ -345,9 +347,10 @@ public sealed class CollegeWriterControl : GuildCloakDialogBase
             SavedCoverHash = args.Hash;
             SavedShelf = args.Shelf;
             SavedSpine = args.Spine;
+            SavedCoverStyle = args.CoverStyle;
             CoverUpload = string.Empty;
             CoverBeforeUpload = string.Empty;
-            LibraryOptions.Load(args.Shelf, args.Spine, args.Hash, false);
+            LibraryOptions.Load(args.Shelf, args.Spine, args.CoverStyle, args.Hash, false);
         } else if (!library)
         {
             CoverHash = string.Empty;
@@ -435,6 +438,7 @@ public sealed class CollegeWriterControl : GuildCloakDialogBase
             SavedCoverHash = SentCoverHash;
             SavedShelf = SentShelf;
             SavedSpine = SentSpine;
+            SavedCoverStyle = SentCoverStyle;
         }
 
         switch (args.Result)
@@ -505,7 +509,7 @@ public sealed class CollegeWriterControl : GuildCloakDialogBase
 
             var counter = string.Create(
                 CultureInfo.InvariantCulture,
-                $"{Document.TextLength:N0} / {CollegeProtocol.MAX_TEXT_CHARS:N0}   {Document.PictureCount} / {CollegeProtocol.MAX_PICTURES}");
+                $"{WritingDocument.TextCounter(Document.TextLength, Document.TextBytes)}   {Document.PictureCount} / {CollegeProtocol.MAX_PICTURES}");
 
             if (Counter.Text != counter)
                 Counter.Text = counter;
@@ -690,9 +694,15 @@ public sealed class CollegeWriterControl : GuildCloakDialogBase
                 changed |= box.Text != Document.Blocks[i].Text;
                 Document.SetText(i, box.Text);
 
-                //SetText may cut the text to the budget; show what was kept
+                //SetText may cut the text to the budget; show what was kept, with the caret where the cut ended
                 if (box.Text != Document.Blocks[i].Text)
+                {
+                    var caret = box.CursorPosition - (box.Text.Length - Document.Blocks[i].Text.Length);
                     box.Text = Document.Blocks[i].Text;
+
+                    if (box.IsFocused)
+                        box.PlaceCaret(caret);
+                }
             }
 
         var room = CollegeProtocol.MAX_TEXT_CHARS - Document.TextLength;
@@ -1260,11 +1270,13 @@ public sealed class CollegeWriterControl : GuildCloakDialogBase
         {
             SentShelf = LibraryOptions.Shelf;
             SentSpine = LibraryOptions.Spine;
+            SentCoverStyle = LibraryOptions.CoverStyle;
             SentCoverHash = CoverHash;
         } else
         {
             SentShelf = default;
             SentSpine = 0;
+            SentCoverStyle = LibraryCoverStyle.Framed;
             SentCoverHash = string.Empty;
         }
 
@@ -1280,6 +1292,7 @@ public sealed class CollegeWriterControl : GuildCloakDialogBase
                 Id = LibraryMode ? LibraryBookId : 0,
                 Shelf = LibraryMode ? LibraryOptions.Shelf : default,
                 Spine = LibraryMode ? LibraryOptions.Spine : (byte)0,
+                CoverStyle = LibraryMode ? LibraryOptions.CoverStyle : LibraryCoverStyle.Framed,
                 Hash = LibraryMode ? CoverHash : string.Empty
             });
 
