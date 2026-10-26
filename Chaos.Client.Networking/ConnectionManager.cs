@@ -610,6 +610,11 @@ public sealed class ConnectionManager : IDisposable
     public event PumpkinLookHandler? OnPumpkinLook;
 
     /// <summary>
+    ///     Fired when the server lights or puts out a non-player entity's lantern.
+    /// </summary>
+    public event EntityLanternHandler? OnEntityLantern;
+
+    /// <summary>
     ///     Fired when the quest log list is received from the server.
     /// </summary>
     public event QuestLogDisplayHandler? OnQuestLogDisplay;
@@ -2014,6 +2019,7 @@ public sealed class ConnectionManager : IDisposable
         PacketHandlers[(byte)ServerOpCode.FishingDisplay] = HandleFishingDisplay;
         PacketHandlers[(byte)ServerOpCode.PumpkinCarvingDisplay] = HandlePumpkinCarvingDisplay;
         PacketHandlers[(byte)ServerOpCode.PumpkinLook] = HandlePumpkinLook;
+        PacketHandlers[(byte)ServerOpCode.EntityLantern] = HandleEntityLantern;
         PacketHandlers[(byte)ServerOpCode.QuestLogDisplay] = HandleQuestLogDisplay;
         PacketHandlers[(byte)ServerOpCode.HotkeyHelpOpen] = HandleHotkeyHelpOpen;
         PacketHandlers[(byte)ServerOpCode.PokerTableDisplay] = HandlePokerTableDisplay;
@@ -2502,6 +2508,12 @@ public sealed class ConnectionManager : IDisposable
     {
         var args = Client.Deserialize<PumpkinLookArgs>(in pkt);
         OnPumpkinLook?.Invoke(args);
+    }
+
+    private void HandleEntityLantern(ServerPacket pkt)
+    {
+        var args = Client.Deserialize<EntityLanternArgs>(in pkt);
+        OnEntityLantern?.Invoke(args);
     }
 
     private void HandleQuestLogDisplay(ServerPacket pkt)

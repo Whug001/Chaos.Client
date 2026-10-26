@@ -251,6 +251,12 @@ public static class WorldState
     public static PumpkinLookStore PumpkinLooks { get; } = new();
 
     /// <summary>
+    ///     Lights the server has given non-player entities, by entity id, from EntityLantern. Kept across display updates
+    ///     so a redrawn lantern stays lit; cleared with the entities.
+    /// </summary>
+    public static Dictionary<uint, LanternSize> EntityLanterns { get; } = [];
+
+    /// <summary>
     ///     Authoritative beauty shop state (catalog, prices, current look, and the look being tried on).
     /// </summary>
     public static BeautyShop BeautyShop { get; } = new();
@@ -394,7 +400,7 @@ public static class WorldState
                     entity.CreatureType = creature.CreatureType;
                     entity.Direction = creature.Direction;
                     entity.Name = creature.Name ?? string.Empty;
-                    entity.LanternSize = PumpkinLookStore.LanternFor(PumpkinLooks.Get(obj.Id));
+                    entity.LanternSize = LanternFor(obj.Id);
 
                     break;
 
@@ -454,6 +460,7 @@ public static class WorldState
         Entities.Clear();
         GuildCloakLooks.Clear();
         PumpkinLooks.Clear();
+        EntityLanterns.Clear();
         ActiveEffects.Clear();
         ActiveProjectiles.Clear();
 
@@ -821,6 +828,60 @@ public static class WorldState
     public static void MarkSortDirty() => SortVersion++;
 
     /// <summary>
+    ///     Returns a copy of <paramref name="args" /> with UTC timestamps rewritten to local time for display.
+    ///     Only the dialog text and option texts change; responses send indices, never option text.
+    /// </summary>
+    private static DisplayDialogArgs WithLocalTimes(DisplayDialogArgs args)
+    {
+        var now = DateTime.UtcNow;
+        var zone = TimeZoneInfo.Local;
+        var text = LocalTimeText.Rewrite(args.Text ?? string.Empty, now, zone);
+        List<string>? options = null;
+        var changed = !ReferenceEquals(text, args.Text);
+
+        if (args.Options is not null)
+        {
+            options = new List<string>(args.Options.Count);
+
+            foreach (var option in args.Options)
+            {
+                var rewritten = LocalTimeText.Rewrite(option, now, zone);
+                changed |= !ReferenceEquals(rewritten, option);
+                options.Add(rewritten);
+            }
+        }
+
+        return changed ? args with { Text = text, Options = options ?? args.Options } : args;
+    }
+
+    /// <summary>
+    ///     Returns a copy of <paramref name="args" /> with UTC timestamps rewritten to local time for display.
+    ///     Only the menu text and option texts change; responses send pursuit ids, never option text.
+    /// </summary>
+    private static DisplayMenuArgs WithLocalTimes(DisplayMenuArgs args)
+    {
+        var now = DateTime.UtcNow;
+        var zone = TimeZoneInfo.Local;
+        var text = LocalTimeText.Rewrite(args.Text, now, zone);
+        List<(string Text, ushort Pursuit)>? options = null;
+        var changed = !ReferenceEquals(text, args.Text);
+
+        if (args.Options is not null)
+        {
+            options = new List<(string Text, ushort Pursuit)>(args.Options.Count);
+
+            foreach (var (optionText, pursuit) in args.Options)
+            {
+                var rewritten = LocalTimeText.Rewrite(optionText, now, zone);
+                changed |= !ReferenceEquals(rewritten, optionText);
+                options.Add((rewritten, pursuit));
+            }
+        }
+
+        return changed ? args with { Text = text, Options = options ?? args.Options } : args;
+    }
+
+    /// <summary>
     ///     Re-applies chant data to all occupied skill/spell slots. Call after PlayerData becomes available (first
     ///     DisplayAisling for the player).
     /// </summary>
@@ -872,6 +933,7 @@ public static class WorldState
         Entities.Remove(id);
         GuildCloakLooks.Remove(id);
         PumpkinLooks.Remove(id);
+        EntityLanterns.Remove(id);
         Causeway.Rides.Forget(id);
         SortVersion++;
     }
@@ -891,10 +953,33 @@ public static class WorldState
     /// <summary>Records a pumpkin's look and gives a lit pumpkin its light.</summary>
     public static void ApplyPumpkinLook(uint entityId, PumpkinLookState state, byte[]? grid)
     {
-        var look = PumpkinLooks.Apply(entityId, state, grid);
+        PumpkinLooks.Apply(entityId, state, grid);
 
         if (Entities.TryGetValue(entityId, out var entity))
-            entity.LanternSize = PumpkinLookStore.LanternFor(look);
+            entity.LanternSize = LanternFor(entityId);
+    }
+
+    /// <summary>Records a light the server has given a non-player entity, and lights (or darkens) it.</summary>
+    public static void ApplyEntityLantern(uint entityId, LanternSize lanternSize)
+    {
+        if (lanternSize == LanternSize.None)
+            EntityLanterns.Remove(entityId);
+        else
+            EntityLanterns[entityId] = lanternSize;
+
+        if (Entities.TryGetValue(entityId, out var entity) && (entity.Type == ClientEntityType.Creature))
+            entity.LanternSize = LanternFor(entityId);
+    }
+
+    /// <summary>
+    ///     A creature's light: the larger of a lit pumpkin's and one the server set with EntityLantern.
+    /// </summary>
+    public static LanternSize LanternFor(uint entityId)
+    {
+        var pumpkin = PumpkinLookStore.LanternFor(PumpkinLooks.Get(entityId));
+        var lantern = EntityLanterns.GetValueOrDefault(entityId, LanternSize.None);
+
+        return (LanternSize)Math.Max((byte)pumpkin, (byte)lantern);
     }
 
     /// <summary>
@@ -915,6 +1000,8 @@ public static class WorldState
         };
 
         connection.OnRemoveSkillFromPane += args => SkillBook.ClearSlot(args.Slot);
+
+        connection.OnEntityLantern += args => ApplyEntityLantern(args.EntityId, args.LanternSize);
 
         connection.OnAddSpellToPane += args =>
         {
@@ -1025,9 +1112,9 @@ public static class WorldState
             }
         };
 
-        //npc dialog/menu
-        connection.OnDisplayDialog += args => NpcInteraction.ShowDialog(args);
-        connection.OnDisplayMenu += args => NpcInteraction.ShowMenu(args);
+        //npc dialog/menu (UTC timestamps become local time for display only; responses send indices/pursuits)
+        connection.OnDisplayDialog += args => NpcInteraction.ShowDialog(WithLocalTimes(args));
+        connection.OnDisplayMenu += args => NpcInteraction.ShowMenu(WithLocalTimes(args));
 
         //board/mail
         connection.OnDisplayBoard += args =>

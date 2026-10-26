@@ -85,7 +85,7 @@ public sealed class HangmanTeacherPanel : GuildCloakDialogBase
 
         MoreLabel = Caption(string.Empty, LEFT, MORE_TOP, INNER_WIDTH, HorizontalAlignment.Center, LegendColors.Gray);
         ArmedLabel = Caption(string.Empty, LEFT, ARMED_TOP, INNER_WIDTH, color: LegendColors.Gold);
-        AddButtonView = AddButton("Add player", 80, LEFT, BUTTONS_ROW_1, ToggleAdd);
+        AddButtonView = AddButton("Add student", 80, LEFT, BUTTONS_ROW_1, ToggleAdd);
         RemoveButton = AddButton("Remove", 60, LEFT + 84, BUTTONS_ROW_1, OnRemove);
         SkipButton = AddButton("Skip turn", 70, LEFT + 148, BUTTONS_ROW_1, () => Raise(HangmanControlType.Skip));
         NextButton = AddButton("Next word", 90, LEFT, BUTTONS_ROW_2, OnNext);
@@ -250,7 +250,7 @@ public sealed class HangmanTeacherPanel : GuildCloakDialogBase
         NextButton.Caption = waiting ? "First word" : IsLastRevealed(info) ? "Finish game" : "Next word";
         NextButton.Enabled = info.Phase is HangmanPhase.Waiting or HangmanPhase.Revealed;
         SkipButton.Enabled = info.Phase == HangmanPhase.Open;
-        AddButtonView.Caption = AddOpen ? "Close list" : "Add player";
+        AddButtonView.Caption = AddOpen ? "Close list" : "Add student";
         ShowRows();
     }
 

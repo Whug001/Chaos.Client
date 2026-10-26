@@ -209,6 +209,9 @@ public sealed class CollegeReaderControl : GuildCloakDialogBase
 
                 break;
             case CollegePieceContext.LibraryShelf:
+                if (args.CanCheckOut)
+                    FooterAction("Check out", 90, () => SendLibrary(CollegeActionType.LibraryCheckOut));
+
                 if (args.CanReport)
                     ReportButton = FooterAction("Report", 80, () => SendLibrary(CollegeActionType.LibraryReport));
 
@@ -216,6 +219,9 @@ public sealed class CollegeReaderControl : GuildCloakDialogBase
                     LibraryTakeDownButton = FooterAction(TAKE_DOWN_CAPTION, 150, OnLibraryTakeDownClicked);
 
                 break;
+            case CollegePieceContext.LibraryCopy:
+                break;
+
             case CollegePieceContext.LibraryWaiting:
                 FooterAction("Approve", 80, () => SendLibrary(CollegeActionType.LibraryApprove, true));
                 RejectButton = FooterAction("Reject", 80, () => SendLibrary(CollegeActionType.LibraryReject, true));
@@ -308,7 +314,7 @@ public sealed class CollegeReaderControl : GuildCloakDialogBase
             CollegePieceContext.Judge   => "Your vote (comments go to the Director only):",
             CollegePieceContext.Verdict => $"Votes: {CollegeTiers.VoteSummary(args.Votes)}",
             CollegePieceContext.Gallery => $"by {args.Author}",
-            CollegePieceContext.LibraryShelf or CollegePieceContext.LibraryWaiting or CollegePieceContext.LibraryReported or CollegePieceContext.LibraryOwn => $"by {args.Author}",
+            CollegePieceContext.LibraryShelf or CollegePieceContext.LibraryCopy or CollegePieceContext.LibraryWaiting or CollegePieceContext.LibraryReported or CollegePieceContext.LibraryOwn => $"by {args.Author}",
             _                           => string.Empty
         };
 
