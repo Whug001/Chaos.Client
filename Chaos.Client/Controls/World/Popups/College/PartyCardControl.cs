@@ -266,7 +266,9 @@ public sealed class PartyCardControl : GuildCloakDialogBase
             {
                 Type = CollegeActionType.PartyAnswer,
                 PartyPrompt = shown.Index,
-                Text = text
+                Text = text,
+                Round = State.Info.Round,
+                Item = State.Info.Item,
             });
     }
 
@@ -293,7 +295,9 @@ public sealed class PartyCardControl : GuildCloakDialogBase
             new CollegeActionArgs
             {
                 Type = CollegeActionType.PartyVote,
-                PartyChoice = choice.Id
+                PartyChoice = choice.Id,
+                Round = info.Round,
+                Item = info.Item,
             });
     }
 

@@ -371,7 +371,15 @@ public sealed class PartyTeacherPanel : GuildCloakDialogBase
     }
 
     private void Raise(PartyControlType control, byte choice = CollegeProtocol.PARTY_NO_CHOICE)
-        => Send?.Invoke(new CollegeActionArgs { Type = CollegeActionType.PartyControl, PartyControl = control, PartyChoice = choice });
+        => Send?.Invoke(
+            new CollegeActionArgs
+            {
+                Type = CollegeActionType.PartyControl,
+                PartyControl = control,
+                PartyChoice = choice,
+                Round = Info?.Round ?? 0,
+                Item = Info?.Item ?? 0
+            });
 
     private void HideAll()
     {
