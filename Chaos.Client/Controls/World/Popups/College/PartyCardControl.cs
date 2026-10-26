@@ -153,10 +153,12 @@ public sealed class PartyCardControl : GuildCloakDialogBase
 
         Refresh();
 
+        var wasVisible = Visible;
+
         if (!Visible && !Hidden)
             Show();
 
-        if (!Hidden && (State.View == PartyCardView.Write) && AnswerBox.Visible)
+        if (!wasVisible && Visible && !Hidden && (State.View == PartyCardView.Write) && AnswerBox.Visible)
             AnswerBox.IsFocused = true;
     }
 
