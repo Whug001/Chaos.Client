@@ -39,6 +39,7 @@ internal static class Constants
         ("ARMOR2", EquipmentSlot.Overcoat),
         ("HEAD2", EquipmentSlot.OverHelm),
         ("CAPE2", EquipmentSlot.Accessory2),
-        ("CAPE3", EquipmentSlot.Accessory3)
+        ("CAPE3", EquipmentSlot.Accessory3),
+        ("WEAPON2", EquipmentSlot.WeaponSkin)
     ];
 }
