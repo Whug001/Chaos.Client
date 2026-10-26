@@ -23,13 +23,15 @@ public sealed class HangmanTurnOrderControl : GuildCloakDialogBase
     private const int HINT_TOP = 28;
     private const int ROWS_TOP = 46;
     private const int ROWS = 10;
-    private const int INFO_TOP = ROWS_TOP + (ROWS * TurnOrderRow.HEIGHT) + 6;
+    private const int NEW_ORDER_TOP = ROWS_TOP + (ROWS * TurnOrderRow.HEIGHT) + 6;
+    private const int INFO_TOP = NEW_ORDER_TOP + TurnOrderRow.HEIGHT + 6;
     private const int MOVE_TOP = INFO_TOP + TextRenderer.CHAR_HEIGHT + 6;
     private const int BUTTONS_TOP = MOVE_TOP + CustomButton.HEIGHT + 6;
     private const int HEIGHT = BUTTONS_TOP + CustomButton.HEIGHT + 4 + BORDER_BOTTOM_HEIGHT;
     private const int OK_RIGHT_MARGIN = 20;
     private const int OK_BOTTOM_MARGIN = 3;
 
+    private readonly CheckRow NewOrderRow;
     private readonly UILabel InfoLabel;
     private readonly TurnOrderRow[] RowViews = new TurnOrderRow[ROWS];
     private readonly CustomButton StartButton;
@@ -64,6 +66,14 @@ public sealed class HangmanTurnOrderControl : GuildCloakDialogBase
             RowViews[i] = row;
         }
 
+        NewOrderRow = new CheckRow(INNER_WIDTH) { X = LEFT, Y = NEW_ORDER_TOP };
+        NewOrderRow.Toggled += () =>
+        {
+            NewOrderEachRound = !NewOrderEachRound;
+            Refresh();
+        };
+        AddChild(NewOrderRow);
+
         InfoLabel = Caption(string.Empty, LEFT, INFO_TOP, INNER_WIDTH, HorizontalAlignment.Center, LegendColors.Gray);
         AddButton("Up", 50, LEFT, MOVE_TOP, () => Edit(() => Order.MoveUp(), true));
         AddButton("Down", 60, LEFT + 56, MOVE_TOP, () => Edit(() => Order.MoveDown(), true));
@@ -74,6 +84,8 @@ public sealed class HangmanTurnOrderControl : GuildCloakDialogBase
     }
 
     public TurnOrderList Current => Order;
+
+    public bool NewOrderEachRound { get; private set; } = true;
 
     /// <summary>A HangmanOrder message: everyone on the map but the Teacher, and the server's line about the game.</summary>
     public void ShowOrder(IReadOnlyList<string> names, string message)
@@ -89,6 +101,7 @@ public sealed class HangmanTurnOrderControl : GuildCloakDialogBase
         }
 
         Message = message;
+        NewOrderEachRound = true;
         Refresh();
         Show();
     }
@@ -157,6 +170,7 @@ public sealed class HangmanTurnOrderControl : GuildCloakDialogBase
         }
 
         InfoLabel.Text = Message.Length == 0 ? $"{Order.TickedCount} playing" : $"{Order.TickedCount} playing - {Message}";
+        NewOrderRow.Set(NewOrderEachRound);
         StartButton.Enabled = Order.TickedCount > 0;
     }
 
@@ -165,8 +179,62 @@ public sealed class HangmanTurnOrderControl : GuildCloakDialogBase
         if (Order.TickedCount == 0)
             return;
 
-        Raise(new CollegeActionArgs { Type = CollegeActionType.HangmanOrder, Names = Order.TickedNames.ToList() });
+        Raise(new CollegeActionArgs { Type = CollegeActionType.HangmanOrder, Names = Order.TickedNames.ToList(), NewOrderEachRound = NewOrderEachRound });
         Hide();
+    }
+
+    /// <summary>A standalone tick box with a label: the "New order each round" option under the name rows.</summary>
+    private sealed class CheckRow : UIPanel
+    {
+        private const int BOX = 10;
+        private const int BOX_X = 24;
+        private const string CAPTION = "New order each round";
+
+        private readonly UILabel TextLabel;
+        private bool Ticked;
+
+        public CheckRow(int width)
+        {
+            Width = width;
+            Height = TurnOrderRow.HEIGHT;
+            var textY = (Height - TextRenderer.CHAR_HEIGHT) / 2;
+
+            TextLabel = new UILabel
+            {
+                X = BOX_X + BOX + 8, Y = textY, Width = width - BOX_X - BOX - 12, Height = TextRenderer.CHAR_HEIGHT, ForegroundColor = LegendColors.White, IsHitTestVisible = false, Text = CAPTION
+            };
+
+            AddChild(TextLabel);
+        }
+
+        public event Action? Toggled;
+
+        public void Set(bool ticked) => Ticked = ticked;
+
+        public override void Draw(SpriteBatch spriteBatch)
+        {
+            if (!Visible)
+                return;
+
+            base.Draw(spriteBatch);
+
+            var box = new Rectangle(ScreenX + BOX_X, ScreenY + ((Height - BOX) / 2), BOX, BOX);
+            DrawBorder(spriteBatch, box, LegendColors.Silver);
+
+            if (Ticked)
+                DrawRect(spriteBatch, new Rectangle(box.X + 2, box.Y + 2, BOX - 4, BOX - 4), LegendColors.Lime);
+        }
+
+        public override void OnClick(ClickEvent e)
+        {
+            if (e.Button != MouseButton.Left)
+                return;
+
+            Toggled?.Invoke();
+            e.Handled = true;
+        }
+
+        public override void OnMouseDown(MouseDownEvent e) => e.Handled = true;
     }
 
     /// <summary>One name in the order: its place, a tick box and the name. Drag it onto another row to move it.</summary>
