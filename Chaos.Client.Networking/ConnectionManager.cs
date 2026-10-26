@@ -61,13 +61,6 @@ public sealed class ConnectionManager : IDisposable
     public string ServerName { get; set; } = string.Empty;
 
     /// <summary>
-    ///     True once the login EditableProfile reply has been sent this world session. The portrait file sync reads
-    ///     this so the character-folder file is only written from own-portrait pictures that arrive after the reply.
-    ///     Reset whenever a new world session starts.
-    /// </summary>
-    public bool EditableProfileReplySent { get; private set; }
-
-    /// <summary>
     ///     The current phase of the connection lifecycle. Fires <see cref="StateChanged" /> on transitions.
     /// </summary>
     public ConnectionState State
@@ -321,9 +314,6 @@ public sealed class ConnectionManager : IDisposable
         Client.Crypto = new Crypto(redirect.Seed, redirect.Key, keySaltSeed);
         Client.SetSequence(0);
         EntryState = WorldEntryState.None;
-        //a new world session never inherits the previous character's reply state
-        if (redirect.TargetState == ConnectionState.World)
-            EditableProfileReplySent = false;
 
         PendingTargetState = redirect.TargetState;
 
@@ -1202,16 +1192,15 @@ public sealed class ConnectionManager : IDisposable
             });
 
     /// <summary>
-    ///     Sends the player's portrait and profile text to the server.
+    ///     Sends the player's profile text to the server. The portrait is always sent empty: the server ignores
+    ///     the picture in the login reply.
     /// </summary>
-    /// <param name="portraitData">The raw portrait image bytes.</param>
+    /// <param name="portraitData">Always empty.</param>
     /// <param name="profileMessage">The profile text.</param>
     public void SendEditableProfile(byte[] portraitData, string profileMessage)
     {
         if (State != ConnectionState.World)
             return;
-
-        EditableProfileReplySent = true;
 
         SendIfWorld(
             new EditableProfileArgs

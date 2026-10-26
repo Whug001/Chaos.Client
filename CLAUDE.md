@@ -136,7 +136,7 @@ Chaos.Client/
   - `WorldScreen.GuildCloak.cs` -- Guild cloak look/design packet handlers and the editor/review window lifecycle
   - `WorldScreen.GuildEmblem.cs` -- Guild emblem editor and emblem download handlers
   - `WorldScreen.TownImports.cs` -- Town import windows (the mayor's import window and the admins' import window)
-  - `WorldScreen.Portraits.cs` -- Portrait window open/send/remove wiring and local portrait file deletion
+  - `WorldScreen.Portraits.cs` -- Portrait window open/send/remove wiring
   - `WorldScreen.CommissionBoard.cs` -- Commission board window lifecycle: build-once popup, display open/refresh, review picture and deliver picker wiring
   - `WorldScreen.Tcg.cs` / `WorldScreen.TcgChallenge.cs` / `WorldScreen.TcgMatch.cs` / `WorldScreen.TcgRanked.cs` -- Trading card game windows (collection, challenges, match, ranked queue)
   - `WorldScreen.Crafting.cs` -- Crafting browser and confirm windows

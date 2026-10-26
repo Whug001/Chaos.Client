@@ -1,6 +1,5 @@
 #region
 using Chaos.Client.Controls.World.Popups.Portraits;
-using Chaos.Client.Data;
 using Chaos.Client.Systems.Portraits;
 using Chaos.Networking.Entities.Server;
 #endregion
@@ -124,31 +123,5 @@ public sealed partial class WorldScreen
         return window;
     }
 
-    private void HandlePortraitRemove()
-    {
-        Game.Connection.SendPortraitSet([]);
-        DeletePortraitFilesForRemove(Game.Connection.AislingName);
-    }
-
-    //Remove deletes the character-folder files directly: unlike the own-picture sync it makes no .old.jpg backup
-    private static void DeletePortraitFilesForRemove(string name)
-    {
-        if (!DataContext.LocalPlayerSettings.IsInitialized || string.IsNullOrEmpty(name))
-            return;
-
-        try
-        {
-            var jpgPath = DataContext.LocalPlayerSettings.GetFilePath($"{name}.jpg");
-            var noExtPath = DataContext.LocalPlayerSettings.GetFilePath(name);
-
-            if (File.Exists(jpgPath))
-                File.Delete(jpgPath);
-
-            if (File.Exists(noExtPath))
-                File.Delete(noExtPath);
-        } catch (Exception ex) when (ex is IOException or UnauthorizedAccessException)
-        {
-            //a locked portrait file must never crash the client
-        }
-    }
+    private void HandlePortraitRemove() => Game.Connection.SendPortraitSet([]);
 }
