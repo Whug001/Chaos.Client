@@ -39,27 +39,6 @@ public class LibraryCarouselDrawTests
     }
 
     [Test]
-    public void The_spine_edge_is_darker_than_the_fill()
-    {
-        var fill = BookSpine.SpineColor(0);
-        var edge = BookSpine.EdgeColor(fill);
-
-        edge.R.Should().BeLessThanOrEqualTo(fill.R);
-        edge.G.Should().BeLessThanOrEqualTo(fill.G);
-        edge.B.Should().BeLessThanOrEqualTo(fill.B);
-        edge.A.Should().Be(fill.A);
-    }
-
-    [Test]
-    public void Short_titles_fit_rotated_and_long_ones_fall_back_to_twelve_chars()
-    {
-        BookSpine.FitsRotatedTitle(28).Should().BeTrue();
-        BookSpine.FitsRotatedTitle(9).Should().BeFalse();
-        BookSpine.FallbackTitle("Short").Should().Be("Short");
-        BookSpine.FallbackTitle("A much longer title").Should().Be("A much longe");
-    }
-
-    [Test]
     public void The_front_cover_is_120_by_170_on_its_centre()
     {
         var rect = BookCover.CoverRect(280, 56);

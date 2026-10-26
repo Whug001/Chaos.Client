@@ -104,12 +104,14 @@ public sealed class ArtCanvasControl : GuildCloakDialogBase
     private int LibraryBookId;
     private int AwaitingLibraryReplies; //Library saves and sends waiting for a WriterResult; a late reply for the book open before this one is ignored
     private byte SavedSpine;
+    private LibraryCoverStyle SavedCoverStyle;
     private readonly LibraryBookOptions LibraryOptions;
     private string CoverHash = string.Empty;
     private string SavedCoverHash = string.Empty;
     private string CoverUpload = string.Empty;
     private string CoverBeforeUpload = string.Empty;
     private byte SentSpine;
+    private LibraryCoverStyle SentCoverStyle;
     private string SentCoverHash = string.Empty;
     private Task<(PreparedPicture? Picture, string Error)>? CoverPicking;
     private CollegeDisplayArgs? CoverPickingSession;
@@ -300,7 +302,7 @@ public sealed class ArtCanvasControl : GuildCloakDialogBase
 
     private bool IsDirty
         => Editor.Drawing.IsDirty || ((Mode != ArtCanvasMode.Picture) && ((TitleBox.Text != SavedTitle) || (NoteBox.Text != SavedNote)))
-            || ((Mode == ArtCanvasMode.Library) && ((CoverHash != SavedCoverHash) || (LibraryOptions.Spine != SavedSpine)));
+            || ((Mode == ArtCanvasMode.Library) && ((CoverHash != SavedCoverHash) || (LibraryOptions.Spine != SavedSpine) || (LibraryOptions.CoverStyle != SavedCoverStyle)));
 
     private bool LibraryMode => Mode == ArtCanvasMode.Library;
 
@@ -331,9 +333,10 @@ public sealed class ArtCanvasControl : GuildCloakDialogBase
             AwaitingLibraryReplies = 0;
             SavedCoverHash = args.Hash;
             SavedSpine = args.Spine;
+            SavedCoverStyle = args.CoverStyle;
             CoverUpload = string.Empty;
             CoverBeforeUpload = string.Empty;
-            LibraryOptions.Load(LibraryShelfCode.Artwork, args.Spine, args.Hash, true);
+            LibraryOptions.Load(LibraryShelfCode.Artwork, args.Spine, args.CoverStyle, args.Hash, true);
         }
 
         SaveButton.Enabled = true;
@@ -405,6 +408,7 @@ public sealed class ArtCanvasControl : GuildCloakDialogBase
         {
             SavedCoverHash = SentCoverHash;
             SavedSpine = SentSpine;
+            SavedCoverStyle = SentCoverStyle;
         }
 
         switch (args.Result)
@@ -741,11 +745,13 @@ public sealed class ArtCanvasControl : GuildCloakDialogBase
         if (library)
         {
             SentSpine = LibraryOptions.Spine;
+            SentCoverStyle = LibraryOptions.CoverStyle;
             SentCoverHash = CoverHash;
         }
         else
         {
             SentSpine = 0;
+            SentCoverStyle = LibraryCoverStyle.Framed;
             SentCoverHash = string.Empty;
         }
 
@@ -796,6 +802,7 @@ public sealed class ArtCanvasControl : GuildCloakDialogBase
                 Id = library ? LibraryBookId : 0,
                 Shelf = library ? LibraryOptions.Shelf : default,
                 Spine = library ? LibraryOptions.Spine : (byte)0,
+                CoverStyle = library ? LibraryOptions.CoverStyle : LibraryCoverStyle.Framed,
                 Hash = library ? CoverHash : string.Empty
             });
 

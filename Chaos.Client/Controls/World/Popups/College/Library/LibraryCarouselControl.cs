@@ -82,7 +82,8 @@ public sealed class LibraryCarouselControl : GuildCloakDialogBase
     private readonly CustomButton SortButton;
     private readonly Dictionary<int, CustomButton> TabButtons = new();
     private readonly UILabel TitleLabel;
-    private readonly Dictionary<int, Texture2D> Titles = [];
+    private readonly Dictionary<int, Texture2D> Spines = [];
+    private readonly Dictionary<int, (CoverShown Shown, Texture2D Texture)> Covers = [];
     private readonly CollegePictureTransfers Transfers;
 
     private CarouselLayout Layout = new(0, BAND_CENTER_X, BAND_RADIUS);
@@ -178,7 +179,7 @@ public sealed class LibraryCarouselControl : GuildCloakDialogBase
             return;
 
         ReleaseCovers();
-        ClearTitles();
+        ClearArt();
 
         Shelf = args.Shelf;
         Sort = args.Sort;
@@ -209,14 +210,14 @@ public sealed class LibraryCarouselControl : GuildCloakDialogBase
 
         SearchBox.IsFocused = false;
         ReleaseCovers();
-        ClearTitles();
+        ClearArt();
         base.Hide();
     }
 
     public override void Dispose()
     {
         ReleaseCovers();
-        ClearTitles();
+        ClearArt();
         base.Dispose();
     }
 
@@ -444,12 +445,17 @@ public sealed class LibraryCarouselControl : GuildCloakDialogBase
         Held.Clear();
     }
 
-    private void ClearTitles()
+    private void ClearArt()
     {
-        foreach (var texture in Titles.Values)
+        foreach (var texture in Spines.Values)
             texture.Dispose();
 
-        Titles.Clear();
+        Spines.Clear();
+
+        foreach (var (_, cover) in Covers.Values)
+            cover.Dispose();
+
+        Covers.Clear();
     }
 
     private static int ShelfBottom(float lift) => SHELF_BASE - (int)MathF.Round(lift);
@@ -481,14 +487,7 @@ public sealed class LibraryCarouselControl : GuildCloakDialogBase
             var rect = BookSpine.SpineRect(place.X, place.Scale, ShelfBottom(place.Lift));
             rect.Offset(ScreenX, ScreenY);
 
-            BookSpine.Draw(
-                spriteBatch,
-                ChaosGame.Device,
-                Titles,
-                row.Id,
-                row.Title,
-                rect,
-                BookSpine.SpineColor(row.Spine));
+            BookSpine.Draw(spriteBatch, BookSpine.GetTexture(ChaosGame.Device, Spines, row.Id, row.Title, BookSpine.SpineColor(row.Spine)), rect);
         }
     }
 
@@ -500,18 +499,33 @@ public sealed class LibraryCarouselControl : GuildCloakDialogBase
         var row = Rows[Layout.Front];
         var rect = FrontRect();
         var kind = CoverChoice.Of(row.CoverHash, row.DrawingCover);
-        Texture2D? cover = null;
+        Texture2D? art = null;
 
         if ((kind == CoverKind.Picture) && Held.ContainsKey(row.Id) && Transfers.TryGetTexture(row.CoverHash, out var picture))
-            cover = picture;
+            art = picture;
         else if ((kind == CoverKind.Drawing) && Held.ContainsKey(row.Id) && Drawings.TryGetTexture(row.Id, out var drawing))
-            cover = drawing;
+            art = drawing;
 
-        if (cover is not null)
-            BookCover.DrawTexture(spriteBatch, cover, rect, TurnProgress);
-        else if ((kind == CoverKind.Plain) || Transfers.HasFailed(row.CoverHash) || Drawings.HasGivenUp(row.Id, DateTime.UtcNow))
-            BookCover.DrawPlain(spriteBatch, row.Title, row.Author, BookSpine.SpineColor(row.Spine), rect, TurnProgress);
-        else
+        var failed = (kind == CoverKind.Picture && Transfers.HasFailed(row.CoverHash))
+                     || (kind == CoverKind.Drawing && Drawings.HasGivenUp(row.Id, DateTime.UtcNow));
+        var shown = CoverChoice.Shows(kind, art is not null, failed);
+
+        if (shown == CoverShown.Loading)
+        {
             BookCover.DrawLoading(spriteBatch, rect, TurnProgress);
+
+            return;
+        }
+
+        if (!Covers.TryGetValue(row.Id, out var cached) || (cached.Shown != shown))
+        {
+            if (cached.Texture is not null)
+                cached.Texture.Dispose();
+
+            cached = (shown, BookCover.Build(ChaosGame.Device, row.Title, row.Author, BookSpine.SpineColor(row.Spine), shown == CoverShown.Art ? art : null, row.CoverStyle));
+            Covers[row.Id] = cached;
+        }
+
+        BookCover.DrawTexture(spriteBatch, cached.Texture, rect, TurnProgress);
     }
 }
