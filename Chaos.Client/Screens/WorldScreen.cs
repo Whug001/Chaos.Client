@@ -291,7 +291,6 @@ public sealed partial class WorldScreen : IScreen
     //always describes the click that produced the DoubleClick.
     private bool LastLeftClickWasCast;
     private bool PendingLoginSwitch;
-    private byte[] PlayerPortrait = [];
 
     /// <summary>
     ///     Gets the latest own-portrait bytes from the server. Kept for the portrait window. Empty when none.
@@ -1065,9 +1064,7 @@ public sealed partial class WorldScreen : IScreen
         //build ui atlas after all hud controls are constructed
         UiRenderer.Instance?.BuildAtlas();
 
-        //load local portrait and profile text from character folder
-        var playerName = Game.Connection.AislingName;
-        PlayerPortrait = LoadPortraitFile(playerName);
+        //load local profile text from character folder
         StatusBook.SetProfileText(LoadProfileText());
     }
 
