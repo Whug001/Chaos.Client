@@ -1,3 +1,4 @@
+using System.Globalization;
 using System.Text;
 using Chaos.DarkAges.Definitions;
 using Chaos.Networking.Entities.Server;
@@ -41,10 +42,22 @@ public sealed class WritingDocument
     public bool IsDirty { get; private set; }
 
     /// <summary>
-    ///     The characters the server counts against the 10,000: headings trimmed, blank blocks dropped, and text blocks
+    ///     The characters the server counts against <see cref="CollegeProtocol.MAX_TEXT_CHARS" />: headings trimmed, blank blocks dropped, and text blocks
     ///     that end up next to each other joined with a line break.
     /// </summary>
     public int TextLength => Measure().Characters;
+
+    /// <summary>The bytes the server counts against <see cref="CollegeProtocol.MAX_TEXT_BYTES" />, measured as <see cref="TextLength" /> is.</summary>
+    public int TextBytes => Measure().Bytes;
+
+    /// <summary>
+    ///     The writer's text counter: characters against the limit, or how full the piece is when its bytes (Korean takes two
+    ///     each) are nearer their limit than its characters are.
+    /// </summary>
+    public static string TextCounter(int characters, int bytes)
+        => (long)bytes * CollegeProtocol.MAX_TEXT_CHARS > (long)characters * CollegeProtocol.MAX_TEXT_BYTES
+            ? string.Create(CultureInfo.InvariantCulture, $"{bytes * 100L / CollegeProtocol.MAX_TEXT_BYTES}% full")
+            : string.Create(CultureInfo.InvariantCulture, $"{characters:N0} / {CollegeProtocol.MAX_TEXT_CHARS:N0}");
 
     /// <summary>The blocks the server keeps once it has dropped blank ones and joined neighbouring text.</summary>
     public int BlockCount => Measure().Blocks;
@@ -73,9 +86,10 @@ public sealed class WritingDocument
     }
 
     //the server's normalising, counted; block text is already clean, as SetText cleans it
-    private (int Characters, int Blocks) Measure()
+    private (int Characters, int Bytes, int Blocks) Measure()
     {
         var characters = 0;
+        var bytes = 0;
         var blocks = 0;
         var afterText = false;
 
@@ -88,12 +102,13 @@ public sealed class WritingDocument
 
                     break;
                 case WritingBlockKind.Heading:
-                    var heading = block.Text.Trim().Length;
+                    var heading = block.Text.Trim();
 
-                    if (heading == 0)
+                    if (heading.Length == 0)
                         break;
 
-                    characters += heading;
+                    characters += heading.Length;
+                    bytes += CollegeProtocol.TextBytes(heading);
                     blocks++;
                     afterText = false;
 
@@ -103,17 +118,20 @@ public sealed class WritingDocument
                         break;
 
                     if (afterText)
+                    {
                         characters++;
-                    else
+                        bytes++;
+                    } else
                         blocks++;
 
                     characters += block.Text.Length;
+                    bytes += CollegeProtocol.TextBytes(block.Text);
                     afterText = true;
 
                     break;
             }
 
-        return (characters, blocks);
+        return (characters, bytes, blocks);
     }
 
     public void MarkClean() => IsDirty = false;
@@ -179,7 +197,7 @@ public sealed class WritingDocument
 
     /// <summary>
     ///     Sets a block's text, cleaned as the server cleans it, keeping headings to one line of 60 and the whole piece
-    ///     within the server's count of 10,000 characters.
+    ///     within the server's character and byte limits.
     /// </summary>
     public void SetText(int index, string text)
     {
@@ -203,7 +221,20 @@ public sealed class WritingDocument
 
         var before = block.Text;
         block.Text = text;
-        FitText(index);
+
+        //cut from the newly typed or pasted text, so typing mid-paragraph at the byte limit never drops the paragraph's end
+        var prefix = 0;
+        var limit = Math.Min(before.Length, text.Length);
+
+        while ((prefix < limit) && (before[prefix] == text[prefix]))
+            prefix++;
+
+        var suffix = 0;
+
+        while ((suffix < limit - prefix) && (before[^(suffix + 1)] == text[^(suffix + 1)]))
+            suffix++;
+
+        FitText(index, prefix, text.Length - suffix);
 
         //typing past the budget is cut back to what was there, which is no change
         if (block.Text != before)
@@ -422,21 +453,44 @@ public sealed class WritingDocument
     private string JoinParagraphs(string first, string second)
         => first.Length == 0 ? second
             : second.Length == 0 ? first
-            : TextLength < CollegeProtocol.MAX_TEXT_CHARS ? first + "\n" + second
+            : (TextLength < CollegeProtocol.MAX_TEXT_CHARS) && (TextBytes < CollegeProtocol.MAX_TEXT_BYTES) ? first + "\n" + second
             : first + second;
 
     /// <summary>
-    ///     Cuts the end of block <paramref name="index" /> until the piece is within the server's count. Each pass cuts the
-    ///     overrun, and a joining line break can go as the block empties, so the loop settles in a pass or two.
+    ///     Cuts block <paramref name="index" /> until the piece is within the server's count, first from the text between
+    ///     <paramref name="start" /> and <paramref name="end" />, backwards from its end, then from the end of the block.
+    ///     Each pass cuts the overrun, and a joining line break can go as the block empties, so the loop settles in a pass or
+    ///     two.
     /// </summary>
-    private void FitText(int index)
+    private void FitText(int index, int start = 0, int end = int.MaxValue)
     {
         var block = Blocks[index];
 
-        for (var over = TextLength - CollegeProtocol.MAX_TEXT_CHARS;
-             (over > 0) && (block.Text.Length > 0);
-             over = TextLength - CollegeProtocol.MAX_TEXT_CHARS)
-            block.Text = block.Text[..Math.Max(0, block.Text.Length - over)];
+        for (var over = Overrun(); (over > 0) && (block.Text.Length > 0); over = Overrun())
+        {
+            var to = Math.Min(end, block.Text.Length);
+            var from = Math.Max(start, to - over);
+
+            if (from == to)
+            {
+                to = block.Text.Length;
+                from = Math.Max(0, to - over);
+            }
+
+            block.Text = block.Text.Remove(from, to - from);
+            end = from;
+        }
+    }
+
+    /// <summary>
+    ///     Characters to cut to get back within both limits. A cut character frees one or two bytes, so the byte overrun is
+    ///     halved, rounding up; a later pass cuts more if the cut text was ASCII.
+    /// </summary>
+    private int Overrun()
+    {
+        var (characters, bytes, _) = Measure();
+
+        return Math.Max(characters - CollegeProtocol.MAX_TEXT_CHARS, (bytes - CollegeProtocol.MAX_TEXT_BYTES + 1) / 2);
     }
 
     private void EnsureTrailingText()

@@ -152,13 +152,13 @@ public class WritingDocumentTests
     [Test]
     public void Set_text_keeps_the_budget_and_one_line_headings()
     {
-        var doc = WithText(new string('a', 9_990));
-        doc.InsertPicture(0, 9_990, HashA);
+        var doc = WithText(new string('a', 49_990));
+        doc.InsertPicture(0, 49_990, HashA);
 
         doc.SetText(2, new string('b', 50));
 
         doc.Blocks[2].Text.Should().HaveLength(10);
-        doc.TextLength.Should().Be(10_000);
+        doc.TextLength.Should().Be(50_000);
 
         var heading = WithText("x");
         heading.ToggleHeading(0, 0);
@@ -191,22 +191,22 @@ public class WritingDocumentTests
         doc.Blocks.Clear();
         doc.Blocks.Add(WritingBlock.OfText("a"));
         doc.Blocks.Add(new WritingBlock { Kind = WritingBlockKind.Heading, Text = "b" });
-        doc.Blocks.Add(WritingBlock.OfText(new string('c', 9_998)));
+        doc.Blocks.Add(WritingBlock.OfText(new string('c', 49_998)));
 
         doc.ToggleHeading(1, 0);
 
-        doc.TextLength.Should().BeLessThanOrEqualTo(10_000);
+        doc.TextLength.Should().BeLessThanOrEqualTo(50_000);
     }
 
     [Test]
     public void Removing_a_picture_never_goes_over_the_budget()
     {
-        var doc = WithText(new string('a', 10_000));
+        var doc = WithText(new string('a', 50_000));
         doc.InsertPicture(0, 5_000, HashA);
 
         doc.RemovePicture(1);
 
-        doc.TextLength.Should().Be(10_000);
+        doc.TextLength.Should().Be(50_000);
     }
 
     [Test]
@@ -328,23 +328,23 @@ public class WritingDocumentTests
     [Test]
     public void Typing_after_an_empty_heading_keeps_within_the_server_count()
     {
-        var doc = Built(WritingBlock.OfText(new string('a', 9_997)), Heading(""), WritingBlock.OfText(string.Empty));
+        var doc = Built(WritingBlock.OfText(new string('a', 49_997)), Heading(""), WritingBlock.OfText(string.Empty));
 
         doc.SetText(2, "bbbb");
 
         doc.Blocks[2].Text.Should().Be("bb");
-        doc.TextLength.Should().Be(10_000);
+        doc.TextLength.Should().Be(50_000);
     }
 
     [Test]
     public void Typing_into_a_full_piece_is_no_change()
     {
-        var doc = WithText(new string('a', 10_000));
+        var doc = WithText(new string('a', 50_000));
         doc.MarkClean();
 
-        doc.SetText(0, new string('a', 10_000) + "b");
+        doc.SetText(0, new string('a', 50_000) + "b");
 
-        doc.Blocks[0].Text.Should().HaveLength(10_000);
+        doc.Blocks[0].Text.Should().HaveLength(50_000);
         doc.IsDirty.Should().BeFalse();
     }
 
@@ -394,10 +394,62 @@ public class WritingDocumentTests
     [Test]
     public void Joining_around_whitespace_never_goes_over_the_server_count()
     {
-        var doc = Built(WritingBlock.OfText("   "), Heading("x"), WritingBlock.OfText(new string('a', 9_999)));
+        var doc = Built(WritingBlock.OfText("   "), Heading("x"), WritingBlock.OfText(new string('a', 49_999)));
 
         doc.ToggleHeading(1, 0);
 
-        doc.TextLength.Should().BeLessThanOrEqualTo(10_000);
+        doc.TextLength.Should().BeLessThanOrEqualTo(50_000);
+    }
+
+    [Test]
+    public void English_text_gets_the_full_character_limit()
+        => WithText(new string('e', 60_000)).TextLength.Should().Be(CollegeProtocol.MAX_TEXT_CHARS);
+
+    [Test]
+    public void Korean_text_is_cut_to_the_byte_limit()
+    {
+        var doc = WithText(new string('한', 30_000));
+
+        doc.TextBytes.Should().Be(CollegeProtocol.MAX_TEXT_BYTES);
+        doc.TextLength.Should().Be(CollegeProtocol.MAX_TEXT_BYTES / 2);
+    }
+
+    [Test]
+    public void Mixed_text_is_cut_to_the_byte_limit()
+    {
+        var doc = WithText(new string('e', 30_000) + new string('한', 20_000));
+
+        doc.TextBytes.Should().Be(CollegeProtocol.MAX_TEXT_BYTES);
+        doc.TextLength.Should().Be(40_000);
+    }
+
+    [Test]
+    public void Typing_mid_paragraph_at_the_byte_limit_keeps_the_paragraph_end()
+    {
+        var full = new string('한', 24_990) + "끝끝끝끝끝끝끝끝끝끝";
+        var doc = WithText(full);
+
+        doc.SetText(0, full[..100] + new string('가', 50) + full[100..]);
+
+        doc.Blocks[0].Text.Should().Be(full);
+    }
+
+    [Test]
+    public void Pasting_mid_paragraph_past_the_byte_limit_keeps_what_fits()
+    {
+        var text = new string('e', 40_000) + new string('z', 100);
+        var doc = WithText(text);
+
+        doc.SetText(0, text[..10] + new string('한', 6_000) + text[10..]);
+
+        doc.TextBytes.Should().Be(CollegeProtocol.MAX_TEXT_BYTES);
+        doc.Blocks[0].Text.Should().StartWith(text[..10] + new string('한', 4_950)).And.EndWith(text[10..]);
+    }
+
+    [Test]
+    public void Counter_shows_characters_for_english_and_how_full_for_korean()
+    {
+        WritingDocument.TextCounter(1_234, 1_234).Should().Be("1,234 / 50,000");
+        WritingDocument.TextCounter(20_000, 40_000).Should().Be("80% full");
     }
 }

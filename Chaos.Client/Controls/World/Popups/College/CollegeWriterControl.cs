@@ -509,7 +509,7 @@ public sealed class CollegeWriterControl : GuildCloakDialogBase
 
             var counter = string.Create(
                 CultureInfo.InvariantCulture,
-                $"{Document.TextLength:N0} / {CollegeProtocol.MAX_TEXT_CHARS:N0}   {Document.PictureCount} / {CollegeProtocol.MAX_PICTURES}");
+                $"{WritingDocument.TextCounter(Document.TextLength, Document.TextBytes)}   {Document.PictureCount} / {CollegeProtocol.MAX_PICTURES}");
 
             if (Counter.Text != counter)
                 Counter.Text = counter;
@@ -694,9 +694,15 @@ public sealed class CollegeWriterControl : GuildCloakDialogBase
                 changed |= box.Text != Document.Blocks[i].Text;
                 Document.SetText(i, box.Text);
 
-                //SetText may cut the text to the budget; show what was kept
+                //SetText may cut the text to the budget; show what was kept, with the caret where the cut ended
                 if (box.Text != Document.Blocks[i].Text)
+                {
+                    var caret = box.CursorPosition - (box.Text.Length - Document.Blocks[i].Text.Length);
                     box.Text = Document.Blocks[i].Text;
+
+                    if (box.IsFocused)
+                        box.PlaceCaret(caret);
+                }
             }
 
         var room = CollegeProtocol.MAX_TEXT_CHARS - Document.TextLength;
