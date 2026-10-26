@@ -72,7 +72,7 @@ public sealed class PartyCardControl : GuildCloakDialogBase
     private (PartyPhase Phase, byte Round, byte Item)? VoteStep;
     private (PartyPhase Phase, byte Round, byte Item)? DismissedStep;
     private bool Hidden;
-    private int LastShown = -1;
+    private (PartyPhase Phase, byte Round, byte Item, int Shown)? LastWriteKey;
     private byte? LastSentIndex;
     private string LastSentText = string.Empty;
 
@@ -102,7 +102,7 @@ public sealed class PartyCardControl : GuildCloakDialogBase
         {
             X = LEFT,
             Y = 0,
-            Width = INNER_WIDTH - SEND_BUTTON_WIDTH - 6,
+            Width = INNER_WIDTH,
             Height = CustomButton.HEIGHT,
             IsSelectable = true,
             IsTabStop = true,
@@ -155,6 +155,9 @@ public sealed class PartyCardControl : GuildCloakDialogBase
 
         if (!Visible && !Hidden)
             Show();
+
+        if (!Hidden && (State.View == PartyCardView.Write) && AnswerBox.Visible)
+            AnswerBox.IsFocused = true;
     }
 
     /// <summary>A PartyDrawing message: keeps the pixels so the card can show the drawing above its text.</summary>
@@ -172,7 +175,7 @@ public sealed class PartyCardControl : GuildCloakDialogBase
         State.Apply(new CollegePartyInfo());
         DismissedStep = null;
         Hidden = false;
-        LastShown = -1;
+        LastWriteKey = null;
         LastSentIndex = null;
         LastSentText = string.Empty;
         AnswerBox.Text = string.Empty;
@@ -342,6 +345,12 @@ public sealed class PartyCardControl : GuildCloakDialogBase
             _                    => RefreshNote(info, pixels, y)
         };
 
+        if (view != PartyCardView.Write)
+        {
+            AnswerBox.Text = string.Empty;
+            AnswerBox.IsFocused = false;
+        }
+
         Height = y + FOOTER_PAD;
 
         if (OkButton is not null)
@@ -365,9 +374,9 @@ public sealed class PartyCardControl : GuildCloakDialogBase
         if (shown is null)
             return RefreshNote(info, pixels, y);
 
-        if (LastShown != State.Shown)
+        if (LastWriteKey != State.WriteKey)
         {
-            LastShown = State.Shown;
+            LastWriteKey = State.WriteKey;
             AnswerBox.Text = string.Empty;
             AnswerBox.IsFocused = !Hidden;
         }
@@ -390,6 +399,9 @@ public sealed class PartyCardControl : GuildCloakDialogBase
         AnswerBox.MaxLength = info.MaxChars;
         AnswerBox.Y = y;
         AnswerBox.Visible = true;
+        y += CustomButton.HEIGHT + 4;
+
+        SendButton.X = LEFT + INNER_WIDTH - SEND_BUTTON_WIDTH;
         SendButton.Y = y;
         SendButton.Visible = true;
         y += CustomButton.HEIGHT + 4;

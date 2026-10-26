@@ -28,6 +28,9 @@ public sealed class PartyCardState
     /// <summary>The shown prompt's index into <see cref="CollegePartyInfo.MyPrompts" />.</summary>
     public int Shown { get; private set; }
 
+    /// <summary>The write step plus the shown prompt: changes whenever the step or the shown prompt does.</summary>
+    public (PartyPhase Phase, byte Round, byte Item, int Shown) WriteKey => (Info.Phase, Info.Round, Info.Item, Shown);
+
     public PartyCardView View => ViewOf(Info);
 
     public CollegePartyPromptInfo? ShownPrompt => (Shown >= 0) && (Shown < Info.MyPrompts.Count) ? Info.MyPrompts[Shown] : null;

@@ -109,4 +109,31 @@ public class PartyCardStateTests
         state.Shown.Should().Be(0);
         ClassToolText.PromptCounter(state.Shown + 1, state.Info.MyPrompts.Count).Should().Be("Prompt 1 of 2");
     }
+
+    [Test]
+    public void Write_key_changes_between_rounds_that_both_show_prompt_zero()
+    {
+        var state = new PartyCardState();
+        state.Apply(Info(PartyPhase.Writing, false, false));
+        var firstKey = state.WriteKey;
+
+        var second = Info(PartyPhase.Writing, false, false);
+        second.Round = 2;
+        state.Apply(second);
+
+        state.Shown.Should().Be(0);
+        state.WriteKey.Should().NotBe(firstKey);
+    }
+
+    [Test]
+    public void Write_key_stays_the_same_for_repeated_applies_of_the_same_step()
+    {
+        var state = new PartyCardState();
+        state.Apply(Info(PartyPhase.Writing, false, false, false));
+        var key = state.WriteKey;
+
+        state.Apply(Info(PartyPhase.Writing, false, false, false));
+
+        state.WriteKey.Should().Be(key);
+    }
 }
