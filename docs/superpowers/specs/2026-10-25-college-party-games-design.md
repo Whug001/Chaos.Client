@@ -238,7 +238,7 @@ Approved mockups as listed above.
 
 ## Error handling
 
-- A server restart mid-game ends the game with no rewards from it, like the other tools.
+- A server restart mid-game resumes the game where it was, like the other tools (decided 2026-10-25).
 - If the Teacher leaves the room, the game pauses timers until they return or the class ends; on
   class end the game ends with no final scores card.
 - If fewer than 2 eligible players remain in the room, the current step runs on its timer; the

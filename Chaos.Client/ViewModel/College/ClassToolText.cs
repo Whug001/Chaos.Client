@@ -125,4 +125,23 @@ public static class ClassToolText
 
         return floor && (text.Length > 0) ? text + " *" : text;
     }
+
+    public static string PartyTitle(CollegePartyInfo info)
+        => info.Kind switch
+        {
+            CollegeTool.QuipDuel => $"Quip Duel · Round {info.Round} of {info.Rounds}",
+            CollegeTool.Bluff    => $"Bluff · Question {info.Item} of {info.Items}",
+            _ => info.Phase == PartyPhase.Drawing ? "Sketch Guess · Drawing" : $"Sketch Guess · Drawing {info.Item} of {info.Items}"
+        };
+
+    public static string PromptCounter(int shown, int total) => $"Prompt {shown} of {total}";
+
+    public static string CharCount(int used, int max) => $"{used}/{max}";
+
+    public static string PartyPlayerLine(CollegePartyPlayerInfo player)
+        => player.Away ? "away" : player.Answered >= player.Given ? $"{player.Answered}/{player.Given} done" : $"{player.Answered}/{player.Given}";
+
+    public static string PartyPaused => "The Teacher is away. The timer is stopped.";
+
+    public static string FinalLine(int place, CollegeScoreInfo score) => $"{place}. {score.Name} {score.Score}";
 }

@@ -13,7 +13,7 @@ using Chaos.Networking.Entities.Server;
 
 namespace Chaos.Client.Screens;
 
-/// <summary>The Mileth College windows: writer, Art canvas, Music composer, reader, judging list, gallery, hand-in list, quiz editor, word-list editor and the class quiz, debate, Hangman and Word Scramble windows.</summary>
+/// <summary>The Mileth College windows: writer, Art canvas, Music composer, reader, judging list, gallery, hand-in list, quiz editor, word-list editor and the class quiz, debate, Hangman, Word Scramble and party-game windows.</summary>
 public sealed partial class WorldScreen
 {
     //built on first use
@@ -47,6 +47,7 @@ public sealed partial class WorldScreen
         College?.Composer.SaveIfDirty();
         College?.QuizEditor.SaveIfDirty();
         College?.WordLists.SaveIfDirty();
+        College?.PartyLists.SaveIfDirty();
         College?.BoardEditor.SendUnsent();
     }
 
@@ -151,6 +152,22 @@ public sealed partial class WorldScreen
             {
                 ZIndex = 2
             },
+            PartyCard = new PartyCardControl
+            {
+                ZIndex = 2
+            },
+            SketchDraw = new SketchDrawCard
+            {
+                ZIndex = 2
+            },
+            PartyTeacher = new PartyTeacherPanel
+            {
+                ZIndex = 2
+            },
+            PartyLists = new PartyListEditorControl
+            {
+                ZIndex = 2
+            },
             QuizTeacher = new QuizTeacherPanel
             {
                 ZIndex = 2
@@ -208,6 +225,10 @@ public sealed partial class WorldScreen
         windows.HangmanTeacher.ActionRequested += SendCollegeAction;
         windows.ScrambleCard.ActionRequested += SendCollegeAction;
         windows.ScrambleTeacher.ActionRequested += SendCollegeAction;
+        windows.PartyCard.Send += SendCollegeAction;
+        windows.SketchDraw.Send += SendCollegeAction;
+        windows.PartyTeacher.Send += SendCollegeAction;
+        windows.PartyLists.Send += SendCollegeAction;
         windows.WallFrame.ActionRequested += SendCollegeAction;
         windows.WallPicker.ActionRequested += SendCollegeAction;
         windows.BoardView.ActionRequested += SendCollegeAction;
@@ -252,6 +273,10 @@ public sealed partial class WorldScreen
         Root.AddChild(windows.HangmanTeacher);
         Root.AddChild(windows.ScrambleCard);
         Root.AddChild(windows.ScrambleTeacher);
+        Root.AddChild(windows.PartyCard);
+        Root.AddChild(windows.SketchDraw);
+        Root.AddChild(windows.PartyTeacher);
+        Root.AddChild(windows.PartyLists);
         Root.AddChild(windows.WallFrame);
         Root.AddChild(windows.WallPicker);
         Root.AddChild(windows.BoardView);
@@ -419,12 +444,54 @@ public sealed partial class WorldScreen
                 College.ScrambleCard.Apply(args.Scramble, WorldState.PlayerName, args.Reopen);
 
                 break;
+            case CollegeDisplayType.PartyLists:
+                ShowList(College.PartyLists, () => College.PartyLists.ShowList(args.PartyListRows));
+
+                break;
+            case CollegeDisplayType.PartyListEdit:
+                BringToFront(College.PartyLists);
+                College.PartyLists.ShowEdit(args.PartyListId, args.WordListMode, args.PartyListDraft, args.Message);
+
+                break;
+            case CollegeDisplayType.PartyBank:
+                College.PartyLists.ShowBank(args.PartyKind, args.Page, args.PageCount, args.PartyListRows);
+
+                break;
+            case CollegeDisplayType.PartyListResult:
+                if (College.PartyLists.ShowResult(args.PartyListId, args.WordListResult, args.Message))
+                    BringToFront(College.PartyLists);
+
+                break;
+            case CollegeDisplayType.PartyCard when args.Party.IsTeacher:
+                HideQuickListEditor();
+                College.PartyTeacher.Apply(args.Party, args.Reopen);
+
+                break;
+            case CollegeDisplayType.PartyCard when (args.Party.Phase == PartyPhase.Drawing) && (args.Party.MyPrompts.Count != 0):
+                College.SketchDraw.Apply(args.Party, args.Reopen);
+                College.PartyCard.Hide();
+
+                break;
+            case CollegeDisplayType.PartyCard:
+                College.PartyCard.Apply(args.Party, args.Reopen);
+                College.SketchDraw.Apply(args.Party, args.Reopen);
+
+                break;
+            case CollegeDisplayType.PartyDrawing:
+                College.PartyCard.ShowDrawing(args.PartyDrawingId, args.Pixels);
+                College.PartyTeacher.ShowDrawing(args.PartyDrawingId, args.Pixels);
+
+                break;
             case CollegeDisplayType.ToolClosed when args.Tool == CollegeTool.Hangman:
                 CloseHangman();
 
                 break;
             case CollegeDisplayType.ToolClosed when args.Tool == CollegeTool.Scramble:
                 CloseScramble();
+
+                break;
+            case CollegeDisplayType.ToolClosed when (args.Tool == CollegeTool.QuipDuel) || (args.Tool == CollegeTool.Bluff) || (args.Tool == CollegeTool.SketchGuess):
+                CloseParty();
 
                 break;
             case CollegeDisplayType.ToolClosed:
@@ -492,6 +559,13 @@ public sealed partial class WorldScreen
         College.HangmanTeacher.Close();
     }
 
+    private void CloseParty()
+    {
+        College!.PartyCard.Close();
+        College.SketchDraw.Close();
+        College.PartyTeacher.Close();
+    }
+
     private void CloseScramble()
     {
         College!.ScrambleCard.Close();
@@ -506,6 +580,7 @@ public sealed partial class WorldScreen
 
         CloseHangman();
         CloseScramble();
+        CloseParty();
         College.QuizCard.Close();
         College.QuizTeacher.Close();
         College.Debate.Close();
@@ -538,6 +613,7 @@ public sealed partial class WorldScreen
         College.Debate.Place(viewport, Math.Max(viewport.Top + 2, Math.Min(top, viewport.Bottom - College.Debate.Height - 2)));
         College.HangmanTeacher.Place(viewport, Math.Max(viewport.Top + 2, Math.Min(top, viewport.Bottom - College.HangmanTeacher.Height - 2)));
         College.ScrambleTeacher.Place(viewport, Math.Max(viewport.Top + 2, Math.Min(top, viewport.Bottom - College.ScrambleTeacher.Height - 2)));
+        College.PartyTeacher.Place(viewport, Math.Max(viewport.Top + 2, Math.Min(top, viewport.Bottom - College.PartyTeacher.Height - 2)));
     }
 
     private sealed class CollegeWindows
@@ -579,6 +655,10 @@ public sealed partial class WorldScreen
         public required HangmanTeacherPanel HangmanTeacher { get; init; }
         public required ScrambleCardControl ScrambleCard { get; init; }
         public required ScrambleTeacherPanel ScrambleTeacher { get; init; }
+        public required PartyCardControl PartyCard { get; init; }
+        public required SketchDrawCard SketchDraw { get; init; }
+        public required PartyTeacherPanel PartyTeacher { get; init; }
+        public required PartyListEditorControl PartyLists { get; init; }
         public required ArtCanvasControl PictureCanvas { get; init; }
         public required CollegeReaderControl Reader { get; init; }
         public required CollegePictureTransfers Transfers { get; init; }

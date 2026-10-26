@@ -280,6 +280,7 @@ public sealed partial class WorldScreen
 
         PlaceClassToolPanels();
         College?.Transfers.Update();
+        College?.SketchDraw.Tick(gameTime.ElapsedGameTime);
 
         //bard song call countdown — driven from the update tick (not draw) so a live call expires in real
         //time even when draws are skipped or catch-up ticks run update multiple times per draw.

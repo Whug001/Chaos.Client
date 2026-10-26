@@ -188,4 +188,36 @@ public class ClassToolTextTests
         ClassToolText.Ordinal(11).Should().Be("11th");
         ClassToolText.Ordinal(22).Should().Be("22nd");
     }
+
+    [Test]
+    public void Party_title_names_the_game_and_its_progress()
+    {
+        ClassToolText.PartyTitle(new CollegePartyInfo { Kind = CollegeTool.QuipDuel, Round = 1, Rounds = 2 }).Should().Be("Quip Duel · Round 1 of 2");
+        ClassToolText.PartyTitle(new CollegePartyInfo { Kind = CollegeTool.Bluff, Item = 2, Items = 5 }).Should().Be("Bluff · Question 2 of 5");
+        ClassToolText.PartyTitle(new CollegePartyInfo { Kind = CollegeTool.SketchGuess, Item = 3, Items = 7 }).Should().Be("Sketch Guess · Drawing 3 of 7");
+        ClassToolText.PartyTitle(new CollegePartyInfo { Kind = CollegeTool.SketchGuess, Phase = PartyPhase.Drawing }).Should().Be("Sketch Guess · Drawing");
+    }
+
+    [Test]
+    public void Prompt_counter_and_char_count_format_counts()
+    {
+        ClassToolText.PromptCounter(1, 2).Should().Be("Prompt 1 of 2");
+        ClassToolText.CharCount(23, 60).Should().Be("23/60");
+    }
+
+    [Test]
+    public void Party_player_line_shows_done_or_away()
+    {
+        ClassToolText.PartyPlayerLine(new CollegePartyPlayerInfo { Answered = 2, Given = 2 }).Should().Be("2/2 done");
+        ClassToolText.PartyPlayerLine(new CollegePartyPlayerInfo { Answered = 1, Given = 2 }).Should().Be("1/2");
+        ClassToolText.PartyPlayerLine(new CollegePartyPlayerInfo { Answered = 0, Given = 2 }).Should().Be("0/2");
+        ClassToolText.PartyPlayerLine(new CollegePartyPlayerInfo { Away = true, Answered = 2, Given = 2 }).Should().Be("away");
+    }
+
+    [Test]
+    public void Party_paused_and_final_lines()
+    {
+        ClassToolText.PartyPaused.Should().Be("The Teacher is away. The timer is stopped.");
+        ClassToolText.FinalLine(1, new CollegeScoreInfo { Name = "Aroha", Score = 12 }).Should().Be("1. Aroha 12");
+    }
 }
