@@ -283,20 +283,20 @@ public class SettingDefinitionsTests
 
     /// <summary>
     ///     For each category (and each hotbar choice), the rows' total height fits the viewer height at the resolved
-    ///     window size, so nothing needs scrolling: the prefab size is kept when it fits, grown otherwise, and the
-    ///     640x480 cap is honored.
+    ///     window size resolved with the 480 cap: the prefab size is kept when it fits, grown otherwise.
+    ///     Production passes a smaller viewport-derived cap, so taller categories may still scroll there.
     /// </summary>
     [Test]
-    public void EveryCategory_FitsTheViewerWithoutScrolling()
+    public void EveryCategory_FitsTheViewerAtMaxWindowHeight()
     {
         var prefabs = new[] { (Width: 320, Height: 240), (Width: 560, Height: 360), (Width: 800, Height: 600) };
 
         foreach (var prefab in prefabs)
         {
-            var (width, height) = SettingsLayout.ResolveWindowSize(prefab.Width, prefab.Height);
+            var (width, height) = SettingsLayout.ResolveWindowSize(prefab.Width, prefab.Height, SettingsLayout.MaxWindowHeight);
 
             width.Should().BeLessThanOrEqualTo(SettingsLayout.MaxWindowWidth, "resolved F4 width never passes 640");
-            height.Should().BeLessThanOrEqualTo(SettingsLayout.MaxWindowHeight, "resolved F4 height never passes 480");
+            height.Should().BeLessThanOrEqualTo(Math.Max(prefab.Height, SettingsLayout.MaxWindowHeight), "a prefab taller than the limit keeps its own height");
 
             var contentWidth = SettingsLayout.RightContentWidth(width);
             var viewerHeight = SettingsLayout.ViewerHeight(height);
@@ -326,14 +326,57 @@ public class SettingDefinitionsTests
     {
         var (needW, needH) = SettingsLayout.NeedsWindowSize();
 
-        SettingsLayout.ResolveWindowSize(needW, needH).Should().Be((needW, needH));
-        SettingsLayout.ResolveWindowSize(needW + 40, needH + 40).Should().Be((needW + 40, needH + 40));
-        SettingsLayout.ResolveWindowSize(needW - 100, needH).Should().Be((needW, needH));
+        SettingsLayout.ResolveWindowSize(needW, needH, SettingsLayout.MaxWindowHeight).Should().Be((needW, needH));
+        SettingsLayout.ResolveWindowSize(needW + 40, needH + 40, SettingsLayout.MaxWindowHeight).Should().Be((needW + 40, needH + 40));
+        SettingsLayout.ResolveWindowSize(needW - 100, needH, SettingsLayout.MaxWindowHeight).Should().Be((needW, needH));
     }
 
     [Test]
-    public void ResolveWindowSize_CapsAt640x480()
-        => SettingsLayout.ResolveWindowSize(2000, 1000).Should().Be((640, 480));
+    public void ResolveWindowSize_CapsWidthAt640ButKeepsATallerPrefab()
+        => SettingsLayout.ResolveWindowSize(2000, 1000, SettingsLayout.MaxWindowHeight).Should().Be((640, 1000));
+
+    /// <summary>
+    ///     The F4 window hung below the orange bar once Display outgrew the prefab: a height limit from the
+    ///     viewport caps it, and the taller categories scroll through the viewer instead.
+    /// </summary>
+    [Test]
+    public void ResolveWindowSize_CapsHeightAtTheLimitWhenContentNeedsMore()
+    {
+        var (needW, needH) = SettingsLayout.NeedsWindowSize();
+        var maxHeight = needH - 20;
+        var prefabH = maxHeight - 40;
+
+        var (width, height) = SettingsLayout.ResolveWindowSize(needW, prefabH, maxHeight);
+
+        height.Should().Be(maxHeight);
+        SettingsLayout.MaxCategoryContentHeight(SettingsLayout.RightContentWidth(width))
+                          .Should()
+                          .BeGreaterThan(SettingsLayout.ViewerHeight(height));
+    }
+
+    /// <summary>
+    ///     The window looked right at prefab height before, so a limit below the prefab never shrinks it: the
+    ///     prefab height is kept.
+    /// </summary>
+    [Test]
+    public void ResolveWindowSize_KeepsPrefabHeightWhenTheLimitIsSmaller()
+    {
+        var (needW, needH) = SettingsLayout.NeedsWindowSize();
+
+        var (_, height) = SettingsLayout.ResolveWindowSize(needW + 40, needH + 40, needH);
+
+        height.Should().Be(needH + 40);
+    }
+
+    /// <summary>Width behaviour is unchanged by the height limit: the same prefab resolves to the same width.</summary>
+    [Test]
+    public void ResolveWindowSize_WidthIgnoresTheHeightLimit()
+    {
+        var (cappedW, _) = SettingsLayout.ResolveWindowSize(320, 240, 200);
+        var (freeW, _) = SettingsLayout.ResolveWindowSize(320, 240, SettingsLayout.MaxWindowHeight);
+
+        cappedW.Should().Be(freeW);
+    }
 
     /// <summary>
     ///     SettingsControl needs a graphics device to construct, so the help block's layout is tested through its pure

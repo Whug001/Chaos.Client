@@ -435,7 +435,9 @@ public sealed partial class WorldScreen : IScreen
         userOptions.UserToggled += HandleUserOptionToggled;
         userOptions.UserChoiceSelected += HandleUserOptionChoiceSelected;
 
-        SettingsDialog = new SettingsControl(userOptions)
+        //F4 top sits at the viewport top: cap its height at the nearer viewport bottom (the small HUD) so it never hangs over the orange bar
+        var settingsMaxHeight = Math.Min(SmallHud.ViewportBounds.Bottom, LargeHud.ViewportBounds.Bottom) - optionsAnchorY;
+        SettingsDialog = new SettingsControl(userOptions, settingsMaxHeight)
         {
             ZIndex = -3
         };

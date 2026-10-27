@@ -18,10 +18,10 @@ namespace Chaos.Client.Controls.World.Popups.Options;
 ///     selected category's rows on the right, driven by <see cref="SettingDefinitions" />. The right column is
 ///     single-column: every row is full width. Same footprint as the legacy _nsett panel (the prefab is still used
 ///     for sizing + the OK button; its background is replaced by the frame); the window is widened past the prefab
-///     only when the list plus the longest one-column label needs it, never past 640x480 total. The rows live
-///     inside a clipped <see cref="Viewport" />/<see cref="Content" /> pair scrolled by a right-edge
-///     <see cref="ScrollBar" />; the scrollbar is always shown and renders dormant (no thumb, ignores input) while
-///     the content fits, and becomes active automatically if a category overflows.
+///     only when the list plus the longest one-column label needs it, never past the viewport height limit. Taller
+///     categories scroll instead. The rows live inside a clipped <see cref="Viewport" />/<see cref="Content" /> pair
+///     scrolled by a right-edge <see cref="ScrollBar" />; the scrollbar is always shown and renders dormant (no thumb,
+///     ignores input) while the content fits, and becomes active automatically if a category overflows.
 /// </summary>
 public sealed class SettingsControl : FramedDialogPanelBase
 {
@@ -59,7 +59,7 @@ public sealed class SettingsControl : FramedDialogPanelBase
     private int SlideAnchorY;
     private bool SlideMode;
 
-    public SettingsControl(UserOptions options)
+    public SettingsControl(UserOptions options, int maxHeight)
         : base("_nsett", false)
     {
         Options = options;
@@ -72,8 +72,8 @@ public sealed class SettingsControl : FramedDialogPanelBase
         if (OkButton is not null)
             OkButton.Clicked += Close;
 
-        //keep the prefab size when the list plus the longest one-column label fits; widen otherwise, never past 640x480.
-        (Width, Height) = SettingsLayout.ResolveWindowSize(Width, Height);
+        //keep the prefab size when the list plus the longest one-column label fits; widen otherwise, capped at maxHeight so taller categories scroll.
+        (Width, Height) = SettingsLayout.ResolveWindowSize(Width, Height, maxHeight);
 
         BuildCategoryList();
 

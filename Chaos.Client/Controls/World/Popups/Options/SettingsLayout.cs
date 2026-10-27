@@ -237,16 +237,16 @@ public static class SettingsLayout
     }
 
     /// <summary>
-    ///     The F4 window size for a <paramref name="prefabWidth" /> x <paramref name="prefabHeight" /> prefab: the
-    ///     current size is kept when the list plus the longest one-column label fits, grown otherwise, and never
-    ///     past 640 x 480 total. The window only grows, never shrinks.
+    ///     The F4 window size for a <paramref name="prefabWidth" /> x <paramref name="prefabHeight" /> prefab capped at
+    ///     <paramref name="maxHeight" />: kept when the list plus the longest label fits, grown otherwise, never past
+    ///     the limit (taller categories scroll through the viewer); never below the prefab height. Width still caps at 640.
     /// </summary>
-    public static (int Width, int Height) ResolveWindowSize(int prefabWidth, int prefabHeight)
+    public static (int Width, int Height) ResolveWindowSize(int prefabWidth, int prefabHeight, int maxHeight)
     {
-        var (needWidth, needHeight) = NeedsWindowSize();
+        var (needWidth, needHeight) = NeedsWindowSize(); //the height cap below never drops below the prefab height
 
         return (
             Math.Min(Math.Max(prefabWidth, needWidth), MaxWindowWidth),
-            Math.Min(Math.Max(prefabHeight, needHeight), MaxWindowHeight));
+            Math.Min(Math.Max(prefabHeight, needHeight), Math.Max(maxHeight, prefabHeight)));
     }
 }
