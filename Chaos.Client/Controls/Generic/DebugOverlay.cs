@@ -2,6 +2,7 @@
 using System.Diagnostics;
 using System.Runtime;
 using Chaos.Client.Controls.Components;
+using Chaos.Client.Systems;
 using Microsoft.Xna.Framework;
 using Microsoft.Xna.Framework.Graphics;
 #endregion
@@ -184,18 +185,20 @@ public static class DebugOverlay
         //33ms target line (30fps — anything above this is a serious hitch)
         var targetY33 = GraphY + GRAPH_HEIGHT - GRAPH_HEIGHT * (33f / 50f);
 
-        //16.67ms target line (60fps)
-        var targetY16 = GraphY + GRAPH_HEIGHT - GRAPH_HEIGHT * (16.67f / 50f);
+        //target line at the chosen frame rate; none under vsync, where the monitor sets the pace
+        if (FrameRateSettings.TargetFrameMs(ClientSettings.FrameRateMode) is { } targetMs)
+        {
+            var targetY = GraphY + GRAPH_HEIGHT - GRAPH_HEIGHT * (targetMs / 50f);
 
-        //60fps line
-        UIElement.DrawRect(
-            spriteBatch,
-            new Rectangle(
-                (int)GraphX,
-                (int)targetY16,
-                (int)GRAPH_WIDTH,
-                1),
-            Color.Lime * 0.4f);
+            UIElement.DrawRect(
+                spriteBatch,
+                new Rectangle(
+                    (int)GraphX,
+                    (int)targetY,
+                    (int)GRAPH_WIDTH,
+                    1),
+                Color.Lime * 0.4f);
+        }
 
         //30fps line
         UIElement.DrawRect(

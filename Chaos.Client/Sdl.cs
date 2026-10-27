@@ -174,6 +174,7 @@ internal static partial class Sdl
     }
 
     //SDL_WindowFlags bits reported by SDL_GetWindowFlags (consumed by ChaosGame for maximize detection)
+    public const uint SDL_WINDOW_MINIMIZED = 0x00000040;
     public const uint SDL_WINDOW_MAXIMIZED = 0x00000080;
 
     //SDL_Init subsystem flag for audio (consumed by SoundSystem during mixer bring-up)

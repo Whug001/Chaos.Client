@@ -131,7 +131,8 @@ public enum SettingKey
     CinemaVolume,
     CinemaMute,
     CinemaHideVideo,
-    CinemaLowerMusic
+    CinemaLowerMusic,
+    FrameRate
 }
 
 /// <summary>
@@ -177,6 +178,15 @@ public static class SettingDefinitions
             Choices: DisplaySettings.OptionLabels,
             GetChoice: () => (int)ClientSettings.ScreenMode,
             SetChoice: DisplaySettings.Apply),
+        new(
+            SettingKey.FrameRate,
+            "Frame rate",
+            SettingSection.Display,
+            SettingCategory.ClientLocal,
+            Span: SettingSpan.Full,
+            Choices: FrameRateSettings.OptionLabels,
+            GetChoice: () => (int)ClientSettings.FrameRateMode,
+            SetChoice: FrameRateSettings.Apply),
         new(SettingKey.ShowBodyAnimations, "Show body animations", SettingSection.Display, SettingCategory.ServerOption, UserOption.ShowBodyAnimations),
         new(
             SettingKey.HideOwnBodyAnimations,

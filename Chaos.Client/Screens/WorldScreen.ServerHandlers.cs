@@ -73,9 +73,10 @@ public sealed partial class WorldScreen
         Game.SoundSystem.SetSoundVolume(ClientSettings.SoundVolume);
         Game.SoundSystem.SetMusicVolume(ClientSettings.MusicVolume);
 
-        //and so is the window. Applied straight through rather than through DisplaySettings.Apply, which would
-        //save the value back out again for no reason
+        //and so are the window and the frame rate. Applied straight through rather than through the settings'
+        //Apply methods, which would save the value back out again for no reason
         DisplaySettings.Applier?.Invoke(ClientSettings.ScreenMode);
+        FrameRateSettings.Applier?.Invoke(ClientSettings.FrameRateMode);
     }
 
     //--- entity display / removal ---

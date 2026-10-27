@@ -44,6 +44,7 @@ public static class ClientSettings
     public static bool NpcRecordChat { get; set; } = true;
     public static int ScrollLevel { get; set; }
     public static ScreenMode ScreenMode { get; set; } = ScreenMode.Windowed1x;
+    public static FrameRateMode FrameRateMode { get; set; } = FrameRateMode.Fixed60;
 
     // --- Manually resized window (client-local; written by ChaosGame.OnClientSizeChanged) ---
     // The size the player dragged the window to, or 0x0 when they have not -- in which case the window takes
@@ -272,6 +273,12 @@ public static class ClientSettings
                     case "ScreenMode":
                         if (int.TryParse(value, out var sm) && Enum.IsDefined((ScreenMode)sm))
                             ScreenMode = (ScreenMode)sm;
+
+                        break;
+
+                    case "FrameRateMode":
+                        if (FrameRateSettings.TryParse(value, out var frameRate))
+                            FrameRateMode = frameRate;
 
                         break;
 
@@ -569,6 +576,7 @@ public static class ClientSettings
             writer.WriteLine($"MonsterSayRecordMode : {(NpcRecordChat ? 1 : 0)}");
             writer.WriteLine($"AutoAcceptGroupInvites : {(AutoAcceptGroupInvites ? 1 : 0)}");
             writer.WriteLine($"ScreenMode : {(int)ScreenMode}");
+            writer.WriteLine($"FrameRateMode : {(int)FrameRateMode}");
             writer.WriteLine($"DamageNumbersEnabled : {(DamageNumbersEnabled ? 1 : 0)}");
             writer.WriteLine($"ShowDamageNumbersOnAislings : {(ShowDamageNumbersOnAislings ? 1 : 0)}");
             writer.WriteLine($"ShowHealNumbersOnAislings : {(ShowHealNumbersOnAislings ? 1 : 0)}");

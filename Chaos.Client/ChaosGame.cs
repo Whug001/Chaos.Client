@@ -464,6 +464,9 @@ public sealed class ChaosGame : Game
 
         DisplaySettings.Applier = ApplyScreenMode;
         ApplyScreenMode(ClientSettings.ScreenMode);
+
+        FrameRateSettings.Applier = ApplyFrameRate;
+        ApplyFrameRate(ClientSettings.FrameRateMode);
     }
 
     protected override void LoadContent()
@@ -596,6 +599,33 @@ public sealed class ChaosGame : Game
     }
 
     #region Window Sizing
+    /// <summary>
+    ///     Applies a <see cref="FrameRateMode" /> to the game loop: the fixed step and its target, and vsync.
+    /// </summary>
+    /// <remarks>
+    ///     ApplyChanges only runs when vsync actually changes. It rebuilds the back buffer, which there is no reason
+    ///     to do when only the fixed-step target moved. The preferred size is refreshed from the live backbuffer
+    ///     because a stale value would shrink a maximized window or render into a corner after the reset.
+    /// </remarks>
+    internal void ApplyFrameRate(FrameRateMode mode)
+    {
+        var (fixedStep, target, vsync) = FrameRateSettings.Resolve(mode);
+
+        IsFixedTimeStep = fixedStep;
+        TargetElapsedTime = target;
+
+        if (Graphics.SynchronizeWithVerticalRetrace == vsync)
+            return;
+
+        var pp = GraphicsDevice.PresentationParameters;
+        ResizingInProgress = true;
+        Graphics.PreferredBackBufferWidth = pp.BackBufferWidth;
+        Graphics.PreferredBackBufferHeight = pp.BackBufferHeight;
+        Graphics.SynchronizeWithVerticalRetrace = vsync;
+        Graphics.ApplyChanges();
+        ResizingInProgress = false;
+    }
+
     /// <summary>
     ///     Applies a <see cref="ScreenMode" /> to the window: windowed integer multiples of 640x480
     ///     (clamped to the current monitor), or borderless fullscreen at the desktop resolution. The
@@ -876,6 +906,7 @@ public sealed class ChaosGame : Game
 
         Window.ClientSizeChanged -= OnClientSizeChanged;
         DisplaySettings.Applier = null;
+        FrameRateSettings.Applier = null;
         ArrowCursor?.Dispose();
         HandCursor?.Dispose();
         RenderTarget.Dispose();
@@ -899,6 +930,11 @@ public sealed class ChaosGame : Game
         DebugOverlay.BeginFrame();
 
         FlushWindowSize(gameTime);
+
+        //a minimized window's swaps often return at once without waiting for vblank, so hold the
+        //fixed step on (Resolve's 1/60 fallback) while minimized to keep the loop from spinning uncapped
+        if (ClientSettings.FrameRateMode == FrameRateMode.MatchMonitor)
+            IsFixedTimeStep = (Sdl.SDL_GetWindowFlags(Window.Handle) & Sdl.SDL_WINDOW_MINIMIZED) != 0;
 
         //compute mouse coordinate transform from the same present-rect the render target draws into,
         //so cursor→virtual mapping is correct in every mode — including borderless letterbox, where the
