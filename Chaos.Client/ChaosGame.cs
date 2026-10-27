@@ -44,6 +44,7 @@ public sealed class ChaosGame : Game
     private Action<CapturedFrame?>? PendingCapture;
     private bool MetaSyncStarted;
     private RenderTarget2D RenderTarget = null!;
+    private RenderTarget2D? CaptureTarget;
     private bool ResizingInProgress;
     private ScreenMode CurrentScreenMode = ScreenMode.Windowed1x;
 
@@ -119,6 +120,10 @@ public sealed class ChaosGame : Game
     public TunePlayer TunePlayer { get; }
 
     public static GraphicsDevice Device => TextureConverter.Device;
+
+    public WorldSurface WorldSurface { get; private set; } = null!;
+
+    public Rectangle PresentRect => GetPresentRect();
 
     public ChaosGame()
     {
@@ -202,6 +207,8 @@ public sealed class ChaosGame : Game
 
     protected override void Draw(GameTime gameTime)
     {
+        WorldSurface.BeginFrame();
+
         //render everything at virtual resolution
         GraphicsDevice.SetRenderTarget(RenderTarget);
         GraphicsDevice.Clear(Color.Black);
@@ -229,6 +236,14 @@ public sealed class ChaosGame : Game
 
         GraphicsDevice.SetRenderTarget(null);
         GraphicsDevice.Clear(Color.Black); //paint letterbox bars (and any unfilled backbuffer) black
+
+        if (WorldSurface is { DrawnThisFrame: true, Target: { } world })
+        {
+            SpriteBatch.Begin(samplerState: SamplerState.PointClamp);
+            SpriteBatch.Draw(world, WorldSurface.Layout.Destination, Color.White);
+            SpriteBatch.End();
+        }
+
         SpriteBatch.Begin(samplerState: GlobalSettings.Sampler);
         SpriteBatch.Draw(RenderTarget, GetPresentRect(), Color.White);
         SpriteBatch.End();
@@ -306,11 +321,33 @@ public sealed class ChaosGame : Game
         }
     }
 
-    private SKImage ReadRenderTarget()
+    public Color[] ReadVirtualFramePixels()
     {
         var pixels = new Color[VIRTUAL_WIDTH * VIRTUAL_HEIGHT];
-        RenderTarget.GetData(pixels);
 
+        if (WorldSurface is not { DrawnThisFrame: true, Target: { } world })
+        {
+            RenderTarget.GetData(pixels);
+
+            return pixels;
+        }
+
+        CaptureTarget ??= new RenderTarget2D(GraphicsDevice, VIRTUAL_WIDTH, VIRTUAL_HEIGHT);
+        GraphicsDevice.SetRenderTarget(CaptureTarget);
+        GraphicsDevice.Clear(Color.Black);
+        SpriteBatch.Begin(samplerState: SamplerState.PointClamp);
+        SpriteBatch.Draw(world, WorldSurface.Layout.Viewport, Color.White);
+        SpriteBatch.Draw(RenderTarget, Vector2.Zero, Color.White);
+        SpriteBatch.End();
+        CaptureTarget.GetData(pixels);
+        GraphicsDevice.SetRenderTarget(RenderTarget);
+
+        return pixels;
+    }
+
+    private SKImage ReadRenderTarget()
+    {
+        var pixels = ReadVirtualFramePixels();
         var imageInfo = new SKImageInfo(VIRTUAL_WIDTH, VIRTUAL_HEIGHT, SKColorType.Rgba8888, SKAlphaType.Premul);
 
         return SKImage.FromPixelCopy(imageInfo, MemoryMarshal.AsBytes(pixels.AsSpan()), VIRTUAL_WIDTH * 4);
@@ -479,7 +516,10 @@ public sealed class ChaosGame : Game
             VIRTUAL_HEIGHT,
             false,
             SurfaceFormat.Color,
-            DepthFormat.Depth24Stencil8);
+            DepthFormat.Depth24Stencil8,
+            0,
+            RenderTargetUsage.PreserveContents);
+        WorldSurface = new WorldSurface(GraphicsDevice);
         InputBuffer.Initialize();
 
         //key bindings show letters and punctuation as the player's layout types them
@@ -910,6 +950,8 @@ public sealed class ChaosGame : Game
         ArrowCursor?.Dispose();
         HandCursor?.Dispose();
         RenderTarget.Dispose();
+        CaptureTarget?.Dispose();
+        WorldSurface?.Dispose();
         Screens.Dispose();
         Connection.Dispose();
         InputBuffer.Shutdown();

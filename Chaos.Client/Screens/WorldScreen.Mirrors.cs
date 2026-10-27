@@ -215,6 +215,13 @@ public sealed partial class WorldScreen
 
         ScareCapturePending = false;
 
+        if (Game.WorldSurface.DrawnThisFrame)
+        {
+            ScareRenderer.Begin(Game.ReadVirtualFramePixels(), ChaosGame.VIRTUAL_WIDTH, ChaosGame.VIRTUAL_HEIGHT, ScareCreature, Random.Shared.Next());
+
+            return;
+        }
+
         var bindings = Device.GetRenderTargets();
 
         if ((bindings.Length == 0) || bindings[0].RenderTarget is not RenderTarget2D target)

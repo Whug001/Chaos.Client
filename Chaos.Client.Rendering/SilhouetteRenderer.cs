@@ -47,9 +47,10 @@ public sealed class SilhouetteRenderer : IDisposable
     }
 
     /// <summary>
-    ///     Draws the pre-rendered silhouette overlay onto the active SpriteBatch. Call after the world pass.
+    ///     Draws the pre-rendered silhouette overlay onto the active SpriteBatch. Call after the world pass. The scale
+    ///     defaults to today’s back-buffer values; pass the surface scales while Smooth screen scrolling is on.
     /// </summary>
-    public void DrawSilhouettes(SpriteBatch spriteBatch)
+    public void DrawSilhouettes(SpriteBatch spriteBatch, float scaleX = 1f, float scaleY = 1f)
     {
         if (!SilhouettesReady || SilhouetteTarget is null)
             return;
@@ -61,16 +62,17 @@ public sealed class SilhouetteRenderer : IDisposable
             Color.White * SILHOUETTE_ALPHA,
             0f,
             Vector2.Zero,
-            1f,
+            new Vector2(1f / scaleX, 1f / scaleY),
             SpriteEffects.None,
             0f);
     }
 
     /// <summary>
     ///     Composites all silhouette entities into a single viewport-sized RT at their world positions. Call from WorldScreen
-    ///     after the normal entity draw pass, passing the same camera transform.
+    ///     after the normal entity draw pass, passing the same camera transform. The target size defaults to today’s
+    ///     back-buffer values; pass the world target’s size while Smooth screen scrolling is on.
     /// </summary>
-    public void PreRenderSilhouettes(Action<SpriteBatch> drawEntities)
+    public void PreRenderSilhouettes(Action<SpriteBatch> drawEntities, Point? targetSize = null)
     {
         if (SilhouetteEntityIds.Count == 0)
         {
@@ -81,8 +83,8 @@ public sealed class SilhouetteRenderer : IDisposable
 
         Batch ??= new SpriteBatch(Device);
 
-        var screenWidth = Device.PresentationParameters.BackBufferWidth;
-        var screenHeight = Device.PresentationParameters.BackBufferHeight;
+        var screenWidth = targetSize?.X ?? Device.PresentationParameters.BackBufferWidth;
+        var screenHeight = targetSize?.Y ?? Device.PresentationParameters.BackBufferHeight;
 
         if (SilhouetteTarget is null || (SilhouetteTarget.Width != screenWidth) || (SilhouetteTarget.Height != screenHeight))
         {

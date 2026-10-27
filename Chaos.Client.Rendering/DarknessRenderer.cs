@@ -51,6 +51,12 @@ public sealed class DarknessRenderer : IDisposable
     public bool IsActive => Alpha > 0f;
 
     /// <summary>
+    ///     True while smooth screen scrolling is on (ClientSettings.ScrollLevel > 0), set by the caller each
+    ///     frame. Selects rounded pixel snaps; false keeps the original truncating casts bit-for-bit.
+    /// </summary>
+    public bool Smooth { get; set; }
+
+    /// <summary>
     ///     True only when the map is dark, no graduated light metadata reduced the alpha, and the resulting
     ///     darkness color is pure black. The tab map uses this signal to switch into limited visibility mode.
     /// </summary>
@@ -412,8 +418,8 @@ public sealed class DarknessRenderer : IDisposable
         var ambientAlpha32 = (byte)(32 * (1f - Alpha));
 
         var viewportTopLeft = camera.ScreenToWorld(Vector2.Zero);
-        var worldOffsetX = (int)viewportTopLeft.X;
-        var worldOffsetY = (int)viewportTopLeft.Y;
+        var worldOffsetX = Snap(viewportTopLeft.X);
+        var worldOffsetY = Snap(viewportTopLeft.Y);
 
         //early return only if everything matches — viewport size changes (hud swap) must force a rebuild
         //even when the world offset happens to coincide with the previous frame's value
@@ -602,8 +608,8 @@ public sealed class DarknessRenderer : IDisposable
             var strength = source.Strength;
 
             //mask rect centered on screen position
-            var maskLeft = (int)source.ScreenPosition.X - mask.Width / 2;
-            var maskTop = (int)source.ScreenPosition.Y - mask.Height / 2;
+            var maskLeft = Snap(source.ScreenPosition.X) - mask.Width / 2;
+            var maskTop = Snap(source.ScreenPosition.Y) - mask.Height / 2;
 
             //clip to viewport
             var startX = Math.Max(0, -maskLeft);
@@ -702,7 +708,9 @@ public sealed class DarknessRenderer : IDisposable
         }
     }
 
-    private static int ComputeSourceHash(ReadOnlySpan<LightSource> sources)
+    private int Snap(float value) => Smooth ? (int)MathF.Round(value) : (int)value;
+
+    private int ComputeSourceHash(ReadOnlySpan<LightSource> sources)
     {
         var hash = sources.Length;
 
@@ -712,8 +720,8 @@ public sealed class DarknessRenderer : IDisposable
 
             hash = HashCode.Combine(
                 hash,
-                (int)src.ScreenPosition.X,
-                (int)src.ScreenPosition.Y,
+                Snap(src.ScreenPosition.X),
+                Snap(src.ScreenPosition.Y),
                 src.PixelMask.Width,
                 src.Strength);
         }

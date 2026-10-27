@@ -43,6 +43,17 @@ public sealed partial class WorldScreen
         var sortedEntities = WorldState.CurrentFrame.SortedEntities;
         var seated = SeatedView.IsOn;
 
+        var worldDrawn = MapFile is not null && MapPreloaded && !seated;
+        var viewportEmpty = WorldHud.ViewportBounds.Width <= 0 || WorldHud.ViewportBounds.Height <= 0;
+        WorldSurfaceLayout? surfaceLayout = worldDrawn && !viewportEmpty && (ClientSettings.ScrollLevel > 0)
+            ? WorldSurfaceLayout.From(Game.PresentRect, WorldHud.ViewportBounds, ChaosGame.VIRTUAL_WIDTH, ChaosGame.VIRTUAL_HEIGHT)
+            : null;
+
+        if (surfaceLayout is { } sized && ((sized.Destination.Width <= 0) || (sized.Destination.Height <= 0)))
+            surfaceLayout = null;
+
+        var surfaceMatrix = surfaceLayout?.SurfaceMatrix ?? Matrix.Identity;
+
         RefreshTumbleView();
         RefreshGlassView();
 
@@ -50,7 +61,7 @@ public sealed partial class WorldScreen
         //drawing. each entity is redrawn at 50% over the finished world: invisible in the open (self-blend over
         //identical pixels) but shown through where a foreground tile occluded it. transparent entities compound
         //multiplicatively (~50% open, ~25% behind walls). extends retail's local-player overdraw (FUN_005d4360).
-        if (MapFile is not null && MapPreloaded && !seated)
+        if (worldDrawn)
         {
             SilhouetteRenderer.Clear();
 
@@ -64,7 +75,11 @@ public sealed partial class WorldScreen
             //entities through TRANSPARENT_SILHOUETTE_ALPHA so they compound correctly with the overlay.
             SilhouetteRenderer.PreRenderSilhouettes(batch =>
             {
-                batch.Begin(SpriteSortMode.Deferred, BlendState.AlphaBlend, GlobalSettings.Sampler);
+                batch.Begin(
+                    SpriteSortMode.Deferred,
+                    BlendState.AlphaBlend,
+                    GlobalSettings.Sampler,
+                    transformMatrix: surfaceLayout is { } sl ? Matrix.CreateScale(sl.ScaleX, sl.ScaleY, 1) : null);
                 DrawingForSilhouette = true;
 
                 try
@@ -81,7 +96,7 @@ public sealed partial class WorldScreen
                     DrawingForSilhouette = false;
                     batch.End();
                 }
-            });
+            }, surfaceLayout?.Destination.Size);
 
             //mirrors: paint the characters they need into the atlas and compose the glass layer. like the silhouettes,
             //this must happen before the main target's drawing starts, because switching targets discards it
@@ -89,179 +104,164 @@ public sealed partial class WorldScreen
         }
 
         //pass 1: world rendering — clipped to the hud viewport area, camera transform
-        if (MapFile is not null && MapPreloaded && !seated)
+        if (worldDrawn)
         {
             var viewportRect = WorldHud.ViewportBounds;
-            Device.ScissorRectangle = viewportRect;
+            RenderTargetBinding[]? hudBindings = null;
 
-            var transform = Matrix.CreateTranslation(viewportRect.X, viewportRect.Y, 0);
-
-            //background tiles + tile cursor: batched (many draws, no blend changes)
-            spriteBatch.Begin(samplerState: GlobalSettings.Sampler, rasterizerState: ScissorRasterizerState, transformMatrix: transform);
-
-            if (TumbleViewNow is not null)
-                DrawTumbleBackground(spriteBatch);
-            else
-                MapRenderer.DrawBackground(
-                    spriteBatch,
-                    MapFile,
-                    Camera,
-                    AnimationTick);
-
-            DrawCausewayRafts(spriteBatch);
-            DrawGlassWay(spriteBatch);
-            DrawTileCursor(spriteBatch);
-            DrawGuildHallEditorOverlay(spriteBatch);
-            spriteBatch.End();
-
-            //background animations: drawn above the background tiles, beneath all entities/foreground.
-            //use a BatchBlendScope (not a plain batch) so additive/screen effects can switch blend via Require.
-            BlendScope.Begin(spriteBatch, BlendState.AlphaBlend, GlobalSettings.Sampler, ScissorRasterizerState, transform);
+            if (surfaceLayout is { } layout)
+            {
+                hudBindings = Device.GetRenderTargets();
+                var worldTarget = Game.WorldSurface.Prepare(layout);
+                Device.SetRenderTarget(worldTarget);
+                Device.Clear(Color.Black);
+                Device.ScissorRectangle = worldTarget.Bounds;
+            } else
+                Device.ScissorRectangle = viewportRect;
 
             try
             {
-                DrawBackgroundEffects(BlendScope);
-            } finally
-            {
-                BlendScope.End();
-            }
+                var transform = Matrix.CreateTranslation(viewportRect.X, viewportRect.Y, 0) * surfaceMatrix;
 
-            //foreground, entities, effects: batched (Deferred) by default; BatchBlendScope breaks the batch only for the
-            //non-AlphaBlend draws (additive/screen effects, screen-blend foreground tiles). try/finally guarantees the
-            //batch is always closed — leaving it open would make next frame's Begin throw and cascade every frame.
-            BlendScope.Begin(spriteBatch, BlendState.AlphaBlend, GlobalSettings.Sampler, ScissorRasterizerState, transform);
-
-            try
-            {
-                DrawForegroundAndEntities(BlendScope, sortedEntities);
-
-                //effects/foreground tiles each restore AlphaBlend, but make the contract explicit before the silhouette
-                //overlay so it always composites at AlphaBlend regardless of which blend the last stripe draw left.
-                BlendScope.Require(BlendState.AlphaBlend);
-                SilhouetteRenderer.DrawSilhouettes(BlendScope.Batch);
-
-                //mirror doubles, then dark stretches: after the silhouettes, so the dark also hides silhouettes inside it
-                DrawMirrorDoubles(BlendScope);
-                DrawDarkStretches(BlendScope);
-                DrawTumbleOverlays(BlendScope);
-                DrawGlassHud(BlendScope);
-            } finally
-            {
-                BlendScope.End();
-            }
-
-            //ground-target outline — drawn after foreground/entities so a wall/tree on the target tile can't occlude
-            //the targeting indicator. camera-space (same transform as the world passes). guarded to skip the batch
-            //setup when not targeting.
-            if (IsAimingAtTile)
-            {
+                //background tiles + tile cursor: batched (many draws, no blend changes)
                 spriteBatch.Begin(samplerState: GlobalSettings.Sampler, rasterizerState: ScissorRasterizerState, transformMatrix: transform);
-                DrawGroundTargetHighlight(spriteBatch);
-                spriteBatch.End();
-            }
 
-            //darkness overlay — drawn over the world in screen space (no camera transform)
-            if (DarknessRenderer.IsActive)
-            {
-                spriteBatch.Begin(
-                    blendState: BlendState.NonPremultiplied,
-                    samplerState: GlobalSettings.Sampler,
-                    rasterizerState: ScissorRasterizerState);
-                var viewport = WorldHud.ViewportBounds;
-                DarknessRenderer.Draw(spriteBatch, viewport);
-                spriteBatch.End();
-            }
+                if (TumbleViewNow is not null)
+                    DrawTumbleBackground(spriteBatch);
+                else
+                    MapRenderer.DrawBackground(
+                        spriteBatch,
+                        MapFile,
+                        Camera,
+                        AnimationTick);
 
-            //loures cinema house dim — the room goes dark like the theatre's house lights, the film stays bright
-            DrawCinemaDim(spriteBatch);
-
-            //theatre spotlight colour — over the darkness, under weather and ambient effects
-            DrawSpotlights(spriteBatch);
-
-            //weather overlay — drawn after darkness so snowflakes/rain remain visible on dark maps
-            if (WeatherRenderer.IsActive)
-            {
-                spriteBatch.Begin(
-                    blendState: BlendState.AlphaBlend,
-                    samplerState: GlobalSettings.Sampler,
-                    rasterizerState: ScissorRasterizerState);
-                var weatherViewport = WorldHud.ViewportBounds;
-                WeatherRenderer.Draw(spriteBatch, weatherViewport);
-                spriteBatch.End();
-            }
-
-            //map-flag ambient effects (fog, lightning, blood moon, fireflies, ...) — over the weather, each in its own
-            //screen-space batch with the blend it needs. effects fading out still draw until fully gone.
-            AmbientEffects.Draw(
-                spriteBatch,
-                WorldHud.ViewportBounds,
-                Camera.WorldToScreen(Vector2.Zero),
-                GlobalSettings.Sampler,
-                ScissorRasterizerState);
-
-            //blind overlay — black out viewport, then redraw only the player character. drawn before
-            //entity overlays so chat bubbles, name tags, chant text, etc. remain visible while blinded,
-            //matching retail (which implements blind as a per-entity darkness mask rather than a
-            //viewport fill, so its independent overlay panes are unaffected).
-            if (WorldState.Attributes.Current?.Blind is true)
-            {
-                spriteBatch.Begin(
-                    blendState: BlendState.AlphaBlend,
-                    samplerState: GlobalSettings.Sampler,
-                    rasterizerState: ScissorRasterizerState);
-                RenderHelper.DrawRect(spriteBatch, WorldHud.ViewportBounds, Color.Black);
+                DrawCausewayRafts(spriteBatch);
+                DrawGlassWay(spriteBatch);
+                DrawTileCursor(spriteBatch);
+                DrawGuildHallEditorOverlay(spriteBatch);
                 spriteBatch.End();
 
-                var player = WorldState.GetPlayerEntity();
+                //background animations: drawn above the background tiles, beneath all entities/foreground.
+                //use a BatchBlendScope (not a plain batch) so additive/screen effects can switch blend via Require.
+                BlendScope.Begin(spriteBatch, BlendState.AlphaBlend, GlobalSettings.Sampler, ScissorRasterizerState, transform);
 
-                if (player is not null)
+                try
                 {
-                    spriteBatch.Begin(
-                        SpriteSortMode.Deferred,
-                        BlendState.AlphaBlend,
-                        GlobalSettings.Sampler,
-                        null,
-                        ScissorRasterizerState,
-                        null,
-                        transform);
-                    DrawEntity(spriteBatch, player);
+                    DrawBackgroundEffects(BlendScope);
+                } finally
+                {
+                    BlendScope.End();
+                }
+
+                //foreground, entities, effects: batched (Deferred) by default; BatchBlendScope breaks the batch only for the
+                //non-AlphaBlend draws (additive/screen effects, screen-blend foreground tiles). try/finally guarantees the
+                //batch is always closed — leaving it open would make next frame's Begin throw and cascade every frame.
+                BlendScope.Begin(spriteBatch, BlendState.AlphaBlend, GlobalSettings.Sampler, ScissorRasterizerState, transform);
+
+                try
+                {
+                    DrawForegroundAndEntities(BlendScope, sortedEntities);
+
+                    //effects/foreground tiles each restore AlphaBlend, but make the contract explicit before the silhouette
+                    //overlay so it always composites at AlphaBlend regardless of which blend the last stripe draw left.
+                    BlendScope.Require(BlendState.AlphaBlend);
+                    SilhouetteRenderer.DrawSilhouettes(BlendScope.Batch, surfaceLayout?.ScaleX ?? 1f, surfaceLayout?.ScaleY ?? 1f);
+
+                    //mirror doubles, then dark stretches: after the silhouettes, so the dark also hides silhouettes inside it
+                    DrawMirrorDoubles(BlendScope);
+                    DrawDarkStretches(BlendScope);
+                    DrawTumbleOverlays(BlendScope);
+                    DrawGlassHud(BlendScope);
+                } finally
+                {
+                    BlendScope.End();
+                }
+
+                //ground-target outline — drawn after foreground/entities so a wall/tree on the target tile can't occlude
+                //the targeting indicator. camera-space (same transform as the world passes). guarded to skip the batch
+                //setup when not targeting.
+                if (IsAimingAtTile)
+                {
+                    spriteBatch.Begin(samplerState: GlobalSettings.Sampler, rasterizerState: ScissorRasterizerState, transformMatrix: transform);
+                    DrawGroundTargetHighlight(spriteBatch);
                     spriteBatch.End();
                 }
-            }
 
-            //entity overlays (chat bubbles, health bars, name tags, chant text) — drawn after darkness
-            //so light level doesn't tint them, and after blind so they remain visible while blinded
-            spriteBatch.Begin(
-                SpriteSortMode.Deferred,
-                BlendState.AlphaBlend,
-                GlobalSettings.Sampler,
-                null,
-                ScissorRasterizerState,
-                null,
-                transform);
+                //darkness overlay — drawn over the world in screen space (no camera transform)
+                if (DarknessRenderer.IsActive)
+                {
+                    spriteBatch.Begin(
+                        blendState: BlendState.NonPremultiplied,
+                        samplerState: GlobalSettings.Sampler,
+                        rasterizerState: ScissorRasterizerState,
+                        transformMatrix: surfaceMatrix);
+                    var viewport = WorldHud.ViewportBounds;
+                    DarknessRenderer.Draw(spriteBatch, viewport);
+                    spriteBatch.End();
+                }
 
-            //under the name tags and health bars, so the box never covers them
-            DrawTabTargetBox(spriteBatch);
-            Overlays.Draw(spriteBatch, Camera, MapFile.Height);
+                //loures cinema house dim — the room goes dark like the theatre's house lights, the film stays bright
+                DrawCinemaDim(spriteBatch, surfaceMatrix);
 
-            if (College is { Marks.Count: > 0 } college)
-                Overlays.DrawDebateMarks(spriteBatch, Camera, MapFile.Height, college.Marks.All);
+                //theatre spotlight colour — over the darkness, under weather and ambient effects
+                DrawSpotlights(spriteBatch, surfaceMatrix);
 
-            if (College is { Work.Count: > 0 } busy)
-                Overlays.DrawWorkMarks(spriteBatch, Camera, MapFile.Height, busy.Work.All, busy.Marks.All);
+                //weather overlay — drawn after darkness so snowflakes/rain remain visible on dark maps
+                if (WeatherRenderer.IsActive)
+                {
+                    spriteBatch.Begin(
+                        blendState: BlendState.AlphaBlend,
+                        samplerState: GlobalSettings.Sampler,
+                        rasterizerState: ScissorRasterizerState,
+                        transformMatrix: surfaceMatrix);
+                    var weatherViewport = WorldHud.ViewportBounds;
+                    WeatherRenderer.Draw(spriteBatch, weatherViewport);
+                    spriteBatch.End();
+                }
 
-            if (TcgBattleMarks.Count > 0)
-                Overlays.DrawBattleMarks(spriteBatch, Camera, MapFile.Height, TcgBattleMarks.All,
-                    College?.Work.All ?? EmptyWorkMarks, College?.Marks.All ?? EmptyDebateMarks);
+                //map-flag ambient effects (fog, lightning, blood moon, fireflies, ...) — over the weather, each in its own
+                //screen-space batch with the blend it needs. effects fading out still draw until fully gone.
+                AmbientEffects.Draw(
+                    spriteBatch,
+                    WorldHud.ViewportBounds,
+                    Camera.WorldToScreen(Vector2.Zero),
+                    GlobalSettings.Sampler,
+                    ScissorRasterizerState,
+                    surfaceMatrix);
 
-            spriteBatch.End();
+                //blind overlay — black out viewport, then redraw only the player character. drawn before
+                //entity overlays so chat bubbles, name tags, chant text, etc. remain visible while blinded,
+                //matching retail (which implements blind as a per-entity darkness mask rather than a
+                //viewport fill, so its independent overlay panes are unaffected).
+                if (WorldState.Attributes.Current?.Blind is true)
+                {
+                    spriteBatch.Begin(
+                        blendState: BlendState.AlphaBlend,
+                        samplerState: GlobalSettings.Sampler,
+                        rasterizerState: ScissorRasterizerState,
+                        transformMatrix: surfaceMatrix);
+                    RenderHelper.DrawRect(spriteBatch, WorldHud.ViewportBounds, Color.Black);
+                    spriteBatch.End();
 
-            //snapshot draw count before debug draws so the reported count excludes debug visualizations
-            DebugOverlay.SnapshotDrawCount();
+                    var player = WorldState.GetPlayerEntity();
 
-            //debug overlay: entity hitboxes, tile grid, etc.
-            if (DebugOverlay.IsActive)
-            {
+                    if (player is not null)
+                    {
+                        spriteBatch.Begin(
+                            SpriteSortMode.Deferred,
+                            BlendState.AlphaBlend,
+                            GlobalSettings.Sampler,
+                            null,
+                            ScissorRasterizerState,
+                            null,
+                            transform);
+                        DrawEntity(spriteBatch, player);
+                        spriteBatch.End();
+                    }
+                }
+
+                //entity overlays (chat bubbles, health bars, name tags, chant text) — drawn after darkness
+                //so light level doesn't tint them, and after blind so they remain visible while blinded
                 spriteBatch.Begin(
                     SpriteSortMode.Deferred,
                     BlendState.AlphaBlend,
@@ -271,16 +271,57 @@ public sealed partial class WorldScreen
                     null,
                     transform);
 
-                DebugRenderer.Draw(
-                    spriteBatch,
-                    Camera,
-                    MapFile,
-                    MapRenderer.ForegroundExtraMargin,
-                    sortedEntities,
-                    WorldState.GetPlayerEntity(),
-                    EntityHitBoxes,
-                    WorldState.CurrentFrame.HoveredTile);
+                //under the name tags and health bars, so the box never covers them
+                DrawTabTargetBox(spriteBatch);
+                Overlays.Draw(spriteBatch, Camera, MapFile.Height);
+
+                if (College is { Marks.Count: > 0 } college)
+                    Overlays.DrawDebateMarks(spriteBatch, Camera, MapFile.Height, college.Marks.All);
+
+                if (College is { Work.Count: > 0 } busy)
+                    Overlays.DrawWorkMarks(spriteBatch, Camera, MapFile.Height, busy.Work.All, busy.Marks.All);
+
+                if (TcgBattleMarks.Count > 0)
+                    Overlays.DrawBattleMarks(spriteBatch, Camera, MapFile.Height, TcgBattleMarks.All,
+                        College?.Work.All ?? EmptyWorkMarks, College?.Marks.All ?? EmptyDebateMarks);
+
                 spriteBatch.End();
+
+                //snapshot draw count before debug draws so the reported count excludes debug visualizations
+                DebugOverlay.SnapshotDrawCount();
+
+                //debug overlay: entity hitboxes, tile grid, etc.
+                if (DebugOverlay.IsActive)
+                {
+                    spriteBatch.Begin(
+                        SpriteSortMode.Deferred,
+                        BlendState.AlphaBlend,
+                        GlobalSettings.Sampler,
+                        null,
+                        ScissorRasterizerState,
+                        null,
+                        transform);
+
+                    DebugRenderer.Draw(
+                        spriteBatch,
+                        Camera,
+                        MapFile,
+                        MapRenderer.ForegroundExtraMargin,
+                        sortedEntities,
+                        WorldState.GetPlayerEntity(),
+                        EntityHitBoxes,
+                        WorldState.CurrentFrame.HoveredTile);
+                    spriteBatch.End();
+                }
+
+            } finally
+            {
+                if (hudBindings is not null)
+                {
+                    Device.SetRenderTargets(hudBindings);
+                    Device.Clear(Color.Transparent);
+                    Device.ScissorRectangle = viewportRect;
+                }
             }
         }
 
@@ -1269,7 +1310,9 @@ public sealed partial class WorldScreen
         var tileScreen = Camera.WorldToScreen(new Vector2(tileWorld.X, tileWorld.Y));
 
         var cursorTexture = WorldState.CurrentFrame.UseDragCursor ? TileCursorDragTexture : TileCursorTexture;
-        spriteBatch.Draw(cursorTexture!, new Vector2((int)tileScreen.X, (int)tileScreen.Y), Color.White);
+        var smooth = ClientSettings.ScrollLevel > 0;
+        var cursorPos = smooth ? tileScreen : new Vector2((int)tileScreen.X, (int)tileScreen.Y);
+        spriteBatch.Draw(cursorTexture!, cursorPos, Color.White);
     }
 
     /// <summary>
@@ -1311,7 +1354,9 @@ public sealed partial class WorldScreen
         var tileWorld = Camera.TileToWorld(tile.X, tile.Y, MapFile.Height);
         var tileScreen = Camera.WorldToScreen(new Vector2(tileWorld.X, tileWorld.Y));
 
-        spriteBatch.Draw(TileHighlightTexture, new Vector2((int)tileScreen.X, (int)tileScreen.Y), GroundTargetHighlightColor);
+        var smooth = ClientSettings.ScrollLevel > 0;
+        var highlightPos = smooth ? tileScreen : new Vector2((int)tileScreen.X, (int)tileScreen.Y);
+        spriteBatch.Draw(TileHighlightTexture, highlightPos, GroundTargetHighlightColor);
     }
 
     /// <summary>

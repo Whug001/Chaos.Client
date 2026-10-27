@@ -17,6 +17,8 @@ public sealed partial class WorldScreen
     private Texture2D? CinemaUnavailableText;
     private IReadOnlyList<CinemaWallColumn>? CinemaWallColumns;
 
+    private static float CinemaSnap(float value, bool smooth) => smooth ? MathF.Round(value) : MathF.Floor(value);
+
     private void WireCinema()
     {
         Cinema = new CinemaController(() => new CinemaPlayer(Device), () => CinemaPlayer.IsReady);
@@ -100,7 +102,7 @@ public sealed partial class WorldScreen
     ///     stays at full brightness. Drawn in screen space right after the darkness overlay (before the spotlights);
     ///     the seated view draws later over the whole window, so it looks unchanged.
     /// </summary>
-    private void DrawCinemaDim(SpriteBatch spriteBatch)
+    private void DrawCinemaDim(SpriteBatch spriteBatch, Matrix surfaceMatrix)
     {
         if (CurrentMapId != CinemaSeats.MAP_ID)
             return;
@@ -110,7 +112,8 @@ public sealed partial class WorldScreen
         spriteBatch.Begin(
             blendState: BlendState.NonPremultiplied,
             samplerState: GlobalSettings.Sampler,
-            rasterizerState: ScissorRasterizerState);
+            rasterizerState: ScissorRasterizerState,
+            transformMatrix: surfaceMatrix);
 
         try
         {
@@ -128,6 +131,7 @@ public sealed partial class WorldScreen
 
             //same floor + viewport-offset mapping as DrawCinemaWall's transformed batch, so the hole
             //lines up exactly with the drawn screen
+            var smooth = ClientSettings.ScrollLevel > 0;
             var holes = new List<Rectangle>(CinemaWallColumns.Count);
 
             foreach (var column in CinemaWallColumns)
@@ -136,8 +140,8 @@ public sealed partial class WorldScreen
 
                 holes.Add(
                     new Rectangle(
-                        viewport.X + (int)MathF.Floor(top.X),
-                        viewport.Y + (int)MathF.Floor(top.Y),
+                        viewport.X + (int)CinemaSnap(top.X, smooth),
+                        viewport.Y + (int)CinemaSnap(top.Y, smooth),
                         column.Back.Width,
                         column.Back.Height));
             }
@@ -160,6 +164,7 @@ public sealed partial class WorldScreen
             CinemaPixel.SetData([Color.White]);
         }
 
+        var smooth = ClientSettings.ScrollLevel > 0;
         scope.Require(BlendState.AlphaBlend);
 
         var unavailable = Cinema!.Status == CinemaStatus.Unavailable;
@@ -170,15 +175,15 @@ public sealed partial class WorldScreen
                 continue;
 
             var backTop = Camera.WorldToScreen(new Vector2(column.Back.X, column.Back.Y));
-            var back = new Rectangle((int)MathF.Floor(backTop.X), (int)MathF.Floor(backTop.Y), column.Back.Width, column.Back.Height);
+            var back = new Rectangle((int)CinemaSnap(backTop.X, smooth), (int)CinemaSnap(backTop.Y, smooth), column.Back.Width, column.Back.Height);
             scope.Batch.Draw(CinemaPixel, back, unavailable ? new Color(40, 40, 40) : Color.Black);
 
             if (!unavailable && (column.Picture != Rectangle.Empty))
             {
                 var pictureTop = Camera.WorldToScreen(new Vector2(column.Picture.X, column.Picture.Y));
                 var picture = new Rectangle(
-                    (int)MathF.Floor(pictureTop.X),
-                    (int)MathF.Floor(pictureTop.Y),
+                    (int)CinemaSnap(pictureTop.X, smooth),
+                    (int)CinemaSnap(pictureTop.Y, smooth),
                     column.Picture.Width,
                     column.Picture.Height);
                 scope.Batch.Draw(Cinema.Video!.Frame!, picture, column.Source, Color.White);
@@ -198,7 +203,7 @@ public sealed partial class WorldScreen
                 if (CinemaUnavailableText is { } text)
                     scope.Batch.Draw(
                         text,
-                        new Vector2(MathF.Floor(centre.X) - text.Width / 2, MathF.Floor(centre.Y) - text.Height / 2),
+                        new Vector2(CinemaSnap(centre.X, smooth) - text.Width / 2, CinemaSnap(centre.Y, smooth) - text.Height / 2),
                         Color.White);
             }
         }

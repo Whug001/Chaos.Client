@@ -215,11 +215,11 @@ public static class AnimationSystem
     /// </summary>
     /// <param name="entity">The entity whose animation state to advance.</param>
     /// <param name="elapsedMs">Milliseconds elapsed since the last frame.</param>
-    /// <param name="smoothScroll">
-    ///     When true, the player's walk visual offset lerps continuously between frames. When false (default),
-    ///     the visual offset steps discretely with each animation frame, matching how all non-player entities move.
+    /// <param name="slide">
+    ///     How the walk slide moves. `Stepped` (default) jumps once per walk frame;
+    ///     `Pixel` and `Exact` glide every frame.
     /// </param>
-    public static void Advance(WorldEntity entity, float elapsedMs, bool smoothScroll = false)
+    public static void Advance(WorldEntity entity, float elapsedMs, WalkSlide slide = WalkSlide.Stepped)
     {
         //idle animation ticks independently so it survives body animations.
         //aislings use idleanimframecount (from "04" epf); creature sprites always tick — this includes
@@ -239,7 +239,7 @@ public static class AnimationSystem
         switch (entity.AnimState)
         {
             case EntityAnimState.Walking:
-                AdvanceWalk(entity, elapsedMs, smoothScroll);
+                AdvanceWalk(entity, elapsedMs, slide);
 
                 break;
 
@@ -250,7 +250,7 @@ public static class AnimationSystem
         }
     }
 
-    private static void AdvanceWalk(WorldEntity entity, float elapsedMs, bool smoothScroll)
+    private static void AdvanceWalk(WorldEntity entity, float elapsedMs, WalkSlide slide)
     {
         entity.AnimElapsedMs += elapsedMs;
 
@@ -283,18 +283,7 @@ public static class AnimationSystem
                 ? Math.Clamp((int)(entity.AnimElapsedMs / entity.AnimFrameIntervalMs), 0, entity.AnimFrameCount - 1)
                 : 0;
 
-        //both smooth and stepped use integer-only offsets to prevent sub-pixel wobble.
-        //the walk start offsets are always integer (±28, ±14), and integer division
-        //ensures every intermediate value is also integer.
-        if (smoothScroll)
-        {
-            //smooth: interpolate at 2x the stepped frame rate (double the visual steps).
-            var smoothFrameCount = entity.AnimFrameCount * 2;
-            var smoothFrameIndex = smoothFrameCount > 0
-                ? Math.Clamp((int)(progress * smoothFrameCount), 0, smoothFrameCount - 1)
-                : 0;
-            entity.VisualOffset = GetSteppedWalkOffset(entity.WalkStartOffset, smoothFrameIndex, smoothFrameCount);
-        } else
+        if (slide == WalkSlide.Stepped)
         {
             //stepped: offset jumps discretely, paced by translation progress (not the walk pose) so the
             //slide still completes in totalDuration even when the pose cadence is slower.
@@ -302,7 +291,8 @@ public static class AnimationSystem
                 ? Math.Clamp((int)(progress * entity.AnimFrameCount), 0, entity.AnimFrameCount - 1)
                 : 0;
             entity.VisualOffset = GetSteppedWalkOffset(entity.WalkStartOffset, translationFrameIndex, entity.AnimFrameCount);
-        }
+        } else
+            entity.VisualOffset = GetSmoothWalkOffset(entity.WalkStartOffset, progress, slide == WalkSlide.Pixel);
 
         if (progress >= 1f)
             ResetToIdle(entity);
@@ -847,6 +837,24 @@ public static class AnimationSystem
         var y = x * startY / startX;
 
         return new Vector2(x, y);
+    }
+
+    internal static Vector2 GetSmoothWalkOffset(Vector2 startOffset, float progress, bool snapToPixel)
+    {
+        var remaining = 1f - Math.Clamp(progress, 0f, 1f);
+
+        if (!snapToPixel)
+            return startOffset * remaining;
+
+        //same guard as GetSteppedWalkOffset: no slope to follow, and y below would divide by zero
+        if (startOffset.X == 0f)
+            return Vector2.Zero;
+
+        //y comes from the rounded x so diagonals follow the 2:1 line and never step backward
+        var x = Math.Round(startOffset.X * remaining, MidpointRounding.ToZero);
+        var y = Math.Round(x * startOffset.Y / startOffset.X, MidpointRounding.ToZero);
+
+        return new Vector2((float)x, (float)y);
     }
 
     /// <summary>

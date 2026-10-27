@@ -1,6 +1,7 @@
 #region
 using Chaos.Client.Collections;
 using Chaos.Client.Rendering;
+using Chaos.Client.Systems;
 using Chaos.Networking.Entities.Server;
 using Microsoft.Xna.Framework;
 using Microsoft.Xna.Framework.Graphics;
@@ -18,13 +19,14 @@ public sealed partial class WorldScreen
         if (decals.Count == 0)
             return;
 
+        var smooth = ClientSettings.ScrollLevel > 0;
         var tile = Camera.WorldToScreen(Camera.TileToWorld(x, y, MapFile!.Height));
-        var top = MathF.Floor(tile.Y) + WallDecalGeometry.StripTop(WallDecalGeometry.PICTURE_HEIGHT);
+        var top = (smooth ? tile.Y : MathF.Floor(tile.Y)) + WallDecalGeometry.StripTop(WallDecalGeometry.PICTURE_HEIGHT);
 
         scope.Require(BlendState.AlphaBlend);
 
         foreach (var decal in decals)
-            scope.Batch.Draw(decal.Texture, new Vector2(MathF.Floor(tile.X) + MirrorGeometry.FaceLocalX(decal.Side), top), Color.White);
+            scope.Batch.Draw(decal.Texture, new Vector2((smooth ? tile.X : MathF.Floor(tile.X)) + MirrorGeometry.FaceLocalX(decal.Side), top), Color.White);
     }
 
     private void ShowWallArt(CollegeDisplayArgs args)

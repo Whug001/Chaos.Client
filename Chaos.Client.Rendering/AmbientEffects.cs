@@ -93,14 +93,15 @@ public sealed class AmbientEffects : IDisposable
         Rectangle viewport,
         Vector2 worldOrigin,
         SamplerState samplerState,
-        RasterizerState rasterizerState)
+        RasterizerState rasterizerState,
+        Matrix? transformMatrix = null)
     {
         foreach (var (_, overlay) in Overlays)
         {
             if (!overlay.IsActive)
                 continue;
 
-            spriteBatch.Begin(blendState: overlay.BlendState, samplerState: samplerState, rasterizerState: rasterizerState);
+            spriteBatch.Begin(blendState: overlay.BlendState, samplerState: samplerState, rasterizerState: rasterizerState, transformMatrix: transformMatrix);
             overlay.Draw(spriteBatch, viewport, worldOrigin);
             spriteBatch.End();
         }

@@ -63,7 +63,7 @@ public sealed partial class WorldScreen
         MapRenderer.UpdatePaletteCycling(AnimationTick);
 
         //advance entity animations and active effects
-        var smoothScroll = ClientSettings.ScrollLevel > 0;
+        var walkSlide = ClientSettings.ScrollLevel > 0 ? WalkSlide.Exact : WalkSlide.Stepped;
         var player = WorldState.GetPlayerEntity();
 
         //animation advancement doesn't depend on sort order — iterate unordered to avoid a stale sort
@@ -76,9 +76,7 @@ public sealed partial class WorldScreen
             //update water tile state before animation so swimming idle tick advances
             UpdateEntityWaterState(entity);
 
-            //all entities step discretely by default. player gets smooth lerp only if setting enabled.
-            var isSmooth = (entity == player) && smoothScroll;
-            AnimationSystem.Advance(entity, elapsedMs, isSmooth);
+            AnimationSystem.Advance(entity, elapsedMs, walkSlide);
             ApplyCausewayRide(entity, causewayNow);
 
             //update creature optional standing animation cycle — covers native creatures AND aislings
@@ -303,6 +301,8 @@ public sealed partial class WorldScreen
 
         //gather light sources for this frame and feed them to consumers
         Lighting.Gather(MapFile, CurrentMapFlags, Camera, SpotlightFrames);
+
+        DarknessRenderer.Smooth = ClientSettings.ScrollLevel > 0;
 
         if (DarknessRenderer.IsActive)
             DarknessRenderer.Update(Camera, WorldHud.ViewportBounds, Lighting.Sources);

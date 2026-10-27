@@ -338,7 +338,9 @@ public sealed partial class WorldScreen
     private void DrawHallTileMark(SpriteBatch spriteBatch, Point tile, Color color)
     {
         var tileWorld = Camera.TileToWorld(tile.X, tile.Y, MapFile!.Height);
+        var smooth = ClientSettings.ScrollLevel > 0;
         var tileScreen = Camera.WorldToScreen(new Vector2(tileWorld.X, tileWorld.Y));
-        spriteBatch.Draw(TileHighlightTexture!, new Vector2((int)tileScreen.X, (int)tileScreen.Y), color);
+        var markPos = smooth ? tileScreen : new Vector2((int)tileScreen.X, (int)tileScreen.Y);
+        spriteBatch.Draw(TileHighlightTexture!, markPos, color);
     }
 }

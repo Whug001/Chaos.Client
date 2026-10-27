@@ -1258,6 +1258,8 @@ public sealed partial class WorldScreen
         //rebuild darkness texture immediately so this frame's draw uses the new viewport size —
         //DarknessRenderer.Update runs earlier in the frame (before ProcessInput), so without this
         //the first frame after the swap would draw the old-sized texture over the new viewport
+        DarknessRenderer.Smooth = ClientSettings.ScrollLevel > 0;
+
         if (DarknessRenderer.IsActive)
         {
             Lighting.Gather(MapFile, CurrentMapFlags, Camera, SpotlightFrames);

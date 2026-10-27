@@ -6,6 +6,7 @@ using Chaos.Client.Systems;
 using Chaos.DarkAges.Definitions;
 using Chaos.Networking.Entities.Client;
 using Chaos.Networking.Entities.Server;
+using Microsoft.Xna.Framework;
 using Microsoft.Xna.Framework.Graphics;
 #endregion
 
@@ -111,12 +112,12 @@ public sealed partial class WorldScreen
     }
 
     /// <summary>Spotlight colour, additive, in screen space right after the darkness layer.</summary>
-    private void DrawSpotlights(SpriteBatch spriteBatch)
+    private void DrawSpotlights(SpriteBatch spriteBatch, Matrix surfaceMatrix)
     {
         if (SpotlightDrawCount == 0)
             return;
 
-        spriteBatch.Begin(blendState: BlendState.Additive, samplerState: GlobalSettings.Sampler, rasterizerState: ScissorRasterizerState);
+        spriteBatch.Begin(blendState: BlendState.Additive, samplerState: GlobalSettings.Sampler, rasterizerState: ScissorRasterizerState, transformMatrix: surfaceMatrix);
         SpotlightRenderer.Draw(spriteBatch, WorldHud.ViewportBounds, SpotlightDraws.AsSpan(0, SpotlightDrawCount), HouseDarknessNow);
         spriteBatch.End();
     }

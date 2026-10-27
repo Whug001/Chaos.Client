@@ -446,6 +446,7 @@ public sealed partial class WorldScreen
     {
         var centre = Camera.WorldToScreen(
             Camera.TileToWorld(tileX, tileY, MapFile!.Height) + new Vector2(DaLibConstants.HALF_TILE_WIDTH, DaLibConstants.HALF_TILE_HEIGHT));
+        var smooth = ClientSettings.ScrollLevel > 0;
         var dust = (float)((sinceLanding - TumbleDiveTimeline.LAND_DROP_SECONDS) / 0.45);
 
         if (dust is > 0 and < 1)
@@ -454,7 +455,11 @@ public sealed partial class WorldScreen
                 var a = i / 10f * MathF.Tau;
                 var pos = centre + new Vector2(MathF.Cos(a) * 22 * dust, MathF.Sin(a) * 8 * dust - 4 * dust);
                 var size = (int)Math.Max(1, 3 * (1 - dust) + 1);
-                batch.Draw(TumbleOoze!.Pixel, new Rectangle((int)pos.X, (int)pos.Y, size, size), new Color(170, 150, 120) * (0.7f * (1 - dust)));
+
+                if (smooth)
+                    batch.Draw(TumbleOoze!.Pixel, pos, null, new Color(170, 150, 120) * (0.7f * (1 - dust)), 0f, Vector2.Zero, (float)size, SpriteEffects.None, 0f);
+                else
+                    batch.Draw(TumbleOoze!.Pixel, new Rectangle((int)pos.X, (int)pos.Y, size, size), new Color(170, 150, 120) * (0.7f * (1 - dust)));
             }
 
         var stars = (float)((sinceLanding - TumbleDiveTimeline.LAND_DROP_SECONDS) / 0.95);
@@ -464,7 +469,11 @@ public sealed partial class WorldScreen
             {
                 var a = (float)(TumbleClock.Now * 3.3) + i * 2.1f;
                 var pos = centre + new Vector2(MathF.Cos(a) * 12, -50 + MathF.Sin(a) * 4);
-                batch.Draw(TumbleOoze!.Pixel, new Rectangle((int)pos.X - 1, (int)pos.Y - 1, 3, 3), new Color(255, 230, 120) * (1 - stars * 0.6f));
+
+                if (smooth)
+                    batch.Draw(TumbleOoze!.Pixel, pos - new Vector2(1, 1), null, new Color(255, 230, 120) * (1 - stars * 0.6f), 0f, Vector2.Zero, 3f, SpriteEffects.None, 0f);
+                else
+                    batch.Draw(TumbleOoze!.Pixel, new Rectangle((int)pos.X - 1, (int)pos.Y - 1, 3, 3), new Color(255, 230, 120) * (1 - stars * 0.6f));
             }
     }
 
