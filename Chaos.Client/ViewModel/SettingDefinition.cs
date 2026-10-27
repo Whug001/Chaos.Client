@@ -132,7 +132,8 @@ public enum SettingKey
     CinemaMute,
     CinemaHideVideo,
     CinemaLowerMusic,
-    FrameRate
+    FrameRate,
+    ShowCustomChatBubbles
 }
 
 /// <summary>
@@ -449,6 +450,13 @@ public static class SettingDefinitions
             SettingCategory.ClientLocal,
             Get: () => ClientSettings.NpcRecordChat,
             Set: v => ClientSettings.NpcRecordChat = v),
+        new(
+            SettingKey.ShowCustomChatBubbles,
+            "Show custom chat bubbles",
+            SettingSection.Interaction,
+            SettingCategory.ClientLocal,
+            Get: () => ClientSettings.ShowCustomChatBubbles,
+            Set: v => ClientSettings.ShowCustomChatBubbles = v),
         new(
             SettingKey.GroundTargetSnapToEntity,
             "Ground targeting snaps to entity",

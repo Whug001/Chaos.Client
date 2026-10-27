@@ -412,6 +412,25 @@ public static class ImageUtil
         int height,
         Color border,
         Color fill)
+        => DrawBubbleBody(
+            pixels,
+            bufferWidth,
+            x,
+            y,
+            width,
+            height,
+            _ => border,
+            _ => fill);
+
+    public static void DrawBubbleBody(
+        Color[] pixels,
+        int bufferWidth,
+        int x,
+        int y,
+        int width,
+        int height,
+        Func<int, Color> borderAt,
+        Func<int, Color> fillAt)
     {
         ReadOnlySpan<int> topInset =
         [
@@ -433,6 +452,8 @@ public static class ImageUtil
 
         for (var row = 0; row < height; row++)
         {
+            var border = borderAt(row);
+            var fill = fillAt(row);
             int li,
                 ri;
 

@@ -115,6 +115,15 @@ public sealed class EffectWindowStateTests
     }
 
     [Test]
+    public void Bubble_tab_has_only_the_none_entry()
+    {
+        var state = new EffectWindowState();
+        state.SetTab(EffectWindowKind.ChatBubble);
+
+        state.Entries.Should().ContainSingle().Which.Should().Be(EffectWindowState.NoneEntry);
+    }
+
+    [Test]
     public async Task Paging_clamps_and_turn_goes_down_left_up_right()
     {
         var state = new EffectWindowState();

@@ -350,7 +350,10 @@ public sealed partial class WorldScreen
         if (entity is null)
             return;
 
-        Overlays.AddChatBubble(args.SourceId, publicMessage.DisplayText, isShout, args.LineId);
+        //off in F4: everyone's bubble draws as the default, the player's own included
+        var look = ClientSettings.ShowCustomChatBubbles ? args.BubbleLook : null;
+
+        Overlays.AddChatBubble(args.SourceId, publicMessage.DisplayText, isShout, args.LineId, look);
     }
 
     /// <summary>

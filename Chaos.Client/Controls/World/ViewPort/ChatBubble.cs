@@ -1,6 +1,7 @@
 ﻿#region
 using Chaos.Client.Controls.Components;
 using Chaos.Client.Rendering.Utility;
+using Chaos.DarkAges.Definitions;
 using Microsoft.Xna.Framework;
 using Microsoft.Xna.Framework.Graphics;
 #endregion
@@ -25,17 +26,7 @@ public sealed class ChatBubble : UIImage
     private const int INNER_PADDING_BOTTOM = 3;
     private const int BUBBLE_HEIGHT = 17;
 
-    private const int TAIL_HEIGHT = 4;
-
     private const float DISPLAY_DURATION_MS = 3000f;
-
-    private static readonly Color BubbleBorderColor = Color.White;
-
-    private static readonly Color BubbleFillColor = new(
-        0,
-        0,
-        0,
-        85);
 
     private static readonly Color NormalTextColor = LegendColors.White;
     private static readonly Color ShoutTextColor = TextColors.Shout;
@@ -57,6 +48,12 @@ public sealed class ChatBubble : UIImage
     ///     Whether the bubble is drawn in the shout color.
     /// </summary>
     public bool IsShout { get; private init; }
+
+    public ChatBubbleLook Look { get; private init; } = ChatBubbleLook.Default;
+
+    private int Margin { get; init; }
+
+    private int TextPad { get; init; } = INNER_PADDING_TOP;
 
     public bool IsExpired => ElapsedMs >= DISPLAY_DURATION_MS;
 
@@ -89,40 +86,32 @@ public sealed class ChatBubble : UIImage
         uint entityId,
         string message,
         bool isShout,
-        string? name = null)
+        string? name = null,
+        ChatBubbleLook? look = null)
     {
+        look ??= ChatBubbleLook.Default;
+
+        var frame = ChatBubbleFrames.Get(look.Frame);
+
+        //frame art may fill its whole 7 px cell, so text starts below it
+        var pad = frame is null ? INNER_PADDING_TOP : ChatBubblePainter.FRAME_CELL;
         var lines = WordWrap(message);
-        var textColor = isShout ? ShoutTextColor : NormalTextColor;
+
+        var textColor = isShout ? ShoutTextColor
+            : look.IsDefault ? NormalTextColor
+            : ChatBubblePainter.ToColor(look.Text);
 
         var textAreaWidth = MAX_LINE_CHARS * CHAR_CELL_WIDTH + 2;
-
         var bubbleWidth = LEFT_CAP_WIDTH + INNER_PADDING_LEFT + textAreaWidth + INNER_PADDING_RIGHT + RIGHT_CAP_WIDTH;
+        var bubbleHeight = Math.Max(BUBBLE_HEIGHT, pad + lines.Count * LINE_HEIGHT + pad);
+        var (bufferWidth, bufferHeight) = ChatBubblePainter.BufferSize(bubbleWidth, bubbleHeight, look.Effect);
 
-        var bubbleHeight = Math.Max(BUBBLE_HEIGHT, INNER_PADDING_TOP + lines.Count * LINE_HEIGHT + INNER_PADDING_BOTTOM);
-        var totalHeight = bubbleHeight + TAIL_HEIGHT;
-
-        using var scope = new PixelBufferScope(bubbleWidth, totalHeight);
+        using var scope = new PixelBufferScope(bufferWidth, bufferHeight);
         Array.Clear(scope.Pixels, 0, scope.Count);
 
-        ImageUtil.DrawBubbleBody(
-            scope.Pixels,
-            bubbleWidth,
-            0,
-            0,
-            bubbleWidth,
-            bubbleHeight,
-            BubbleBorderColor,
-            BubbleFillColor);
+        ChatBubblePainter.Paint(scope.Pixels, bubbleWidth, bubbleHeight, look, frame);
 
-        ImageUtil.DrawBubbleTail(
-            scope.Pixels,
-            bubbleWidth,
-            bubbleWidth / 2,
-            bubbleHeight - 1,
-            BubbleBorderColor,
-            BubbleFillColor);
-
-        var texture = new Texture2D(ChaosGame.Device, bubbleWidth, totalHeight);
+        var texture = new Texture2D(ChaosGame.Device, bufferWidth, bufferHeight);
         scope.CommitTo(texture);
 
         return new ChatBubble(
@@ -131,11 +120,28 @@ public sealed class ChatBubble : UIImage
             lines,
             textColor,
             bubbleWidth,
-            totalHeight)
+            bubbleHeight + ChatBubblePainter.TAIL_HEIGHT)
         {
             Name = name ?? string.Empty,
-            IsShout = isShout
+            IsShout = isShout,
+            Look = look,
+            Margin = ChatBubblePainter.MarginFor(look.Effect),
+            TextPad = pad
         };
+    }
+
+    /// <summary>A small text-free bubble in <paramref name="look" />, for picker tiles. The caller owns the texture.</summary>
+    public static Texture2D CreateSwatch(ChatBubbleLook look, int bodyWidth = 40, int bodyHeight = 18)
+    {
+        var (w, h) = ChatBubblePainter.BufferSize(bodyWidth, bodyHeight, look.Effect);
+        using var scope = new PixelBufferScope(w, h);
+        Array.Clear(scope.Pixels, 0, scope.Count);
+        ChatBubblePainter.Paint(scope.Pixels, bodyWidth, bodyHeight, look, ChatBubbleFrames.Get(look.Frame));
+
+        var texture = new Texture2D(ChaosGame.Device, w, h);
+        scope.CommitTo(texture);
+
+        return texture;
     }
 
     public override void Draw(SpriteBatch spriteBatch)
@@ -153,7 +159,7 @@ public sealed class ChatBubble : UIImage
 
         spriteBatch.Draw(
             Texture,
-            new Vector2(ScreenX, ScreenY),
+            new Vector2(ScreenX - Margin, ScreenY - Margin),
             null,
             Color.White,
             0f,
@@ -164,7 +170,7 @@ public sealed class ChatBubble : UIImage
 
         //draw text lines on top of the bubble background
         var textX = ScreenX + LEFT_CAP_WIDTH + INNER_PADDING_LEFT;
-        var textY = TailOnTop ? ScreenY + TAIL_HEIGHT + INNER_PADDING_TOP : ScreenY + INNER_PADDING_TOP;
+        var textY = TailOnTop ? ScreenY + ChatBubblePainter.TAIL_HEIGHT + TextPad : ScreenY + TextPad;
 
         foreach (var line in Lines)
         {

@@ -1438,6 +1438,9 @@ public sealed class ConnectionManager : IDisposable
     public void SendEffectWindowChoose(EffectWindowKind kind, byte effect)
         => SendIfWorld(new EffectWindowChooseArgs { Kind = kind, Effect = effect });
 
+    public void SendEffectWindowChoose(EffectWindowKind kind, byte effect, ChatBubbleLook? customLook)
+        => SendIfWorld(new EffectWindowChooseArgs { Kind = kind, Effect = effect, CustomLook = customLook });
+
     /// <summary>Sends one guild hall editor action. The server checks and expands it.</summary>
     public void SendGuildHallEditor(GuildHallEditorArgs args) => SendIfWorld(args);
 

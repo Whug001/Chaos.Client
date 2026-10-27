@@ -42,6 +42,7 @@ public static class ClientSettings
     public static bool AllowGroupInvites { get; set; }
     public static int MusicVolume { get; set; } = 5;
     public static bool NpcRecordChat { get; set; } = true;
+    public static bool ShowCustomChatBubbles { get; set; } = true;
     public static int ScrollLevel { get; set; }
     public static ScreenMode ScreenMode { get; set; } = ScreenMode.Windowed1x;
     public static FrameRateMode FrameRateMode { get; set; } = FrameRateMode.Fixed60;
@@ -262,6 +263,11 @@ public static class ClientSettings
 
                     case "MonsterSayRecordMode":
                         NpcRecordChat = value == "1";
+
+                        break;
+
+                    case "ShowCustomChatBubbles":
+                        ShowCustomChatBubbles = value == "1";
 
                         break;
 
@@ -574,6 +580,7 @@ public static class ClientSettings
             writer.WriteLine($"ScrollLevel : {ScrollLevel}");
             writer.WriteLine($"UserClickMode : {(ClickToOpenProfile ? 0 : 1)}");
             writer.WriteLine($"MonsterSayRecordMode : {(NpcRecordChat ? 1 : 0)}");
+            writer.WriteLine($"ShowCustomChatBubbles : {(ShowCustomChatBubbles ? 1 : 0)}");
             writer.WriteLine($"AutoAcceptGroupInvites : {(AutoAcceptGroupInvites ? 1 : 0)}");
             writer.WriteLine($"ScreenMode : {(int)ScreenMode}");
             writer.WriteLine($"FrameRateMode : {(int)FrameRateMode}");

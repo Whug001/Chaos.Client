@@ -20,7 +20,10 @@ public sealed partial class WorldScreen
         Game.Connection.OnEffectWindowDisplay -= HandleEffectWindowDisplay;
 
         if (EffectWindow is not null)
+        {
             EffectWindow.Chosen -= SendEffectWindowChoose;
+            EffectWindow.BubbleChosen -= SendBubbleChoose;
+        }
     }
 
     private void HandleEffectWindowDisplay(EffectWindowDisplayArgs args)
@@ -47,6 +50,7 @@ public sealed partial class WorldScreen
             };
 
             EffectWindow.Chosen += SendEffectWindowChoose;
+            EffectWindow.BubbleChosen += SendBubbleChoose;
             Root.AddChild(EffectWindow);
         }
 
@@ -57,4 +61,6 @@ public sealed partial class WorldScreen
     }
 
     private void SendEffectWindowChoose(EffectWindowKind kind, byte effect) => Game.Connection.SendEffectWindowChoose(kind, effect);
+
+    private void SendBubbleChoose(byte key, ChatBubbleLook? custom) => Game.Connection.SendEffectWindowChoose(EffectWindowKind.ChatBubble, key, custom);
 }

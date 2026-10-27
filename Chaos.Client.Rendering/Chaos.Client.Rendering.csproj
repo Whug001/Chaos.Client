@@ -52,6 +52,12 @@
         <EmbeddedResource Include="Assets\Cinema\*.png">
             <LogicalName>cinema.%(Filename)%(Extension)</LogicalName>
         </EmbeddedResource>
+
+        <!-- Chat bubble frames (21 x 21, 3 x 3 cells of 7 px), drawn by Unora Tools/ChatBubbles/draw_frames.py;
+             read back by ChatBubbleFrames as "bubbleframe.<n>.png". -->
+        <EmbeddedResource Include="Assets\BubbleFrames\*.png">
+            <LogicalName>bubbleframe.%(Filename)%(Extension)</LogicalName>
+        </EmbeddedResource>
     </ItemGroup>
     <ItemGroup>
         <!-- Guild hall editor glyphs, white-on-transparent 12px icons; read back by GuildHallIconAssets as "guildhallicon.<file>". -->

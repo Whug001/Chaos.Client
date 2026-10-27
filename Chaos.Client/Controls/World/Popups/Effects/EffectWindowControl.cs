@@ -21,7 +21,7 @@ namespace Chaos.Client.Controls.World.Popups.Effects;
 ///     with its name and turn button (right), and Close and Choose. Opened by the server's EffectWindowDisplay Open;
 ///     Choose sends the pick back, everything else sends nothing.
 /// </summary>
-public sealed class EffectWindowControl : GuildCloakDialogBase
+public sealed partial class EffectWindowControl : GuildCloakDialogBase
 {
     private const int CELL = 48;
     private const int LEFT = 20;
@@ -48,6 +48,7 @@ public sealed class EffectWindowControl : GuildCloakDialogBase
     private readonly EffectPreview Preview;
     private readonly UILabel NameLabel;
     private readonly UILabel StatusLabel;
+    private readonly CustomButton TurnButton;
     private readonly CustomButton ChooseButton;
 
     //tile textures this window composed (owned, disposed on hide), by tab and effect
@@ -57,6 +58,8 @@ public sealed class EffectWindowControl : GuildCloakDialogBase
 
     /// <summary>Raised with the tab and effect to send to the server.</summary>
     public event Action<EffectWindowKind, byte>? Chosen;
+
+    public event Action<byte, ChatBubbleLook?>? BubbleChosen;
 
     public EffectWindowControl(AislingRenderer renderer, EffectRenderer effects)
         : base("_nsett", false)
@@ -82,6 +85,7 @@ public sealed class EffectWindowControl : GuildCloakDialogBase
 
         LoginTab = AddButton("Login & Logout", TAB_WIDTH, LEFT, TAB_TOP, () => ChooseTab(EffectWindowKind.LoginLogout));
         DeathTab = AddButton("Death", TAB_WIDTH, LEFT + TAB_WIDTH + TAB_GAP, TAB_TOP, () => ChooseTab(EffectWindowKind.Death));
+        BubbleTab = AddButton("Chat Bubble", TAB_WIDTH, LEFT + (2 * (TAB_WIDTH + TAB_GAP)), TAB_TOP, () => ChooseTab(EffectWindowKind.ChatBubble));
 
         Grid = new ThumbnailGrid<EffectWindowEntry>(EffectWindowState.COLUMNS, EffectWindowState.ROWS, cellSize: CELL)
         {
@@ -104,7 +108,7 @@ public sealed class EffectWindowControl : GuildCloakDialogBase
 
         NameLabel = Caption(string.Empty, previewLeft, TOP + PREVIEW_SIZE + 6, PREVIEW_SIZE - TURN_WIDTH - 4);
 
-        AddButton(
+        TurnButton = AddButton(
             "Turn",
             TURN_WIDTH,
             previewLeft + PREVIEW_SIZE - TURN_WIDTH,
@@ -126,6 +130,8 @@ public sealed class EffectWindowControl : GuildCloakDialogBase
             Width - LEFT - BUTTON_WIDTH,
             Height - BORDER_BOTTOM_HEIGHT - CustomButton.HEIGHT - 4,
             Choose);
+
+        BuildBubbleControls(previewLeft);
     }
 
     public void Open(EffectWindowDisplayArgs args, AislingAppearance? playerLook)
@@ -135,6 +141,7 @@ public sealed class EffectWindowControl : GuildCloakDialogBase
         ReleaseThumbs();
         Preview.SetLook(BaseLook);
         State.Open(args);
+        OpenBubbles(args);
         Show();
         Refresh();
     }
@@ -146,6 +153,7 @@ public sealed class EffectWindowControl : GuildCloakDialogBase
     public void ApplyUpdate(EffectWindowDisplayArgs args)
     {
         State.Update(args);
+        UpdateBubbles(args);
 
         if (Visible)
             Refresh();
@@ -155,6 +163,7 @@ public sealed class EffectWindowControl : GuildCloakDialogBase
     public override void Hide()
     {
         ReleaseThumbs();
+        ReleaseBubbles();
         Preview.ReleaseFigure();
         base.Hide();
     }
@@ -162,6 +171,7 @@ public sealed class EffectWindowControl : GuildCloakDialogBase
     public override void Dispose()
     {
         ReleaseThumbs();
+        ReleaseBubbles();
         base.Dispose();
     }
 
@@ -184,6 +194,17 @@ public sealed class EffectWindowControl : GuildCloakDialogBase
 
     private void Choose()
     {
+        if (State.Tab == EffectWindowKind.ChatBubble)
+        {
+            if (!Bubbles.CanChoose)
+                return;
+
+            var (key, custom) = Bubbles.ChoosePayload;
+            BubbleChosen?.Invoke(key, custom);
+
+            return;
+        }
+
         if (!State.CanChoose || State.Selected is not { } entry)
             return;
 
@@ -194,6 +215,19 @@ public sealed class EffectWindowControl : GuildCloakDialogBase
     {
         LoginTab.Selected = State.Tab == EffectWindowKind.LoginLogout;
         DeathTab.Selected = State.Tab == EffectWindowKind.Death;
+        BubbleTab.Selected = State.Tab == EffectWindowKind.ChatBubble;
+
+        var bubbles = State.Tab == EffectWindowKind.ChatBubble;
+        Grid.Visible = PageLabel.Visible = Preview.Visible = NameLabel.Visible = TurnButton.Visible = !bubbles;
+
+        if (bubbles)
+        {
+            RefreshBubbles();
+
+            return;
+        }
+
+        SetBubbleControlsVisible(false);
         Grid.SetItems(State.PageItems, State.Selected, State.PageCount, ThumbFor, isDimmed: e => !e.Owned, isMarked: State.IsCurrent);
         PageLabel.Text = $"{State.Page + 1}/{State.PageCount}";
         NameLabel.Text = State.Selected?.Name ?? string.Empty;

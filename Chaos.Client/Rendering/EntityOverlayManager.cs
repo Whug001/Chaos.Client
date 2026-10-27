@@ -76,7 +76,7 @@ public sealed class EntityOverlayManager
     /// <summary>
     ///     Adds a chat bubble for the given entity, replacing any existing bubble or chant overlay.
     /// </summary>
-    public void AddChatBubble(uint entityId, string message, bool isShout, uint lineId = 0)
+    public void AddChatBubble(uint entityId, string message, bool isShout, uint lineId = 0, ChatBubbleLook? look = null)
     {
         //chat bubble replaces any active chant overlay
         RemoveChantOverlay(entityId);
@@ -84,7 +84,7 @@ public sealed class EntityOverlayManager
         if (ChatBubbles.TryGetValue(entityId, out var existing))
             existing.Dispose();
 
-        var bubble = ChatBubble.Create(entityId, message, isShout);
+        var bubble = ChatBubble.Create(entityId, message, isShout, look: look);
         bubble.LineId = lineId;
         ChatBubbles[entityId] = bubble;
     }
@@ -100,12 +100,14 @@ public sealed class EntityOverlayManager
 
         uint? entityId = null;
         var isShout = false;
+        ChatBubbleLook? look = null;
 
         foreach ((var id, var bubble) in ChatBubbles)
             if (bubble.LineId == lineId)
             {
                 entityId = id;
                 isShout = bubble.IsShout;
+                look = bubble.Look;
 
                 break;
             }
@@ -113,7 +115,7 @@ public sealed class EntityOverlayManager
         if (entityId is null)
             return false;
 
-        AddChatBubble(entityId.Value, message, isShout, lineId);
+        AddChatBubble(entityId.Value, message, isShout, lineId, look);
 
         return true;
     }

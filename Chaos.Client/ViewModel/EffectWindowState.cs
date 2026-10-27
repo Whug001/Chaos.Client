@@ -15,9 +15,9 @@ public sealed class EffectWindowState
     /// <summary>The first tile of each tab. Always owned.</summary>
     public static readonly EffectWindowEntry NoneEntry = new() { Effect = 0, Name = "None", Owned = true };
 
-    private readonly IReadOnlyList<EffectWindowEntry>[] Lists = [[NoneEntry], [NoneEntry]];
-    private readonly int[] SelectedIndex = new int[2];
-    private readonly int[] Pages = new int[2];
+    private readonly IReadOnlyList<EffectWindowEntry>[] Lists = [[NoneEntry], [NoneEntry], [NoneEntry]];
+    private readonly int[] SelectedIndex = new int[3];
+    private readonly int[] Pages = new int[3];
 
     public EffectWindowKind Tab { get; private set; }
     public byte CurrentLogin { get; private set; }
