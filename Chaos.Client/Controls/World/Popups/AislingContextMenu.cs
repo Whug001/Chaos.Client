@@ -128,10 +128,18 @@ public sealed class AislingContextMenu : UIPanel
         return texture;
     }
 
+    public override void Dispose()
+    {
+        //TallFrame is a shared static: detach it so UIImage.Dispose does not free it
+        //(same pattern as CustomCheckBox, CommissionBoardRowView, WornRow, TownImportRow)
+        FrameImage.Texture = null;
+        base.Dispose();
+    }
+
     private Texture2D? GetFrameTexture()
     {
-        if (FrameImage.Texture is not null)
-            return FrameImage.Texture;
+        if (FrameImage.Texture is { IsDisposed: false } current)
+            return current;
 
         if (UiRenderer.Instance is null)
             return null;
@@ -142,7 +150,8 @@ public sealed class AislingContextMenu : UIPanel
             return null;
 
         var original = UiRenderer.Instance.GetEpfTexture(EPF_FILE, 0);
-        TallFrame ??= BuildTallFrame(original);
+        if (TallFrame is null || TallFrame.IsDisposed)
+            TallFrame = BuildTallFrame(original);
         var texture = TallFrame;
         FrameImage.Texture = texture;
         FrameImage.Width = texture.Width;
