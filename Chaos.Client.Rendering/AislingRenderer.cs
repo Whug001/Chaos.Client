@@ -1721,6 +1721,12 @@ public sealed class AislingRenderer : IDisposable
             appearance.WeaponSprite,
             in appearance);
 
+        CheckIdleEpf(
+            ref maxFrames,
+            'l',
+            appearance.BootsSprite,
+            in appearance);
+
         return maxFrames;
     }
 
