@@ -152,7 +152,7 @@ public sealed partial class WorldScreen
             return false;
 
         var tileWorld = Camera.TileToWorld(tileX, tileY, MapFile.Height);
-        var center = tileWorld + new Vector2(DaLibConstants.HALF_TILE_WIDTH, DaLibConstants.HALF_TILE_HEIGHT + yOffset) + entity.RideOffset;
+        var center = Camera.WorldToScreen(tileWorld + new Vector2(DaLibConstants.HALF_TILE_WIDTH, DaLibConstants.HALF_TILE_HEIGHT + yOffset) + entity.VisualOffset);
         var texture = KartFrames.Texture(Device, KartFrames.FrameFor(body.Value.Heading));
         var tint = KartDyes[info.Dye % KartDyes.Length];
         spriteBatch.Draw(texture, center - new Vector2(texture.Width / 2f, texture.Height / 2f), tint);
