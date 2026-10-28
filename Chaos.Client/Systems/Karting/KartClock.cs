@@ -25,5 +25,8 @@ public sealed class KartClock
     public uint Estimate(double nowSeconds)
         => Offset is { } offset ? (uint)Math.Max(0, Math.Round(nowSeconds * KartPhysics.STEPS_PER_SECOND + offset)) : 0;
 
+    public double EstimateExact(double nowSeconds)
+        => Offset is { } offset ? Math.Max(0, nowSeconds * KartPhysics.STEPS_PER_SECOND + offset) : 0;
+
     public void Reset() => Offset = null;
 }

@@ -19,4 +19,13 @@ public class KartClockTests
         clock.OnSnapshot(400, 11.0);
         clock.Estimate(11.0).Should().Be(400);
     }
+
+    [Test]
+    public void The_exact_estimate_is_not_rounded()
+    {
+        var clock = new KartClock();
+        clock.OnSnapshot(100, 2.0);
+
+        clock.EstimateExact(2.0 + 0.5 / 30).Should().BeApproximately(100.5, 1e-9);
+    }
 }

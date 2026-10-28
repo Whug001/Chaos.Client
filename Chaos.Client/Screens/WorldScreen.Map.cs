@@ -547,6 +547,13 @@ public sealed partial class WorldScreen
         if (MapFile is null)
             return;
 
+        if (TryKartCameraTarget(out var kartCamera))
+        {
+            Camera.Position = kartCamera;
+
+            return;
+        }
+
         var player = WorldState.GetPlayerEntity();
 
         if (player is null)

@@ -10,6 +10,7 @@ using Chaos.Client.Rendering.Models;
 using Chaos.Client.Rendering.Utility;
 using Chaos.Client.Systems;
 using Chaos.Client.Systems.Cinema;
+using Chaos.Client.ViewModel;
 using Chaos.DarkAges.Definitions;
 using Chaos.Networking.Entities.Server;
 using Microsoft.Xna.Framework;
@@ -478,6 +479,7 @@ public sealed partial class WorldScreen
         var collegeWallOn = College?.Wall.HasWall == true;
 
         var cinemaOn = CinemaScreenOn;
+        var kartsOn = PrepareKartDraws(TumbleClock.Now);
 
         for (var depth = minDepth; depth <= maxDepth; depth++)
         {
@@ -506,6 +508,10 @@ public sealed partial class WorldScreen
             for (var i = stripeStart; i < stripeEnd; i++)
                 if (sortedEntities[i].Type == ClientEntityType.Creature)
                     DrawEntity(scope.Batch, sortedEntities[i]);
+
+            //3b. karts, drawn from race packets rather than map entities
+            if (kartsOn)
+                DrawKartsAtDepth(scope.Batch, depth);
 
             //4. dying creature dissolves
             DrawDyingEffectsAtDepth(scope.Batch, depth);
@@ -788,7 +794,7 @@ public sealed partial class WorldScreen
         if (GlassSkipsEntity(entity, ref yOffset, ref alphaScale))
             return;
 
-        if (KartDrawsEntity(spriteBatch, entity, tileX, tileY, yOffset))
+        if (KartHidesEntity(entity))
             return;
 
         DrawEntityAt(spriteBatch, entity, tileX, tileY, yOffset, alphaScale);

@@ -1,13 +1,14 @@
 #region
 using Chaos.DarkAges.Karting;
 using Chaos.Networking.Entities.Server;
+using System.Globalization;
 #endregion
 
 namespace Chaos.Client.ViewModel;
 
 public sealed class KartRaceState
 {
-    private readonly Dictionary<byte, SnapshotPair> Snapshots = [];
+    private readonly Dictionary<byte, KartRacerSnapshot> Snapshots = [];
     private readonly Dictionary<byte, List<uint>> RecordedLapTimes = [];
     private readonly Dictionary<byte, (uint TotalMs, uint BestLapMs)> FinishTimes = [];
 
@@ -25,40 +26,49 @@ public sealed class KartRaceState
     public uint GoStep { get; private set; }
     public uint LatestTick { get; private set; }
     public ushort LatestAck { get; private set; }
+    public IReadOnlyList<KartResultEntry> Results { get; private set; } = [];
+
+    public IReadOnlyList<KartRacerSnapshot> Standings
+        => Snapshots.Values.Where(racer => racer.Place > 0).OrderBy(racer => racer.Place).ThenBy(racer => racer.Index).ToList();
+
+    public bool LocalFinished
+        => LocalIndex is { } index
+           && (Finish(index) is not null || Latest(index)?.Status is KartRacerStatus.Finished or KartRacerStatus.Dnf);
+
+    public bool Spectating => Active && (LocalIndex is null || LocalFinished);
 
     public byte? IndexOfEntity(uint entityId)
         => Racers.Values.FirstOrDefault(racer => racer.EntityId == entityId)?.Index;
 
-    public KartRacerSnapshot? Latest(byte index) => Snapshots.TryGetValue(index, out var pair) ? pair.Latest : null;
-
-    public KartBody? Interpolated(byte index, double now)
-    {
-        if (!Snapshots.TryGetValue(index, out var pair))
-            return null;
-
-        if (pair.Previous is null)
-            return ToBody(pair.Latest);
-
-        var t = Math.Clamp((now - pair.LatestAt) * 15, 0, 1);
-        var previous = pair.Previous;
-        var latest = pair.Latest;
-        var headingDelta = ((latest.Heading - previous.Heading + Math.PI) % (Math.PI * 2) + Math.PI * 2) % (Math.PI * 2) - Math.PI;
-
-        return new KartBody
-        {
-            X = previous.X + (latest.X - previous.X) * t,
-            Y = previous.Y + (latest.Y - previous.Y) * t,
-            Vx = previous.Vx + (latest.Vx - previous.Vx) * t,
-            Vy = previous.Vy + (latest.Vy - previous.Vy) * t,
-            Heading = KartPhysics.NormalizeHeading(previous.Heading + headingDelta * t)
-        };
-    }
+    public KartRacerSnapshot? Latest(byte index) => Snapshots.GetValueOrDefault(index);
 
     public IReadOnlyList<uint> LapTimes(byte index)
         => RecordedLapTimes.TryGetValue(index, out var times) ? times : [];
 
     public (uint TotalMs, uint BestLapMs)? Finish(byte index)
         => FinishTimes.TryGetValue(index, out var finish) ? finish : null;
+
+    public (KartRacerSnapshot? Ahead, KartRacerSnapshot? Behind) Neighbours(byte index)
+        => Neighbours(index, Standings);
+
+    public (KartRacerSnapshot? Ahead, KartRacerSnapshot? Behind) Neighbours(byte index, IReadOnlyList<KartRacerSnapshot> standings)
+    {
+        for (var i = 0; i < standings.Count; i++)
+            if (standings[i].Index == index)
+                return (i > 0 ? standings[i - 1] : null, i < standings.Count - 1 ? standings[i + 1] : null);
+
+        return (null, null);
+    }
+
+    public IReadOnlyList<byte> DrawableIndexes()
+        => Snapshots.Values.Where(racer => racer.Status != KartRacerStatus.Dnf).Select(racer => racer.Index).Order().ToList();
+
+    public IReadOnlyList<byte> SpectateCandidates()
+        => Snapshots.Values.Where(racer => racer.Status != KartRacerStatus.Dnf)
+                           .OrderBy(racer => racer.Place == 0 ? int.MaxValue : racer.Place)
+                           .ThenBy(racer => racer.Index)
+                           .Select(racer => racer.Index)
+                           .ToList();
 
     public void ApplyLayout(KartTrackLayoutArgs args, uint localEntityId)
     {
@@ -79,6 +89,7 @@ public sealed class KartRaceState
         {
             RecordedLapTimes.Clear();
             FinishTimes.Clear();
+            Results = [];
             StartStep = 0;
             GoStep = 0;
             Stage = KartRaceStage.Waiting;
@@ -87,18 +98,13 @@ public sealed class KartRaceState
         Active = true;
     }
 
-    public void ApplySnapshot(KartSnapshotArgs args, double now)
+    public void ApplySnapshot(KartSnapshotArgs args)
     {
         LatestTick = args.ServerTick;
         LatestAck = args.AckSequence;
 
         foreach (var racer in args.Racers)
-        {
-            if (Snapshots.TryGetValue(racer.Index, out var pair))
-                Snapshots[racer.Index] = new SnapshotPair(pair.Latest, racer, now);
-            else
-                Snapshots[racer.Index] = new SnapshotPair(null, racer, now);
-        }
+            Snapshots[racer.Index] = racer;
     }
 
     public void ApplyEvent(KartRaceEventArgs args)
@@ -120,6 +126,10 @@ public sealed class KartRaceState
                 Stage = KartRaceStage.Finishing;
                 break;
             case KartRaceEventKind.RaceOver:
+                Stage = KartRaceStage.Results;
+                break;
+            case KartRaceEventKind.Results:
+                Results = args.Results.ToArray();
                 Stage = KartRaceStage.Results;
                 break;
         }
@@ -144,6 +154,7 @@ public sealed class KartRaceState
         GoStep = 0;
         LatestTick = 0;
         LatestAck = 0;
+        Results = [];
         Snapshots.Clear();
         RecordedLapTimes.Clear();
         FinishTimes.Clear();
@@ -165,5 +176,28 @@ public sealed class KartRaceState
             BoostLevel = snapshot.BoostLevel
         };
 
-    private sealed record SnapshotPair(KartRacerSnapshot? Previous, KartRacerSnapshot Latest, double LatestAt);
+    public static string PlaceText(byte place, int count)
+        => place == 0 ? string.Empty : $"{KartTime.Ordinal(place)} / {count}";
+
+    public static string GapText(ushort fromCs, ushort toCs)
+    {
+        var difference = toCs - fromCs;
+
+        return string.Format(CultureInfo.InvariantCulture, "{0}{1:0.00}", difference < 0 ? "-" : "+", Math.Abs(difference) / 100.0);
+    }
+
+    public static string? BannerFor(KartRaceEventArgs args, byte? localIndex, int laps)
+    {
+        if (localIndex is not { } index || args.Index != index)
+            return null;
+
+        return args.Kind switch
+        {
+            KartRaceEventKind.LapDone when laps >= 2 && args.Lap == laps - 1 => "FINAL LAP",
+            KartRaceEventKind.Finished => "FINISHED",
+            _ => null
+        };
+    }
+
+    public static double BannerSeconds(string banner) => banner == "FINISHED" ? 3 : 2;
 }

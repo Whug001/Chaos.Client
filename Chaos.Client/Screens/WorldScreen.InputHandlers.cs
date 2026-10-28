@@ -865,6 +865,14 @@ public sealed partial class WorldScreen
             return;
         }
 
+        //while watching a kart race, Steer Left and Steer Right switch the followed kart and do nothing else
+        if (HandleKartSpectateKey(KeyChord.From(e), e.IsRepeat))
+        {
+            e.Handled = true;
+
+            return;
+        }
+
         //every bound action the key could mean, exact chord first; an action that does not apply right now (no chat
         //panel to scroll, say) lets the next one have the key
         foreach (var action in KeyBindings.Current.Candidates(KeyChord.From(e), IsActionUsable))

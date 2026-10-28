@@ -79,21 +79,6 @@ public class KartRaceStateTests
     }
 
     [Test]
-    public void Snapshots_interpolate_position_and_short_heading_path()
-    {
-        var state = new KartRaceState();
-        state.ApplyLayout(Layout(), 77);
-        state.ApplySnapshot(new KartSnapshotArgs { ServerTick = 1, Racers = [new KartRacerSnapshot { Index = 2, X = 10, Y = 20, Heading = 6.2 }] }, 2.0);
-        state.ApplySnapshot(new KartSnapshotArgs { ServerTick = 2, Racers = [new KartRacerSnapshot { Index = 2, X = 20, Y = 40, Heading = 0.1 }] }, 2.0 + 1.0 / 15);
-        var middle = state.Interpolated(2, 2.0 + 1.0 / 15 + 1.0 / 30)!.Value;
-        middle.X.Should().BeApproximately(15, 1e-9);
-        middle.Y.Should().BeApproximately(30, 1e-9);
-        (middle.Heading > 2 * Math.PI || middle.Heading < 0.2).Should().BeTrue();
-        state.Interpolated(2, 2.0 + 2.0 / 15)!.Value.X.Should().BeApproximately(20, 1e-9);
-        state.LatestTick.Should().Be(2);
-    }
-
-    [Test]
     public void Race_events_track_stages_and_times_and_clear_state()
     {
         var state = new KartRaceState();
@@ -112,5 +97,122 @@ public class KartRaceStateTests
         state.Clear();
         state.Active.Should().BeFalse();
         state.Racers.Should().BeEmpty();
+    }
+
+    private static KartRacerSnapshot Racer(byte index, byte place, ushort gapCs = 0, KartRacerStatus status = KartRacerStatus.Normal)
+        => new() { Index = index, Place = place, GapCs = gapCs, Status = status };
+
+    [Test]
+    public void Results_are_kept_until_a_new_track_or_clear()
+    {
+        var state = new KartRaceState();
+        state.ApplyLayout(Layout(), 77);
+        var rows = new List<KartResultEntry> { new(1, 1, true, 90_000, 29_000), new(0, 2, false, 0, 0) };
+        state.ApplyEvent(new KartRaceEventArgs { Kind = KartRaceEventKind.Results, Results = rows });
+
+        state.Results.Should().Equal(rows);
+        state.Stage.Should().Be(KartRaceStage.Results);
+        state.ApplyLayout(Layout(), 77);
+        state.Results.Should().Equal(rows);
+
+        var other = Layout();
+        other.TrackKey = "other";
+        state.ApplyLayout(other, 77);
+        state.Results.Should().BeEmpty();
+    }
+
+    [Test]
+    public void Standings_neighbours_drawables_and_spectators_use_snapshot_status_and_place()
+    {
+        var state = new KartRaceState();
+        state.ApplyLayout(Layout(), 77);
+        state.ApplySnapshot(new KartSnapshotArgs { ServerTick = 2, Racers = [Racer(9, 1), Racer(0, 2, 125), Racer(1, 3, status: KartRacerStatus.Dnf), Racer(2, 4)] });
+
+        state.Standings.Select(racer => racer.Index).Should().Equal(9, 0, 1, 2);
+        state.Neighbours(0).Ahead!.Index.Should().Be(9);
+        state.Neighbours(0).Behind!.Index.Should().Be(1);
+        state.DrawableIndexes().Should().Equal(0, 2, 9);
+        state.SpectateCandidates().Should().Equal(9, 0, 2);
+        state.Neighbours(8).Should().Be((null, null));
+    }
+
+    [Test]
+    public void A_local_racer_spectates_only_after_finishing()
+    {
+        var state = new KartRaceState();
+        state.ApplyLayout(Layout(), 77);
+        state.ApplySnapshot(new KartSnapshotArgs { ServerTick = 2, Racers = [Racer(2, 1)] });
+        state.Spectating.Should().BeFalse();
+        state.ApplySnapshot(new KartSnapshotArgs { ServerTick = 4, Racers = [Racer(2, 1, status: KartRacerStatus.Finished)] });
+        state.LocalFinished.Should().BeTrue();
+        state.Spectating.Should().BeTrue();
+
+    }
+
+    [Test]
+    public void An_onlooker_spectates()
+    {
+        var state = new KartRaceState();
+        state.ApplyLayout(Layout(), 500);
+
+        state.LocalIndex.Should().BeNull();
+        state.Spectating.Should().BeTrue();
+    }
+
+    [Test]
+    public void An_inactive_state_does_not_spectate()
+    {
+        var state = new KartRaceState();
+
+        state.Spectating.Should().BeFalse();
+    }
+
+    [Test]
+    public void Place_and_gap_text()
+    {
+        KartRaceState.PlaceText(3, 24).Should().Be("3rd / 24");
+        KartRaceState.PlaceText(0, 24).Should().BeEmpty();
+        KartRaceState.GapText(205, 125).Should().Be("-0.80");
+        KartRaceState.GapText(125, 250).Should().Be("+1.25");
+        KartRaceState.GapText(40, 40).Should().Be("+0.00");
+    }
+
+    [Test]
+    public void Banners_for_the_final_lap_and_the_finish()
+    {
+        KartRaceState.BannerFor(new KartRaceEventArgs { Kind = KartRaceEventKind.LapDone, Index = 2, Lap = 2 }, 2, 3).Should().Be("FINAL LAP");
+    }
+
+    [Test]
+    public void BannerFor_returns_null_for_a_non_final_lap()
+    {
+        KartRaceState.BannerFor(new KartRaceEventArgs { Kind = KartRaceEventKind.LapDone, Index = 2, Lap = 1 }, 2, 3).Should().BeNull();
+    }
+
+    [Test]
+    public void BannerFor_returns_null_for_another_racer()
+    {
+        KartRaceState.BannerFor(new KartRaceEventArgs { Kind = KartRaceEventKind.LapDone, Index = 0, Lap = 2 }, 2, 3).Should().BeNull();
+    }
+
+    [Test]
+    public void BannerFor_returns_null_for_a_one_lap_race()
+    {
+        KartRaceState.BannerFor(new KartRaceEventArgs { Kind = KartRaceEventKind.LapDone, Index = 2, Lap = 1 }, 2, 1).Should().BeNull();
+    }
+
+    [Test]
+    public void BannerFor_returns_null_without_a_local_index()
+    {
+        KartRaceState.BannerFor(new KartRaceEventArgs { Kind = KartRaceEventKind.Finished, Index = 2 }, null, 3).Should().BeNull();
+    }
+
+    [Test]
+    public void Banners_for_finished_and_banner_durations()
+    {
+        KartRaceState.BannerFor(new KartRaceEventArgs { Kind = KartRaceEventKind.Finished, Index = 2 }, 2, 3).Should().Be("FINISHED");
+        KartRaceState.BannerFor(new KartRaceEventArgs { Kind = KartRaceEventKind.Finished, Index = 0 }, 2, 3).Should().BeNull();
+        KartRaceState.BannerSeconds("FINISHED").Should().Be(3);
+        KartRaceState.BannerSeconds("FINAL LAP").Should().Be(2);
     }
 }
