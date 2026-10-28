@@ -40,7 +40,8 @@ public sealed class ArenaHostPanelControl : GuildCloakDialogBase
 
     private const int MODES_LEFT = LEFT;
     private const int MODES_WIDTH = 186;
-    private const int MODE_ROWS = 11;
+    private const int MODE_ROWS = ArenaHostPanelState.MODE_PAGE_SIZE;
+    private const int PAGE_ARROW_WIDTH = 14;
 
     private const int SETTINGS_LEFT = MODES_LEFT + MODES_WIDTH + GAP;
     private const int SETTINGS_WIDTH = 224;
@@ -61,6 +62,8 @@ public sealed class ArenaHostPanelControl : GuildCloakDialogBase
 
     private readonly CustomButton AdminPlayButton;
     private readonly CustomButton BackButton;
+    private readonly ArenaHostRow FreeForAllNextPageButton;
+    private readonly ArenaHostRow FreeForAllPrevPageButton;
     private readonly UILabel DescriptionLabel;
     private readonly UILabel FreeForAllCaption;
     private readonly CustomButton MainButton;
@@ -85,6 +88,8 @@ public sealed class ArenaHostPanelControl : GuildCloakDialogBase
     private readonly CustomButton SecondsButton;
     private readonly ArenaHostPanelState State = new();
     private readonly UILabel TeamCaption;
+    private readonly ArenaHostRow TeamNextPageButton;
+    private readonly ArenaHostRow TeamPrevPageButton;
     private readonly UILabel VoteHintLabel;
     private readonly CustomButton VoteModeButton;
 
@@ -110,6 +115,10 @@ public sealed class ArenaHostPanelControl : GuildCloakDialogBase
         //modes
         FreeForAllCaption = Caption("Free-for-all", MODES_LEFT, TOP, MODES_WIDTH, color: LegendColors.Gold);
         TeamCaption = Caption("Team", MODES_LEFT, TOP + ((MODE_ROWS + 1) * ROW), MODES_WIDTH, color: LegendColors.Gold);
+        FreeForAllPrevPageButton = PageArrow(TOP, 2, () => TurnModePage(false, false));
+        FreeForAllNextPageButton = PageArrow(TOP, 1, () => TurnModePage(false, true));
+        TeamPrevPageButton = PageArrow(TOP + ((MODE_ROWS + 1) * ROW), 2, () => TurnModePage(true, false));
+        TeamNextPageButton = PageArrow(TOP + ((MODE_ROWS + 1) * ROW), 1, () => TurnModePage(true, true));
 
         for (var i = 0; i < ModeRows.Length; i++)
         {
@@ -357,13 +366,21 @@ public sealed class ArenaHostPanelControl : GuildCloakDialogBase
         FreeForAllCaption.Visible = freeForAll.Count > 0;
         TeamCaption.Visible = team.Count > 0;
 
+        var freeForAllPage = ArenaHostPanelState.GetPageSlice(freeForAll.Count, State.FreeForAllPage, MODE_ROWS);
+        var teamPage = ArenaHostPanelState.GetPageSlice(team.Count, State.TeamPage, MODE_ROWS);
+        ShowPageArrow(FreeForAllPrevPageButton, "<", freeForAll.Count > MODE_ROWS, freeForAllPage.HasPrevious);
+        ShowPageArrow(FreeForAllNextPageButton, ">", freeForAll.Count > MODE_ROWS, freeForAllPage.HasNext);
+        ShowPageArrow(TeamPrevPageButton, "<", team.Count > MODE_ROWS, teamPage.HasPrevious);
+        ShowPageArrow(TeamNextPageButton, ">", team.Count > MODE_ROWS, teamPage.HasNext);
+
         for (var i = 0; i < ModeRows.Length; i++)
         {
             var section = i < MODE_ROWS ? freeForAll : team;
+            var page = i < MODE_ROWS ? freeForAllPage : teamPage;
             var index = i % MODE_ROWS;
             var row = ModeRows[i];
 
-            if (index >= section.Count)
+            if (index >= page.Count)
             {
                 row.Visible = false;
                 row.Selected = false;
@@ -371,7 +388,7 @@ public sealed class ArenaHostPanelControl : GuildCloakDialogBase
                 continue;
             }
 
-            var mode = section[index];
+            var mode = section[page.Start + index];
             ModeIds[i] = mode.Id;
             row.Show(ArenaHostRow.ModeText(mode, State.VoteMode, State.VoteSelection.Contains(mode.Id)), LegendColors.White);
             row.Selected = mode.Id == args.SelectedMode;
@@ -471,5 +488,40 @@ public sealed class ArenaHostPanelControl : GuildCloakDialogBase
     {
         RosterPage += delta;
         RefreshAll();
+    }
+
+    private void TurnModePage(bool isTeam, bool forward)
+    {
+        State.PageModes(isTeam, forward);
+        RefreshAll();
+    }
+
+    //a text row, not a CustomButton: a button is taller than the caption line and would cover the first mode
+    private ArenaHostRow PageArrow(int y, int slotFromRight, Action turn)
+    {
+        var arrow = new ArenaHostRow(PAGE_ARROW_WIDTH)
+        {
+            X = MODES_LEFT + MODES_WIDTH - (slotFromRight * PAGE_ARROW_WIDTH),
+            Y = y,
+            Visible = false
+        };
+
+        arrow.Clicked += turn;
+        AddChild(arrow);
+
+        return arrow;
+    }
+
+    private static void ShowPageArrow(ArenaHostRow arrow, string text, bool paged, bool enabled)
+    {
+        if (!paged)
+        {
+            arrow.Visible = false;
+
+            return;
+        }
+
+        arrow.Show(text, enabled ? LegendColors.Gold : LegendColors.Gray);
+        arrow.IsHitTestVisible = enabled;
     }
 }

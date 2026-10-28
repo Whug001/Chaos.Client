@@ -12,11 +12,17 @@ namespace Chaos.Client.ViewModel;
 /// </summary>
 public sealed class ArenaHostPanelState
 {
+    public readonly record struct PageSlice(int Start, int Count, bool HasPrevious, bool HasNext);
+
+    public const int MODE_PAGE_SIZE = 11;
+
     public static readonly IReadOnlyList<byte> VoteDurations = [30, 60, 120];
 
     private readonly List<byte> VotePicks = [];
 
     public ArenaHostDisplayArgs? Args { get; private set; }
+    public int FreeForAllPage { get; private set; }
+    public int TeamPage { get; private set; }
 
     /// <summary>GreenCaptain or GoldCaptain while the next roster click picks a captain.</summary>
     public ArenaHostOption? PickingCaptain { get; private set; }
@@ -32,7 +38,30 @@ public sealed class ArenaHostPanelState
 
     public void Apply(ArenaHostDisplayArgs args)
     {
+        var previousSelectedMode = Args?.SelectedMode;
         Args = args;
+
+        var freeForAll = args.Modes.Count(m => !m.IsTeam);
+        var team = args.Modes.Count(m => m.IsTeam);
+        FreeForAllPage = ClampPage(freeForAll, FreeForAllPage);
+        TeamPage = ClampPage(team, TeamPage);
+
+        if (previousSelectedMode != args.SelectedMode)
+        {
+            var selected = args.Modes.FirstOrDefault(m => m.Id == args.SelectedMode);
+
+            if (selected is not null)
+            {
+                var section = args.Modes.Where(m => m.IsTeam == selected.IsTeam).ToList();
+                var selectedIndex = section.FindIndex(m => m.Id == selected.Id);
+                var page = selectedIndex / MODE_PAGE_SIZE;
+
+                if (selected.IsTeam)
+                    TeamPage = page;
+                else
+                    FreeForAllPage = page;
+            }
+        }
 
         if (!string.IsNullOrEmpty(args.Message))
             Message = args.Message;
@@ -47,12 +76,41 @@ public sealed class ArenaHostPanelState
     public void Reset()
     {
         Args = null;
+        FreeForAllPage = 0;
+        TeamPage = 0;
         PickingCaptain = null;
         VoteMode = false;
         VotePicks.Clear();
         VoteSeconds = 60;
         ConfirmingEnd = false;
         Message = string.Empty;
+    }
+
+    public static PageSlice GetPageSlice(int count, int page, int pageSize)
+    {
+        var pages = Math.Max(1, (count + pageSize - 1) / pageSize);
+        var clampedPage = Math.Clamp(page, 0, pages - 1);
+        var start = clampedPage * pageSize;
+        var shown = Math.Min(pageSize, Math.Max(0, count - start));
+
+        return new PageSlice(start, shown, clampedPage > 0, clampedPage < pages - 1);
+    }
+
+    private static int ClampPage(int count, int page) => GetPageSlice(count, page, MODE_PAGE_SIZE).Start / MODE_PAGE_SIZE;
+
+    public void PageModes(bool isTeam, bool forward)
+    {
+        if (Args is null)
+            return;
+
+        var count = Args.Modes.Count(m => m.IsTeam == isTeam);
+        var page = isTeam ? TeamPage : FreeForAllPage;
+        page = ClampPage(count, page + (forward ? 1 : -1));
+
+        if (isTeam)
+            TeamPage = page;
+        else
+            FreeForAllPage = page;
     }
 
     /// <summary>Leaves captain pick mode. Returns whether it was active, so Escape can tell if it used the key.</summary>

@@ -18,12 +18,69 @@ public sealed class ArenaHostPanelStateTests
                 : [new ArenaHostOptionInfo { Option = ArenaHostOption.HostPlaying, Label = "I am", Value = "Playing" }]
         };
 
+    private static ArenaHostDisplayArgs State(IReadOnlyList<ArenaHostModeInfo> modes, byte selectedMode = 0)
+        => new()
+        {
+            Type = ArenaHostDisplayType.Update,
+            Modes = modes,
+            SelectedMode = selectedMode
+        };
+
     [Test]
     public void Clicking_a_mode_selects_it()
     {
         var state = new ArenaHostPanelState();
 
         state.ClickMode(9)!.Should().BeEquivalentTo(new { Type = ArenaHostActionType.SelectMode, Mode = (byte)9 });
+    }
+
+    [Test]
+    public void Free_for_all_modes_are_paged_in_eleven_row_slices()
+    {
+        var state = new ArenaHostPanelState();
+        var modes = Enumerable.Range(1, 12).Select(id => new ArenaHostModeInfo { Id = (byte)id }).ToList();
+        state.Apply(State(modes));
+        var first = ArenaHostPanelState.GetPageSlice(modes.Count, state.FreeForAllPage, 11);
+        first.Count.Should().Be(11);
+        first.HasNext.Should().BeTrue();
+        state.PageModes(false, true);
+        var second = ArenaHostPanelState.GetPageSlice(modes.Count, state.FreeForAllPage, 11);
+        second.Start.Should().Be(11);
+        second.Count.Should().Be(1);
+        second.HasPrevious.Should().BeTrue();
+        second.HasNext.Should().BeFalse();
+    }
+
+    [Test]
+    public void Selected_mode_jumps_when_changed_and_pages_clamp()
+    {
+        var state = new ArenaHostPanelState();
+        var modes = Enumerable.Range(1, 23).Select(id => new ArenaHostModeInfo { Id = (byte)id }).ToList();
+        state.Apply(State(modes));
+        state.Apply(State(modes, 23));
+        state.FreeForAllPage.Should().Be(2);
+        state.PageModes(false, false);
+        state.Apply(State(modes, 23));
+        state.FreeForAllPage.Should().Be(1);
+        state.PageModes(false, true);
+        state.PageModes(false, true);
+        state.PageModes(false, true);
+        state.FreeForAllPage.Should().Be(2);
+        state.Apply(State(modes.Take(11).ToList(), 23));
+        state.FreeForAllPage.Should().Be(0);
+    }
+
+    [Test]
+    public void Team_and_free_for_all_pages_are_independent_and_short_lists_do_not_page()
+    {
+        var state = new ArenaHostPanelState();
+        var modes = Enumerable.Range(1, 24).Select(id => new ArenaHostModeInfo { Id = (byte)id, IsTeam = id > 12 }).ToList();
+        state.Apply(State(modes));
+        state.PageModes(false, true);
+        state.PageModes(true, true);
+        state.FreeForAllPage.Should().Be(1);
+        state.TeamPage.Should().Be(1);
+        ArenaHostPanelState.GetPageSlice(11, 0, 11).HasNext.Should().BeFalse();
     }
 
     [Test]
