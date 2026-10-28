@@ -176,6 +176,9 @@ public sealed partial class WorldScreen
     /// </summary>
     private void PredictAndWalk(WorldEntity player, Direction direction)
     {
+        if (KartRefusesStep())
+            return;
+
         //bounds check — don't walk off the map edge
         (var dx, var dy) = direction.ToTileOffset();
         var newX = player.TileX + dx;

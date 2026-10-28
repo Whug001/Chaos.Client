@@ -1,5 +1,6 @@
 ﻿#region
 using Chaos.Geometry.Abstractions.Definitions;
+using Chaos.Networking.Entities.Client;
 using Chaos.Networking.Entities.Server;
 #endregion
 
@@ -567,4 +568,12 @@ public delegate void GuildEmblemDesignHandler(GuildEmblemDesignArgs args);
 
 /// <summary>Handles when a chat translation is received.</summary>
 public delegate void ChatTranslationHandler(ChatTranslationArgs args);
+/// <summary>Fired when the kart track layout arrives.</summary>
+public delegate void KartTrackLayoutReceivedHandler(KartTrackLayoutArgs args);
+
+/// <summary>Fired when a kart race snapshot arrives.</summary>
+public delegate void KartSnapshotReceivedHandler(KartSnapshotArgs args);
+
+/// <summary>Fired when a kart race event arrives.</summary>
+public delegate void KartRaceEventReceivedHandler(KartRaceEventArgs args);
 #endregion

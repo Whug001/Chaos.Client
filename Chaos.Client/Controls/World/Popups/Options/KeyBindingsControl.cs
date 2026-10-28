@@ -249,8 +249,7 @@ public sealed class KeyBindingsControl : GuildCloakDialogBase
             return;
         }
 
-        //a modifier on its own is the start of a chord: wait for the key that goes with it
-        if (KeyChord.IsModifierKey(e.Scancode))
+        if (KeyChord.IsModifierKey(e.Scancode) && !AllowsLoneModifier(pending.Action))
             return;
 
         //Esc cancels the capture, except for Cancel Targeting, whose own default is Esc: there it puts Esc back
@@ -272,7 +271,7 @@ public sealed class KeyBindingsControl : GuildCloakDialogBase
             return;
         }
 
-        var chord = KeyChord.From(e);
+        var chord = KeyChord.IsModifierKey(e.Scancode) ? new KeyChord(e.Scancode) : KeyChord.From(e);
         var result = KeyBindings.Current.Bind(pending.Action, pending.Slot, chord);
 
         if (!result.Bound)
@@ -296,6 +295,8 @@ public sealed class KeyBindingsControl : GuildCloakDialogBase
     }
 
     private static string SlotName(int slot) => slot == 0 ? "primary" : "secondary";
+
+    internal static bool AllowsLoneModifier(GameAction action) => GameActions.CategoryOf(action) == GameActionCategory.Racing;
 
     private void StartCapture(int rowIndex, int slot)
     {

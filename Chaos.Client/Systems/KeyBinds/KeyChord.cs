@@ -84,7 +84,7 @@ public readonly record struct KeyChord
                     return false;
             }
 
-        if (!Enum.TryParse<Scancode>(parts[^1], true, out var key) || (key == Scancode.Unknown) || IsModifierKey(key))
+        if (!Enum.TryParse<Scancode>(parts[^1], true, out var key) || (key == Scancode.Unknown))
             return false;
 
         chord = new KeyChord(key, modifiers);

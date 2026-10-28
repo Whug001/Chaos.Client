@@ -1292,6 +1292,9 @@ public sealed partial class WorldScreen
     /// <summary>Turns to face <paramref name="direction" />, or walks that way when already facing it.</summary>
     private void Move(Direction direction)
     {
+        if (KartRefusesStep())
+            return;
+
         Pathfinding.Clear();
         var player = WorldState.GetPlayerEntity();
 
@@ -1930,6 +1933,9 @@ public sealed partial class WorldScreen
     /// </summary>
     private void HandleShiftRightClick(int mouseX, int mouseY)
     {
+        if (KartRefusesStep())
+            return;
+
         if (SeatedView.IsOn)
             return;
 

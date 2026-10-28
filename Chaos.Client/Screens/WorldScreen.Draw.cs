@@ -172,6 +172,7 @@ public sealed partial class WorldScreen
                     DrawDarkStretches(BlendScope);
                     DrawTumbleOverlays(BlendScope);
                     DrawGlassHud(BlendScope);
+                    DrawKartHud(BlendScope);
                 } finally
                 {
                     BlendScope.End();
@@ -784,6 +785,9 @@ public sealed partial class WorldScreen
             return;
 
         if (GlassSkipsEntity(entity, ref yOffset, ref alphaScale))
+            return;
+
+        if (KartDrawsEntity(spriteBatch, entity, tileX, tileY, yOffset))
             return;
 
         DrawEntityAt(spriteBatch, entity, tileX, tileY, yOffset, alphaScale);

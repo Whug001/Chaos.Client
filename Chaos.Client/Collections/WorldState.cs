@@ -235,6 +235,8 @@ public static class WorldState
     /// </summary>
     public static GlassWayState GlassWay { get; } = new();
 
+    public static KartRaceState KartRace { get; } = new();
+
     /// <summary>
     ///     The guild hall editor (sets, tool, selection). Not cleared by <see cref="Clear" />: a same-map refresh keeps it.
     ///     WorldScreen closes it on a real map change; <see cref="ResetAll" /> closes it on logout.
@@ -516,6 +518,7 @@ public static class WorldState
         TumbleTower.Clear();
         Causeway.Clear();
         GlassWay.Clear();
+        KartRace.Clear();
         GuildHallEditor.Close();
         ClassResource.Reset();
         Oxygen.Reset();

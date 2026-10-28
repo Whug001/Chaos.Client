@@ -6,6 +6,7 @@ using Chaos.Cryptography;
 using Chaos.DarkAges.Definitions;
 using Chaos.Geometry;
 using Chaos.Geometry.Abstractions.Definitions;
+using Chaos.DarkAges.Karting;
 using Chaos.Networking.Abstractions.Definitions;
 using Chaos.Networking.Entities.Client;
 using Chaos.Networking.Entities.Server;
@@ -126,6 +127,8 @@ public sealed class ConnectionManager : IDisposable
                 NewPassword = newPassword
             });
     }
+
+    public void SendKartInput(KartInputArgs args) => SendIfWorld(args);
 
     /// <summary>
     ///     Sends a click on an entity (NPC, creature, aisling, ground item).
@@ -645,6 +648,10 @@ public sealed class ConnectionManager : IDisposable
 
     /// <summary>Fired for every Glass Way state packet (round and clock, lit pane, go, step, crack, survivors, label, clear).</summary>
     public event GlassWayStateHandler? OnGlassWayState;
+
+    public event KartTrackLayoutReceivedHandler? KartTrackLayoutReceived;
+    public event KartSnapshotReceivedHandler? KartSnapshotReceived;
+    public event KartRaceEventReceivedHandler? KartRaceEventReceived;
 
     /// <summary>Fired when a player's reflection climbs out of a haunted mirror nearby.</summary>
     public event MirrorDoubleHandler? OnMirrorDouble;
@@ -2024,6 +2031,9 @@ public sealed class ConnectionManager : IDisposable
         PacketHandlers[(byte)ServerOpCode.TumbleTowerState] = HandleTumbleTowerState;
         PacketHandlers[(byte)ServerOpCode.DrownedCausewayState] = HandleDrownedCausewayState;
         PacketHandlers[(byte)ServerOpCode.GlassWayState] = HandleGlassWayState;
+        PacketHandlers[(byte)ServerOpCode.KartTrackLayout] = HandleKartTrackLayout;
+        PacketHandlers[(byte)ServerOpCode.KartSnapshot] = HandleKartSnapshot;
+        PacketHandlers[(byte)ServerOpCode.KartRaceEvent] = HandleKartRaceEvent;
         PacketHandlers[(byte)ServerOpCode.MirrorDouble] = HandleMirrorDouble;
         PacketHandlers[(byte)ServerOpCode.StageLightingBoard] = HandleStageLightingBoard;
         PacketHandlers[(byte)ServerOpCode.GuildCloakEditor] = HandleGuildCloakEditor;
@@ -2579,6 +2589,24 @@ public sealed class ConnectionManager : IDisposable
     {
         var args = Client.Deserialize<GlassWayStateArgs>(in pkt);
         OnGlassWayState?.Invoke(args);
+    }
+
+    private void HandleKartTrackLayout(ServerPacket pkt)
+    {
+        var args = Client.Deserialize<KartTrackLayoutArgs>(in pkt);
+        KartTrackLayoutReceived?.Invoke(args);
+    }
+
+    private void HandleKartSnapshot(ServerPacket pkt)
+    {
+        var args = Client.Deserialize<KartSnapshotArgs>(in pkt);
+        KartSnapshotReceived?.Invoke(args);
+    }
+
+    private void HandleKartRaceEvent(ServerPacket pkt)
+    {
+        var args = Client.Deserialize<KartRaceEventArgs>(in pkt);
+        KartRaceEventReceived?.Invoke(args);
     }
 
     private void HandleMirrorDouble(ServerPacket pkt)

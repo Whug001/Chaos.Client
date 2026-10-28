@@ -908,6 +908,7 @@ public sealed partial class WorldScreen : IScreen
         WireTumbleTower();
         WireCauseway();
         WireGlassWay();
+        WireKartRace();
         WireGuildCloak();
         WireGuildEmblem();
         WireTownContest();
@@ -1159,6 +1160,7 @@ public sealed partial class WorldScreen : IScreen
         UnwireTumbleTower();
         UnwireCauseway();
         UnwireGlassWay();
+        UnwireKartRace();
         UnwireGuildCloak();
         UnwireGuildEmblem();
         UnwireTownContest();

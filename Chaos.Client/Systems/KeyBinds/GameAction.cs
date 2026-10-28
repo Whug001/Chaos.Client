@@ -191,7 +191,14 @@ public enum GameAction
     Emote30,
     Emote31,
     Emote32,
-    Emote33
+    Emote33,
+
+    KartAccelerate,
+    KartBrake,
+    KartSteerLeft,
+    KartSteerRight,
+    KartDrift,
+    KartUseItem
 }
 
 public enum GameActionCategory
@@ -205,7 +212,8 @@ public enum GameActionCategory
     Song,
     Targeting,
     Hotbars,
-    Emotes
+    Emotes,
+    Racing
 }
 
 /// <summary>Names, categories and the slot, note and emote each action stands for.</summary>
@@ -244,7 +252,8 @@ public static class GameActions
             <= GameAction.SongNote4           => GameActionCategory.Song,
             <= GameAction.TargetFurthestEnemy => GameActionCategory.Targeting,
             <= GameAction.Hotbar4Slot15       => GameActionCategory.Hotbars,
-            _                                 => GameActionCategory.Emotes
+            <= GameAction.Emote33             => GameActionCategory.Emotes,
+            _                                 => GameActionCategory.Racing
         };
 
     /// <summary>
@@ -252,6 +261,8 @@ public static class GameActions
     ///     else: a targeting key only ever clashes with another targeting key.
     /// </summary>
     public static bool IsTargeting(GameAction action) => action is >= GameAction.TargetNext and <= GameAction.TargetFurthestEnemy;
+
+    public static bool IsRacing(GameAction action) => action is >= GameAction.KartAccelerate and <= GameAction.KartUseItem;
 
     /// <summary>0-4 for the group-member targeting actions (the group panel they pick), otherwise -1.</summary>
     public static int TargetGroupIndex(GameAction action)
@@ -283,7 +294,7 @@ public static class GameActions
     /// <summary>1-4 for the song note actions, otherwise 0.</summary>
     public static byte SongNote(GameAction action) => action is >= GameAction.SongNote1 and <= GameAction.SongNote4 ? (byte)(action - GameAction.SongNote1 + 1) : (byte)0;
 
-    public static bool IsEmote(GameAction action) => action >= GameAction.Emote01;
+    public static bool IsEmote(GameAction action) => action is >= GameAction.Emote01 and <= GameAction.Emote33;
 
     /// <summary>0-32 for the emote actions, otherwise -1.</summary>
     public static int EmoteIndex(GameAction action) => IsEmote(action) ? action - GameAction.Emote01 : -1;
@@ -367,6 +378,12 @@ public static class GameActions
             GameAction.IgnoreList      => "Ignore List",
             GameAction.ScrollChatUp    => "Scroll Chat Up",
             GameAction.ScrollChatDown  => "Scroll Chat Down",
+            GameAction.KartAccelerate   => "Accelerate",
+            GameAction.KartBrake        => "Brake",
+            GameAction.KartSteerLeft    => "Steer Left",
+            GameAction.KartSteerRight   => "Steer Right",
+            GameAction.KartDrift        => "Drift",
+            GameAction.KartUseItem      => "Use Item",
             GameAction.TargetNext          => "Next Target",
             GameAction.TargetPrevious      => "Previous Target",
             GameAction.TargetCast          => "Cast on Target",

@@ -68,13 +68,17 @@ public sealed class KeyBindingTable
     ///     where Escape has no other job, and it is that action's default.
     /// </summary>
     public static bool IsReservedFor(GameAction action, KeyChord chord)
-        => IsReserved(chord) && !((action == GameAction.TargetCancel) && (chord == new KeyChord(Scancode.Escape)));
+        => IsReserved(chord)
+           && !(GameActions.IsRacing(action) && KeyChord.IsModifierKey(chord.Key))
+           && !((action == GameAction.TargetCancel) && (chord == new KeyChord(Scancode.Escape)));
 
     /// <summary>
-    ///     Whether two actions compete for a key. The targeting actions only run while a spell is armed, so they compete only
-    ///     with each other: Space can be both Assail and Cast on Target.
+    ///     Whether two actions compete for a key. Targeting and racing actions run in their own scopes; Space can be both
+    ///     Assail and Cast on Target, and racing actions can reuse the walk keys.
     /// </summary>
-    public static bool SameScope(GameAction a, GameAction b) => GameActions.IsTargeting(a) == GameActions.IsTargeting(b);
+    public static bool SameScope(GameAction a, GameAction b)
+        => GameActions.IsTargeting(a) == GameActions.IsTargeting(b)
+           && GameActions.IsRacing(a) == GameActions.IsRacing(b);
 
     /// <summary>
     ///     Puts <paramref name="chord" /> in <paramref name="action" />'s slot, taking it from whatever held it in the same
@@ -320,6 +324,12 @@ public sealed class KeyBindingTable
 
         return action switch
         {
+            GameAction.KartAccelerate => new KeyChord(Scancode.Up),
+            GameAction.KartBrake      => new KeyChord(Scancode.Down),
+            GameAction.KartSteerLeft  => new KeyChord(Scancode.Left),
+            GameAction.KartSteerRight => new KeyChord(Scancode.Right),
+            GameAction.KartDrift      => new KeyChord(Scancode.LeftShift),
+            GameAction.KartUseItem    => new KeyChord(Scancode.Space),
             GameAction.MoveUp          => new KeyChord(Scancode.Up),
             GameAction.MoveRight       => new KeyChord(Scancode.Right),
             GameAction.MoveDown        => new KeyChord(Scancode.Down),

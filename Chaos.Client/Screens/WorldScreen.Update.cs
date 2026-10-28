@@ -70,6 +70,7 @@ public sealed partial class WorldScreen
         //(SortDepth is position-derived; movement later in Update would invalidate any sort taken here).
         var causewayNow = TumbleClock.Now;
         UpdateCausewayRides(causewayNow);
+        TickKartRace(gameTime.ElapsedGameTime.TotalSeconds, causewayNow);
 
         foreach (var entity in WorldState.GetEntities())
         {
@@ -78,6 +79,7 @@ public sealed partial class WorldScreen
 
             AnimationSystem.Advance(entity, elapsedMs, walkSlide);
             ApplyCausewayRide(entity, causewayNow);
+            ApplyKartRide(entity, causewayNow);
 
             //update creature optional standing animation cycle — covers native creatures AND aislings
             //in monster form (both render as creature sprites), so gate on IsRenderedAsCreatureSprite
@@ -164,7 +166,10 @@ public sealed partial class WorldScreen
         //execute queued walk when player becomes idle after walk animation.
         var movementHandled = false;
 
-        if (player is not null && player.IsAtRest && QueuedWalkDirection.HasValue)
+        if (KartRefusesStep())
+            Pathfinding.Clear();
+
+        if (!KartRefusesStep() && player is not null && player.IsAtRest && QueuedWalkDirection.HasValue)
         {
             var queuedDir = QueuedWalkDirection.Value;
             QueuedWalkDirection = null;
@@ -180,7 +185,7 @@ public sealed partial class WorldScreen
         }
 
         //execute next pathfinding step when player becomes idle
-        if (!movementHandled && player is not null && player.IsAtRest)
+        if (!KartRefusesStep() && !movementHandled && player is not null && player.IsAtRest)
         {
             if (Pathfinding.Path is { Count: > 0 })
             {

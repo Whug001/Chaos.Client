@@ -37,12 +37,11 @@ public class KeyBindingTableTests
     [Test]
     public async Task No_two_actions_share_a_default_key()
     {
-        //the targeting keys only run while a spell is armed, so they share keys with the rest on purpose (Space is both
-        //Assail and Cast on Target); within each scope every default is unique
-        foreach (var targeting in new[] { false, true })
+        //targeting and racing keys run in their own scopes; within each scope every default is unique
+        foreach (var scope in new[] { (Targeting: false, Racing: false), (Targeting: true, Racing: false), (Targeting: false, Racing: true) })
         {
             var defaults = GameActions.All
-                                      .Where(action => GameActions.IsTargeting(action) == targeting)
+                                      .Where(action => GameActions.IsTargeting(action) == scope.Targeting && GameActions.IsRacing(action) == scope.Racing)
                                       .SelectMany(action => Enumerable.Range(0, KeyBindingTable.SLOTS)
                                                                       .Select(slot => (Action: action, Chord: KeyBindingTable.DefaultChord(action, slot))))
                                       .Where(pair => !pair.Chord.IsNone)
