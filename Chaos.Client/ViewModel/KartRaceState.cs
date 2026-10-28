@@ -62,6 +62,7 @@ public sealed class KartRaceState
 
     public void ApplyLayout(KartTrackLayoutArgs args, uint localEntityId)
     {
+        var sameRace = Active && TrackKey == args.TrackKey;
         TrackKey = args.TrackKey;
         Laps = args.Laps;
         Surface = TrackSurface.FromRuns(args.Width, args.Height, args.Runs.Select(run => (run.Kind, run.Length)), args.Pads);
@@ -71,13 +72,18 @@ public sealed class KartRaceState
         Racers = args.Racers.ToDictionary(racer => racer.Index);
         LocalIndex = args.Racers.FirstOrDefault(racer => racer.EntityId == localEntityId)?.Index;
         Snapshots.Clear();
-        RecordedLapTimes.Clear();
-        FinishTimes.Clear();
         LatestTick = 0;
         LatestAck = 0;
-        StartStep = 0;
-        GoStep = 0;
-        Stage = KartRaceStage.Waiting;
+
+        if (!sameRace)
+        {
+            RecordedLapTimes.Clear();
+            FinishTimes.Clear();
+            StartStep = 0;
+            GoStep = 0;
+            Stage = KartRaceStage.Waiting;
+        }
+
         Active = true;
     }
 

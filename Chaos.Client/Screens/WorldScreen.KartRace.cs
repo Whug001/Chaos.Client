@@ -161,7 +161,7 @@ public sealed partial class WorldScreen
     }
 
     private bool KartRefusesStep()
-        => KartRace.Active && KartRace.LocalIndex is not null && KartRace.Stage != KartRaceStage.Results;
+        => KartRace.Active && KartRace.LocalIndex is not null;
 
     private void ResetKartRace()
     {

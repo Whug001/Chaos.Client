@@ -37,6 +37,48 @@ public class KartRaceStateTests
     }
 
     [Test]
+    public void A_same_track_layout_keeps_the_race_stage_steps_and_results()
+    {
+        var state = new KartRaceState();
+        var layout = Layout();
+        state.ApplyLayout(layout, 77);
+        state.ApplyEvent(new KartRaceEventArgs { Kind = KartRaceEventKind.Countdown, StartStep = 100, GoStep = 130 });
+        state.ApplyEvent(new KartRaceEventArgs { Kind = KartRaceEventKind.LapDone, Index = 2, LapMs = 45000 });
+        state.ApplyLayout(layout, 77);
+
+        state.Stage.Should().Be(KartRaceStage.Countdown);
+        state.StartStep.Should().Be(100);
+        state.GoStep.Should().Be(130);
+        state.LapTimes(2).Should().ContainSingle().Which.Should().Be(45000);
+
+        state.ApplyEvent(new KartRaceEventArgs { Kind = KartRaceEventKind.Finished, Index = 2, TotalMs = 120000, BestLapMs = 40000 });
+        state.ApplyLayout(layout, 77);
+
+        state.Stage.Should().Be(KartRaceStage.Finishing);
+        state.Finish(2).Should().Be((120000u, 40000u));
+    }
+
+    [Test]
+    public void A_different_track_layout_resets_the_race_state()
+    {
+        var state = new KartRaceState();
+        state.ApplyLayout(Layout(), 77);
+        state.ApplyEvent(new KartRaceEventArgs { Kind = KartRaceEventKind.Countdown, StartStep = 100, GoStep = 130 });
+        state.ApplyEvent(new KartRaceEventArgs { Kind = KartRaceEventKind.LapDone, Index = 2, LapMs = 45000 });
+        state.ApplyEvent(new KartRaceEventArgs { Kind = KartRaceEventKind.Finished, Index = 2, TotalMs = 120000, BestLapMs = 40000 });
+        var newTrack = Layout();
+        newTrack.TrackKey = "other";
+
+        state.ApplyLayout(newTrack, 77);
+
+        state.Stage.Should().Be(KartRaceStage.Waiting);
+        state.StartStep.Should().Be(0);
+        state.GoStep.Should().Be(0);
+        state.LapTimes(2).Should().BeEmpty();
+        state.Finish(2).Should().BeNull();
+    }
+
+    [Test]
     public void Snapshots_interpolate_position_and_short_heading_path()
     {
         var state = new KartRaceState();
