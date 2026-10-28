@@ -160,6 +160,35 @@ public sealed partial class WorldScreen
         return true;
     }
 
+    private void DrawKartPads(SpriteBatch spriteBatch)
+    {
+        if (!KartRace.Active || KartRace.Surface is not { } surface || MapFile is null)
+            return;
+
+        var bounds = Camera.GetVisibleTileBounds(MapFile.Width, MapFile.Height);
+        var tileTexture = KartPadArt.TileTexture(Device);
+
+        foreach (var pad in surface.Pads)
+            foreach (var (tileX, tileY) in KartPadArt.PadTiles(pad))
+            {
+                if ((tileX < bounds.MinX) || (tileX > bounds.MaxX) || (tileY < bounds.MinY) || (tileY > bounds.MaxY))
+                    continue;
+
+                var tileWorld = Camera.TileToWorld(tileX, tileY, MapFile.Height);
+                var screenPos = Camera.WorldToScreen(tileWorld);
+
+                if (((screenPos.X + 56) <= 0) || (screenPos.X >= Camera.ViewportWidth)
+                    || ((screenPos.Y + 28) <= 0) || (screenPos.Y >= Camera.ViewportHeight))
+                    continue;
+
+                spriteBatch.Draw(tileTexture, screenPos, Color.White);
+                var frame = KartPadArt.FrameForHeading(pad.Heading);
+                var chevron = KartPadArt.ChevronTexture(Device, frame);
+                var center = screenPos + new Vector2(28, 14);
+                spriteBatch.Draw(chevron, center - new Vector2(chevron.Width / 2f, chevron.Height / 2f), Color.White);
+            }
+    }
+
     private bool KartRefusesStep()
         => KartRace.Active && KartRace.LocalIndex is not null;
 

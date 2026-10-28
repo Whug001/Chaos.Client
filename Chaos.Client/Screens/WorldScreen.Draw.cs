@@ -135,6 +135,7 @@ public sealed partial class WorldScreen
                         Camera,
                         AnimationTick);
 
+                DrawKartPads(spriteBatch);
                 DrawCausewayRafts(spriteBatch);
                 DrawGlassWay(spriteBatch);
                 DrawTileCursor(spriteBatch);
