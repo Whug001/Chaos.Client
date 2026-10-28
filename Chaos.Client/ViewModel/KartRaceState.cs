@@ -53,12 +53,24 @@ public sealed class KartRaceState
 
     public (KartRacerSnapshot? Ahead, KartRacerSnapshot? Behind) Neighbours(byte index, IReadOnlyList<KartRacerSnapshot> standings)
     {
-        for (var i = 0; i < standings.Count; i++)
-            if (standings[i].Index == index)
-                return (i > 0 ? standings[i - 1] : null, i < standings.Count - 1 ? standings[i + 1] : null);
+        var activeStandings = standings.Where(racer => racer.Status != KartRacerStatus.Dnf).ToArray();
+
+        for (var i = 0; i < activeStandings.Length; i++)
+            if (activeStandings[i].Index == index)
+                return (i > 0 ? activeStandings[i - 1] : null, i < activeStandings.Length - 1 ? activeStandings[i + 1] : null);
 
         return (null, null);
     }
+
+    public bool ShouldCaptureFinish(KartRaceEventArgs args)
+        => !LocalFinished
+           && args.Kind == KartRaceEventKind.Finished
+           && LocalIndex == args.Index;
+
+    public bool ShouldCaptureFinish(KartSnapshotArgs args)
+        => !LocalFinished
+           && LocalIndex is { } index
+           && args.Racers.FirstOrDefault(racer => racer.Index == index)?.Status is KartRacerStatus.Finished or KartRacerStatus.Dnf;
 
     public IReadOnlyList<byte> DrawableIndexes()
         => Snapshots.Values.Where(racer => racer.Status != KartRacerStatus.Dnf).Select(racer => racer.Index).Order().ToList();

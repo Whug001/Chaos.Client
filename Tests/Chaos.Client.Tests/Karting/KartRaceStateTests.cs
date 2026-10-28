@@ -1,6 +1,7 @@
 #region
 using Chaos.DarkAges.Karting;
 using Chaos.Client.ViewModel;
+using Chaos.Client.Systems.Karting;
 using Chaos.Networking.Entities.Server;
 using FluentAssertions;
 #endregion
@@ -130,10 +131,27 @@ public class KartRaceStateTests
 
         state.Standings.Select(racer => racer.Index).Should().Equal(9, 0, 1, 2);
         state.Neighbours(0).Ahead!.Index.Should().Be(9);
-        state.Neighbours(0).Behind!.Index.Should().Be(1);
+        state.Neighbours(0).Behind!.Index.Should().Be(2);
         state.DrawableIndexes().Should().Equal(0, 2, 9);
         state.SpectateCandidates().Should().Equal(9, 0, 2);
         state.Neighbours(8).Should().Be((null, null));
+    }
+
+    [Test]
+    public void Dnf_racers_are_not_neighbours()
+    {
+        var state = new KartRaceState();
+        state.ApplyLayout(Layout(), 77);
+        state.ApplySnapshot(new KartSnapshotArgs
+        {
+            ServerTick = 2,
+            Racers = [Racer(0, 1), Racer(1, 2, status: KartRacerStatus.Dnf), Racer(2, 3)]
+        });
+
+        var (ahead, behind) = state.Neighbours(0);
+
+        ahead.Should().BeNull();
+        behind!.Index.Should().Be(2);
     }
 
     [Test]
@@ -147,6 +165,38 @@ public class KartRaceStateTests
         state.LocalFinished.Should().BeTrue();
         state.Spectating.Should().BeTrue();
 
+    }
+
+    [Test]
+    public void Finish_capture_decision_handles_event_then_snapshot_order()
+    {
+        var state = new KartRaceState();
+        state.ApplyLayout(Layout(), 77);
+        var finish = new KartRaceEventArgs { Kind = KartRaceEventKind.Finished, Index = 2 };
+        var snapshot = new KartSnapshotArgs { ServerTick = 10, Racers = [Racer(2, 1, status: KartRacerStatus.Finished)] };
+        var handover = new KartFinishHandover();
+        var predictedBody = new KartBody { X = 12, Y = 13, Heading = 0.5 };
+
+        handover.CaptureForFinish(state, finish, predictedBody, 1).Should().BeTrue();
+        state.ApplyEvent(finish);
+        handover.CaptureForFinish(state, snapshot, new KartBody { X = 90, Y = 90 }, 2).Should().BeFalse();
+        handover.BodyFor(null, 1.1).Should().Be(predictedBody);
+    }
+
+    [Test]
+    public void Finish_capture_decision_handles_snapshot_then_event_order()
+    {
+        var state = new KartRaceState();
+        state.ApplyLayout(Layout(), 77);
+        var finish = new KartRaceEventArgs { Kind = KartRaceEventKind.Finished, Index = 2 };
+        var snapshot = new KartSnapshotArgs { ServerTick = 10, Racers = [Racer(2, 1, status: KartRacerStatus.Finished)] };
+        var handover = new KartFinishHandover();
+        var predictedBody = new KartBody { X = 12, Y = 13, Heading = 0.5 };
+
+        handover.CaptureForFinish(state, snapshot, predictedBody, 1).Should().BeTrue();
+        state.ApplySnapshot(snapshot);
+        handover.CaptureForFinish(state, finish, new KartBody { X = 90, Y = 90 }, 2).Should().BeFalse();
+        handover.BodyFor(null, 1.1).Should().Be(predictedBody);
     }
 
     [Test]

@@ -1,4 +1,6 @@
+using Chaos.Client.ViewModel;
 using Chaos.DarkAges.Karting;
+using Chaos.Networking.Entities.Server;
 
 namespace Chaos.Client.Systems.Karting;
 
@@ -18,6 +20,26 @@ public sealed class KartFinishHandover
 
         FrozenBody = body;
         StartTime = now;
+    }
+
+    public bool CaptureForFinish(KartRaceState race, KartRaceEventArgs args, KartBody drawBody, double now)
+    {
+        if (!race.ShouldCaptureFinish(args))
+            return false;
+
+        Capture(drawBody, now);
+
+        return true;
+    }
+
+    public bool CaptureForFinish(KartRaceState race, KartSnapshotArgs args, KartBody drawBody, double now)
+    {
+        if (!race.ShouldCaptureFinish(args))
+            return false;
+
+        Capture(drawBody, now);
+
+        return true;
     }
 
     public KartBody? BodyFor(KartBody? interpolated, double now)

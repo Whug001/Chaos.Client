@@ -67,14 +67,10 @@ public sealed partial class WorldScreen
     private void HandleKartSnapshot(KartSnapshotArgs args)
     {
         var now = TumbleClock.Now;
-        var localFinish = KartRace.LocalIndex is { } previousLocalIndex
-                          && !KartRace.LocalFinished
-                          && args.Racers.FirstOrDefault(racer => racer.Index == previousLocalIndex)?.Status is KartRacerStatus.Finished or KartRacerStatus.Dnf;
-
-        if (localFinish && KartPredictor is not null && KartPredictorInitialized)
+        if (KartPredictor is not null && KartPredictorInitialized)
         {
             var (x, y) = KartPredictor.DrawPosition;
-            KartFinishHandover.Capture(KartPredictor.Body with { X = x, Y = y }, now);
+            KartFinishHandover.CaptureForFinish(KartRace, args, KartPredictor.Body with { X = x, Y = y }, now);
         }
 
         KartRace.ApplySnapshot(args);
@@ -103,6 +99,12 @@ public sealed partial class WorldScreen
 
     private void HandleKartEvent(KartRaceEventArgs args)
     {
+        if (KartPredictor is not null && KartPredictorInitialized)
+        {
+            var (x, y) = KartPredictor.DrawPosition;
+            KartFinishHandover.CaptureForFinish(KartRace, args, KartPredictor.Body with { X = x, Y = y }, TumbleClock.Now);
+        }
+
         KartRace.ApplyEvent(args);
 
         if (KartRaceState.BannerFor(args, KartRace.LocalIndex, KartRace.Laps) is { } banner)
