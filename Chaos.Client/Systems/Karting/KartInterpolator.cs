@@ -17,17 +17,49 @@ public sealed class KartInterpolator
     public const int BUFFER = 8;
     public const double SNAP_TILES = 3;
 
-    private readonly List<(uint Tick, Dictionary<byte, KartBody> Bodies)> Frames = [];
+    private readonly List<(uint Tick, Dictionary<byte, KartBody> Bodies, Dictionary<ushort, KartItemObjectInfo> Objects)> Frames = [];
 
-    public void Add(uint serverTick, IEnumerable<KartRacerSnapshot> racers)
+    public void Add(uint serverTick, IEnumerable<KartRacerSnapshot> racers, IEnumerable<KartItemObjectInfo>? objects = null)
     {
         if (Frames.Count > 0 && serverTick <= Frames[^1].Tick)
             return;
 
-        Frames.Add((serverTick, racers.ToDictionary(racer => racer.Index, KartRaceState.ToBody)));
+        Frames.Add((serverTick, racers.ToDictionary(racer => racer.Index, KartRaceState.ToBody), (objects ?? []).ToDictionary(o => o.Id)));
 
         if (Frames.Count > BUFFER)
             Frames.RemoveAt(0);
+    }
+
+    /// <returns>The object's position and heading <see cref="DELAY_STEPS" /> behind, or null when the newest frame no longer has it.</returns>
+    public (double X, double Y, double Heading)? SampleObject(ushort id, double clockStep)
+    {
+        if ((Frames.Count == 0) || !Frames[^1].Objects.ContainsKey(id))
+            return null;
+
+        var target = clockStep - DELAY_STEPS;
+        (uint Tick, KartItemObjectInfo Item)? previous = null;
+
+        foreach (var frame in Frames)
+        {
+            if (!frame.Objects.TryGetValue(id, out var item))
+                continue;
+
+            if (frame.Tick > target)
+            {
+                if (previous is not { } from)
+                    return (item.X, item.Y, item.Heading);
+
+                var t = (target - from.Tick) / (frame.Tick - from.Tick);
+
+                return (from.Item.X + (item.X - from.Item.X) * t,
+                        from.Item.Y + (item.Y - from.Item.Y) * t,
+                        from.Item.Heading + Math.IEEERemainder(item.Heading - from.Item.Heading, 2 * Math.PI) * t);
+            }
+
+            previous = (frame.Tick, item);
+        }
+
+        return previous is { } last ? (last.Item.X, last.Item.Y, last.Item.Heading) : null;
     }
 
     public KartBody? Sample(byte index, double clockStep)

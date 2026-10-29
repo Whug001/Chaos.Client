@@ -12,6 +12,18 @@ public sealed class KartRaceState
     private readonly Dictionary<byte, List<uint>> RecordedLapTimes = [];
     private readonly Dictionary<byte, (uint TotalMs, uint BestLapMs)> FinishTimes = [];
 
+    public IReadOnlyList<KartTimedHazard> Hazards { get; private set; } = [];
+    public IReadOnlyList<(double X, double Y)> Caches { get; private set; } = [];
+    public IReadOnlyList<(double X, double Y)> WispSpots { get; private set; } = [];
+    public uint CacheBits { get; private set; }
+    public ulong WispBits { get; private set; }
+    public IReadOnlyList<KartLooseWispInfo> Loose { get; private set; } = [];
+    public IReadOnlyList<KartItemObjectInfo> Objects { get; private set; } = [];
+    public KartItemKind HeldItem { get; private set; }
+    public KartItemKind RollItem { get; private set; }
+    public byte RollTicks { get; private set; }
+    public byte CooldownTicks { get; private set; }
+
     public bool Active { get; private set; }
     public string TrackKey { get; private set; } = string.Empty;
     public int Laps { get; private set; }
@@ -91,6 +103,10 @@ public sealed class KartRaceState
         Stats = KartStats.FromValues(args.Stats);
         Gates = args.Gates.ToArray();
         CentreLine = args.CentreLine.ToArray();
+        Hazards = args.Hazards.ToArray();
+        Caches = args.Caches.ToArray();
+        WispSpots = args.WispSpots.ToArray();
+        ClearItems();
         Racers = args.Racers.ToDictionary(racer => racer.Index);
         LocalIndex = args.Racers.FirstOrDefault(racer => racer.EntityId == localEntityId)?.Index;
         Snapshots.Clear();
@@ -114,6 +130,14 @@ public sealed class KartRaceState
     {
         LatestTick = args.ServerTick;
         LatestAck = args.AckSequence;
+        CacheBits = args.CacheBits;
+        WispBits = args.WispBits;
+        Loose = args.Loose.ToArray();
+        Objects = args.Objects.ToArray();
+        HeldItem = args.HeldItem;
+        RollItem = args.RollItem;
+        RollTicks = args.RollTicks;
+        CooldownTicks = args.CooldownTicks;
 
         foreach (var racer in args.Racers)
             Snapshots[racer.Index] = racer;
@@ -159,6 +183,10 @@ public sealed class KartRaceState
         Stats = null;
         Gates = [];
         CentreLine = [];
+        Hazards = [];
+        Caches = [];
+        WispSpots = [];
+        ClearItems();
         Racers = new Dictionary<byte, KartRacerInfo>();
         LocalIndex = null;
         Stage = KartRaceStage.Waiting;
@@ -185,7 +213,11 @@ public sealed class KartRaceState
             Held = snapshot.Flags.HasFlag(KartRacerFlags.Held),
             DriftDirection = snapshot.DriftDirection,
             Drifting = snapshot.DriftDirection != 0,
-            BoostLevel = snapshot.BoostLevel
+            BoostLevel = snapshot.BoostLevel,
+            SpinSeconds = KartFixed.Seconds(snapshot.SpinTicks),
+            MantleSeconds = KartFixed.Seconds(snapshot.MantleTicks),
+            SlowSeconds = KartFixed.Seconds(snapshot.SlowTicks),
+            Wisps = snapshot.Wisps
         };
 
     public static string PlaceText(byte place, int count)
@@ -212,4 +244,21 @@ public sealed class KartRaceState
     }
 
     public static double BannerSeconds(string banner) => banner == "FINISHED" ? 3 : 2;
+    private void ClearItems()
+    {
+        CacheBits = 0;
+        WispBits = 0;
+        Loose = [];
+        Objects = [];
+        HeldItem = KartItemKind.None;
+        RollItem = KartItemKind.None;
+        RollTicks = 0;
+        CooldownTicks = 0;
+    }
+
+    public bool IsLocalGloamingHit(KartRaceEventArgs args)
+        => (args.Kind == KartRaceEventKind.Hit) && (args.Item == KartItemKind.Gloaming) && (args.Index == LocalIndex);
+
+    /// <summary>The Gloaming's black overlay: alpha 0.5 at the hit, fading to 0 at <paramref name="until" />.</summary>
+    public static float GloamingAlpha(double until, double now) => (float)Math.Clamp(0.5 * (until - now), 0, 0.5);
 }

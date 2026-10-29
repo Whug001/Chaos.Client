@@ -65,4 +65,9 @@
             <LogicalName>guildhallicon.%(Filename)%(Extension)</LogicalName>
         </EmbeddedResource>
     </ItemGroup>
+    <ItemGroup>
+        <EmbeddedResource Include="Assets\KartRacing\*.png;Assets\KartRacing\manifest.json">
+            <LogicalName>kartracing.%(Filename)%(Extension)</LogicalName>
+        </EmbeddedResource>
+    </ItemGroup>
 </Project>

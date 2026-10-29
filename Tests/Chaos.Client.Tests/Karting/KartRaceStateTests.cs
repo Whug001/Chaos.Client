@@ -265,4 +265,91 @@ public class KartRaceStateTests
         KartRaceState.BannerSeconds("FINISHED").Should().Be(3);
         KartRaceState.BannerSeconds("FINAL LAP").Should().Be(2);
     }
+    [Test]
+    public async Task A_layout_resync_then_a_snapshot_shows_taken_caches_as_gone()
+    {
+        var state = new KartRaceState();
+        var layout = new KartTrackLayoutArgs
+        {
+            TrackKey = "oval",
+            Width = 10,
+            Height = 10,
+            Runs = [new KartSurfaceRun(SurfaceKind.Road, 100)],
+            Stats = new KartStats().ToValues().ToList(),
+            Caches = [(2.5, 2.5), (4.5, 2.5)],
+            WispSpots = [(3.5, 3.5)]
+        };
+        state.ApplyLayout(layout, 1);
+        state.ApplySnapshot(new KartSnapshotArgs { ServerTick = 10, CacheBits = 0b11, WispBits = 1 });
+
+        state.ApplyLayout(layout, 1);
+        state.CacheBits.Should().Be(0u);
+        state.ApplySnapshot(new KartSnapshotArgs { ServerTick = 20, CacheBits = 0b10, WispBits = 0 });
+
+        state.Caches.Should().HaveCount(2);
+        state.CacheBits.Should().Be(0b10u);
+        state.WispBits.Should().Be(0UL);
+    }
+
+    [Test]
+    public async Task The_snapshot_slot_and_objects_are_kept()
+    {
+        var state = new KartRaceState();
+        state.ApplySnapshot(new KartSnapshotArgs
+        {
+            ServerTick = 10,
+            Objects = [new KartItemObjectInfo(5, KartItemKind.ThornSnare, 3.5, 4.5, 0, 1)],
+            Loose = [new KartLooseWispInfo(2, 6.5, 6.5, false)],
+            HeldItem = KartItemKind.RuneWard,
+            RollItem = KartItemKind.None,
+            RollTicks = 0
+        });
+
+        state.Objects.Should().ContainSingle(o => o.Id == 5);
+        state.Loose.Should().ContainSingle(w => !w.Ready);
+        state.HeldItem.Should().Be(KartItemKind.RuneWard);
+
+        state.Clear();
+        state.Objects.Should().BeEmpty();
+        state.HeldItem.Should().Be(KartItemKind.None);
+    }
+
+    [Test]
+    public async Task ToMods_carries_the_effect_timers_and_a_spinning_kart_does_not_steer()
+    {
+        var snapshot = new KartRacerSnapshot { SpinTicks = 30, MantleTicks = 60, SlowTicks = 15, Wisps = 4 };
+
+        var mods = KartRaceState.ToMods(snapshot);
+
+        mods.SpinSeconds.Should().BeApproximately(KartFixed.Seconds(30), 1e-9);
+        mods.MantleSeconds.Should().BeApproximately(KartFixed.Seconds(60), 1e-9);
+        mods.SlowSeconds.Should().BeApproximately(KartFixed.Seconds(15), 1e-9);
+        mods.Wisps.Should().Be(4);
+
+        var body = new KartBody { X = 5.5, Y = 5.5 };
+        KartPhysics.Step(ref body, ref mods, new KartInput(1, 0, KartInputFlags.Accelerate | KartInputFlags.Left), new KartStats(), TrackSurface.FromRows(Enumerable.Repeat(new string('R', 10), 10).ToList()));
+        body.Heading.Should().Be(0);
+    }
+
+    [Test]
+    public async Task Only_a_local_gloaming_hit_darkens_the_screen()
+    {
+        var state = new KartRaceState();
+        state.ApplyLayout(new KartTrackLayoutArgs
+        {
+            TrackKey = "oval",
+            Width = 10,
+            Height = 10,
+            Runs = [new KartSurfaceRun(SurfaceKind.Road, 100)],
+            Stats = new KartStats().ToValues().ToList(),
+            Racers = [new KartRacerInfo(2, 77, "Me", 0)]
+        }, 77);
+
+        state.IsLocalGloamingHit(new KartRaceEventArgs { Kind = KartRaceEventKind.Hit, Index = 2, Item = KartItemKind.Gloaming }).Should().BeTrue();
+        state.IsLocalGloamingHit(new KartRaceEventArgs { Kind = KartRaceEventKind.Hit, Index = 3, Item = KartItemKind.Gloaming }).Should().BeFalse();
+        state.IsLocalGloamingHit(new KartRaceEventArgs { Kind = KartRaceEventKind.Hit, Index = 2, Item = KartItemKind.EmberBolt }).Should().BeFalse();
+        KartRaceState.GloamingAlpha(10, 9).Should().BeApproximately(0.5f, 1e-6f);
+        KartRaceState.GloamingAlpha(10, 9.5).Should().BeApproximately(0.25f, 1e-6f);
+        KartRaceState.GloamingAlpha(10, 10).Should().Be(0f);
+    }
 }

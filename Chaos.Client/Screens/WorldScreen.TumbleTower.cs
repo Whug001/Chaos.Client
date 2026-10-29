@@ -40,7 +40,7 @@ public sealed partial class WorldScreen
     {
         Game.Connection.OnTumbleTowerState += HandleTumbleTowerState;
         Overlays.IsHidden = id => WorldState.GetEntity(id) is { } e
-                                  && (((TumbleViewNow is not null) && TumbleHidesOverlays(e)) || GlassHidesOverlays(e));
+                                  && (((TumbleViewNow is not null) && TumbleHidesOverlays(e)) || GlassHidesOverlays(e) || KartHidesEntity(e));
     }
 
     private void UnwireTumbleTower()

@@ -31,14 +31,15 @@ public sealed partial class WorldScreen
     private KartResultsControl? KartResults;
     private string? KartBannerText;
     private double KartBannerUntil;
+    private long KartHudFrame;
+    private double KartGloamingUntil;
     private readonly KartInputSampler KartSampler = new();
     private KartPredictor? KartPredictor;
     private double KartAccumulator;
     private bool KartPredictorInitialized;
-    private static readonly Color[] KartDyes = [Color.Red, Color.Blue, Color.Green, Color.Yellow, Color.Orange, Color.Purple, Color.Cyan, Color.White];
     private static KartRaceState KartRace => WorldState.KartRace;
 
-    private readonly record struct KartDraw(int Depth, byte Index, Vector2 Center, int Frame);
+    private readonly record struct KartDraw(int Depth, byte Index, Vector2 Center, int Frame, double Heading, double ForwardSpeed);
 
     private void WireKartRace()
     {
@@ -62,6 +63,7 @@ public sealed partial class WorldScreen
         KartRace.ApplyLayout(args, WorldState.PlayerEntityId);
         KartPredictor = KartRace.Stats is { } stats && KartRace.Surface is { } surface ? new KartPredictor(stats, surface) : null;
         KartPredictorInitialized = false;
+        BuildKartMinimap();
     }
 
     private void HandleKartSnapshot(KartSnapshotArgs args)
@@ -74,7 +76,11 @@ public sealed partial class WorldScreen
         }
 
         KartRace.ApplySnapshot(args);
-        KartInterpolator.Add(args.ServerTick, args.Racers);
+
+        if (KartRace.StageAt(KartClock.Estimate(now)) is KartRaceStage.Racing or KartRaceStage.Finishing)
+            KartFeed.OnPlaces(args.Racers, KartRacerName, KartRace.LocalIndex, now);
+
+        KartInterpolator.Add(args.ServerTick, args.Racers, args.Objects);
         KartClock.OnSnapshot(args.ServerTick, now);
 
         if (KartPredictor is null || KartRace.LocalIndex is not { } localIndex)
@@ -106,6 +112,12 @@ public sealed partial class WorldScreen
         }
 
         KartRace.ApplyEvent(args);
+
+        if (KartRaceFeed.LineFor(args, KartRacerName, KartRace.LocalIndex, KartRace.Laps) is { } line)
+            KartFeed.Add(line, TumbleClock.Now);
+
+        if (KartRace.IsLocalGloamingHit(args))
+            KartGloamingUntil = TumbleClock.Now + 1;
 
         if (KartRaceState.BannerFor(args, KartRace.LocalIndex, KartRace.Laps) is { } banner)
         {
@@ -236,39 +248,53 @@ public sealed partial class WorldScreen
                 continue;
 
             var ride = KartFrames.RideOffset(body.X, body.Y);
-            var tileWorld = Camera.TileToWorld(ride.TileX, ride.TileY, MapFile.Height);
-            var center = Camera.WorldToScreen(
-                tileWorld
-                + new Vector2(DaLibConstants.HALF_TILE_WIDTH, DaLibConstants.HALF_TILE_HEIGHT)
-                + new Vector2(ride.OffsetX, ride.OffsetY));
+            var center = KartWorldToScreen(body.X, body.Y);
+            var latest = KartRace.Latest(index);
+            var frame = latest is { SpinTicks: > 0 }
+                ? KartItemArt.SpinFrame(body.Heading, latest.SpinTicks)
+                : KartFrames.FrameFor(body.Heading);
 
-            KartDraws.Add(new KartDraw(ride.TileX + ride.TileY, index, center, KartFrames.FrameFor(body.Heading)));
+            var forwardSpeed = body.Vx * Math.Cos(body.Heading) + body.Vy * Math.Sin(body.Heading);
+            KartDraws.Add(new KartDraw(ride.TileX + ride.TileY, index, center, frame, body.Heading, forwardSpeed));
         }
 
-        return KartDraws.Count > 0;
+        return KartDraws.Count > 0 || KartRace.Objects.Count > 0 || KartRace.Hazards.Count > 0;
     }
 
     private void DrawKartsAtDepth(SpriteBatch spriteBatch, int depth)
     {
+        var now = TumbleClock.Now;
+
         foreach (var draw in KartDraws)
+            if (draw.Depth == depth)
+                DrawKartRacer(spriteBatch, draw, now);
+
+        var clock = KartClock.EstimateExact(now);
+        var step = KartClock.Estimate(now);
+
+        foreach (var item in KartRace.Objects)
         {
-            if (draw.Depth != depth)
+            if (KartInterpolator.SampleObject(item.Id, clock) is not { } sample
+                || (int)Math.Floor(sample.X) + (int)Math.Floor(sample.Y) != depth)
                 continue;
 
-            var hasInfo = KartRace.Racers.TryGetValue(draw.Index, out var info);
-            var texture = KartFrames.Texture(Device, draw.Frame);
-            var tint = hasInfo ? KartDyes[info!.Dye % KartDyes.Length] : Color.White;
-            spriteBatch.Draw(texture, draw.Center - new Vector2(texture.Width / 2f, texture.Height / 2f), tint);
+            var key = item.Kind switch
+            {
+                KartItemKind.HuntingRaven => "raven",
+                KartItemKind.EmberBolt => "bolt",
+                KartItemKind.ThornSnare => "snare",
+                KartItemKind.RuneWard => "ward",
+                _ => null
+            };
 
-            if (draw.Index == KartRace.LocalIndex)
-                continue;
-
-            var name = hasInfo ? info!.Name : $"Racer {draw.Index + 1}";
-            var width = TextRenderer.MeasureWidth(name);
-            var tagPosition = draw.Center - new Vector2(width / 2f, texture.Height / 2f + TextRenderer.CHAR_HEIGHT + 2);
-            var tagColor = draw.Index == KartFollowedDrawIndex ? LegendColors.Gold : Color.White;
-            TextRenderer.DrawText(spriteBatch, tagPosition, name, tagColor, false);
+            if (key is not null)
+            {
+                var frame = item.Kind == KartItemKind.HuntingRaven ? KartFrames.FrameFor(sample.Heading) : KartArtFrame(key, step);
+                DrawKartSprite(spriteBatch, key, KartWorldToScreen(sample.X, sample.Y), frame, Color.White);
+            }
         }
+
+        DrawKartHazardsAtDepth(spriteBatch, depth);
     }
 
     private bool TryKartCameraTarget(out Vector2 position)
@@ -348,6 +374,35 @@ public sealed partial class WorldScreen
                 var center = screenPos + new Vector2(28, 14);
                 spriteBatch.Draw(chevron, center - new Vector2(chevron.Width / 2f, chevron.Height / 2f), Color.White);
             }
+
+        for (var i = 0; i < KartRace.Caches.Count; i++)
+            if (((KartRace.CacheBits >> i) & 1u) != 0)
+                DrawKartPickup(spriteBatch, KartItemShape.Cache, KartRace.Caches[i].X, KartRace.Caches[i].Y, 1f);
+
+        for (var i = 0; i < KartRace.WispSpots.Count; i++)
+            if (((KartRace.WispBits >> i) & 1UL) != 0)
+                DrawKartPickup(spriteBatch, KartItemShape.Wisp, KartRace.WispSpots[i].X, KartRace.WispSpots[i].Y, 1f);
+
+        foreach (var wisp in KartRace.Loose)
+            DrawKartPickup(spriteBatch, KartItemShape.Wisp, wisp.X, wisp.Y, wisp.Ready ? 1f : 0.5f);
+
+        DrawKartHazardsGround(spriteBatch);
+    }
+
+    private Vector2 KartWorldToScreen(double x, double y)
+    {
+        var ride = KartFrames.RideOffset(x, y);
+        var tileWorld = Camera.TileToWorld(ride.TileX, ride.TileY, MapFile!.Height);
+
+        return Camera.WorldToScreen(tileWorld
+                                    + new Vector2(DaLibConstants.HALF_TILE_WIDTH, DaLibConstants.HALF_TILE_HEIGHT)
+                                    + new Vector2(ride.OffsetX, ride.OffsetY));
+    }
+
+    private void DrawKartPickup(SpriteBatch spriteBatch, KartItemShape shape, double x, double y, float alpha)
+    {
+        var key = KartItemArt.Key(shape);
+        DrawKartSprite(spriteBatch, key, KartWorldToScreen(x, y), KartArtFrame(key, KartClock.Estimate(TumbleClock.Now)), Color.White * alpha);
     }
 
     private bool KartRefusesStep()
@@ -369,71 +424,11 @@ public sealed partial class WorldScreen
         KartAccumulator = 0;
         KartBannerText = null;
         KartBannerUntil = 0;
-    }
-
-    private void DrawKartHud(BatchBlendScope scope)
-    {
-        if (!KartRace.Active)
-            return;
-
-        var now = TumbleClock.Now;
-        var estimate = KartClock.Estimate(now);
-        var stage = KartRace.StageAt(estimate);
-        var sparkColor = Color.White;
-        var lines = KartRace.Spectating ? KartSpectatorLines(estimate, stage) : KartRacerLines(estimate, stage, ref sparkColor);
-        var y = 10f;
-
-        foreach (var line in lines)
-        {
-            var color = line.StartsWith("Drift ", StringComparison.Ordinal) ? sparkColor : Color.White;
-            TextRenderer.DrawText(scope.Batch, new Vector2(10, y), line, color, false);
-            y += TextRenderer.CHAR_HEIGHT;
-        }
-
-        if (!KartRace.Spectating && stage is KartRaceStage.Racing or KartRaceStage.Finishing)
-            DrawKartNeighbours(scope);
-
-        DrawKartBanner(scope, estimate, stage, now);
-    }
-
-    private List<string> KartRacerLines(uint estimate, KartRaceStage stage, ref Color sparkColor)
-    {
-        var lines = new List<string>();
-
-        if (KartRace.LocalIndex is not { } index)
-            return lines;
-
-        var latest = KartRace.Latest(index);
-
-        if (latest is { Place: > 0 })
-            lines.Add(KartRaceState.PlaceText(latest.Place, KartRace.Racers.Count));
-
-        if (latest is not null)
-            lines.Add($"Lap {Math.Min(latest.LapsDone + 1, KartRace.Laps)}/{KartRace.Laps}");
-
-        if (stage is KartRaceStage.Racing or KartRaceStage.Finishing or KartRaceStage.Results)
-            lines.Add(FormatRaceTime((estimate - KartRace.GoStep) / 30.0));
-
-        if (KartRace.Finish(index) is { } finishTime)
-            lines.Add($"Finished {FormatRaceTime(finishTime.TotalMs / 1000.0)}");
-        else if (latest?.Status == KartRacerStatus.Respawning && latest.Flags.HasFlag(KartRacerFlags.Held))
-            lines.Add("Respawning");
-
-        if (KartPredictor is not null && KartRace.Stats is { } stats)
-        {
-            var spark = DriftModel.SparkFor(KartPredictor.Mods.DriftCharge, stats);
-            sparkColor = spark switch { SparkLevel.Blue => Color.Blue, SparkLevel.Gold => Color.Yellow, SparkLevel.Violet => Color.Violet, _ => Color.White };
-
-            if (spark != SparkLevel.None)
-                lines.Add($"Drift {spark}");
-        }
-
-        var lapTimes = KartRace.LapTimes(index);
-
-        if (lapTimes.Count > 0)
-            lines.Add($"Best {FormatRaceTime(lapTimes.Min() / 1000.0)}");
-
-        return lines;
+        KartGloamingUntil = 0;
+        KartHudFrame = 0;
+        KartHeads?.Clear();
+        KartWheelTravel.Clear();
+        ClearKartHud();
     }
 
     private List<string> KartSpectatorLines(uint estimate, KartRaceStage stage)
@@ -459,26 +454,6 @@ public sealed partial class WorldScreen
         }
 
         return lines;
-    }
-
-    private void DrawKartNeighbours(BatchBlendScope scope)
-    {
-        if (KartRace.LocalIndex is not { } index || KartRace.Latest(index) is not { } mine)
-            return;
-
-        var (ahead, behind) = KartRace.Neighbours(index);
-        var y = 10f;
-
-        foreach (var other in new[] { ahead, behind })
-        {
-            if (other is null)
-                continue;
-
-            var text = $"{KartTime.Ordinal(other.Place)} {KartRacerName(other.Index)} {KartRaceState.GapText(mine.GapCs, other.GapCs)}";
-            var width = TextRenderer.MeasureWidth(text);
-            TextRenderer.DrawText(scope.Batch, new Vector2(Camera.ViewportWidth - 10 - width, y), text, Color.White, false);
-            y += TextRenderer.CHAR_HEIGHT;
-        }
     }
 
     private void DrawKartBanner(BatchBlendScope scope, uint estimate, KartRaceStage stage, double now)

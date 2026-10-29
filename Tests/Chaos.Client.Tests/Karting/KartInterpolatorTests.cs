@@ -112,4 +112,16 @@ public class KartInterpolatorTests
 
         interpolator.Sample(0, 14).Should().BeNull();
     }
+    [Test]
+    public async Task Objects_are_drawn_three_steps_behind_and_vanish_when_gone()
+    {
+        var interpolator = new KartInterpolator();
+        interpolator.Add(10, [], [new KartItemObjectInfo(7, KartItemKind.EmberBolt, 10, 10, 0, 0)]);
+        interpolator.Add(12, [], [new KartItemObjectInfo(7, KartItemKind.EmberBolt, 12, 10, 0, 0)]);
+
+        interpolator.SampleObject(7, 14)!.Value.X.Should().BeApproximately(11, 1e-9);
+
+        interpolator.Add(14, [], []);
+        interpolator.SampleObject(7, 16).Should().BeNull();
+    }
 }

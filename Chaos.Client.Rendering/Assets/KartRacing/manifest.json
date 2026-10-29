@@ -1,0 +1,272 @@
+{
+  "kart_base": {
+    "file": "kart_base.png",
+    "frameWidth": 80,
+    "frameHeight": 60,
+    "frames": 16,
+    "columns": 4,
+    "anchorX": 40,
+    "anchorY": 45
+  },
+  "kart_base_bare": {
+    "file": "kart_base_bare.png",
+    "frameWidth": 80,
+    "frameHeight": 60,
+    "frames": 16,
+    "columns": 4,
+    "anchorX": 40,
+    "anchorY": 45
+  },
+  "kart_driver": {
+    "file": "kart_driver.png",
+    "frameWidth": 80,
+    "frameHeight": 60,
+    "frames": 16,
+    "columns": 4,
+    "anchorX": 40,
+    "anchorY": 45
+  },
+  "kart_driver_body": {
+    "file": "kart_driver_body.png",
+    "frameWidth": 80,
+    "frameHeight": 60,
+    "frames": 16,
+    "columns": 4,
+    "anchorX": 40,
+    "anchorY": 45
+  },
+  "kart_treads": {
+    "file": "kart_treads.png",
+    "frameWidth": 80,
+    "frameHeight": 60,
+    "frames": 48,
+    "columns": 4,
+    "anchorX": 40,
+    "anchorY": 45
+  },
+  "icon_ember_bolt": {
+    "file": "icon_ember_bolt.png",
+    "frameWidth": 24,
+    "frameHeight": 24,
+    "frames": 1,
+    "columns": 1,
+    "anchorX": 12,
+    "anchorY": 12
+  },
+  "icon_hunting_raven": {
+    "file": "icon_hunting_raven.png",
+    "frameWidth": 24,
+    "frameHeight": 24,
+    "frames": 1,
+    "columns": 1,
+    "anchorX": 12,
+    "anchorY": 12
+  },
+  "icon_thorn_snare": {
+    "file": "icon_thorn_snare.png",
+    "frameWidth": 24,
+    "frameHeight": 24,
+    "frames": 1,
+    "columns": 1,
+    "anchorX": 12,
+    "anchorY": 12
+  },
+  "icon_gale_draught": {
+    "file": "icon_gale_draught.png",
+    "frameWidth": 24,
+    "frameHeight": 24,
+    "frames": 1,
+    "columns": 1,
+    "anchorX": 12,
+    "anchorY": 12
+  },
+  "icon_wyrmfire_mantle": {
+    "file": "icon_wyrmfire_mantle.png",
+    "frameWidth": 24,
+    "frameHeight": 24,
+    "frames": 1,
+    "columns": 1,
+    "anchorX": 12,
+    "anchorY": 12
+  },
+  "icon_gloaming": {
+    "file": "icon_gloaming.png",
+    "frameWidth": 24,
+    "frameHeight": 24,
+    "frames": 1,
+    "columns": 1,
+    "anchorX": 12,
+    "anchorY": 12
+  },
+  "icon_rune_ward": {
+    "file": "icon_rune_ward.png",
+    "frameWidth": 24,
+    "frameHeight": 24,
+    "frames": 1,
+    "columns": 1,
+    "anchorX": 12,
+    "anchorY": 12
+  },
+  "hud_slot": {
+    "file": "hud_slot.png",
+    "frameWidth": 48,
+    "frameHeight": 48,
+    "frames": 1,
+    "columns": 1,
+    "anchorX": 0,
+    "anchorY": 0
+  },
+  "cache": {
+    "file": "cache.png",
+    "frameWidth": 32,
+    "frameHeight": 44,
+    "frames": 8,
+    "columns": 4,
+    "anchorX": 16,
+    "anchorY": 38
+  },
+  "wisp": {
+    "file": "wisp.png",
+    "frameWidth": 12,
+    "frameHeight": 16,
+    "frames": 4,
+    "columns": 4,
+    "anchorX": 6,
+    "anchorY": 8
+  },
+  "bolt": {
+    "file": "bolt.png",
+    "frameWidth": 16,
+    "frameHeight": 16,
+    "frames": 4,
+    "columns": 4,
+    "anchorX": 8,
+    "anchorY": 8
+  },
+  "snare": {
+    "file": "snare.png",
+    "frameWidth": 32,
+    "frameHeight": 24,
+    "frames": 4,
+    "columns": 4,
+    "anchorX": 16,
+    "anchorY": 12
+  },
+  "ward": {
+    "file": "ward.png",
+    "frameWidth": 32,
+    "frameHeight": 32,
+    "frames": 4,
+    "columns": 4,
+    "anchorX": 16,
+    "anchorY": 16
+  },
+  "spark_blue": {
+    "file": "spark_blue.png",
+    "frameWidth": 32,
+    "frameHeight": 24,
+    "frames": 4,
+    "columns": 4,
+    "anchorX": 16,
+    "anchorY": 12
+  },
+  "spark_gold": {
+    "file": "spark_gold.png",
+    "frameWidth": 32,
+    "frameHeight": 24,
+    "frames": 4,
+    "columns": 4,
+    "anchorX": 16,
+    "anchorY": 12
+  },
+  "spark_violet": {
+    "file": "spark_violet.png",
+    "frameWidth": 32,
+    "frameHeight": 24,
+    "frames": 4,
+    "columns": 4,
+    "anchorX": 16,
+    "anchorY": 12
+  },
+  "boost_flame": {
+    "file": "boost_flame.png",
+    "frameWidth": 32,
+    "frameHeight": 32,
+    "frames": 4,
+    "columns": 4,
+    "anchorX": 16,
+    "anchorY": 24
+  },
+  "mantle": {
+    "file": "mantle.png",
+    "frameWidth": 80,
+    "frameHeight": 60,
+    "frames": 4,
+    "columns": 4,
+    "anchorX": 40,
+    "anchorY": 45
+  },
+  "fire_warning": {
+    "file": "fire_warning.png",
+    "frameWidth": 56,
+    "frameHeight": 28,
+    "frames": 4,
+    "columns": 4,
+    "anchorX": 28,
+    "anchorY": 14
+  },
+  "fire_active": {
+    "file": "fire_active.png",
+    "frameWidth": 56,
+    "frameHeight": 56,
+    "frames": 4,
+    "columns": 4,
+    "anchorX": 28,
+    "anchorY": 42
+  },
+  "shadow": {
+    "file": "shadow.png",
+    "frameWidth": 80,
+    "frameHeight": 30,
+    "frames": 1,
+    "columns": 1,
+    "anchorX": 40,
+    "anchorY": 23
+  },
+  "medal_gold": {
+    "file": "medal_gold.png",
+    "frameWidth": 16,
+    "frameHeight": 20,
+    "frames": 1,
+    "columns": 1,
+    "anchorX": 8,
+    "anchorY": 10
+  },
+  "medal_silver": {
+    "file": "medal_silver.png",
+    "frameWidth": 16,
+    "frameHeight": 20,
+    "frames": 1,
+    "columns": 1,
+    "anchorX": 8,
+    "anchorY": 10
+  },
+  "medal_bronze": {
+    "file": "medal_bronze.png",
+    "frameWidth": 16,
+    "frameHeight": 20,
+    "frames": 1,
+    "columns": 1,
+    "anchorX": 8,
+    "anchorY": 10
+  },
+  "raven": {
+    "file": "raven.png",
+    "frameWidth": 24,
+    "frameHeight": 24,
+    "frames": 16,
+    "columns": 4,
+    "anchorX": 12,
+    "anchorY": 12
+  }
+}

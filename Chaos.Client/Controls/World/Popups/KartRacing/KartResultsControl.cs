@@ -8,6 +8,7 @@ using Chaos.Client.Rendering;
 using Chaos.Client.Rendering.Definitions;
 using Chaos.Client.ViewModel;
 using Microsoft.Xna.Framework;
+using Microsoft.Xna.Framework.Graphics;
 #endregion
 
 namespace Chaos.Client.Controls.World.Popups.KartRacing;
@@ -19,7 +20,7 @@ public sealed class KartResultsControl : GuildCloakDialogBase
     private const int SUBTITLE_TOP = 28;
     private const int HEADER_TOP = 46;
     private const int ROWS_TOP = 64;
-    private static readonly int ROW_HEIGHT = TextRenderer.CHAR_HEIGHT + 4;
+    private static readonly int ROW_HEIGHT = Math.Max(TextRenderer.CHAR_HEIGHT + 4, 22);
     private const int PLACE_WIDTH = 40;
     private const int NAME_WIDTH = 160;
     private const int TIME_WIDTH = 80;
@@ -32,6 +33,7 @@ public sealed class KartResultsControl : GuildCloakDialogBase
     private const int BORDER_GAP = 4;
     private const int BUTTON_GAP = 4;
 
+    private readonly MedalIcon[] Medals = new MedalIcon[KartResultsView.PAGE_SIZE];
     private readonly UILabel[] BestLabels = new UILabel[KartResultsView.PAGE_SIZE];
     private readonly UILabel[] NameLabels = new UILabel[KartResultsView.PAGE_SIZE];
     private readonly CustomButton NextPageButton;
@@ -68,8 +70,10 @@ public sealed class KartResultsControl : GuildCloakDialogBase
 
         for (var i = 0; i < KartResultsView.PAGE_SIZE; i++)
         {
-            var y = ROWS_TOP + (i * ROW_HEIGHT);
-            PlaceLabels[i] = Caption(string.Empty, LEFT, y, PLACE_WIDTH);
+            var y = ROWS_TOP + (i * ROW_HEIGHT) + 4;
+            Medals[i] = new MedalIcon { X = LEFT, Y = y - 4, Width = 16, Height = 20 };
+            AddChild(Medals[i]);
+            PlaceLabels[i] = Caption(string.Empty, LEFT + 18, y, PLACE_WIDTH - 18);
             NameLabels[i] = Caption(string.Empty, LEFT + PLACE_WIDTH, y, NAME_WIDTH);
             TimeLabels[i] = Caption(string.Empty, LEFT + PLACE_WIDTH + NAME_WIDTH, y, TIME_WIDTH);
             BestLabels[i] = Caption(string.Empty, LEFT + PLACE_WIDTH + NAME_WIDTH + TIME_WIDTH, y, BEST_WIDTH);
@@ -125,6 +129,7 @@ public sealed class KartResultsControl : GuildCloakDialogBase
             var line = lineIndex < Lines.Count ? Lines[lineIndex] : null;
             var color = MedalColor(line?.Medal ?? 0);
 
+            Medals[i].Medal = line?.Medal ?? 0;
             PlaceLabels[i].Text = line?.Place ?? string.Empty;
             PlaceLabels[i].ForegroundColor = color;
             NameLabels[i].Text = line?.Name ?? string.Empty;
@@ -141,5 +146,20 @@ public sealed class KartResultsControl : GuildCloakDialogBase
     {
         Page = Math.Clamp(Page + delta, 0, KartResultsView.Pages(Lines.Count) - 1);
         Refresh();
+    }
+    private sealed class MedalIcon : UIElement
+    {
+        public int Medal { get; set; }
+
+        public override void Draw(SpriteBatch spriteBatch)
+        {
+            if (!Visible)
+                return;
+
+            base.Draw(spriteBatch);
+
+            if (KartItemArt.MedalKey(Medal) is { } key)
+                DrawTexture(spriteBatch, KartArtAssets.Texture(ChaosGame.Device, key), new Vector2(ScreenX, ScreenY), Color.White);
+        }
     }
 }
