@@ -22,6 +22,9 @@ using Microsoft.Xna.Framework.Graphics;
 using Microsoft.Xna.Framework.Input;
 using SkiaSharp;
 #endregion
+#if DEBUG
+using Chaos.Client.Systems.TestHook;
+#endif
 
 namespace Chaos.Client;
 
@@ -40,6 +43,11 @@ public sealed class ChaosGame : Game
     private Texture2D? HandBase;
     private float CursorScale;
     internal volatile bool GcRequested;
+#if DEBUG
+    private TestHookExecutor? TestHook;
+    private ChaosGameTestHost? TestHost;
+    private TestHookServer? TestHookPipe;
+#endif
     private bool ScreenshotRequested;
     private Action<CapturedFrame?>? PendingCapture;
     private bool MetaSyncStarted;
@@ -233,6 +241,9 @@ public sealed class ChaosGame : Game
             PendingCapture = null;
             onCaptured(CaptureFrame());
         }
+#if DEBUG
+        TestHost?.ServiceScreenshots(ReadRenderTarget);
+#endif
 
         GraphicsDevice.SetRenderTarget(null);
         GraphicsDevice.Clear(Color.Black); //paint letterbox bars (and any unfilled backbuffer) black
@@ -506,6 +517,22 @@ public sealed class ChaosGame : Game
         ApplyFrameRate(ClientSettings.FrameRateMode);
     }
 
+#if DEBUG
+    private void StartTestHook()
+    {
+        var name = Environment.GetEnvironmentVariable("DA_TEST_PIPE");
+        if (string.IsNullOrWhiteSpace(name))
+            return;
+
+        TestHost = new ChaosGameTestHost(this);
+        TestHook = new TestHookExecutor(TestHost);
+        TestHookPipe = new TestHookServer($"chaos-pt-{name}", TestHook.Enqueue, TimeSpan.FromSeconds(10));
+        TestHookPipe.Start();
+
+        InputBuffer.ForceActive = true;
+    }
+#endif
+
     protected override void LoadContent()
     {
         SpriteBatch = new SpriteBatch(GraphicsDevice);
@@ -541,6 +568,9 @@ public sealed class ChaosGame : Game
         LoadCustomCursor();
 
         Screens.Switch(new LobbyLoginScreen());
+#if DEBUG
+        StartTestHook();
+#endif
     }
 
     private void LoadCustomCursor()
@@ -953,6 +983,9 @@ public sealed class ChaosGame : Game
         CaptureTarget?.Dispose();
         WorldSurface?.Dispose();
         Screens.Dispose();
+#if DEBUG
+        TestHookPipe?.Dispose();
+#endif
         Connection.Dispose();
         InputBuffer.Shutdown();
         CreatureRenderer.Dispose();
@@ -986,6 +1019,9 @@ public sealed class ChaosGame : Game
         var scaleY = (float)present.Height / VIRTUAL_HEIGHT;
         InputBuffer.SetVirtualScale(scaleX, scaleY, present.X, present.Y);
 
+#if DEBUG
+        TestHook?.Tick();
+#endif
         //freeze buffered input for this frame before anything reads it
         InputBuffer.Update(IsActive);
 

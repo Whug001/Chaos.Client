@@ -16,6 +16,9 @@ using System.Globalization;
 using Microsoft.Xna.Framework;
 using Microsoft.Xna.Framework.Graphics;
 #endregion
+#if DEBUG
+using Chaos.Client.Systems.TestHook;
+#endif
 
 namespace Chaos.Client.Screens;
 
@@ -46,6 +49,14 @@ public sealed partial class WorldScreen
         Game.Connection.KartTrackLayoutReceived += HandleKartLayout;
         Game.Connection.KartSnapshotReceived += HandleKartSnapshot;
         Game.Connection.KartRaceEventReceived += HandleKartEvent;
+
+#if DEBUG
+        TestStateRegistry.Register("kart.active", () => KartRace.Active);
+        TestStateRegistry.Register("kart.stage", () => KartRace.Stage.ToString());
+        TestStateRegistry.Register("kart.laps", () => KartRace.Laps);
+        TestStateRegistry.Register("kart.lap", () => KartRace.LocalIndex is { } i ? KartRace.Latest(i)?.LapsDone : null);
+        TestStateRegistry.Register("kart.place", () => KartRace.LocalIndex is { } i ? KartRace.Latest(i)?.Place : null);
+#endif
     }
 
     private void UnwireKartRace()

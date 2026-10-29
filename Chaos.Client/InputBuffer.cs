@@ -84,12 +84,20 @@ public static class InputBuffer
     ///     <c>SDL_PumpEvents</c>, so it reflects the true end-of-frame cursor position
     ///     even when a macro fires its trailing move mid-frame.
     /// </summary>
+#if DEBUG
+    public static int MouseX => PinnedX ?? ToVirtualX(RawMouseX);
+#else
     public static int MouseX => ToVirtualX(RawMouseX);
+#endif
 
     /// <summary>
     ///     Current cursor Y in virtual coordinates (640×480). See <see cref="MouseX" />.
     /// </summary>
+#if DEBUG
+    public static int MouseY => PinnedY ?? ToVirtualY(RawMouseY);
+#else
     public static int MouseY => ToVirtualY(RawMouseY);
+#endif
 
     //single point where raw window pixels → virtual 640×480 coords. called from the
     //MouseX/MouseY getters and from the per-event coordinate capture in the SDL
@@ -231,6 +239,9 @@ public static class InputBuffer
         //without this a macro that fires move→click→move→click→move in one frame would
         //leave the cursor's last-known position stuck at the penultimate move until
         //the next pump.
+#if DEBUG
+        isActive |= ForceActive;
+#endif
         Sdl.SDL_PumpEvents();
 
         FreezePendingEvents();
@@ -280,7 +291,53 @@ public static class InputBuffer
         IsLeftButtonHeld = false;
         IsRightButtonHeld = false;
         IsMiddleButtonHeld = false;
+#if DEBUG
+        UnpinMouse();
+        ForceActive = false;
+#endif
     }
+
+#if DEBUG
+    private static int? PinnedX;
+    private static int? PinnedY;
+
+    public static bool ForceActive { get; set; }
+    public static bool IsMousePinned => PinnedX.HasValue;
+
+    public static void PinMouse(int virtualX, int virtualY)
+    {
+        PinnedX = virtualX;
+        PinnedY = virtualY;
+    }
+
+    public static void UnpinMouse()
+    {
+        PinnedX = null;
+        PinnedY = null;
+    }
+
+    public static void Inject(BufferedInputEvent evt)
+    {
+        switch (evt.Kind)
+        {
+            case BufferedInputKind.KeyDown:
+                if ((evt.Scancode != Scancode.Unknown) && (!evt.IsRepeat || !PressedKeycodeByScancode.ContainsKey(evt.Scancode)))
+                    PressedKeycodeByScancode[evt.Scancode] = evt.Keycode;
+
+                break;
+            case BufferedInputKind.KeyUp:
+                PressedKeycodeByScancode.Remove(evt.Scancode);
+
+                break;
+            case BufferedInputKind.MouseButton:
+                ApplyMouseButtonHeld(evt.Button, evt.IsPress);
+
+                break;
+        }
+
+        PendingEvents.Add(evt);
+    }
+#endif
 
     //freezes the accumulated PendingEvents into the frame snapshot (Events,
     //FrameKeyPresses/FrameKeyReleases, TextBuffer). shared by Update() (after the
@@ -457,6 +514,17 @@ public static class InputBuffer
             PendingEvents.Add(BufferedInputEvent.ForTextInput(ch));
     }
 
+    //shared held-flag update for real SDL button events and Debug-injected ones.
+    private static void ApplyMouseButtonHeld(MouseButton button, bool isPress)
+    {
+        if (button == MouseButton.Left)
+            IsLeftButtonHeld = isPress;
+        else if (button == MouseButton.Right)
+            IsRightButtonHeld = isPress;
+        else if (button == MouseButton.Middle)
+            IsMiddleButtonHeld = isPress;
+    }
+
     private static void HandleMouseButtonEvent(nint sdlEvent, bool isPress)
     {
         var sdlButton = Marshal.ReadByte(sdlEvent, Sdl.MOUSEBUTTONEVENT_BUTTON_OFFSET);
@@ -476,12 +544,7 @@ public static class InputBuffer
         //state. SDL only delivers button events for our window, so a click in another
         //application never sets these to true — which was the whole reason the
         //pre-refactor Mouse.GetState() path needed a mouseOutsideClient guard.
-        if (mouseButton == MouseButton.Left)
-            IsLeftButtonHeld = isPress;
-        else if (mouseButton == MouseButton.Right)
-            IsRightButtonHeld = isPress;
-        else if (mouseButton == MouseButton.Middle)
-            IsMiddleButtonHeld = isPress;
+        ApplyMouseButtonHeld(mouseButton, isPress);
 
         //capture click position at the exact moment of the event in raw window pixels,
         //then translate to virtual coordinates via ToVirtual so polled and event
