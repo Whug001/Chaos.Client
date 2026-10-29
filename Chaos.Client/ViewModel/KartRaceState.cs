@@ -8,7 +8,9 @@ namespace Chaos.Client.ViewModel;
 
 public sealed class KartRaceState
 {
+    private const uint RACER_SNAPSHOT_TIMEOUT_STEPS = 30;
     private readonly Dictionary<byte, KartRacerSnapshot> Snapshots = [];
+    private readonly Dictionary<byte, uint> LastSnapshotTicks = [];
     private readonly Dictionary<byte, List<uint>> RecordedLapTimes = [];
     private readonly Dictionary<byte, (uint TotalMs, uint BestLapMs)> FinishTimes = [];
 
@@ -48,6 +50,9 @@ public sealed class KartRaceState
            && (Finish(index) is not null || Latest(index)?.Status is KartRacerStatus.Finished or KartRacerStatus.Dnf);
 
     public bool Spectating => Active && (LocalIndex is null || LocalFinished);
+
+    public bool ShouldHideEntity(byte index)
+        => Snapshots.TryGetValue(index, out var racer) && racer.Status != KartRacerStatus.Dnf;
 
     public byte? IndexOfEntity(uint entityId)
         => Racers.Values.FirstOrDefault(racer => racer.EntityId == entityId)?.Index;
@@ -94,7 +99,7 @@ public sealed class KartRaceState
                            .Select(racer => racer.Index)
                            .ToList();
 
-    public void ApplyLayout(KartTrackLayoutArgs args, uint localEntityId)
+    public bool ApplyLayout(KartTrackLayoutArgs args, uint localEntityId)
     {
         var sameRace = Active && TrackKey == args.TrackKey;
         TrackKey = args.TrackKey;
@@ -110,6 +115,7 @@ public sealed class KartRaceState
         Racers = args.Racers.ToDictionary(racer => racer.Index);
         LocalIndex = args.Racers.FirstOrDefault(racer => racer.EntityId == localEntityId)?.Index;
         Snapshots.Clear();
+        LastSnapshotTicks.Clear();
         LatestTick = 0;
         LatestAck = 0;
 
@@ -124,6 +130,8 @@ public sealed class KartRaceState
         }
 
         Active = true;
+
+        return !sameRace;
     }
 
     public void ApplySnapshot(KartSnapshotArgs args)
@@ -139,8 +147,22 @@ public sealed class KartRaceState
         RollTicks = args.RollTicks;
         CooldownTicks = args.CooldownTicks;
 
+        var received = args.Racers.Select(racer => racer.Index).ToHashSet();
+
+        foreach (var index in Snapshots.Keys.ToArray())
+            if (!received.Contains(index)
+                && LastSnapshotTicks.TryGetValue(index, out var lastSeen)
+                && TickElapsed(args.ServerTick, lastSeen, RACER_SNAPSHOT_TIMEOUT_STEPS))
+            {
+                Snapshots.Remove(index);
+                LastSnapshotTicks.Remove(index);
+            }
+
         foreach (var racer in args.Racers)
+        {
             Snapshots[racer.Index] = racer;
+            LastSnapshotTicks[racer.Index] = args.ServerTick;
+        }
     }
 
     public void ApplyEvent(KartRaceEventArgs args)
@@ -196,8 +218,16 @@ public sealed class KartRaceState
         LatestAck = 0;
         Results = [];
         Snapshots.Clear();
+        LastSnapshotTicks.Clear();
         RecordedLapTimes.Clear();
         FinishTimes.Clear();
+    }
+
+    private static bool TickElapsed(uint current, uint previous, uint threshold)
+    {
+        var elapsed = unchecked(current - previous);
+
+        return (elapsed >= threshold) && (elapsed < 0x80000000);
     }
 
     public static KartBody ToBody(KartRacerSnapshot snapshot)

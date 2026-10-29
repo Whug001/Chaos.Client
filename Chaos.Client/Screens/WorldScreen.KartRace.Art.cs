@@ -163,19 +163,20 @@ public sealed partial class WorldScreen
     private static Color KartSlowTint(Color tint, bool slowed)
         => slowed ? new Color(tint.R * 150 / 255, tint.G * 150 / 255, tint.B * 170 / 255, tint.A) : tint;
 
-    private void DrawKartItemHud(SpriteBatch batch, byte wisps)
+    private void DrawKartItemHud(SpriteBatch batch, byte wisps, double now)
     {
         var left = (Camera.ViewportWidth - 48) / 2f;
         UIElement.DrawRect(batch, new Rectangle((int)left + 8, 12, 32, 32), Color.Black * 0.65f);
         DrawKartSprite(batch, "hud_slot", new Vector2(left, 4), 0, Color.White);
-        var shown = KartItemSlot.ShownKind(KartRace.HeldItem, KartRace.RollTicks, KartHudFrame);
+        var elapsedMilliseconds = (long)Math.Max(0, now * 1000);
+        var shown = KartItemSlot.ShownKind(KartRace.HeldItem, KartRace.RollTicks, elapsedMilliseconds);
 
-        if (KartItemArt.IconKey(shown) is { } icon)
+        if (KartItemArt.IconKey(shown) is { } icon && KartArtAssets.HasSheet(icon))
             DrawKartSprite(batch, icon, new Vector2(left + 24, 28), 0, Color.White);
         else
             TextRenderer.DrawText(batch, new Vector2(left + 21, 22), "-", Color.White, false);
 
-        var caption = KartItemSlot.Text(KartRace.HeldItem, KartRace.RollTicks, KartHudFrame);
+        var caption = KartItemSlot.Text(KartRace.HeldItem, KartRace.RollTicks, elapsedMilliseconds);
         TextRenderer.DrawText(batch, new Vector2(left + 24 - TextRenderer.MeasureWidth(caption) / 2f, 54), caption, Color.White, false);
         DrawKartSprite(batch, "wisp", new Vector2(left + 62, 28), KartArtFrame("wisp", KartClock.Estimate(TumbleClock.Now)), Color.White);
         TextRenderer.DrawText(batch, new Vector2(left + 74, 22), KartItemSlot.WispText(wisps), Color.White, false);

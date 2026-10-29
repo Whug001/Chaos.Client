@@ -7,7 +7,8 @@ namespace Chaos.Client.Systems.Karting;
 
 /// <summary>
 ///     The track seen from the screen's angle and shrunk into a box: tile (x, y) sits at (x - y, (x + y) / 2) before
-///     scaling, the same diamond layout the map uses. Only drivable tiles (road, boost pads, pits) are kept.
+///     scaling, the same diamond layout the map uses. Only road and boost pad tiles are kept: Harbour Run and Ember
+///     Caldera are mostly pit (water, lava), which would fill the whole box.
 /// </summary>
 public sealed class KartMinimap
 {
@@ -22,7 +23,7 @@ public sealed class KartMinimap
 
         for (var y = 0; y < surface.Height; y++)
             for (var x = 0; x < surface.Width; x++)
-                if (surface.At(x, y) is SurfaceKind.Road or SurfaceKind.BoostPad or SurfaceKind.Pit)
+                if (surface.At(x, y) is SurfaceKind.Road or SurfaceKind.BoostPad)
                     tiles.Add(new Point(x, y));
 
         if (tiles.Count == 0)
@@ -42,6 +43,8 @@ public sealed class KartMinimap
     }
 
     public IReadOnlyList<Point> Tiles { get; }
+    public double ProjectionScale => Scale;
+    public int RoadTilePixels => Math.Max(2, (int)Math.Ceiling(Scale) + 1);
 
     /// <summary>Where a track position lands inside the box, in pixels from its top left.</summary>
     public Vector2 Project(double x, double y)

@@ -109,4 +109,43 @@ public class KartPredictorTests
 
         predictor.Pending.Should().Be(2);
     }
+
+    [Test]
+    public void Draws_between_the_last_two_steps()
+    {
+        var start = new KartBody { X = 20.5, Y = 30.5 };
+        var predictor = new KartPredictor(Stats, Road);
+        predictor.Reset(start, new KartModifiers());
+
+        for (ushort s = 0; s < 10; s++)
+            predictor.Step(In(s));
+
+        var (previous, _) = Server(start, 9);
+        var current = predictor.Body;
+
+        predictor.Alpha = 0.5;
+
+        predictor.DrawPosition.X.Should().BeApproximately((previous.X + current.X) / 2, 1e-9);
+        predictor.DrawPosition.Y.Should().BeApproximately((previous.Y + current.Y) / 2, 1e-9);
+    }
+
+    [Test]
+    public void A_correction_keeps_the_blended_position()
+    {
+        var start = new KartBody { X = 20.5, Y = 30.5 };
+        var predictor = new KartPredictor(Stats, Road);
+        predictor.Reset(start, new KartModifiers());
+
+        for (ushort s = 0; s < 10; s++)
+            predictor.Step(In(s));
+
+        predictor.Alpha = 0.25;
+        var before = predictor.DrawPosition;
+        var (body, mods) = Server(start, 6);
+
+        predictor.Correct(5, body, mods);
+
+        predictor.DrawPosition.X.Should().BeApproximately(before.X, 1e-9);
+        predictor.DrawPosition.Y.Should().BeApproximately(before.Y, 1e-9);
+    }
 }

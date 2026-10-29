@@ -33,6 +33,7 @@ public sealed partial class WorldScreen
     private static readonly Color KartUnlit = new(50, 46, 56);
     private static readonly Color KartRoad = new(150, 140, 120);
     private static readonly Color[] KartSparkColors = [new(80, 140, 255), new(250, 200, 60), new(190, 110, 255)];
+    private static readonly (bool Right, bool Bottom)[] KartPanelCornerOffsets = [(false, false), (true, false), (false, true), (true, true)];
 
     private readonly KartRaceFeed KartFeed = new();
     private KartMinimap? KartMap;
@@ -44,7 +45,6 @@ public sealed partial class WorldScreen
             return;
 
         var now = TumbleClock.Now;
-        KartHudFrame++;
         var gloamingAlpha = KartRaceState.GloamingAlpha(KartGloamingUntil, now);
 
         if (gloamingAlpha > 0)
@@ -62,7 +62,7 @@ public sealed partial class WorldScreen
         DrawKartFeed(scope.Batch, now);
 
         if (!KartRace.Spectating && KartRace.LocalIndex is { } localIndex && KartRace.Latest(localIndex) is { } local)
-            DrawKartItemHud(scope.Batch, local.Wisps);
+            DrawKartItemHud(scope.Batch, local.Wisps, now);
 
         DrawKartBanner(scope, estimate, stage, now);
     }
@@ -163,7 +163,7 @@ public sealed partial class WorldScreen
         //the racer the camera is on goes last so its dot is never covered
         var front = KartRace.Spectating ? KartFollowedIndex : KartRace.LocalIndex;
 
-        foreach (var index in KartRace.DrawableIndexes().OrderBy(index => index == front))
+        foreach (var index in KartDrawableIndexesThisFrame.OrderBy(index => index == front))
         {
             if (KartBodyFor(index, now) is not { } body)
                 continue;
@@ -207,8 +207,12 @@ public sealed partial class WorldScreen
         DrawKartOutline(batch, box, KartPanelBorder);
         DrawKartOutline(batch, new Rectangle(box.X + 1, box.Y + 1, box.Width - 2, box.Height - 2), KartPanelInner);
 
-        foreach (var corner in new[] { new Point(box.Left, box.Top), new Point(box.Right - 1, box.Top), new Point(box.Left, box.Bottom - 1), new Point(box.Right - 1, box.Bottom - 1) })
-            UIElement.DrawRect(batch, new Rectangle(corner.X - 2, corner.Y - 2, 5, 5), LegendColors.Gold);
+        foreach (var (right, bottom) in KartPanelCornerOffsets)
+        {
+            var x = right ? box.Right - 1 : box.Left;
+            var y = bottom ? box.Bottom - 1 : box.Top;
+            UIElement.DrawRect(batch, new Rectangle(x - 2, y - 2, 5, 5), LegendColors.Gold);
+        }
     }
 
     private static void DrawKartOutline(SpriteBatch batch, Rectangle box, Color color)
@@ -246,7 +250,7 @@ public sealed partial class WorldScreen
         }
 
         foreach (var tile in KartMap.Tiles)
-            Plot(KartMap.Project(tile.X + 0.5, tile.Y + 0.5) - Vector2.One, 2, KartRoad);
+            Plot(KartMap.Project(tile.X + 0.5, tile.Y + 0.5) - Vector2.One, KartMap.RoadTilePixels, KartRoad);
 
         if (KartRace.Gates.Count > 0)
         {

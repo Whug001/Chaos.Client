@@ -1161,6 +1161,12 @@ public sealed partial class WorldScreen : IScreen
         UnwireCauseway();
         UnwireGlassWay();
         UnwireKartRace();
+        KartMapTexture?.Dispose();
+        KartMapTexture = null;
+        KartHeads?.Dispose();
+        KartHeads = null;
+        KartResults?.Dispose();
+        KartResults = null;
         UnwireGuildCloak();
         UnwireGuildEmblem();
         UnwireTownContest();

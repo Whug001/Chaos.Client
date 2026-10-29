@@ -64,4 +64,17 @@ public class KartRaceFeedTests
 
         feed.Lines(1).Select(line => line.Text).Should().Equal("You took the lead", "Whug took 3rd");
     }
+
+    [Test]
+    public async Task Clear_removes_old_feed_lines_and_place_history()
+    {
+        var feed = new KartRaceFeed();
+        feed.OnPlaces([new KartRacerSnapshot { Index = 0, Place = 2 }], Names, 0, 0);
+        feed.Add("old race", 0);
+        feed.Clear();
+
+        feed.Lines(1).Should().BeEmpty();
+        feed.OnPlaces([new KartRacerSnapshot { Index = 0, Place = 1 }], Names, 0, 1);
+        feed.Lines(1).Should().BeEmpty();
+    }
 }

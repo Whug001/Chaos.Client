@@ -3,7 +3,6 @@ using Chaos.Client.Controls.Components;
 using Chaos.Client.Controls.Custom;
 using Chaos.Client.Controls.World.Popups.GuildCloak;
 using Chaos.Client.Definitions;
-using Chaos.Client.Extensions;
 using Chaos.Client.Rendering;
 using Chaos.Client.Rendering.Definitions;
 using Chaos.Client.ViewModel;
@@ -21,7 +20,7 @@ public sealed class KartResultsControl : GuildCloakDialogBase
     private const int HEADER_TOP = 46;
     private const int ROWS_TOP = 64;
     private static readonly int ROW_HEIGHT = Math.Max(TextRenderer.CHAR_HEIGHT + 4, 22);
-    private const int PLACE_WIDTH = 40;
+    private const int PLACE_WIDTH = 56;
     private const int NAME_WIDTH = 160;
     private const int TIME_WIDTH = 80;
     private const int BEST_WIDTH = 80;
@@ -56,7 +55,7 @@ public sealed class KartResultsControl : GuildCloakDialogBase
 
         Width = LEFT + ROW_WIDTH + LEFT;
         Height = pageTop + CustomButton.HEIGHT + BORDER_GAP + BORDER_BOTTOM_HEIGHT;
-        this.CenterOnScreen();
+        CenterForShow();
 
         OkButton = CreateCloseButton(Hide, OK_RIGHT_MARGIN, OK_BOTTOM_MARGIN);
 
@@ -73,7 +72,7 @@ public sealed class KartResultsControl : GuildCloakDialogBase
             var y = ROWS_TOP + (i * ROW_HEIGHT) + 4;
             Medals[i] = new MedalIcon { X = LEFT, Y = y - 4, Width = 16, Height = 20 };
             AddChild(Medals[i]);
-            PlaceLabels[i] = Caption(string.Empty, LEFT + 18, y, PLACE_WIDTH - 18);
+            PlaceLabels[i] = Caption(string.Empty, LEFT + 18, y, PlaceLabelWidth);
             NameLabels[i] = Caption(string.Empty, LEFT + PLACE_WIDTH, y, NAME_WIDTH);
             TimeLabels[i] = Caption(string.Empty, LEFT + PLACE_WIDTH + NAME_WIDTH, y, TIME_WIDTH);
             BestLabels[i] = Caption(string.Empty, LEFT + PLACE_WIDTH + NAME_WIDTH + TIME_WIDTH, y, BEST_WIDTH);
@@ -95,6 +94,11 @@ public sealed class KartResultsControl : GuildCloakDialogBase
 
     public static string LapsText(int laps) => laps == 1 ? "1 lap" : $"{laps} laps";
 
+    public static int PlaceLabelWidth => PLACE_WIDTH - 18;
+
+    public static Point CenteredPosition(int viewportWidth, int viewportHeight, int panelWidth, int panelHeight)
+        => new((viewportWidth - panelWidth) / 2, (viewportHeight - panelHeight) / 2);
+
     public override void OnKeyDown(KeyDownEvent e)
     {
         if (e.Keycode == Keycode.Escape)
@@ -110,6 +114,7 @@ public sealed class KartResultsControl : GuildCloakDialogBase
 
     public void Show(IReadOnlyList<KartResultLine> lines, int laps)
     {
+        CenterForShow();
         Lines = lines;
         Page = 0;
         SubtitleLabel.Text = LapsText(laps);
@@ -117,6 +122,13 @@ public sealed class KartResultsControl : GuildCloakDialogBase
 
         if (!Visible)
             Show();
+    }
+
+    private void CenterForShow()
+    {
+        var position = CenteredPosition(ChaosGame.VIRTUAL_WIDTH, ChaosGame.VIRTUAL_HEIGHT, Width, Height);
+        X = position.X;
+        Y = position.Y;
     }
 
     private void Refresh()

@@ -15,7 +15,7 @@ namespace Chaos.Client.Systems.Karting;
 /// </summary>
 public sealed class KartHeadRenderer(AislingRenderer renderer) : IDisposable
 {
-    private const int CROP_WIDTH = 30;
+    private const int CROP_WIDTH = KartHeadPixelMath.CROP_WIDTH;
     private const int BACK_IDLE_FRAME = 0;
     private const int FRONT_IDLE_FRAME = 5;
 
@@ -47,66 +47,48 @@ public sealed class KartHeadRenderer(AislingRenderer renderer) : IDisposable
 
     private KartHeadSprite? Build(in AislingAppearance headLook, bool front, bool flip)
     {
-        using var figure = renderer.Render(in headLook, front ? FRONT_IDLE_FRAME : BACK_IDLE_FRAME, AislingRenderer.IDLE_ANIM, flip, front);
+        var frame = front ? FRONT_IDLE_FRAME : BACK_IDLE_FRAME;
+        using var figure = renderer.Render(in headLook, frame, AislingRenderer.IDLE_ANIM, flip, front);
 
         if (figure is null)
             return null;
 
+        var baldLook = headLook with { HeadSprite = 0 };
+        using var baldFigure = headLook.HeadSprite > 0
+            ? renderer.Render(in baldLook, frame, AislingRenderer.IDLE_ANIM, flip, front)
+            : null;
+
         var left = Math.Max(0, AislingRenderer.CANVAS_CENTER_X - (CROP_WIDTH / 2));
         var width = Math.Min(CROP_WIDTH, figure.Width - left);
 
-        if ((width <= 0) || ContentRows(figure, left, width) is not var (top, bottom))
+        if (width <= 0)
             return null;
 
-        var height = bottom - top + 1;
+        using var hairScope = new PixelBufferScope(figure);
+        var hairPixels = hairScope.AsSpan().ToArray();
+        Color[]? baldPixels = null;
+
+        if (baldFigure is not null && (baldFigure.Width == figure.Width) && (baldFigure.Height == figure.Height))
+        {
+            using var baldScope = new PixelBufferScope(baldFigure);
+            baldPixels = baldScope.AsSpan().ToArray();
+        }
+
+        var crop = KartHeadPixelMath.Measure(hairPixels, baldPixels, figure.Width, figure.Height, left, width);
+
+        if (crop is not { } bounds)
+            return null;
+
+        var height = bounds.Bottom - bounds.Top + 1;
         var pixels = new Color[width * height];
-        figure.GetData(0, new Rectangle(left, top, width, height), pixels, 0, pixels.Length);
+
+        for (var y = 0; y < height; y++)
+            Array.Copy(hairPixels, ((bounds.Top + y) * figure.Width) + left, pixels, y * width, width);
+
         var texture = new Texture2D(figure.GraphicsDevice, width, height);
         texture.SetData(pixels);
 
-        return new KartHeadSprite(texture, new Vector2(ChinCenter(pixels, width, height) ?? AislingRenderer.CANVAS_CENTER_X - left, height));
-    }
-
-    /// <summary>
-    ///     The middle of the opaque columns in the bottom rows of the cut head. The head form is not drawn at the canvas
-    ///     centre, so the chin is found from the pixels.
-    /// </summary>
-    private static float? ChinCenter(Color[] pixels, int width, int height)
-    {
-        const int CHIN_ROWS = 3;
-        var minX = int.MaxValue;
-        var maxX = -1;
-
-        for (var y = Math.Max(0, height - CHIN_ROWS); y < height; y++)
-            for (var x = 0; x < width; x++)
-                if (pixels[y * width + x].A > 16)
-                {
-                    minX = Math.Min(minX, x);
-                    maxX = Math.Max(maxX, x);
-                }
-
-        return maxX < 0 ? null : (minX + maxX + 1) / 2f;
-    }
-
-    /// <summary>First and last rows with a visible pixel inside the crop columns: the top of the hair and the chin.</summary>
-    private static (int Top, int Bottom)? ContentRows(Texture2D texture, int left, int width)
-    {
-        using var scope = new PixelBufferScope(texture);
-        var pixels = scope.AsSpan();
-        int? top = null;
-        var bottom = 0;
-
-        for (var y = 0; y < scope.Height; y++)
-            for (var x = left; x < left + width; x++)
-                if (pixels[y * scope.Width + x].A > 16)
-                {
-                    top ??= y;
-                    bottom = y;
-
-                    break;
-                }
-
-        return top is { } first ? (first, bottom) : null;
+        return new KartHeadSprite(texture, bounds.Origin);
     }
 
     public void Clear()

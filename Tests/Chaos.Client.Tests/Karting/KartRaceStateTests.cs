@@ -42,10 +42,10 @@ public class KartRaceStateTests
     {
         var state = new KartRaceState();
         var layout = Layout();
-        state.ApplyLayout(layout, 77);
+        state.ApplyLayout(layout, 77).Should().BeTrue();
         state.ApplyEvent(new KartRaceEventArgs { Kind = KartRaceEventKind.Countdown, StartStep = 100, GoStep = 130 });
         state.ApplyEvent(new KartRaceEventArgs { Kind = KartRaceEventKind.LapDone, Index = 2, LapMs = 45000 });
-        state.ApplyLayout(layout, 77);
+        state.ApplyLayout(layout, 77).Should().BeFalse();
 
         state.Stage.Should().Be(KartRaceStage.Countdown);
         state.StartStep.Should().Be(100);
@@ -53,7 +53,7 @@ public class KartRaceStateTests
         state.LapTimes(2).Should().ContainSingle().Which.Should().Be(45000);
 
         state.ApplyEvent(new KartRaceEventArgs { Kind = KartRaceEventKind.Finished, Index = 2, TotalMs = 120000, BestLapMs = 40000 });
-        state.ApplyLayout(layout, 77);
+        state.ApplyLayout(layout, 77).Should().BeFalse();
 
         state.Stage.Should().Be(KartRaceStage.Finishing);
         state.Finish(2).Should().Be((120000u, 40000u));
@@ -70,13 +70,29 @@ public class KartRaceStateTests
         var newTrack = Layout();
         newTrack.TrackKey = "other";
 
-        state.ApplyLayout(newTrack, 77);
+        state.ApplyLayout(newTrack, 77).Should().BeTrue();
 
         state.Stage.Should().Be(KartRaceStage.Waiting);
         state.StartStep.Should().Be(0);
         state.GoStep.Should().Be(0);
         state.LapTimes(2).Should().BeEmpty();
         state.Finish(2).Should().BeNull();
+    }
+
+    [Test]
+    public void A_new_track_layout_reports_a_new_race_and_drops_the_previous_roster_snapshots()
+    {
+        var state = new KartRaceState();
+        state.ApplyLayout(Layout(), 77);
+        state.ApplySnapshot(new KartSnapshotArgs { ServerTick = 10, Racers = [Racer(0, 1)] });
+        var newTrack = Layout();
+        newTrack.TrackKey = "other";
+        newTrack.Racers = [new KartRacerInfo(2, 77, "Local", 3)];
+
+        state.ApplyLayout(newTrack, 77).Should().BeTrue();
+
+        state.Latest(0).Should().BeNull();
+        state.IndexOfEntity(5).Should().BeNull();
     }
 
     [Test]
@@ -152,6 +168,28 @@ public class KartRaceStateTests
 
         ahead.Should().BeNull();
         behind!.Index.Should().Be(2);
+    }
+
+    [Test]
+    public void A_racer_without_a_drawable_snapshot_is_removed_after_thirty_steps_but_dnf_stays_listed()
+    {
+        var state = new KartRaceState();
+        state.ApplyLayout(Layout(), 77);
+        state.ApplySnapshot(new KartSnapshotArgs { ServerTick = 10, Racers = [Racer(0, 1), Racer(1, 2, status: KartRacerStatus.Dnf)] });
+
+        state.ShouldHideEntity(0).Should().BeTrue();
+        state.ShouldHideEntity(1).Should().BeFalse();
+        state.ShouldHideEntity(2).Should().BeFalse();
+
+        state.ApplySnapshot(new KartSnapshotArgs { ServerTick = 38, Racers = [Racer(1, 2, status: KartRacerStatus.Dnf)] });
+        state.Latest(0).Should().NotBeNull();
+        state.Standings.Should().Contain(racer => racer.Index == 1 && racer.Status == KartRacerStatus.Dnf);
+
+        state.ApplySnapshot(new KartSnapshotArgs { ServerTick = 40, Racers = [Racer(1, 2, status: KartRacerStatus.Dnf)] });
+
+        state.Latest(0).Should().BeNull();
+        state.Standings.Should().ContainSingle(racer => racer.Index == 1 && racer.Status == KartRacerStatus.Dnf);
+        state.ShouldHideEntity(0).Should().BeFalse();
     }
 
     [Test]

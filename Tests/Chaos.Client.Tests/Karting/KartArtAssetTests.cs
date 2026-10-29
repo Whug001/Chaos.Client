@@ -1,5 +1,6 @@
 #region
 using Chaos.Client.Rendering;
+using Chaos.DarkAges.Karting;
 using FluentAssertions;
 using SkiaSharp;
 #endregion
@@ -119,6 +120,21 @@ public sealed class KartArtAssetTests
             sheet.FrameHeight.Should().Be(24, key);
             sheet.Frames.Should().Be(1);
         }
+    }
+
+    [Test]
+    public void Every_kart_item_kind_has_a_manifest_icon_and_missing_sheets_are_reported_safely()
+    {
+        var manifest = KartArtAssets.ReadManifest();
+
+        foreach (var kind in Enum.GetValues<KartItemKind>().Where(kind => kind != KartItemKind.None))
+        {
+            var key = KartItemArt.IconKey(kind);
+            key.Should().NotBeNull();
+            manifest.Should().ContainKey(key!);
+        }
+
+        KartArtAssets.HasSheet("icon_missing").Should().BeFalse();
     }
 
     [Test]

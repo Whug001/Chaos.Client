@@ -25,6 +25,8 @@ public static class KartArtAssets
 
     public static IReadOnlyDictionary<string, KartArtSheet> ReadManifest() => Manifest.Value;
 
+    public static bool HasSheet(string key) => ReadManifest().ContainsKey(key);
+
     public static void Validate(KartArtSheet sheet, int width, int height)
     {
         if (sheet.FrameWidth <= 0 || sheet.FrameHeight <= 0 || sheet.Frames <= 0 || sheet.Columns <= 0

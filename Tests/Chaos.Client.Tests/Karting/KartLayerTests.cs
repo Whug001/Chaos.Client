@@ -45,14 +45,11 @@ public sealed class KartLayerTests
     {
         KartItemSlot.ShownKind(KartItemKind.None, 20, 0).Should().Be(KartItemKind.EmberBolt);
         KartItemSlot.ShownKind(KartItemKind.None, 20, 2).Should().Be(KartItemKind.EmberBolt);
-        KartItemSlot.ShownKind(KartItemKind.None, 20, 3).Should().Be(KartItemKind.HuntingRaven);
-        KartItemSlot.ShownKind(KartItemKind.None, 20, 21).Should().Be(KartItemKind.EmberBolt);
-        KartItemSlot.ShownKind(KartItemKind.Gloaming, 0, 22).Should().Be(KartItemKind.Gloaming);
-        KartItemSlot.ShownKind(KartItemKind.None, 0, 22).Should().Be(KartItemKind.None);
+        KartItemSlot.ShownKind(KartItemKind.None, 20, 50).Should().Be(KartItemKind.HuntingRaven);
+        KartItemSlot.ShownKind(KartItemKind.None, 20, 350).Should().Be(KartItemKind.EmberBolt);
+        KartItemSlot.ShownKind(KartItemKind.Gloaming, 0, 220).Should().Be(KartItemKind.Gloaming);
+        KartItemSlot.ShownKind(KartItemKind.None, 0, 220).Should().Be(KartItemKind.None);
         KartItemArt.IconKey(KartItemKind.None).Should().BeNull();
-
-        foreach (var kind in KartItems.All)
-            KartArtAssets.ReadManifest().Should().ContainKey(KartItemArt.IconKey(kind)!);
     }
 
     //formatter:off

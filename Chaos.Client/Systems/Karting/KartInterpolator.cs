@@ -12,7 +12,7 @@ namespace Chaos.Client.Systems.Karting;
 /// </summary>
 public sealed class KartInterpolator
 {
-    public const double DELAY_STEPS = 3;
+    public const double DELAY_STEPS = 5;
     public const double CARRY_STEPS = 3;
     public const int BUFFER = 8;
     public const double SNAP_TILES = 3;

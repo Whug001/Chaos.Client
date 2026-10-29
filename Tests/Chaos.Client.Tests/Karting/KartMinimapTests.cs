@@ -15,6 +15,10 @@ public class KartMinimapTests
         => new KartMinimap(Square, 100, 100, 0).Tiles.Should().HaveCount(4);
 
     [Test]
+    public async Task Pits_around_the_road_are_left_off()
+        => new KartMinimap(TrackSurface.FromRows(["PPPP", "PRBP", "PRRP", "PPPP"]), 100, 100, 0).Tiles.Should().HaveCount(4);
+
+    [Test]
     public async Task The_road_fills_the_box_and_is_centred()
     {
         var map = new KartMinimap(Square, 100, 100, 5);
@@ -28,5 +32,19 @@ public class KartMinimapTests
         right.X.Should().BeApproximately(95, 0.01f);
         ((top.Y + bottom.Y) / 2).Should().BeApproximately(50, 0.01f);
         (bottom.Y - top.Y).Should().BeApproximately(45, 0.01f);
+    }
+
+    [Test]
+    public async Task Road_pixels_scale_with_the_projection_and_stay_at_least_two_pixels()
+    {
+        var tinyProjection = new KartMinimap(
+            TrackSurface.FromRows(Enumerable.Repeat(new string('R', 200), 200).ToList()),
+            146,
+            110,
+            6);
+        var largeProjection = new KartMinimap(Square, 146, 110, 6);
+
+        tinyProjection.RoadTilePixels.Should().Be(2);
+        largeProjection.RoadTilePixels.Should().Be((int)Math.Ceiling(largeProjection.ProjectionScale) + 1);
     }
 }

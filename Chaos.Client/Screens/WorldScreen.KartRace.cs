@@ -25,13 +25,13 @@ public sealed partial class WorldScreen
     private readonly KartInterpolator KartInterpolator = new();
     private readonly KartSpectator KartSpectator = new();
     private readonly List<KartDraw> KartDraws = [];
+    private IReadOnlyList<byte> KartDrawableIndexesThisFrame = [];
     private byte? KartFollowedDrawIndex;
     private Vector2? KartSpectatorCameraTarget;
     private readonly KartFinishHandover KartFinishHandover = new();
     private KartResultsControl? KartResults;
     private string? KartBannerText;
     private double KartBannerUntil;
-    private long KartHudFrame;
     private double KartGloamingUntil;
     private readonly KartInputSampler KartSampler = new();
     private KartPredictor? KartPredictor;
@@ -57,10 +57,29 @@ public sealed partial class WorldScreen
 
     private void HandleKartLayout(KartTrackLayoutArgs args)
     {
+        var newRace = KartRace.ApplyLayout(args, WorldState.PlayerEntityId);
         KartInterpolator.Clear();
         KartSpectatorCameraTarget = null;
         KartFinishHandover.Reset();
-        KartRace.ApplyLayout(args, WorldState.PlayerEntityId);
+
+        if (newRace)
+        {
+            KartClock.Reset();
+            KartSampler.Reset();
+            KartSpectator.Clear();
+            KartDraws.Clear();
+            KartDrawableIndexesThisFrame = [];
+            KartFollowedDrawIndex = null;
+            KartAccumulator = 0;
+            KartFeed.Clear();
+            KartBannerText = null;
+            KartBannerUntil = 0;
+            KartGloamingUntil = 0;
+            KartHeads?.Clear();
+            KartWheelTravel.Clear();
+            KartResults?.Hide();
+        }
+
         KartPredictor = KartRace.Stats is { } stats && KartRace.Surface is { } surface ? new KartPredictor(stats, surface) : null;
         KartPredictorInitialized = false;
         BuildKartMinimap();
@@ -154,6 +173,9 @@ public sealed partial class WorldScreen
         if (!KartRefusesStep() || KartRace.LocalIndex is not { } localIndex)
         {
             KartAccumulator = 0;
+
+            if (KartPredictor is not null)
+                KartPredictor.Alpha = 1;
             return;
         }
 
@@ -166,6 +188,9 @@ public sealed partial class WorldScreen
         if (!live || localFinished || KartPredictor is null)
         {
             KartAccumulator = 0;
+
+            if (KartPredictor is not null)
+                KartPredictor.Alpha = 1;
             return;
         }
 
@@ -184,6 +209,8 @@ public sealed partial class WorldScreen
             KartPredictor.Step(input);
             KartAccumulator -= stepSeconds;
         }
+
+        KartPredictor.Alpha = KartAccumulator / stepSeconds;
     }
 
     private void ApplyKartRide(WorldEntity entity, double now)
@@ -232,17 +259,18 @@ public sealed partial class WorldScreen
     private bool KartHidesEntity(WorldEntity entity)
         => KartRace.Active
            && KartRace.IndexOfEntity(entity.Id) is { } index
-           && KartRace.Latest(index)?.Status != KartRacerStatus.Dnf;
+           && KartRace.ShouldHideEntity(index);
 
     private bool PrepareKartDraws(double now)
     {
         KartDraws.Clear();
+        KartDrawableIndexesThisFrame = KartRace.Active ? KartRace.DrawableIndexes() : [];
         KartFollowedDrawIndex = KartFollowedIndex;
 
         if (!KartRace.Active || MapFile is null)
             return false;
 
-        foreach (var index in KartRace.DrawableIndexes())
+        foreach (var index in KartDrawableIndexesThisFrame)
         {
             if (KartBodyFor(index, now) is not { } body)
                 continue;
@@ -414,6 +442,7 @@ public sealed partial class WorldScreen
         KartInterpolator.Clear();
         KartSpectator.Clear();
         KartDraws.Clear();
+        KartDrawableIndexesThisFrame = [];
         KartFollowedDrawIndex = null;
         KartSpectatorCameraTarget = null;
         KartFinishHandover.Reset();
@@ -425,7 +454,6 @@ public sealed partial class WorldScreen
         KartBannerText = null;
         KartBannerUntil = 0;
         KartGloamingUntil = 0;
-        KartHudFrame = 0;
         KartHeads?.Clear();
         KartWheelTravel.Clear();
         ClearKartHud();

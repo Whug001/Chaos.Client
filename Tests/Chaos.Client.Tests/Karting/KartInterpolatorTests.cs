@@ -19,7 +19,7 @@ public class KartInterpolatorTests
         interpolator.Add(10, [Snap(0, 0)]);
         interpolator.Add(12, [Snap(0, 2)]);
 
-        var body = interpolator.Sample(0, 14)!.Value;
+        var body = interpolator.Sample(0, 16)!.Value;
 
         body.X.Should().BeApproximately(1, 1e-9);
         body.Y.Should().BeApproximately(20, 1e-9);
@@ -32,7 +32,7 @@ public class KartInterpolatorTests
         interpolator.Add(10, [Snap(0, 0, 6.2)]);
         interpolator.Add(12, [Snap(0, 0, 0.1)]);
 
-        var body = interpolator.Sample(0, 14)!.Value;
+        var body = interpolator.Sample(0, 16)!.Value;
 
         body.Heading.Should().BeApproximately(KartPhysics.NormalizeHeading(6.2 + (0.1 + 2 * Math.PI - 6.2) / 2), 1e-9);
     }
@@ -44,7 +44,7 @@ public class KartInterpolatorTests
         interpolator.Add(10, [Snap(0, 5)]);
         interpolator.Add(12, [Snap(0, 7)]);
 
-        interpolator.Sample(0, 11)!.Value.X.Should().BeApproximately(5, 1e-9);
+        interpolator.Sample(0, 12)!.Value.X.Should().BeApproximately(5, 1e-9);
     }
 
     [Test]
@@ -53,7 +53,7 @@ public class KartInterpolatorTests
         var interpolator = new KartInterpolator();
         interpolator.Add(10, [Snap(0, 12, vx: 9)]);
 
-        interpolator.Sample(0, 14.5)!.Value.X.Should().BeApproximately(12.45, 1e-9);
+        interpolator.Sample(0, 15.5)!.Value.X.Should().BeApproximately(12.15, 1e-9);
         interpolator.Sample(0, 20)!.Value.X.Should().BeApproximately(12.9, 1e-9);
     }
 
@@ -75,20 +75,30 @@ public class KartInterpolatorTests
         interpolator.Add(10, [Snap(0, 0)]);
         interpolator.Add(12, [Snap(0, 10)]);
 
-        interpolator.Sample(0, 14)!.Value.X.Should().BeApproximately(10, 1e-9);
+        interpolator.Sample(0, 16)!.Value.X.Should().BeApproximately(10, 1e-9);
+    }
+
+    [Test]
+    public void One_lost_snapshot_still_leaves_time_to_blend_the_next_packet()
+    {
+        var interpolator = new KartInterpolator();
+        interpolator.Add(10, [Snap(0, 0)]);
+        interpolator.Add(14, [Snap(0, 2)]);
+
+        interpolator.Sample(0, 18)!.Value.X.Should().BeApproximately(1.5, 1e-9);
     }
 
     [Test]
     public void An_unknown_kart_has_no_body()
     {
         var interpolator = new KartInterpolator();
-        interpolator.Sample(0, 14).Should().BeNull();
+        interpolator.Sample(0, 16).Should().BeNull();
 
         interpolator.Add(10, [Snap(0, 0)]);
-        interpolator.Sample(5, 14).Should().BeNull();
+        interpolator.Sample(5, 16).Should().BeNull();
 
         interpolator.Clear();
-        interpolator.Sample(0, 14).Should().BeNull();
+        interpolator.Sample(0, 16).Should().BeNull();
     }
 
     [Test]
@@ -113,13 +123,13 @@ public class KartInterpolatorTests
         interpolator.Sample(0, 14).Should().BeNull();
     }
     [Test]
-    public async Task Objects_are_drawn_three_steps_behind_and_vanish_when_gone()
+    public async Task Objects_are_drawn_five_steps_behind_and_vanish_when_gone()
     {
         var interpolator = new KartInterpolator();
         interpolator.Add(10, [], [new KartItemObjectInfo(7, KartItemKind.EmberBolt, 10, 10, 0, 0)]);
         interpolator.Add(12, [], [new KartItemObjectInfo(7, KartItemKind.EmberBolt, 12, 10, 0, 0)]);
 
-        interpolator.SampleObject(7, 14)!.Value.X.Should().BeApproximately(11, 1e-9);
+        interpolator.SampleObject(7, 16)!.Value.X.Should().BeApproximately(11, 1e-9);
 
         interpolator.Add(14, [], []);
         interpolator.SampleObject(7, 16).Should().BeNull();
