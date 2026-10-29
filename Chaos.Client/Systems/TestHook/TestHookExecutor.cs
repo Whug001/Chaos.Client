@@ -155,11 +155,8 @@ public sealed class TestHookExecutor(ITestHookHost host)
                 }
                 break;
 
-            case StateCommand:
-                var state = new Dictionary<string, object?>(host.GetBaseState());
-                foreach (var (k, v) in TestStateRegistry.Snapshot())
-                    state[k] = v;
-                reply.TrySetResult(Ok(state));
+            case StateCommand stateCommand:
+                reply.TrySetResult(Ok(FilterState(host, stateCommand.Filter)));
                 yield return true;
                 break;
 
@@ -171,6 +168,43 @@ public sealed class TestHookExecutor(ITestHookHost host)
                 yield return true;
                 break;
         }
+    }
+
+    // kart.track (large and static per race) is returned only when the filter is exactly "kart.track";
+    // Every other filter (including null/empty and "kart.") excludes it; otherwise only keys starting with the filter are returned.
+    private static Dictionary<string, object?> FilterState(ITestHookHost host, string? filter)
+    {
+        var snapshot = TestStateRegistry.Snapshot();
+        var state = new Dictionary<string, object?>();
+
+        if (filter == "kart.track")
+        {
+            foreach (var (k, v) in host.GetBaseState())
+                if (k == filter)
+                    state[k] = v;
+            foreach (var (k, v) in snapshot)
+                if (k == filter)
+                    state[k] = v;
+        }
+        else if (string.IsNullOrEmpty(filter))
+        {
+            foreach (var (k, v) in host.GetBaseState())
+                state[k] = v;
+            foreach (var (k, v) in snapshot)
+                if (k != "kart.track")
+                    state[k] = v;
+        }
+        else
+        {
+            foreach (var (k, v) in host.GetBaseState())
+                if (k != "kart.track" && k.StartsWith(filter, StringComparison.Ordinal))
+                    state[k] = v;
+            foreach (var (k, v) in snapshot)
+                if (k != "kart.track" && k.StartsWith(filter, StringComparison.Ordinal))
+                    state[k] = v;
+        }
+
+        return state;
     }
 
     private static BufferedInputEvent MouseEvent(bool right, bool press, int x, int y)

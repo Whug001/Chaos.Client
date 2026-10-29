@@ -132,6 +132,37 @@ public class TestHookExecutorTests
     }
 
     [Test]
+    public async Task State_WithoutFilter_ExcludesKartTrack()
+    {
+        TestStateRegistry.Register("kart.lap", () => 2);
+        TestStateRegistry.Register("kart.track", () => new { key = "t" });
+        var exec = new TestHookExecutor(new FakeHost());
+        var reply = Run(exec, "state");
+        exec.Tick();
+        var json = await reply;
+        json.Should().Contain("\"kart.lap\":2");
+        json.Should().NotContain("kart.track");
+    }
+
+    [Test]
+    public async Task State_WithPrefixFilter_ReturnsOnlyMatches()
+    {
+        TestStateRegistry.Register("kart.lap", () => 2);
+        TestStateRegistry.Register("kart.track", () => new { key = "t" });
+        var exec = new TestHookExecutor(new FakeHost());
+        var prefix = Run(exec, "state kart.");
+        var exact = Run(exec, "state kart.track");
+        exec.Tick(); exec.Tick();
+        var prefixJson = await prefix;
+        prefixJson.Should().Contain("\"kart.lap\":2");
+        prefixJson.Should().NotContain("kart.track");
+        prefixJson.Should().NotContain("loggedIn");
+        var exactJson = await exact;
+        exactJson.Should().Contain("kart.track");
+        exactJson.Should().NotContain("kart.lap");
+    }
+
+    [Test]
     public async Task Panels_ReturnsInspectorReport()
     {
         var host = new FakeHost

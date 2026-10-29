@@ -65,6 +65,8 @@ public class TestCommandParserTests
     [Test]
     [Arguments("panels")]
     [Arguments("state")]
+    [Arguments("state kart.")]
+    [Arguments("state kart.track")]
     [Arguments("ping")]
     [Arguments("  PING  ")]
     public void NoArgCommands_Parse(string line)
@@ -84,11 +86,28 @@ public class TestCommandParserTests
     [Arguments("click 1")]
     [Arguments("key")]
     [Arguments("key Up sideways")]
+    [Arguments("state a b")]
     public void BadLines_ReturnError(string line)
     {
         TestCommandParser.TryParse(line, out var cmd, out var error).Should().BeFalse();
         cmd.Should().BeNull();
         error.Should().NotBeNullOrWhiteSpace();
+    }
+
+    [Test]
+    public void State_WithoutFilter_HasNullFilter()
+    {
+        TestCommandParser.TryParse("state", out var cmd, out _).Should().BeTrue();
+        cmd.Should().Be(new StateCommand(null));
+    }
+
+    [Test]
+    public void State_WithFilter_KeepsPrefix()
+    {
+        TestCommandParser.TryParse("state kart.", out var cmd, out _).Should().BeTrue();
+        cmd.Should().Be(new StateCommand("kart."));
+        TestCommandParser.TryParse("state kart.track", out cmd, out _).Should().BeTrue();
+        cmd.Should().Be(new StateCommand("kart.track"));
     }
 }
 #endif

@@ -12,7 +12,7 @@ public sealed record DragCommand(int X1, int Y1, int X2, int Y2) : TestCommand;
 public sealed record TypeCommand(string Text) : TestCommand;
 public sealed record ScreenshotCommand(string Path) : TestCommand;
 public sealed record PanelsCommand : TestCommand;
-public sealed record StateCommand : TestCommand;
+public sealed record StateCommand(string? Filter) : TestCommand;
 public sealed record WaitFramesCommand(int Frames) : TestCommand;
 
 public static class TestCommandParser
@@ -37,7 +37,14 @@ public static class TestCommandParser
         {
             case "ping": command = new PingCommand(); return true;
             case "panels": command = new PanelsCommand(); return true;
-            case "state": command = new StateCommand(); return true;
+            case "state":
+            {
+                if (args.Length > 1)
+                    return Fail("usage: state [key-prefix]", out error);
+
+                command = new StateCommand(args.Length == 1 ? args[0] : null);
+                return true;
+            }
 
             case "key":
             {

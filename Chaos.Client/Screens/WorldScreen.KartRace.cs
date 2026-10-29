@@ -42,6 +42,11 @@ public sealed partial class WorldScreen
     private bool KartPredictorInitialized;
     private static KartRaceState KartRace => WorldState.KartRace;
 
+#if DEBUG
+    // The local racer's latest server snapshot, or null when not racing.
+    private static KartRacerSnapshot? LocalKart() => KartRace.LocalIndex is { } i ? KartRace.Latest(i) : null;
+#endif
+
     private readonly record struct KartDraw(int Depth, byte Index, Vector2 Center, int Frame, double Heading, double ForwardSpeed);
 
     private void WireKartRace()
@@ -56,6 +61,33 @@ public sealed partial class WorldScreen
         TestStateRegistry.Register("kart.laps", () => KartRace.Laps);
         TestStateRegistry.Register("kart.lap", () => KartRace.LocalIndex is { } i ? KartRace.Latest(i)?.LapsDone : null);
         TestStateRegistry.Register("kart.place", () => KartRace.LocalIndex is { } i ? KartRace.Latest(i)?.Place : null);
+        TestStateRegistry.Register("kart.x", () => LocalKart()?.X);
+        TestStateRegistry.Register("kart.y", () => LocalKart()?.Y);
+        TestStateRegistry.Register("kart.heading", () => LocalKart()?.Heading);
+        TestStateRegistry.Register("kart.vx", () => LocalKart()?.Vx);
+        TestStateRegistry.Register("kart.vy", () => LocalKart()?.Vy);
+        TestStateRegistry.Register("kart.speed", () => LocalKart() is { } kart ? Math.Sqrt(kart.Vx * kart.Vx + kart.Vy * kart.Vy) : null);
+        TestStateRegistry.Register("kart.gates", () => LocalKart()?.GatesPassed);
+        TestStateRegistry.Register("kart.status", () => LocalKart()?.Status.ToString());
+        TestStateRegistry.Register("kart.spin", () => LocalKart()?.SpinTicks);
+        TestStateRegistry.Register("kart.item", () => KartRace.LocalIndex is not null ? KartRace.HeldItem.ToString() : null);
+        // LapTracker.Move passes gates in order with next = Gates[Passed % Gates.Count] (gate 0 is the
+        // finish line; racers start behind it, so the first crossing only starts the count). Passed keeps
+        // counting across laps, so the modulo is also the lap wrap: after a full lap Passed % Count is 0.
+        TestStateRegistry.Register("kart.next", () =>
+        {
+            if (LocalKart() is not { } kart || KartRace.Gates.Count == 0)
+                return null;
+            var gate = KartRace.Gates[kart.GatesPassed % KartRace.Gates.Count];
+            return new { ax = gate.Ax, ay = gate.Ay, bx = gate.Bx, by = gate.By };
+        });
+        TestStateRegistry.Register("kart.track", () => new
+        {
+            key = KartRace.TrackKey,
+            gates = KartRace.Gates.Select(gate => new { ax = gate.Ax, ay = gate.Ay, bx = gate.Bx, by = gate.By }).ToArray(),
+            centre = KartRace.CentreLine.Select(point => new[] { point.X, point.Y }).ToArray(),
+            hazards = KartRace.Hazards.Select(hazard => new { x0 = hazard.X0, y0 = hazard.Y0, x1 = hazard.X1, y1 = hazard.Y1 }).ToArray()
+        });
 #endif
     }
 
