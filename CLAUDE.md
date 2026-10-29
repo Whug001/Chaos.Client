@@ -23,324 +23,66 @@ Tests live in `Tests/Chaos.Client.Tests` (TUnit). Run with `dotnet build` then `
 
 ## Solution Structure
 
-```
 Chaos.Client.slnx (.NET 10.0, C# 14)
-├── Chaos.Client               — MonoGame Game class, screens, UI controls, systems, entry point
-├── Chaos.Client.Data           — Asset repositories, DALib integration, archive loading, caching
-├── Chaos.Client.Rendering      — Texture conversion, sprite renderers, map rendering, text, camera
-├── Chaos.Client.Networking     — TCP client, crypto, packet framing, connection state machine
-└── DALib                       — Dark Ages file format support
-```
+
+- Chaos.Client: MonoGame Game class, screens, UI controls, systems, entry point
+- Chaos.Client.Data: asset repositories, DALib integration, archive loading, caching
+- Chaos.Client.Rendering: texture conversion, sprite renderers, map rendering, text, camera
+- Chaos.Client.Networking: TCP client, crypto, packet framing, connection state machine
+- DALib: Dark Ages file format support
 
 **Dependency flow:** Data <- Rendering <- Client, Networking <- Client
 
-## Key Dependencies
+## Subsystem docs
 
-| Package                                    | Purpose                                                                   |
-|--------------------------------------------|---------------------------------------------------------------------------|
-| DALib                                      | Dark Ages file format support, SkiaSharp rendering                        |
-| MonoGame.Framework.DesktopGL 3.8.4.1       | Cross-platform graphics/windowing                                         |
-| Chaos.Networking (Chaos-Server submodule)            | Complete protocol library: packet converters, crypto, opcodes, args types |
-| Chaos.Common (Chaos-Server submodule)                | Shared extension methods                                          |
-| Chaos.DarkAges (Chaos-Server submodule)              | Dark Ages protocol types                                          |
-| Chaos.Geometry (Chaos-Server submodule)              | Geometry types -- rectangles, points                              |
-| Chaos.Pathfinding (Chaos-Server submodule)           | A* pathfinding                                                    |
-| Microsoft.Extensions.Caching.Memory 10.0.5 | MemoryCache infrastructure                                                |
-| TextCopy 6.2.1                             | Cross-platform clipboard access (used by `Utilities/Clipboard`)           |
-
-## Build Configuration
-
-Centralized in `Directory.Build.props`: C# 14, net10.0, nullable enabled, implicit usings, TieredPGO + TieredCompilation (+ QuickJit) enabled, WarningLevel 4, EnforceCodeStyleInBuild. Package versions managed centrally in `Directory.Packages.props`. Versioning via Nerdbank.GitVersioning. The `Chaos.*` shared libraries are referenced as projects from the `Chaos-Server` git submodule (path set by the `UnoraServerPath` MSBuild property, default `./Chaos-Server`); a build-time check errors if the submodule has not been initialized.
-
-## Architecture
-
-### Data Layer (`Chaos.Client.Data`)
-- **`DataContext`** -- Static singleton exposing all repositories via `Initialize()`.
-- **`DatArchives`** -- Static holder for 21 game data archives loaded at startup via memory-mapped files.
-- **`RepositoryBase`** -- Abstract base with MemoryCache (15-min sliding expiration). Uses `GetOrCreate<T>(key, factory)`.
-- **11 repositories:** AislingDrawData, CreatureSprite, Effects, Font, LightMask, LocalPlayerSettings, MapFile, MetaFile, PanelSprite, Tile, UiComponent.
-- **`ControlPrefab`/`ControlPrefabSet`** -- Wraps DALib Control definitions + pre-rendered SKImage arrays. First control (Anchor) defines panel bounds.
-- Control file catalog in `controlFileList.txt` at solution root.
-
-### Rendering Layer (`Chaos.Client.Rendering`)
-- **`TextureConverter`** -- DALib `SKImage` -> MonoGame `Texture2D` (RGBA8888 premul). Entry points: `ConvertImage<T>()`, `ToTexture2D()`.
-- **`ImageUtil`** -- Static class of stateless CPU pixel-manipulation primitives: tint/blend variants (`Blend50`, `ApplyHoverTint`, `ApplyGroundTint`, `BuildGroupTinted`, `BuildHitTinted`, `BuildHoverTinted`, `BuildGroundTinted`, `BuildCooldownTintedCached`), checker pattern, vertical alpha gradient, filled border, rectangle fill, projected-quadrants raster, chat-bubble body + tail, 2x2 box downsampler (`SKColor[]`), comb-dissolve kernel. Naming convention: `Build*` returns a new `Texture2D` (or `CachedTexture2D`); `Apply*`/`Fill*`/`Draw*` mutate a `Color[]` in place. No global state -- all device-requiring helpers take an explicit `GraphicsDevice`.
-- **`ChatBubblePainter`/`ChatBubbleFrames`** -- Custom chat bubbles: `ChatBubblePainter.Paint` draws a bubble's body and tail in a `ChatBubbleLook` (colours, gradient/two-tone/glow effect, optional frame; the Default look keeps the old pixels and draw order), and `ChatBubbleFrames.Get(1..4)` reads the embedded 21 x 21 frame PNGs (`bubbleframe.<n>.png`, drawn by Unora `Tools/ChatBubbles`).
-- **`PixelBufferScope`** -- `ref struct` RAII wrapper around `ArrayPool<Color>.Shared.Rent` + `Texture2D.GetData`/`SetData`. Use this instead of hand-rolling rent/get/set/return. Two constructors: `(Texture2D source)` reads the texture into a fresh buffer; `(int width, int height)` rents an **uninitialized** buffer (callers must `Array.Clear(scope.Pixels, 0, scope.Count)` if they depend on zeros). Exposes `Pixels`, `Count`, `Width`, `Height`, `AsSpan()` for bounds-safe iteration; `CommitTo(Texture2D)` uploads pixels back via `SetData`. This is the *only* place outside tests that should call `ArrayPool<Color>.Shared.Rent`.
-- **`Camera`** -- Isometric camera: `WorldToScreen`, `ScreenToWorld`, `TileToWorld`, `WorldToTile`, `GetVisibleTileBounds()`.
-- **`MapRenderer`** -- Background + foreground tile rendering. `DrawBackground()`, `DrawForegroundTile()`, `PreloadMapTiles()`.
-- **`TextRenderer`** -- SkiaSharp text rendering: `RenderText()`, `RenderWrappedText()`, `MeasureWidth()`, `WrapText()`.
-- **`UiRenderer`** -- UI panel rendering utilities.
-- **`DarknessRenderer`** -- Light/darkness overlay. Consumes light sources from `LightingSystem`.
-- **`TabMapRenderer`** -- Mini-map rendering. Also consumes from `LightingSystem` for fog-of-war.
-- **`WeatherRenderer`** -- Snow/rain overlay driven by the low nibble of `MapFlags` (1=Snow, 2=Rain, 3=Darkness handled by `DarknessRenderer`).
-- **`AmbientEffects`** -- Map-flag ambient overlays: Fog and Lightning (values 16/32, bits 4 and 5, of the map info byte) plus BloodMoon, Sandstorm, Miasma, Ash, Leaves, Petals, Fireflies, Underwater, Gloom, Radiance, Arcane, Frost, Blizzard, Dust, CloudShadows, SeaSpray, Heat, Wisps, Drips, Bats, Ghosts, HarvestMoon, Confetti and Balloons (`MapFlags` bits 8-32; `MapFlags` is 8 bytes, and every bit above the low byte arrives in the separate `SetMapEffects` packet right after map info). Each flag drives one or more `IAmbientOverlay`s: `MistRenderer` (wash + drifting cloud-noise layers + vignette, tuned by `MistStyle` presets), `ParticleRenderer` (procedural particles, optionally with flapping wings, or the pixel sheet ghost, tuned by `ParticleStyle` presets), `FlyByRenderer` (groups of pixel sprites crossing now and then — the bats — tuned by `FlyByStyle` presets; the flight logic is the graphics-free `FlyByFlock`) and `LightningRenderer` (random flash + procedural bolts). Several can be on at once. `CoveredFlags` lists the flags that have an overlay; `AmbientEffectsTests` fails if an effect flag has none.
-- **`SpotlightRenderer`** -- Theatre spotlight colour: additive pool, body tint and optional beam per light, drawn right after the darkness layer. Its darkness masks come from **`SpotlightMasks`** (generated 2:1 ovals, one per size).
-- **`SilhouetteRenderer`** -- Silhouette effect for blocked entities.
-- **`PaletteCyclingManager`** -- Animated palette shimmer effects.
-- **`FontAtlas`** -- Font glyph atlas management.
-- **`CreatureRenderer`/`AislingRenderer`/`EffectRenderer`/`ItemRenderer`** -- Per-frame texture caches. `Clear()` on map change.
-- **`GuildCloakPainter`/`GuildCloakGrid`/`GuildCloakReferences`/`GuildCloakDesignStore`** -- Guild cloak painting: `GuildCloakPainter` paints a design onto one sprite frame from `GuildCloakReferences`' reference grids via `GuildCloakGrid`'s coordinate mapping; `GuildCloakDesignStore` (on `AislingRenderer.GuildCloaks`) caches designs by id for one session and is cleared on logout.
-- **`PumpkinFaceMap`/`PumpkinPainter`/`PumpkinCarvingCache`** -- Pumpkin Carving: the embedded face map (which carving cells each pixel of sprite 1455 shows) and the painter, which lights carved pixels (Lit look) or shows them as dark holes (Carving look, while players carve). `CreatureRenderer.GetPumpkinFrame` caches lit frames by carving; `GetCarvingFrame` keeps only each pumpkin's latest carving image in `PumpkinCarvingCache`.
-- **`Fishing/FishingPoseAnimator`/`FishingPoleRenderer`** -- Fishing body poses (server FishingDisplay Pose: Cast, Waiting, Holding, Released). The animator picks existing 01/03 body frames over time and says where the pole goes; the renderer draws the pole (tinted per pole sprite), line, bobber and splash over the composite. `WorldScreen.Draw` hides the equipped pole while a pose shows; walking and body animations win over the pose.
-- **`WallDecalGeometry`/`WallDecalPainter`** -- College wall art: the slanted 28 px strip geometry for the frames and the board on the north and west walls, and the painter that cuts a picture or the board (and the board's shimmer mask) into those strips. Used by `Systems/College/CollegeWallDecals`.
-- **`Controls/World/Emblems/GuildEmblemTextures`** -- Guild emblems by id (server ids positive, local drafts negative) and their 11 × 11 textures; `EmblemIcon.GuildEmblemId` draws from it. Cleared on logout.
-- **`LegendColors`** -- Named color constants for UI text. Initialized at startup.
-- **`LightSource`** -- Light source model for darkness system.
-- **`RenderHelper`** -- Shared rendering utility methods.
-- **`CacheExtensions`** -- Extension methods for consistent dictionary cache management across renderers.
-- **`TextureAtlas`/`AtlasHelper`/`CachedTexture2D`** -- Grid/Shelf packing for performance optimization.
-- **`SpriteAnimation`/`SpriteFrame`** -- Frame array with `GetFrame(index)`, timing, additive blending.
-- **`EntityHitBox`** -- Hit testing geometry for clickable entities.
-- **Asset pipeline:** `DatArchives -> Repository -> Palettized<T> -> DALib Graphics.RenderXxx() -> SKImage -> TextureConverter.ToTexture2D() -> Texture2D -> SpriteBatch.Draw()`
-
-### Networking Layer (`Chaos.Client.Networking`)
-- **`GameClient`** -- Low-level TCP: crypto, packet framing (0xAA + 2-byte BE length), sequence tracking, `InboundQueue` via `DrainPackets()`. Auto-responds to HeartBeat/SynchronizeTicks.
-- **`ConnectionManager`** -- State machine (Disconnected->Connecting->Lobby->Login->World), array-indexed handler dispatch (60+ handlers), 48+ events. Full lobby/login/world-entry flows. Player action methods, communication, NPC/dialog, requests.
-- **`ServerTableData`** -- Zlib-compressed server list parser.
-- Protocol types come from the `Chaos.Networking` / `Chaos.DarkAges` projects in the `Chaos-Server` git submodule (referenced directly, not via NuGet) — serialization, opcodes, and args types are all defined there rather than in this project.
-
-### Client Project (`Chaos.Client`) Internal Organization
-
-```
-Chaos.Client/
-├── ChaosGame.cs              — MonoGame Game class, entry point
-├── Program.cs                — Process entry point (Main)
-├── GlobalSettings.cs         — Static config (ClientVersion, DataPath, LobbyHost/Port)
-├── InputBuffer.cs            — Event-driven input capture and buffering
-├── InputDispatcher.cs        — UI event dispatch: hit-test, bubble, drag, click synthesis, control stack
-├── Sdl.cs                    — Centralized SDL2 P/Invoke declarations (keyboard, text, mouse button, mouse wheel event constants consumed by InputBuffer; audio subsystem init/quit, SDL_GetError, SDL_RWFromConstMem consumed by SoundSystem)
-├── SdlMixer.cs               — SDL2_mixer P/Invoke wrapper (Mix_* functions and constants, consumed by SoundSystem)
-├── Collections/              — WorldState, CircularBuffer
-├── Models/                   — WorldEntity, Animation, EntityRemovalAnimation, WorldFrameState, SlotDragPayload, PathfindingState, CapturedFrame, etc.
-├── ViewModel/                — Authoritative state classes owned by WorldState
-├── Systems/                  — AnimationSystem, CastingSystem, SoundSystem, Pathfinder, LightingSystem, LatencyMonitor, ClientSettings, MachineIdentity, BugReportUpload
-├── Screens/                  — IScreen, ScreenManager, LobbyLoginScreen, WorldScreen (7 partial files)
-├── Rendering/                — EntityOverlayManager, WorldDebugRenderer
-├── Controls/                 — Full UI control hierarchy (see UI Control System below)
-├── Definitions/              — Delegates, Enums, DoorTable, InputEvents, TextColors
-├── Extensions/               — DirectionExtensions, RectangleExtensions, UIElementExtensions
-└── Utilities/                — Clipboard, DialogFrame, SlideAnimator
-```
-
-### Screen System
-- **`IScreen`/`ScreenManager`** -- Stack-based screen management.
-- **`LobbyLoginScreen`** -- Full login flow: lobby connect, server select, login, character creation, transition to world.
-- **`WorldScreen`** -- Main game screen, split into partial class files by concern:
-  - `WorldScreen.cs` -- Base class, fields, construction
-  - `WorldScreen.Draw.cs` -- Render logic (diagonal stripe entity interleaving, overlays)
-  - `WorldScreen.Update.cs` -- Game logic update
-  - `WorldScreen.InputHandlers.cs` -- Keyboard/mouse input (movement, hotkeys, pathfinding, click-to-interact)
-  - `WorldScreen.ServerHandlers.cs` -- Network packet handler subscriptions
-  - `WorldScreen.Wiring.cs` -- Event subscription setup
-  - `WorldScreen.Map.cs` -- Map management
-  - `WorldScreen.GuildCloak.cs` -- Guild cloak look/design packet handlers and the editor/review window lifecycle
-  - `WorldScreen.GuildEmblem.cs` -- Guild emblem editor and emblem download handlers
-  - `WorldScreen.TownImports.cs` -- Town import windows (the mayor's import window and the admins' import window)
-  - `WorldScreen.Portraits.cs` -- Portrait window open/send/remove wiring
-  - `WorldScreen.CommissionBoard.cs` -- Commission board window lifecycle: build-once popup, display open/refresh, review picture and deliver picker wiring
-  - `WorldScreen.Tcg.cs` / `WorldScreen.TcgChallenge.cs` / `WorldScreen.TcgMatch.cs` / `WorldScreen.TcgRanked.cs` -- Trading card game windows (collection, challenges, match, ranked queue)
-  - `WorldScreen.Crafting.cs` -- Crafting browser and confirm windows
-  - `WorldScreen.ArenaHost.cs` -- Arena host panel
-  - `WorldScreen.PumpkinCarving.cs` -- Pumpkin carving window
-  - `WorldScreen.College.cs` / `WorldScreen.CollegeWall.cs` -- College writing/quiz/game windows and wall frames/board
-  - `WorldScreen.Library.cs` -- Library window wiring and display routing
-  - `WorldScreen.StageLighting.cs` -- Theatre stage lighting window
-  - `WorldScreen.Cinema.cs` -- Cinema: CinemaState packets to `CinemaController`, the music duck, and the film screen on the Loures Cinema wall (map 788)
-  - `WorldScreen.CinemaSeat.cs` -- the seated view: drawn instead of the map, HUD hidden, chat line moved to the bottom
-  - `WorldScreen.Mirrors.cs` -- Beauty shop and fitting room windows
-  - `WorldScreen.TabTargeting.cs` -- Tab-targeting selection and indicator
-  - `WorldScreen.Hotbars.cs` -- Hotbar windows
-  - `WorldScreen.Causeway.cs` / `WorldScreen.GlassWay.cs` / `WorldScreen.TumbleTower.cs` -- Event-area windows
-  - `WorldScreen.TowerLeaderboard.cs` -- Tower leaderboard window
-  - `WorldScreen.TownBallot.cs` / `WorldScreen.TownContest.cs` -- Town voting and contest windows
-  - `WorldScreen.ChatTranslation.cs` -- Chat translation
-
-### UI Control System
-
-**Component Primitives (`Controls/Components/`):** UIElement, UIPanel, UIButton, UITextBox, UIImage, UILabel, UIProgressBar, TextElement, PrefabPanel.
-
-**Login Flow (`Controls/LobbyLogin/`):** LobbyLoginControl, LoginControl, ServerSelectControl, CharacterCreationControl, LoginNoticeControl, PasswordChangeControl, LogoImage.
-
-**Generic Controls (`Controls/Generic/`):** OkPopupMessageControl, TextPopupControl, ScrollBarControl, SliderControl, DebugOverlay.
-
-**World HUD (`Controls/World/Hud/`):** IWorldHud interface, WorldHudControl (classic compact HUD), LargeWorldHudControl (expanded HUD), OrangeBarControl, ChatInputControl, EffectBarControl/EffectSlotControl, MailButton (unread-mail pulse indicator driven by `PlayerAttributes.HasUnreadMail`).
-
-**HUD Panels (`Hud/Panel/`):** PanelBase, ExpandablePanel, InventoryPanel, SkillBookPanel, SpellBookPanel, ToolsPanel, ChatPanel, StatsPanel, ExtendedStatsPanel, SystemMessagePanel, StatButton. Slots: PanelSlot, AbilitySlotBase, SkillSlot, SpellSlot.
-
-**Self Profile (`Popups/Profile/`):** SelfProfileTabControl with Equipment/Legend/AbilityMetadata/Events/Family/Blank tabs, SelfProfileTextEditorControl, AbilityMetadataDetailsControl/AbilityMetadataEntryControl, EventMetadataDetailsControl/EventMetadataEntryControl, LegendMarkControl. **Other Profile:** OtherProfileTabControl (Equipment via _nui_eqa + Legend tabs), OtherProfileEquipmentTab. (Legend tab reuses `SelfProfileLegendTab`.)
-
-**Options (`Popups/Options/`):** MainOptionsControl, MacrosListControl, SettingsControl, FriendsListControl.
-
-**Popups (`Controls/World/Popups/`):** AislingContextMenu, GoldAmountControl, ItemAmountControl, ChantEditControl, GroupRecruitPanel, GroupTab/GroupTabControl, HotkeyHelpControl, ItemTooltipControl, NotepadControl, SocialStatusControl, TownMapControl. Subdirectories: `Effects/` (EffectWindowControl — the F1 Effects window with Login/Logout, Death and Chat Bubble tabs; `EffectWindowControl.Bubbles.cs` holds the Chat Bubble tab: preset tiles, the Custom tile with hex boxes and −/+ opacity buttons, a normal and shout preview and the readability warning; its state is `ViewModel/ChatBubblePickerState`), `BugReport/` (BugReportControl — in-game bug report window opened from Terminus), `Theatre/` (StageLightingControl — the director's Stage Lighting window; StageView, StageButton, StageSlider, StageColorPicker; the stage view's tile maths is `Systems/StageViewGeometry`), `GuildEmblem/` (GuildEmblemEditorControl — the guild leader's compact emblem editor, opened from Quill; GuildEmblemCanvas, GuildEmblemSwatches, GuildEmblemPreviewStrip; the editor state is `ViewModel/GuildEmblemEditorModel`), `GuildCloak/` (GuildCloakEditorControl — the guild leader's cloak editor, opened from Quill; GuildCloakReviewControl — the admins' review window, opened from the admin trinket, also reviews emblems; GuildCloakCanvas, GuildCloakSwatches, GuildCloakPreview; the painting itself is `Chaos.Client.Rendering/GuildCloakPainter`, and the editor state is `ViewModel/GuildCloakEditorModel`), `Boards/` (BoardListControl, ArticleListControl/ArticleReadControl/ArticleSendControl, MailListControl/MailReadControl/MailSendControl), `Dialog/` (NpcSessionControl, FramedDialogPanelBase, DialogAlphaGradient, MenuShopPanel, DialogTextEntryPanel, DialogProtectedTextEntryPanel, MenuTextEntryPanel, DialogOptionPanel, MenuListPanel), `Exchange/` (ExchangeControl/ExchangeItemControl, painted portrait rows hover through the item tooltip), `WorldList/` (WorldListControl/WorldListEntryControl; WorldListFaces/WorldListFilterState — the filter buttons' faces and which is lit), `Lockpicking/` (LockpickControl — the lockpicking window, opened by the server's LockpickDisplay Open when a rogue clicks a lockable chest; LockFaceControl draws lockpk01-05.spf; LockpickAnimator/LockpickGeometry are the pure animation and angle maths), `Beauty/` (BeautyShopControl — Josephine's Mirror, a five-page guide: Gender, Hair, Skin, Face, Review; each page is a `Pages/` MirrorPageView, the order and arrow labels are `MirrorPages`; ThumbnailGrid/SwatchGrid/GenderSelector/PageDots are the pickers, MirrorPreview the pedestal figure, drawn over a backdrop: `MirrorBackdrop`/`MirrorBackdrops` list the places, and `MirrorBackdropCache` cuts the PNGs embedded in Chaos.Client.Rendering, which `Tools/MirrorBackdrops` renders from real maps; the state is `ViewModel/BeautyShop`), `FittingRoom/` (FittingRoomControl — Illustria's Closet in Abel, opened by the server's FittingRoomDisplay Open from the mirror tile or Illustria's dialog; nothing is bought or sent back; MirrorStage — the arched mirror with the front view and the figure seen from behind, walking in on open; WornRow — one Wearing-tab row; it reuses the beauty shop's ThumbnailGrid and SwatchGrid; the state is `ViewModel/FittingRoom`, and `Systems/FittingRoomOutfit` puts the looks on), `QuestLog/` (QuestLogControl — the quest log window from the Legend of Darkness Quest List art, opened by the Q HUD button that replaced Hotkeys; QuestLogRow — one list row), `TownImports/` (TownImportBoardControl — the mayor's import window, opened from Aingeal's mayor desk; TownImportAdminControl — the admins' pool editor, opened from the admin trinket; TownImportRow — one item row), `Crafting/` (CraftingBrowserControl — the recipe browser from the Korean produce panel (its right pane shows the server's description of what the recipe makes), opened by the server's CraftingDisplay Open when a player uses a crafting station; CraftingConfirmControl — the lmanu confirm window with quantity arrows, the ingredient rows (half-size icons) and the catalyst slot (an IInventoryDropTarget); CraftingRecipeRow/CraftingIngredientRow — list rows; the state is `ViewModel/CraftingWindowState`), `ArenaHost/` (ArenaHostPanelControl — the Arena Host Panel, opened by the server's ArenaHostDisplay Open from the host skill or Ophie; modes, the chosen mode's settings, the Undercroft roster and the start footer; ArenaHostRow — one clickable line; the click logic is `ViewModel/ArenaHostPanelState`), `PumpkinCarving/` (PumpkinCarvingControl — the Pumpkin Carving window, opened by the server's PumpkinCarvingDisplay Open when a player claims a stage pumpkin; PumpkinCarvingCanvas — the 22 × 14 grid; the state is `ViewModel/PumpkinCarvingModel`), `College/` (CollegeWriterControl — the writing window for drafts, hand-ins and Library books (Library mode); CollegeReaderControl — one piece with a footer per reader; PieceView — the shared scrolling piece; CollegeJudgingControl, CollegeGalleryControl, CollegeHandInsControl — the lists, built on CollegeListWindow (rows, pager, selection) with CollegeListRow as their shared row; the editor model is `ViewModel/College/WritingDocument`, pictures go through `Systems/College/CollegePictureTransfers`; `Screens/WorldScreen.College.cs` builds the windows on first use and routes every CollegeDisplay); ArtCanvasControl — the Art canvas window (Draft, HandIn, Picture and Library modes; ArtCanvas the zoom-4 drawing, ArtSwatches the 32 swatches, the Stage Lighting colour picker for a swatch); GalleryArtCell — one picture in the gallery's Art grid; the drawing model is `ViewModel/College/PixelDrawing` with `ArtEditor` (tools, mirror, undo); `Systems/College/DrawingPictures` turns a drawing into a 384 x 288 PNG and back, and `CollegeDrawings` keeps gallery thumbnails, with a second `CollegeDrawings` instance (`LibraryDrawings`, created in `WorldScreen.College.cs`) behind the carousel's covers; MusicComposerControl — the Music composer (Draft and HandIn modes; TuneGrid draws the stacked Melody, Bass and Drums grids from TuneGridLayout's maths, and the reader's TuneBlockView shows it read-only); TuneRowButton — a gallery Music row's Play button; the tune model is `ViewModel/College/TuneDocument` (with TuneData, TuneScales and TuneLabels), sound comes from `Systems/College/TuneSynth` through `TunePlayer`, and `CollegeTunes` keeps gallery tunes with `GalleryTunePlay` deciding what a row's Play does; QuizEditorControl — the two-page quiz editor (list, then one quiz; the model is ViewModel/College/QuizDocument); QuizCardControl — the student's quiz card; QuizTeacherPanel — the class Teacher's quiz panel; DebatePanel — the debate panel, with a student view and a Teacher view; DebateVoteCard — the opening and final vote card; WordListEditorControl — the word-list editor (Mine and Word bank tabs, saved, preview and quick modes; the model is ViewModel/College/WordListDocument); HangmanBoardControl — the Hangman board; HangmanTurnOrderControl — the Teacher's turn-order window; HangmanTeacherPanel — the Teacher's Hangman panel (board state is ViewModel/College/HangmanBoardState); ScrambleCardControl — the Word Scramble card; ScrambleTeacherPanel — the Teacher's Scramble panel; PartyCardControl — the party games' player card (Quip Duel, Bluff, Sketch Guess; views from ViewModel/College/PartyCardState); SketchDrawCard — the Sketch Guess drawing card (ViewModel/College/SketchToolbox, 8 colours); PartyTeacherPanel — the Teacher's party game panel; PartyListEditorControl — the party list editor (Mine and Party bank tabs; the model is ViewModel/College/PartyListDocument); the texts and countdowns are ViewModel/College/ClassToolText and ToolCountdown; side markers come from Systems/College/DebateMarkTable and are drawn by EntityOverlayManager.DrawDebateMarks; the "Drawing" line over a student with the Art hand-in canvas open comes from Systems/College/WorkMarkTable and is drawn by EntityOverlayManager.DrawWorkMarks; WallFrameControl — one frame's picture, title and artist, with Hang and Take down; WallPickerControl — the Gallery and Hand-ins picker for a frame; BoardViewControl — the room's live board, read-only, with the Teacher's pen controls; BoardEditorControl — the board editor (Art tools at zoom 3 on a 160 x 80 board, plus the text tool from ViewModel/College/BoardFont; sends through BoardSync every 600 ms; the board is ViewModel/College/BoardState); BoardSavedControl — the Teacher's saved boards; the frames and board are painted on the north and west walls by Systems/College/CollegeWallDecals (slanted 28 px strips from Chaos.Client.Rendering/WallDecalGeometry and WallDecalPainter), drawn in the stripe pass right after the mirror maze's wall faces (WorldScreen.CollegeWall.cs)), `College/Library/` (LibraryCarouselControl -- the shelf carousel; LibrarySubmissionsControl, LibraryReviewControl and LibraryCollegePiecesControl -- the submissions, review and College-piece list windows; LibraryBookOptions -- the per-book shelf and cover options; the state is `ViewModel/College/Library` (`CarouselLayout`, `CoverChoice`)), `Portraits/` (PortraitWindowControl — the player's Portrait window, opened by clicking the own status-book portrait; the 48 x 56 canvas at 4x, 32 swatches with the Stage Lighting colour picker, a preview, Upload/Clear/Set/Remove; the state is `ViewModel/Portraits/PortraitWindowState` and `PortraitCanvas`; PaintedPortraitWindowControl — the item use window with Set as my portrait; fetched pictures go through `Systems/Portraits/PortraitPictureTransfers`), `CommissionBoard/` (CommissionBoardControl — the commission board window with Open requests, My requests and My commissions tabs, the post form, the buyer review pane and the deliver picker, opened by the server's CommissionBoardDisplay; CommissionBoardRowView — one list row; the state is `ViewModel/CommissionBoard/CommissionBoardState`; the wiring is `Screens/WorldScreen.CommissionBoard.cs`).
-
-**Viewport Overlays (`ViewPort/`):** ChatBubble, HealthBar, LoadingBar/MapLoadingBar, WorldMap/WorldMapNode, ChantText, GroupBox, SystemMessagePaneControl, PersistentMessageControl.
-
-### Game Systems (`Chaos.Client/Systems/`)
-- **`AnimationSystem`** -- Pure methods for walk/body/creature animations, frame calculation, walk offset lerp.
-- **`CastingSystem`** -- Spell targeting + chant management.
-- **`SoundSystem`** -- SDL2_mixer-based audio. MP3s decoded to PCM once via `Mix_LoadWAV_RW` and cached as `Mix_Chunk` pointers; playback uses the mixer's channel pool with per-channel volume. Music streams via `Mix_LoadMUS` with `Mix_FadeOutMusic`/`Mix_FadeInMusic` for map transitions. Same-sound overlap ducks prior instances by -3 dB (equal-power) instead of voice-stealing. The last two mixer channels are kept for College tunes (`PlayTune`/`PlayPreview`/`StopTune`, through `ITuneOutput`); passes alternate between them so a loop pass rings out; map music fades out while a tune plays (`MusicDuck`) and back after.
-- **`Pathfinder`** -- A* pathfinding algorithm.
-- **`LightingSystem`** -- Owns the per-frame light source buffer. Walks world entities, reads `LanternSize`, and gathers into a span consumed read-only by `DarknessRenderer` and `TabMapRenderer` (neither stores its own copy). Caches Euclidean circle offset arrays (radius 3/5) and exposes `BaselineVisibilityOffsets` for the unconditional player-tile reveal on darkness maps.
-- **`StageLightAnimator`** -- Holds the Theatre lighting setup (`StageLightingState`) and computes each spotlight's tile, colour and strength per frame: sweep/circle/follow, pulse/flicker/colour cycle, fades, and lights held while the director drags. Lives on `WorldState.StageLights`; not cleared by `WorldState.Clear()`.
-- **`Cinema/`** -- Films in the hall. `CinemaController` keeps an `ICinemaVideo` in step with the server's `CinemaStateArgs` (drift check every 5 s, seek past 1.5 s, retry a failed film after 15 s; no seek while VLC buffers); `CinemaSync` holds the pure timing maths; `CinemaPlayer` is the LibVLC player (HLS into a 854 x 480 `Texture2D`); `CinemaScreenLayout` holds the screen spot and picture fitting; `CinemaSeats` (map 788's 24 seats), `SeatedViewState` (on while standing on a seat; Esc closes it), `SeatedViewLayout` (the seated view's rectangles), `SeatedChatLines` (fading chat above the chat line), `CinemaHeadRenderer` (back-of-head crops).
-- **`LatencyMonitor`** -- Static class. Background ICMP ping loop (15s interval) against the connected server endpoint. Exposes `LatencyMs` and fires `LatencyChanged` for the HUD ping indicator. Started/stopped by `ChaosGame` on connect/disconnect. Events fire on thread-pool threads — consumers must poll from the game-loop thread.
-- **`MachineIdentity`** -- Machine-specific identification for the client.
-- **`ClientSettings`** -- Static class. Persistent user settings. Access via `ClientSettings.SoundVolume`, etc.
-
-### World State & Models
-- **`WorldState`** (`Collections/`) -- Static class. Entity tracking, sorted rendering, active effects, all ViewModel state. Access via `WorldState.Inventory`, `WorldState.Attributes`, etc. `WorldState.GuildCloakLooks` maps entity id to guild cloak design id, applied via `ApplyGuildCloakLook()` regardless of whether the look or the `DisplayAisling` arrives first; cleared on `RemoveEntity()`/`Clear()`.
-- **`WorldEntity`** (`Models/`) -- Full entity data bag: position, direction, appearance, animation state, emotes.
-- **Other models:** `Animation`, `EntityRemovalAnimation`, `WorldFrameState`, `SlotDragPayload`, `PathfindingState`, `TileClickTracker`, `Projectile`, `MailEntry`, `LegendMarkEntry`, `WorldListEntry`.
-
-### ViewModel (`Chaos.Client/ViewModel/`)
-Authoritative state objects exposed as static properties on WorldState, updated by server packets:
-- **`PlayerAttributes`** -- Stats, HP/MP, experience.
-- **`Inventory`** -- Items and gold.
-- **`SkillBook`/`SpellBook`** -- Skills/spells with cooldown timers.
-- **`Equipment`** -- Equipped items.
-- **`Chat`** -- Chat and orange bar messages.
-- **`Exchange`** -- Trade state.
-- **`Board`** -- Bulletin board / mail state.
-- **`GroupState`/`GroupInvite`** -- Party/group membership.
-- **`NpcInteraction`** -- Dialog/menu state.
-- **`UserOptions`** -- Server-sent user option flags.
-- **`WorldList`** -- Online players list.
-- **`LockpickState`** -- Difficulty, title and lockpick count for the lockpicking window.
-- **`CraftingWindowState`** -- The crafting windows' list, filter, selection, detail, quantity, catalyst and batch progress.
-- **`QuestLogState`** -- The quest log's active quests, the selected quest (kept by key across updates) and the two-click GiveUp confirm.
-
-### Entry Point
-- **`ChaosGame : Game`** -- 640x480 virtual resolution MonoGame window. Owns ConnectionManager, shared renderers (Aisling/Creature/Effect/Item), SoundSystem, InputDispatcher, ScreenManager. Global entity event wiring at construction. WorldState, ClientSettings, and InputBuffer are static classes (not owned by ChaosGame).
-- **`InputBuffer`** (static) -- Process-global input buffer driven by a single `SDL_AddEventWatch` callback. Unified event stream for keyboard, text, mouse button, and mouse wheel events in true OS post order (chronological `Events` buffer), with live cursor position refreshed each frame from `SDL_GetMouseState`. Query API: `WasScancodePressed()`, `IsScancodeHeld()`, `TextInput`, `MouseX`/`MouseY`, `IsLeftButtonHeld`/`IsRightButtonHeld` (keyboard polling is scancode-based; event handlers read `Scancode`/`Keycode` off the event). Lifecycle: `Initialize()` / `Update(isActive)` / `Shutdown()`.
-
-### Input Dispatch (`InputDispatcher`)
-Per-frame processor that reads `InputBuffer` state and produces UI events. Key concepts:
-- **Hit-testing:** deepest-child-first, highest-ZIndex-first, respects `IsPassThrough`/`IsHitTestVisible`.
-- **Capture:** mouse-down captures the target; mouse-up routes `MouseUp` to the captured element and synthesizes `Click` only if the cursor is still inside it and no drag occurred.
-- **Click vs MouseDown:** `OnMouseDown` fires on press (used by `WorldScreen` for right-click pathfinding — instant response); `OnClick` fires on release. `DoubleClick` is synthesized on the second release within 500ms on the same element.
-- **Control stack:** popups push themselves via `InputDispatcher.Instance.PushControl(this)` — the topmost entry receives keyboard events in Phase 2 of dispatch. Explicit focus (textboxes) intercepts Phase 1.
-- **Drag:** initiated when the mouse moves ≥4px from the mousedown position while an element is captured. `OnDragStart` lets the source populate a payload; `DragMove`/`DragDrop` bubble to the element under the cursor.
+| File | When |
+|------|------|
+| docs/ai/architecture.md | Layers, screens, controls, systems, state, input, key maps, targeting. |
+| docs/ai/controls.md | Panel building from prefabs. |
+| docs/ai/isometric.md | Tile math, draw order. |
+| docs/ai/dalib.md | File-format types. |
+| docs/ai/dependencies.md | Packages, build config. |
 
 ## Conventions
 
 ### Concurrency
-- Use `Lock` with `EnterScope()` instead of the `lock` keyword -- e.g. `using var scope = SendLock.EnterScope();`. This is the new .NET 9+ lock primitive with better usage semantics and performance.
+
+- `Lock`+`EnterScope()` (e.g. `using var scope = SendLock.EnterScope();`), never `lock` (.NET 9+ primitive).
 
 ### Packet Dispatch
-- Use array-indexed handler dispatch (not switch-case) for opcode routing, matching Chaos-Server's pattern
-- Delegate arrays sized `byte.MaxValue + 1`, indexed by opcode byte, registered via `IndexHandlers()`
-- **Adding a handler:** write `private void OnXxx(ref ServerPacket packet)` in `ConnectionManager`, register it in `IndexHandlers()` as `Handlers[(byte)ServerOpCode.Xxx] = OnXxx`, deserialize via the appropriate `Chaos.Networking` converter, then raise an event on the manager for `WorldScreen` to subscribe to.
+
+- Opcode-byte array-indexed dispatch, never switch-case (match Chaos-Server pattern).
+- Tables sized `byte.MaxValue + 1`, indexed by opcode, wired in `IndexHandlers()`.
+- New handler: `private void OnXxx(ref ServerPacket packet)` in `ConnectionManager`; `Handlers[(byte)ServerOpCode.Xxx] = OnXxx`; deserialize via `Chaos.Networking` converter; raise manager event for `WorldScreen`.
 
 ### UI Patterns
-- All UI panels derive from `PrefabPanel` (for prefab-based layouts) or `UIPanel` (for manual layouts)
-- `PrefabPanel` provides `CreateButton`/`CreateImage`/`CreateLabel`/`CreateTextBox`/`CreateProgressBar` to selectively create controls from prefab data. Panels explicitly create only the controls they need (no auto-populate).
-- Popup panels use `Show()`/`Hide()` for visibility and are children of the WorldScreen Root panel
-- HUD has two implementations behind `IWorldHud`: `WorldHudControl` (classic compact) and `LargeWorldHudControl` (expanded)
-- HUD tab panels share the center-bottom area via `ShowTab(HudTab)` -- only one visible at a time
-- World controls organized into subdirectories of `Controls/World/`: `Hud/`, `Hud/Panel/`, `Hud/Panel/Slots/`, `Popups/` (plus `Popups/Boards/`, `Popups/Dialog/`, `Popups/Exchange/`, `Popups/Options/`, `Popups/Profile/`, `Popups/WorldList/`, `Popups/Tcg/`, `Popups/Crafting/`, `Popups/Bank/`, `Popups/Market/`, `Popups/Fishing/`, and the event-game popups `Popups/Poker/`, `Popups/Slots/`, `Popups/Wheel/`, `Popups/RingToss/`, `Popups/MountRace/`), `ViewPort/`. Shared primitives live in `Controls/Components/`, restyled inputs in `Controls/Custom/`, login flow in `Controls/LobbyLogin/`, generic dialogs in `Controls/Generic/`
-- Hotkeys are player-rebindable (F12 opens `Popups/Options/KeyBindingsControl`). `Systems/KeyBinds/`: `GameAction` lists every bindable action, `KeyBindingTable` holds a primary and secondary `KeyChord` per action plus the defaults, and `KeyBindings.Current` is the live table, saved per character in `Settings.cfg` as `Bind.<Action> : <primary>, <secondary>`. `WorldScreen.OnRootKeyDown` resolves the key to actions (exact chord first, then the bare key) and runs them in `RunAction`. Escape, F11, F12 and Alt+Enter are fixed. Each song note needs its own key whatever the modifiers (`SongNoteSharingKey`), and `SongBarControl` shows the call with the bound keys (`SongNoteDisplay`). To add a hotkey: add a `GameAction`, give it a name in `GameActions.NameOf` and a default in `KeyBindingTable.DefaultChord`, and handle it in `RunAction`. The Targeting category (`GameActions.IsTargeting`) is a separate scope: those actions only run while a spell is armed, so they share keys with the rest — `Bind`/`TryLoadSetting` only take a key within the same scope (`KeyBindingTable.SameScope`), `Find`/`Candidates` search one scope (`targeting:`), and they are run by `WorldScreen.RunTargetingAction`, not `RunAction`. Cancel Targeting is the one action allowed bare Escape (`IsReservedFor`); pressing Esc while rebinding it in F12 sets Esc instead of cancelling.
-- Default keys: A=Inventory, S=Skills, D=Spells, Shift+S/D=Alt panels, F=Chat, Shift+F=MessageHistory, G=Stats, Shift+G=ExtendedStats, H=Tools, F9=Ignore, Tab=TabMap, F1=Help, F3=Macros, F4=Settings, F5=Refresh, F7=Board list, Y=Group, F10=Friends, Print Screen=Screenshot
-- The HUD Hotkeys button is gone; it now opens the quest log (the Q button). Terminus (F1) → Hotkeys opens the F12 key bindings window (`KeyBindingsControl`): the server still sends HotkeyHelpOpen, and `HandleHotkeyHelpOpen` answers it with key bindings. `HotkeyHelpControl` (the old fixed chart) is still built but nothing opens it.
-- Grid panels use `PanelBase` -> `PanelSlot` with slot number overlays and cooldown rendering
-- Server-driven UI: many panels (exchange, dialog, equipment, profile) are populated by server packets, not client state
-- Emote hotkeys: Ctrl+1-0/- (BodyAnimation 9-19), Ctrl+Alt+1-0/- (23-33), Alt+1-0/- (34-44)
-- Slot hotkeys: 1-9, 0, -, = -> UseItem/UseSkill/UseSpell depending on active panel
+
+- `PrefabPanel` (prefab)/`UIPanel` (manual); build only needed controls via `CreateButton`/`CreateImage`/`CreateLabel`/`CreateTextBox`/`CreateProgressBar` (no auto-populate).
+- Popups `Show()`/`Hide()` under WorldScreen Root.
+- HUD `IWorldHud`: `WorldHudControl`/`LargeWorldHudControl`; tabs share center-bottom via `ShowTab(HudTab)`, one visible.
+- `Controls/World/`: `Hud/`,`Hud/Panel/`,`Hud/Panel/Slots/`,`Popups/`(`Popups/Boards/`,`Popups/Dialog/`,`Popups/Exchange/`,`Popups/Options/`,`Popups/Profile/`,`Popups/WorldList/`,`Popups/Tcg/`,`Popups/Crafting/`,`Popups/Bank/`,`Popups/Market/`,`Popups/Fishing/`,`Popups/Poker/`,`Popups/Slots/`,`Popups/Wheel/`,`Popups/RingToss/`,`Popups/MountRace/`),`ViewPort/`; shared `Controls/Components/`; restyled `Controls/Custom/`; login `Controls/LobbyLogin/`; generic `Controls/Generic/`.
+- Hotkeys are player-rebindable through F12, with chord dispatch and a separate armed-only Targeting scope; Escape/F11/F12/Alt+Enter stay fixed.
+- HUD letters, emote chords, slot keys and hotkey help follow fixed maps and flows.
+- Grids `PanelBase`->`PanelSlot` (slot-number overlays,cooldown rendering); exchange/dialog/equipment/profile panels server-driven.
 
 ### Quest & Dialog Conventions
-- Always implement quests with `Quest<TStage>` (QuestBuilder). No quest logic in dialog scripts or reactor scripts.
-- Quest dialogs go in `Dialogs/[Region]/Quests/[QuestName]/`, never in the NPC's own dialog folder.
-- Inject quest options via `InsertOption(optionText, dialogKey, 0)` in `OnDisplaying("npc_initial")` — never modify the NPC's `*_initial` dialog directly.
-- Always send an orange bar message when advancing a quest stage.
-- Use `DialogMenu` when offering a quest — include an accept option and a decline option with `dialogKey: "close"`.
 
-**Hard limits:**
-- Orange bar text: 45 characters max
-- Dialog option text: 35 characters max
-- Dialog text: 90 characters per line, 360 characters total in the dialog box (4 lines)
-- No em dashes (`—`) in JSON — use hyphens (`-`)
+- `Quest<TStage>` (QuestBuilder) only; no quest logic in dialog/reactor scripts.
+- Quest dialogs in `Dialogs/[Region]/Quests/[QuestName]/`,never NPC folder.
+- `InsertOption(optionText, dialogKey, 0)` in `OnDisplaying("npc_initial")`; never edit `*_initial`.
+- Orange-bar message every stage advance; offer via `DialogMenu` with accept+decline (`dialogKey: "close"`).
+- Limits: orange bar 45 characters max; options 35 characters max; dialog 90 characters/line,360 characters total (4 lines); no `—` in JSON,use `-`.
 
 ### Architecture Patterns
-- **Screens own controls:** WorldScreen creates and manages all world UI controls as children of its Root UIPanel
-- **WorldScreen partial classes:** Split by concern (Draw, Update, Input, ServerHandlers, Wiring, Map) for maintainability
-- **Events bridge network to UI:** ConnectionManager fires events -> WorldScreen subscribes -> creates/updates/shows controls
-- **ViewModel state:** WorldState is a static class exposing ViewModel objects (Inventory, SkillBook, etc.) updated by server packets. Controls access state directly via `WorldState.Xxx` -- no constructor injection needed.
-- **Cache-on-demand:** All renderers cache textures lazily and clear on map change
-- **Data bag entities:** WorldEntity holds all state; AnimationSystem provides pure functions
-- **Separation:** Rendering layer has no dependency on Networking; coordination happens in Client project
-- **Global entity wiring:** ChaosGame wires entity tracking events at construction (before WorldScreen exists)
-- **Pathfinding:** Right-click A* to tile/entity, entity following with auto-assail, arrow/spacebar cancels
-- **Casting flow:** CastingSystem coordinates targeting -> UseSpellOnTarget and chant progress
-- **Tab targeting:** optional (F4 → Controls → "Tab targeting", `ClientSettings.TabTargeting`, off by default). The server sends each spell's `filter` script var in `SetSpellTargetFilter` (opcode 141) right after `AddSpellToPane`; the client keeps it in `SpellBook.GetTargetFilter` as `Systems/SpellTargetFilter`. `Systems/TabTargeting` is the pure selector (eligibility, nearest-first order, cycling); `Screens/WorldScreen.TabTargeting.cs` gathers on-screen candidates from `EntityHitBoxes` and draws the light-blue box. The keys are the F12 Targeting bindings (`GameAction.Target*`; defaults Tab = next, Shift+Tab = previous, Space = cast, Esc = cancel, F1 = self, F2-F6 = group panels 1-5 via `GroupPanelStack.OrderedNames`, F7/F8 = nearest/furthest hostile); the arrows are fixed (Right/Down = next, Left/Up = previous for entity spells; a tile step for ground spells). Spells are offensive or supportive by filter (`TabTargeting.IsOffensive`: HostileOnly/NonFriendlyOnly/MonstersOnly, or no filter at all; heals and cures are only AliveOnly on the server, so they read as supportive), and each kind keeps its own last target (`LastOffensiveTargetId`/`LastSupportiveTargetId`, set on every entity cast, by click or key, before `SelectTarget` disarms the spell). Supportive spells never offer monsters when tabbing. While a non-ground spell is armed, an offensive spell boxes its last target while it lives, else the nearest enemy, else the player (held until an enemy appears); a supportive spell boxes its last target while it lives, else the player, else the nearest candidate. When the boxed target leaves, `Retarget` picks again the same way. While a ground spell is armed: the indicator starts on that same pick (else the player), the arrows move it a tile (`TabTargeting.AimTile`, walking directions), the pick keys move it onto an entity's tile, and cast casts there; moving the mouse hands the aim back to the mouse. Those keys skip their normal bindings (Space = assail) only while a spell is armed; Cast with nothing to cast on falls through
 
-## Control File Reference
-
-Control files (`.txt` + `.spf`/`.epf`) define UI panel layouts. Loaded via `DataContext.UserControls.Get("_name")` -> `ControlPrefabSet`. Full catalog of all control files, their image references, consuming classes, format specification, and ControlType enum is in `controlFileList.txt` at solution root.
-
-### Pattern: Building a Panel from a ControlPrefabSet
-```csharp
-// Extend PrefabPanel -- constructor handles anchor dimensions, centering, and background
-public sealed class MyPanel : PrefabPanel
-{
-    public UIButton? OkButton { get; }
-    public UIButton? CancelButton { get; }
-
-    public MyPanel(GraphicsDevice device) : base(device, "_name")
-    {
-        // Create controls by name from the prefab definition
-        OkButton = CreateButton("OK");
-        CancelButton = CreateButton("Cancel");
-        var title = CreateLabel("Title", TextAlignment.Center);
-        var icon = CreateImage("Icon");
-        var inputRect = GetRect("InputArea");  // rect-only lookup, no child created
-    }
-}
-```
-
-## Isometric Rendering Reference
-
-Tile dimensions: 56x27 pixels, half-tile: 28x14 (from `DALib.Definitions.CONSTANTS`).
-
-```
-Tile -> Pixel (from Graphics.RenderMap):
-  initialDrawX = (mapHeight - 1) * 28
-  For each tile (x, y):
-    pixelX = initialDrawX + x * 28    (initialDrawX decrements by 28 each y row)
-    pixelY = initialDrawY + x * 14    (initialDrawY increments by 14 each y row)
-
-Foreground tile positioning:
-  lfgDrawX = same as bgDrawX
-  lfgDrawY = bgDrawY + (x+1) * 14 - image.Height + 14  (bottom-aligned)
-  Only render if tileIndex.IsRenderedTileIndex() -> (index > 10012) || ((index % 10000) > 12)
-
-Draw order (painter's algorithm -- diagonal stripe, see WorldScreen.Draw.cs):
-  1. Background tiles (floor) -- y-major, x-minor order
-  2. Tile cursor highlight
-  3. Foreground tiles + Entities + Effects -- diagonal stripe (depth = x+y ascending), X ascending within stripe; ground effects in stripe, entity effects after entity
-  4. Silhouettes -- blocked-entity outlines behind foreground
-  5. DarknessRenderer -- light/darkness overlay (if MapFlags has Darkness; strength follows the Theatre house level)
-  5b. SpotlightRenderer -- Theatre spotlight colour (additive), whenever a stage lighting setup has lights
-  6. WeatherRenderer -- snow/rain overlay (low nibble 1/2 of MapFlags)
-  6b. AmbientEffects -- fog, lightning, mists, particles (ghosts among them), then fly-bys (bats) last (one screen-space batch per active overlay)
-  7. Viewport overlays (health bars, chat bubbles, chant text, etc.)
-  8. Debug renderer (draw counts, gridlines, toggled via debug flags)
-  9. Tab map overlay -- on top of world, under HUD (Tab key toggle)
-  10. UI overlay (Root panel) -- popups, HUD; separate SpriteBatch pass, no camera transform
-  11. Drag icon -- always topmost
-```
-
-## DALib Key Types
-
-- **`MapFile`** -- `Tiles[x,y]` returns `MapTile` with `.Background`, `.LeftForeground`, `.RightForeground`
-- **`Tileset`** -- `Collection<Tile>`, indexed by background tile ID
-- **`Tile`** -- 56x27 palettized pixel data
-- **`HpfFile`** -- Foreground tile, 28px wide, variable height
-- **`Palette`** -- 256 SKColors. `Dye(colorTableEntry)` returns new palette with dye colors at index 98+.
-- **`PaletteLookup`** -- Maps tile IDs to palettes via PaletteTable. Khan archives use `KhanPalOverrideType.Male`/`.Female`.
-- **`ColorTable`** -- Dye color table from `.tbl` files. `ColorTableEntry` has `Colors[]` (6 SKColors for palette dye slots).
-- **`EpfFile/MpfFile/EfaFile`** -- Sprite/animation formats with frame collections
-- **`Palettized<T>`** -- Generic wrapper: `.Entity` + `.Palette`, implements IDisposable
-- **`DataArchive`** -- DAT file container. `archive["filename"]` or `archive.TryGetValue(name, out entry)`
+- WorldScreen owns all world UI (children of Root UIPanel); partials split by concern.
+- Network->UI: ConnectionManager events,WorldScreen subscribes,builds/updates/shows controls.
+- `WorldState` static exposes ViewModels updated by server packets; controls read `WorldState.Xxx` directly,no injection.
+- Renderers cache lazily,`Clear()` on map change; `WorldEntity` data bag,`AnimationSystem` pure functions.
+- Rendering never depends on Networking; Client coordinates; `ChaosGame` wires entity tracking at construction,before WorldScreen exists.
+- Right-click A* to tile/entity,follow+auto-assail; arrows/spacebar cancel.
+- `CastingSystem`: targeting->`UseSpellOnTarget`+chant progress.
+- Tab targeting is opt-in with per-spell filters, F12 chords and kind-specific picks.
 
 ## graphify
 
