@@ -336,6 +336,9 @@ public sealed partial class WorldScreen : IScreen
 
     /// <inheritdoc />
     public UIPanel? Root { get; private set; }
+#if DEBUG
+    internal short DebugMapId => CurrentMapId;
+#endif
 
     /// <inheritdoc />
     //the dispatcher outlives this screen — drop the predicate so it doesn't keep answering (or keep this screen alive)

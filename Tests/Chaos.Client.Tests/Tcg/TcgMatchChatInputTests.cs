@@ -21,7 +21,7 @@ namespace Chaos.Client.Tests;
 ///     past the window the way FocusChat ("Type in Chat") used to when it stayed usable over
 ///     popups - so a bubble-through would focus the HUD box and show up there.
 /// </summary>
-[NotInParallel]
+[NotInParallel(nameof(InputBuffer))]
 public sealed class TcgMatchChatInputTests
 {
     private sealed class FakeRoot : UIPanel

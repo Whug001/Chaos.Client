@@ -1,0 +1,11 @@
+{
+  "unoraPath": "C:\\Users\\Michael\\Documents\\GitHub\\Unora",
+  "clientRepo": "C:\\Users\\Michael\\Documents\\GitHub\\Chaos.Client",
+  "worktreeRoot": "C:\\Users\\Michael\\Documents\\GitHub\\worktrees",
+  "gameDataPath": "C:\\Users\\Michael\\Documents\\Unora\\Unora Files",
+  "password": "ptpass1",
+  "clients": ["Dose", "Whug", "Bob"],
+  "portBase": 4300,
+  "loginWaitSeconds": 90,
+  "runMinutes": 45
+}
