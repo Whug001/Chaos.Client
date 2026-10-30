@@ -104,4 +104,28 @@ public class UITextBoxTests
 
         box.Text.Should().EndWith("a");
     }
+
+    [Test]
+    public void ClickingAnAlreadyFocusedBoxReannouncesFocusWithoutRefiringOnFocused()
+    {
+        var box = FocusedBox();
+        UITextBox? announced = null;
+        var refired = 0;
+        void Handler(UITextBox b) => announced = b;
+        void Focused(UITextBox b) => refired++;
+        UITextBox.TextBoxFocusGained += Handler;
+        box.OnFocused += Focused;
+
+        try
+        {
+            box.OnMouseDown(new MouseDownEvent { Button = MouseButton.Left });
+            announced.Should().BeSameAs(box);
+            refired.Should().Be(0);
+        }
+        finally
+        {
+            UITextBox.TextBoxFocusGained -= Handler;
+            box.OnFocused -= Focused;
+        }
+    }
 }

@@ -140,6 +140,7 @@ public sealed class PartyCardControl : GuildCloakDialogBase
 
         if (info.Phase is PartyPhase.Waiting or PartyPhase.Ended)
         {
+            AnswerBox.IsFocused = false;
             Hide();
 
             return;
@@ -356,6 +357,9 @@ public sealed class PartyCardControl : GuildCloakDialogBase
             AnswerBox.Text = string.Empty;
             AnswerBox.IsFocused = false;
         }
+
+        if (!AnswerBox.Visible)
+            AnswerBox.IsFocused = false;
 
         Height = y + FOOTER_PAD;
 

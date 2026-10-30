@@ -989,7 +989,10 @@ public class UITextBox : UIElement, IVerticalScrollable
         {
             IsFocused = true;
             OnFocused?.Invoke(this);
-        }
+        } else
+            //already focused but routing may have been cleared elsewhere; re-announce
+            //so the dispatcher points at this box again without refiring OnFocused.
+            TextBoxFocusGained?.Invoke(this);
 
         e.Handled = true;
     }
