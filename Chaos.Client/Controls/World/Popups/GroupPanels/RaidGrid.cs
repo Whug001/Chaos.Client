@@ -94,6 +94,12 @@ public sealed class RaidGrid : UIPanel
     /// <summary>Raised with a member's name when their cell is clicked.</summary>
     public event Action<string>? MemberClicked;
 
+    /// <summary>
+    ///     True while a ground-targeted spell is being aimed. Cell clicks then fall through to the
+    ///     ground tile underneath instead of selecting a member.
+    /// </summary>
+    public Func<bool>? IsGroundAiming { get; set; }
+
     private bool ShouldShow
         => ClientSettings.GroupPanelEnabled && ClientSettings.RaidGridView && WorldState.GroupMembers.IsRaid && !Suppressed;
 
@@ -232,6 +238,11 @@ public sealed class RaidGrid : UIPanel
     public override void OnClick(ClickEvent e)
     {
         if (!ShouldShow || (e.Button != MouseButton.Left))
+            return;
+
+        //while a ground-targeted spell is being aimed the click belongs to the tile underneath,
+        //so it falls through instead of selecting a member
+        if (IsGroundAiming?.Invoke() == true)
             return;
 
         if (EntryAt(e.ScreenX - ScreenX, e.ScreenY - ScreenY) is not { } entry)

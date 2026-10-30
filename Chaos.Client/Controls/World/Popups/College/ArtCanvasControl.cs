@@ -91,6 +91,7 @@ public sealed class ArtCanvasControl : GuildCloakDialogBase
     private readonly Dictionary<ArtTool, CustomButton> ToolButtons = new();
     private readonly CustomButton UndoButton;
 
+    private readonly DraftAutosave Autosave = new();
     private bool CloseArmed;
 
     //Close sent a save and waits for its Saved before hiding
@@ -316,6 +317,23 @@ public sealed class ArtCanvasControl : GuildCloakDialogBase
     public void Open(CollegeDisplayArgs args)
     {
         var wasHandIn = Visible && (Mode == ArtCanvasMode.HandIn);
+
+        //a server draft arriving while the editor holds unsaved changes for the same draft keeps the
+        //local work (like the writing window): the save goes out first and nothing is reloaded
+        if (Visible && (Session is not null) && (Mode != ArtCanvasMode.Picture) && IsDirty
+            && (args.Mode == Session.Mode) && (args.Subject == Session.Subject)
+            && ((Mode != ArtCanvasMode.Library) || (args.Id == LibraryBookId)))
+        {
+            Session = args;
+
+            if ((Mode == ArtCanvasMode.Draft) || LibraryMode)
+                Send(CollegeActionType.SaveDraft);
+
+            DisarmSubmit();
+
+            return;
+        }
+
         Session = args;
         Mode = args.Mode switch
         {
@@ -503,6 +521,9 @@ public sealed class ArtCanvasControl : GuildCloakDialogBase
         FinishCoverPicking();
 
         if (Visible)
+            AutosaveDraft();
+
+        if (Visible)
         {
             var counter = $"{NoteBox.Text.Length}/{CollegeProtocol.MAX_ART_NOTE_CHARS}";
 
@@ -602,6 +623,18 @@ public sealed class ArtCanvasControl : GuildCloakDialogBase
         EditingSwatch = -1;
         Picker.Visible = false;
         PickerCancel.Visible = false;
+    }
+
+    private void AutosaveDraft()
+    {
+        if ((Session is null) || ((Mode != ArtCanvasMode.Draft) && !LibraryMode) || ClosingOnSave || SubmitArmed || CloseArmed)
+            return;
+
+        if (LibraryMode && (CoverUpload.Length > 0))
+            return;
+
+        if (Autosave.IsDue(IsDirty, DateTime.UtcNow))
+            Send(CollegeActionType.SaveDraft);
     }
 
     private void OnSaveClicked()

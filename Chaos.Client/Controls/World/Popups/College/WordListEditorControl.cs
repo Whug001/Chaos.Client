@@ -78,7 +78,8 @@ public sealed class WordListEditorControl : GuildCloakDialogBase
     private readonly UILabel WordLabel;
     private readonly UILabel WordsLabel;
 
-    private bool AwaitingSave;
+    private readonly DraftAutosave Autosave = new();
+    private readonly PendingSave Saver = new();
     private bool BackAfterSave;
     private List<CollegeWordListRowInfo> BankRows = [];
     private int BankPage;
@@ -90,7 +91,6 @@ public sealed class WordListEditorControl : GuildCloakDialogBase
     private int RefusedVersion = -1;
     private int ScrollTop;
     private int SelectedRow = -1;
-    private int SentVersion;
     private int ShownVersion = -1;
 
     public WordListDocument Document { get; } = new();
@@ -320,7 +320,7 @@ public sealed class WordListEditorControl : GuildCloakDialogBase
         if (draft is null)
             return;
 
-        if (EditingPage && !IsQuick && !IsPreview && (mode != WordListEditMode.Quick))
+        if (EditingPage && !IsQuick && !IsPreview)
         {
             Pull();
 
@@ -329,7 +329,7 @@ public sealed class WordListEditorControl : GuildCloakDialogBase
         }
 
         Document.Load(id, draft, mode);
-        AwaitingSave = false;
+        Saver.Reset();
         BackAfterSave = false;
         RefusedVersion = -1;
         DeleteArmed = string.Empty;
@@ -350,38 +350,54 @@ public sealed class WordListEditorControl : GuildCloakDialogBase
         Status.Text = message;
 
         //Copy and Delete results only need the status line; the list that follows refreshes page 1
-        if (!AwaitingSave)
+        if (!Saver.AwaitingSave)
             return false;
-
-        AwaitingSave = false;
 
         if (code == WordListResultCode.Saved)
         {
+            var sentVersion = Saver.SentVersion;
+
+            //the in-flight save answered; a logout or exit save queued behind it still has to go out
+            var followUp = Saver.TakeQueued(Document.IsDirty, Document.Version, RefusedVersion);
+
             if (Document.Id.Length == 0)
                 Document.SetId(id);
 
             //typing after Save was pressed is still unsaved
-            if (Document.Version == SentVersion)
+            if (Document.Version == sentVersion)
                 Document.MarkClean();
 
             //typing after Back was pressed stays on page 2, still unsaved
-            if (BackAfterSave && (Document.Version == SentVersion))
+            if (BackAfterSave && (Document.Version == sentVersion))
             {
                 BackAfterSave = false;
                 GoToList();
             }
 
-            BackAfterSave = false;
+            if (followUp)
+            {
+                var back = BackAfterSave;
+                BackAfterSave = false;
+                Save(back);
+            }
+            else
+            {
+                BackAfterSave = false;
 
-            //the player closed while this save was in flight, so edits made since were never sent
-            if (!Visible && Document.IsDirty)
-                Save(false);
+                //the player closed while this save was in flight, so edits made since were never sent
+                if (!Visible && Document.IsDirty)
+                    Save(false);
+            }
 
             return false;
         }
 
         BackAfterSave = false;
-        RefusedVersion = SentVersion;
+        RefusedVersion = Saver.SentVersion;
+
+        //a save queued while this one was in flight still has newer edits the server never saw
+        if (Saver.TakeQueued(Document.IsDirty, Document.Version, RefusedVersion))
+            Save(false);
 
         if (Visible)
             return false;
@@ -412,6 +428,8 @@ public sealed class WordListEditorControl : GuildCloakDialogBase
 
             if (Document.Version != ShownVersion)
                 RefreshEdit();
+
+            AutosaveDraft();
         }
 
         base.Update(gameTime);
@@ -500,17 +518,26 @@ public sealed class WordListEditorControl : GuildCloakDialogBase
         Raise(new CollegeActionArgs { Type = CollegeActionType.WordListOpen });
     }
 
+    private void AutosaveDraft()
+    {
+        if (!EditingPage || IsQuick || IsPreview || Saver.AwaitingSave || Saver.SaveQueued)
+            return;
+
+        if (Autosave.IsDue(Document.IsDirty && (Document.Version != RefusedVersion), DateTime.UtcNow))
+            Save(false);
+    }
+
     private void Save(bool thenBack)
     {
         Pull();
 
-        //a second save while one is in flight could make a second list, or let an older save land last
-        if (AwaitingSave)
+        BackAfterSave = thenBack;
+
+        //a second save while one is in flight is queued behind it instead of dropped, so a logout or
+        //exit save still sends the newest edits when the pending save answers
+        if (!Saver.TryBegin(Document.Version))
             return;
 
-        AwaitingSave = true;
-        BackAfterSave = thenBack;
-        SentVersion = Document.Version;
         Status.Text = "Saving...";
 
         Raise(
@@ -576,7 +603,7 @@ public sealed class WordListEditorControl : GuildCloakDialogBase
         }
 
         Document.New(WordListEditMode.Saved);
-        AwaitingSave = false;
+        Saver.Reset();
         BackAfterSave = false;
         RefusedVersion = -1;
         ScrollTop = 0;

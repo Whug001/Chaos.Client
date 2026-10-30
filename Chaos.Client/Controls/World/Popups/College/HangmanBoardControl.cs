@@ -62,6 +62,8 @@ public sealed class HangmanBoardControl : GuildCloakDialogBase
     private bool Hidden;
     private bool SolveShown;
     private HangmanBoardState? State;
+    private HangmanTurnStrip? StripCache;
+    private CollegeHangmanInfo? StripInfo;
     private bool WasMyTurn;
     private string Viewer = string.Empty;
 
@@ -140,6 +142,8 @@ public sealed class HangmanBoardControl : GuildCloakDialogBase
     public void Close()
     {
         State = null;
+        StripCache = null;
+        StripInfo = null;
         DismissedNumber = -1;
         Hidden = false;
         WasMyTurn = false;
@@ -234,6 +238,19 @@ public sealed class HangmanBoardControl : GuildCloakDialogBase
                 LegendColors.Red * 0.45f);
     }
 
+    private HangmanTurnStrip StripFor(CollegeHangmanInfo info)
+    {
+        //the strip only depends on the game snapshot, so keep it across frames and rebuild on a new one
+        if ((StripCache is null) || !ReferenceEquals(info, StripInfo))
+        {
+            var current = info.Phase == HangmanPhase.Solving ? info.Solver : string.Empty;
+            StripCache = new HangmanTurnStrip(info.Players, current, Viewer);
+            StripInfo = info;
+        }
+
+        return StripCache;
+    }
+
     private void Buzz()
     {
         if (State is not { ShowBuzz: true })
@@ -303,8 +320,7 @@ public sealed class HangmanBoardControl : GuildCloakDialogBase
 
     private void DrawStrip(SpriteBatch spriteBatch, CollegeHangmanInfo info)
     {
-        var current = info.Phase == HangmanPhase.Solving ? info.Solver : string.Empty;
-        var strip = new HangmanTurnStrip(info.Players, current, Viewer);
+        var strip = StripFor(info);
         var turnLive = info.Phase is HangmanPhase.Open or HangmanPhase.Solving;
 
         if (strip.Entries.Count == 0)

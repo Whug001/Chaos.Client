@@ -118,6 +118,8 @@ public sealed class HotbarControl : UIPanel
 
     /// <summary>The slot a drag is hovering over, outlined to show where it would land, or -1.</summary>
     private int DropSlot = -1;
+    private readonly Dictionary<GameAction, string> KeyLabelCache = new();
+    private int KeyLabelVersion = -1;
 
     public HotbarControl(int index, Rectangle screenArea, Rectangle viewportArea)
     {
@@ -822,7 +824,7 @@ public sealed class HotbarControl : UIPanel
     /// </summary>
     private void DrawKeyLabel(SpriteBatch spriteBatch, int slot, Rectangle rect)
     {
-        var label = KeyLabel(GameActions.HotbarAction(Index, slot));
+        var label = CachedKeyLabel(GameActions.HotbarAction(Index, slot));
 
         if (string.IsNullOrEmpty(label))
             return;
@@ -834,6 +836,26 @@ public sealed class HotbarControl : UIPanel
             LabelText,
             Shadow,
             false);
+    }
+
+    /// <summary>The slot's key label, cached while the bindings are unchanged so the per-frame draw never re-runs the chord iterator.</summary>
+    private string CachedKeyLabel(GameAction action)
+    {
+        var version = KeyBindings.Current.Version;
+
+        if (version != KeyLabelVersion)
+        {
+            KeyLabelCache.Clear();
+            KeyLabelVersion = version;
+        }
+
+        if (!KeyLabelCache.TryGetValue(action, out var label))
+        {
+            label = KeyLabel(action);
+            KeyLabelCache[action] = label;
+        }
+
+        return label;
     }
 
     /// <summary>The compact label for an action's first bound key, or empty when it has none or the label is too long.</summary>

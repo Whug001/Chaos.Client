@@ -105,7 +105,15 @@ public sealed class CausewayState
         return null;
     }
 
-    public CausewayLane? RiverLaneAt(int row) => AllLanes.FirstOrDefault(l => (l.Row == row) && (l.Kind != CausewayLaneKind.Road));
+    public CausewayLane? RiverLaneAt(int row)
+    {
+        //a loop, not FirstOrDefault: the predicate lambda allocates a closure on every lane lookup
+        foreach (var lane in AllLanes)
+            if ((lane.Row == row) && (lane.Kind != CausewayLaneKind.Road))
+                return lane;
+
+        return null;
+    }
 
     private void Sync(DrownedCausewayStateArgs args, double now, double latencySeconds)
     {

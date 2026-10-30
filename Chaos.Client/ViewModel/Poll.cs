@@ -23,6 +23,22 @@ public sealed class Poll
 
     private double SecondsSinceUpdate = double.MaxValue;
 
+    /// <summary>
+    ///     Forgets the poll and the local vote. Call on logout / character switch, so the next
+    ///     character never sees the last one's selection or a stale open poll.
+    /// </summary>
+    public void Clear()
+    {
+        Title = string.Empty;
+        IsOpen = false;
+        IsClosed = false;
+        SecondsRemaining = 0;
+        WinningIndex = -1;
+        Options = [];
+        MyVoteIndex = -1;
+        SecondsSinceUpdate = double.MaxValue;
+    }
+
     //shown only while the poll is open AND the server is still sending us updates (i.e. we're in
     //the audience). Closes immediately on a Closed snapshot, or after the staleness window if we
     //leave the audience and updates stop.

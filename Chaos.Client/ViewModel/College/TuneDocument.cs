@@ -197,6 +197,21 @@ public sealed class TuneDocument
 
     public void MarkClean() => IsDirty = false;
 
+    /// <summary>
+    ///     A contest entry was accepted for the snapshot submitted at <paramref name="submittedVersion" />:
+    ///     marks the tune saved only when nothing changed since that submit, so edits made after
+    ///     entering stay dirty. True when it was marked.
+    /// </summary>
+    public bool TryAcceptSubmission(int submittedVersion)
+    {
+        if (Version != submittedVersion)
+            return false;
+
+        IsDirty = false;
+
+        return true;
+    }
+
     private int IndexAt(TuneLayer layer, int row, int column) => NoteList.FindIndex(n => n.Covers(layer, row, column));
 
     private void Bump()

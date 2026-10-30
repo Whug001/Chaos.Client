@@ -546,6 +546,7 @@ public static class WorldState
         TcgRanked.Clear();
         PokerTable.Clear();
         BeautyShop.Clear();
+        Poll.Clear();
     }
 
     /// <summary>

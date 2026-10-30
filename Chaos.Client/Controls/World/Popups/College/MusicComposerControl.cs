@@ -101,6 +101,8 @@ public sealed class MusicComposerControl : GuildCloakDialogBase
     private string SavedTitle = string.Empty;
     private CollegeDisplayArgs? Session;
     private bool SubmitArmed;
+    private readonly DraftAutosave Autosave = new();
+    private int SubmittedVersion = -1;
     private bool TuneDirty;
 
     public MusicComposerControl(TunePlayer player)
@@ -255,6 +257,22 @@ public sealed class MusicComposerControl : GuildCloakDialogBase
     public void Open(CollegeDisplayArgs args)
     {
         var wasHandIn = Visible && (Mode == MusicComposerMode.HandIn);
+
+        //a server draft arriving while the composer holds unsaved changes for the same draft keeps
+        //the local work (like the writing window): the save goes out first and nothing is reloaded
+        if (Visible && (Session is not null) && IsDirty
+            && (args.Mode == Session.Mode) && (args.Subject == Session.Subject))
+        {
+            Session = args;
+
+            if (Mode == MusicComposerMode.Draft)
+                Send(CollegeActionType.SaveDraft);
+
+            DisarmSubmit();
+
+            return;
+        }
+
         Contest = null;
         Session = args;
         Mode = args.Mode == CollegeWriterMode.HandIn ? MusicComposerMode.HandIn : MusicComposerMode.Draft;
@@ -384,6 +402,7 @@ public sealed class MusicComposerControl : GuildCloakDialogBase
     {
         if (Visible)
         {
+            AutosaveDraft();
             var counter = $"{NoteBox.Text.Length}/{CollegeProtocol.MAX_MUSIC_NOTE_CHARS}";
 
             if (NoteCounter.Text != counter)
@@ -416,6 +435,7 @@ public sealed class MusicComposerControl : GuildCloakDialogBase
         CloseArmed = false;
         ClosingOnSave = false;
         Loop = false;
+        SubmittedVersion = -1;
         Grid.SelectedLayer = TuneLayer.Melody;
         TitleBox.IsFocused = false;
         NoteBox.IsFocused = false;
@@ -484,6 +504,15 @@ public sealed class MusicComposerControl : GuildCloakDialogBase
 
     //asked at the end of each pass: the tune as it is now while Loop is on, so edits are heard on the next pass
     private TuneData? LoopSource() => Loop && Visible ? Document.Snapshot() : null;
+
+    private void AutosaveDraft()
+    {
+        if ((Mode != MusicComposerMode.Draft) || (Session is null) || ClosingOnSave || SubmitArmed || CloseArmed)
+            return;
+
+        if (Autosave.IsDue(IsDirty, DateTime.UtcNow))
+            Send(CollegeActionType.SaveDraft);
+    }
 
     private void OnSaveClicked()
     {
@@ -631,6 +660,8 @@ public sealed class MusicComposerControl : GuildCloakDialogBase
             return;
         }
 
+        SubmittedVersion = Document.Version;
+
         ContestEntryRequested?.Invoke(
             new TownContestActionArgs
             {
@@ -650,7 +681,10 @@ public sealed class MusicComposerControl : GuildCloakDialogBase
         if ((Mode != MusicComposerMode.Contest) || (Contest is null) || (Contest.ContestId != args.ContestId))
             return;
 
-        MarkSaved();
+        //only the snapshot that was submitted counts as saved; edits made after Enter stay dirty
+        if (Document.TryAcceptSubmission(SubmittedVersion))
+            MarkSaved();
+
         Status.Text = "Entered. You can change it until entries close.";
     }
 

@@ -57,6 +57,8 @@ public sealed class HangmanTeacherPanel : GuildCloakDialogBase
     private int AddScrollTop;
     private int ScrollTop;
     private string SelectedName = string.Empty;
+    private CollegeHangmanInfo? ShownInfo;
+    private int ShownSecond = -1;
 
     public event Action<CollegeActionArgs>? ActionRequested;
 
@@ -139,7 +141,15 @@ public sealed class HangmanTeacherPanel : GuildCloakDialogBase
         if (Visible && Hangman is { Phase: HangmanPhase.Open or HangmanPhase.Solving })
         {
             Countdown.Advance(gameTime.ElapsedGameTime.TotalSeconds);
-            ShowRows();
+
+            //the rows carry the turn countdown, so they only need a rebuild when the game or the
+            //shown second changed, not every frame
+            if (!ReferenceEquals(Hangman, ShownInfo) || (Countdown.Left != ShownSecond))
+            {
+                ShownInfo = Hangman;
+                ShownSecond = Countdown.Left;
+                ShowRows();
+            }
         }
 
         base.Update(gameTime);

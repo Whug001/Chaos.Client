@@ -819,6 +819,7 @@ public sealed partial class WorldScreen : IScreen
         GroupVitals = new GroupPanelStack(Game.AislingRenderer, viewport);
         RaidVitals = new RaidGrid(viewport);
         RaidVitals.MemberClicked += CastOnGroupMember;
+        RaidVitals.IsGroundAiming = () => CastingSystem.IsGroundTargeting;
 
         AislingContext = new AislingContextMenu
         {

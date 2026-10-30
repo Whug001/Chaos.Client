@@ -673,6 +673,11 @@ public sealed partial class WorldScreen
                 if (target is null)
                     continue;
 
+                //a background effect pinned to an entity hides with its owner, like the owners own
+                //effects do (see DrawEntityEffects): the arenas blackout hides both or neither
+                if (TumbleHidesOverlays(target) || GlassHidesOverlays(target))
+                    continue;
+
                 var targetWorld = Camera.TileToWorld(target.TileX, target.TileY, MapFile.Height);
 
                 DrawSingleEffect(

@@ -24,6 +24,9 @@ public sealed class KeyBindingTable
     /// <summary>The prefix of a binding's line in the settings file: "Bind.MoveUp : Up, C".</summary>
     public const string SETTINGS_PREFIX = "Bind.";
 
+    /// <summary>Goes up on every change, so per-frame readers can cache against it instead of re-reading chords.</summary>
+    public int Version { get; private set; }
+
     private static readonly Scancode[] NumberRow =
     [
         Scancode.D1,
@@ -100,18 +103,18 @@ public sealed class KeyBindingTable
                 if ((Chords[(int)other, otherSlot] != chord) || !SameScope(action, other))
                     continue;
 
-                Chords[(int)other, otherSlot] = KeyChord.None;
+                Assign(other, otherSlot, KeyChord.None);
 
                 if (other != action)
                     takenFrom = other;
             }
 
-        Chords[(int)action, slot] = chord;
+        Assign(action, slot, chord);
 
         return new BindResult(true, takenFrom);
     }
 
-    public void Clear(GameAction action, int slot) => Chords[(int)action, slot] = KeyChord.None;
+    public void Clear(GameAction action, int slot) => Assign(action, slot, KeyChord.None);
 
     /// <summary>
     ///     The other song note already on <paramref name="key" />, if <paramref name="action" /> is a song note. Each note
@@ -210,7 +213,7 @@ public sealed class KeyBindingTable
     {
         foreach (var action in GameActions.All)
             for (var slot = 0; slot < SLOTS; slot++)
-                Chords[(int)action, slot] = DefaultChord(action, slot);
+                Assign(action, slot, DefaultChord(action, slot));
     }
 
     /// <summary>
@@ -230,13 +233,23 @@ public sealed class KeyBindingTable
                     foreach (var other in GameActions.All)
                         for (var otherSlot = 0; otherSlot < SLOTS; otherSlot++)
                             if (!reset.Contains(other) && (Chords[(int)other, otherSlot] == chord) && SameScope(action, other))
-                                Chords[(int)other, otherSlot] = KeyChord.None;
+                                Assign(other, otherSlot, KeyChord.None);
 
-                Chords[(int)action, slot] = chord;
+                Assign(action, slot, chord);
             }
     }
 
-    public void CopyFrom(KeyBindingTable other) => Array.Copy(other.Chords, Chords, Chords.Length);
+    public void CopyFrom(KeyBindingTable other)
+    {
+        Array.Copy(other.Chords, Chords, Chords.Length);
+        Version++;
+    }
+
+    private void Assign(GameAction action, int slot, KeyChord chord)
+    {
+        Chords[(int)action, slot] = chord;
+        Version++;
+    }
 
     /// <summary>One "Bind.Action : Primary, Secondary" line per action, for the settings file.</summary>
     public IEnumerable<string> ToSettingsLines()
@@ -274,9 +287,9 @@ public sealed class KeyBindingTable
                 foreach (var other in GameActions.All)
                     for (var otherSlot = 0; otherSlot < SLOTS; otherSlot++)
                         if ((Chords[(int)other, otherSlot] == chord) && SameScope(action, other))
-                            Chords[(int)other, otherSlot] = KeyChord.None;
+                            Assign(other, otherSlot, KeyChord.None);
 
-            Chords[(int)action, slot] = chord;
+            Assign(action, slot, chord);
         }
 
         return true;

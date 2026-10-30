@@ -188,6 +188,14 @@ public sealed class CraftingBrowserControl : PrefabPanel
         if ((e.Keycode == Keycode.Enter) && FilterBox.IsFocused)
         {
             FilterBox.IsFocused = false;
+
+            //IsFocused alone leaves the dispatchers explicit focus on the box, which keeps swallowing
+            //clicks outside the window: clear it too, like the confirm window does
+            var dispatcher = InputDispatcher.Instance;
+
+            if (dispatcher?.ExplicitFocus == FilterBox)
+                dispatcher.ClearExplicitFocus();
+
             e.Handled = true;
 
             return;
