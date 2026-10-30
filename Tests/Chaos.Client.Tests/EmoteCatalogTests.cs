@@ -108,9 +108,9 @@ public class EmoteCatalogTests
     }
 
     [Test]
-    public async Task The_catalog_has_forty_emotes()
+    public async Task The_catalog_has_forty_five_emotes()
     {
-        EmoteCatalog.All.Should().HaveCount(40);
+        EmoteCatalog.All.Should().HaveCount(45);
         await Task.CompletedTask;
     }
 }

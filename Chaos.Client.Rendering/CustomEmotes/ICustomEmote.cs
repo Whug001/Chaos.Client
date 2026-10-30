@@ -11,7 +11,7 @@ namespace Chaos.Client.Rendering.CustomEmotes;
 public interface ICustomEmote
 {
     /// <summary>
-    ///     The body-animation byte the client sends and listens for. It must be in the 1-44 range the server relays
+    ///     The body-animation byte the client sends and listens for. It must be in the 1-47 range the server relays
     ///     untouched, and must not be a defined <c>BodyAnimation</c> member.
     /// </summary>
     int BodyAnimation { get; }
@@ -30,6 +30,12 @@ public interface ICustomEmote
 
     /// <summary>Total length. Nothing is drawn from this point on.</summary>
     float DurationMs { get; }
+
+    /// <summary>
+    ///     True for emotes that stage a scene on the ground beside the aisling. They end as soon as the aisling walks,
+    ///     because the scene is drawn in composite coordinates and would otherwise slide along with them.
+    /// </summary>
+    bool EndsOnWalk => false;
 
     /// <summary>Draws the emote as it looks <paramref name="elapsedMs" /> after it started.</summary>
     void Draw(in CustomEmoteDrawContext context, float elapsedMs);

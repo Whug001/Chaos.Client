@@ -15,6 +15,7 @@ public abstract class PixelArtEmote : ICustomEmote
     public abstract int PreviewFrame { get; }
     public virtual int IconSourceFrame => CustomEmoteGeometry.PLAIN_FACE_FRAME;
     public abstract float DurationMs { get; }
+    public virtual bool EndsOnWalk => false;
 
     /// <summary>The moment whose layers become the wheel icon. Pick one where every layer is fully opaque.</summary>
     public abstract float IconTimeMs { get; }
@@ -27,6 +28,12 @@ public abstract class PixelArtEmote : ICustomEmote
     /// <param name="headBobRows">Rows the head sits lower on the current walk frame.</param>
     public abstract IReadOnlyList<PixelLayer> Compose(float elapsedMs, int headBobRows);
 
+    /// <summary>
+    ///     The layers painted onto the wheel icon. Defaults to the moment at <see cref="IconTimeMs" />; an emote whose
+    ///     full scene is too wide for a wheel slot can pick a smaller set.
+    /// </summary>
+    public virtual IReadOnlyList<PixelLayer> IconLayers() => Compose(IconTimeMs, 0);
+
     public void Draw(in CustomEmoteDrawContext context, float elapsedMs)
     {
         if ((elapsedMs < 0f) || (elapsedMs >= DurationMs))
@@ -37,7 +44,8 @@ public abstract class PixelArtEmote : ICustomEmote
         for (var i = 0; i < layers.Count; i++)
         {
             var layer = layers[i];
-            var texture = context.Textures.GetOrBuild(layer.Art);
+            var art = context.Flip && layer.MirroredArt is { } mirrored ? mirrored : layer.Art;
+            var texture = context.Textures.GetOrBuild(art);
 
             if (texture is not null)
                 context.DrawTexture(texture, layer.X, layer.Y, layer.Opacity);
@@ -50,5 +58,5 @@ public abstract class PixelArtEmote : ICustomEmote
     ///     and the icon layers land on the same pixels they cover in the world.
     /// </summary>
     public SKImage? BuildIcon(SKImage sourceFrame)
-        => PixelSprite.Stamp(sourceFrame, AislingRenderer.LAYER_OFFSET_PADDING, 0, Compose(IconTimeMs, 0));
+        => PixelSprite.Stamp(sourceFrame, AislingRenderer.LAYER_OFFSET_PADDING, 0, IconLayers());
 }
