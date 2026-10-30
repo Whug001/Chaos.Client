@@ -59,6 +59,29 @@ public sealed class PollPanel : UIPanel
         Visible = true;
     }
 
+    /// <summary>Truncates <paramref name="text" /> with an ellipsis so it fits <paramref name="maxWidth" /> pixels.</summary>
+    internal static string FitOptionText(string text, int maxWidth)
+    {
+        if (string.IsNullOrEmpty(text) || (maxWidth <= 0))
+            return string.Empty;
+
+        if (TextRenderer.MeasureWidth(text) <= maxWidth)
+            return text;
+
+        const string ELLIPSIS = "...";
+        var maxTextWidth = maxWidth - TextRenderer.MeasureWidth(ELLIPSIS);
+
+        if (maxTextWidth <= 0)
+            return ELLIPSIS;
+
+        var truncLen = text.Length;
+
+        while ((truncLen > 0) && (TextRenderer.MeasureWidth(text[..truncLen]) > maxTextWidth))
+            truncLen--;
+
+        return truncLen > 0 ? text[..truncLen] + ELLIPSIS : ELLIPSIS;
+    }
+
     private static bool IsCompact(int optionCount) => optionCount > ROOMY_OPTION_LIMIT;
 
     private static int RowHeight(int optionCount) => IsCompact(optionCount) ? COMPACT_ROW_H : ROW_H;
@@ -229,6 +252,8 @@ public sealed class PollPanel : UIPanel
             var mine = i == poll.MyVoteIndex;
             var won = poll.IsClosed && (i == poll.WinningIndex);
             var nameColor = mine || won ? White : Silver;
+            var cnt = o.Votes.ToString();
+            var maxTextWidth = w - (PAD * 2) - 7 - TextRenderer.MeasureWidth(cnt) - 4;
 
             //selected/winning marker
             if (mine || won)
@@ -244,11 +269,11 @@ public sealed class PollPanel : UIPanel
             TextRenderer.DrawShadowedText(
                 spriteBatch,
                 new Vector2(sx + PAD + 7, rowY),
-                o.Text,
+                FitOptionText(o.Text, maxTextWidth),
                 nameColor,
                 Shadow);
 
-            var cnt = o.Votes.ToString();
+
             TextRenderer.DrawShadowedText(
                 spriteBatch,
                 new Vector2(sx + w - PAD - TextRenderer.MeasureWidth(cnt), rowY),

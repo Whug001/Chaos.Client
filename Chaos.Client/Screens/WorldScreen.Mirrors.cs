@@ -33,6 +33,7 @@ public sealed partial class WorldScreen
     private readonly List<(ulong Key, Vector2 Tile, float Alpha)> MirrorDoubleDraws = [];
     private readonly List<WorldEntity> MirrorCandidates = [];
     private readonly Dictionary<ulong, WorldEntity> MirrorCellEntities = [];
+    private readonly HashSet<ulong> MirrorSeen = [];
     private readonly List<MirrorPlacement> MirrorPlacements = [];
     private readonly EntityTrail MirrorTrail = new();
     private readonly List<int> VisibleMirrorSegments = [];
@@ -68,6 +69,11 @@ public sealed partial class WorldScreen
     private void ResetMirrors()
     {
         WorldState.Mirrors.Clear();
+        foreach (var copy in MirrorCellEntities.Values)
+            Game.AislingRenderer.RemoveCachedEntity(copy.RenderCacheId);
+
+        MirrorCellEntities.Clear();
+        MirrorSeen.Clear();
         MirrorTrail.Clear();
         EndScare(stopSound: true);
         ScareSegmentId = null;
@@ -116,12 +122,13 @@ public sealed partial class WorldScreen
         CollectMirrorPlacements(nowMs, seconds);
 
         MirrorRenderer.BeginFrame();
-        MirrorCellEntities.Clear();
+        MirrorSeen.Clear();
 
         foreach (var placement in MirrorPlacements)
             ReserveMirrorCell(placement.EntityId, placement.Facing, placement.Idle);
 
         CollectMirrorDoubles(nowMs);
+        EvictStaleMirrorCells();
 
         MirrorRenderer.RenderAtlas(PaintMirrorCells);
         MirrorRenderer.RenderFaces(() => ComposeMirrorFaces(seconds));
@@ -197,11 +204,11 @@ public sealed partial class WorldScreen
         ScareRenderer?.End();
     }
 
-    /// <summary>The scare face, on top of the world and the HUD. Absent when no scare is playing.</summary>
+    /// <summary>The scare face, on top of the world and the HUD. Absent when no scare is playing. The lightning hide option suppresses its flash and shake.</summary>
     private void DrawMirrorScare(SpriteBatch spriteBatch)
     {
         if (ScareRenderer is { IsActive: true })
-            ScareRenderer.Draw(spriteBatch, Device.Viewport.Bounds, ScareSecondsInto, Random.Shared);
+            ScareRenderer.Draw(spriteBatch, Device.Viewport.Bounds, ScareSecondsInto, Random.Shared, ClientSettings.HideLightning);
     }
 
     /// <summary>
@@ -559,13 +566,25 @@ public sealed partial class WorldScreen
     {
         var key = MirrorCellKey(entityId, facing, idle);
 
-        if (!MirrorRenderer.TryReserveCell(key, out _, out var isNew) || !isNew)
+        if (!MirrorRenderer.TryReserveCell(key, out _, out _))
             return;
 
         var entity = WorldState.GetEntity(entityId);
 
         if (entity is null)
             return;
+
+        //one placement per cell per frame; the copies persist across frames and are evicted when unseen
+        if (!MirrorSeen.Add(key))
+            return;
+
+        //reuse the cached copy and refresh its pose, cloning anew only when the look changed
+        if (MirrorCellEntities.TryGetValue(key, out var existing) && MirrorLooksEqual(existing, entity))
+        {
+            RefreshMirrorCopy(existing, entity, facing, idle);
+
+            return;
+        }
 
         var copy = entity.CopyForMirror(MirrorMath.MirrorCacheId(entityId, facing, idle));
         copy.Direction = facing;
@@ -579,6 +598,49 @@ public sealed partial class WorldScreen
         }
 
         MirrorCellEntities[key] = copy;
+    }
+
+    private static bool MirrorLooksEqual(WorldEntity copy, WorldEntity live)
+        => (copy.Type == live.Type)
+            && (copy.SpriteId == live.SpriteId)
+            && Nullable.Equals(copy.Appearance, live.Appearance);
+
+    private static void RefreshMirrorCopy(WorldEntity copy, WorldEntity live, Direction facing, bool idle)
+    {
+        copy.TileX = live.TileX;
+        copy.TileY = live.TileY;
+        copy.Direction = facing;
+        copy.VisualOffset = Vector2.Zero;
+        copy.RideOffset = Vector2.Zero;
+        copy.GroundPaintHeight = live.GroundPaintHeight;
+        copy.GroundTintColor = live.GroundTintColor;
+        copy.HitTintExpiryMs = live.HitTintExpiryMs;
+        copy.TintColor = live.TintColor;
+        copy.IsTransparent = live.IsTransparent;
+
+        if (idle)
+        {
+            copy.AnimState = EntityAnimState.Idle;
+            copy.ActiveBodyAnimation = null;
+        }
+        else
+        {
+            copy.AnimState = live.AnimState;
+            copy.ActiveBodyAnimation = live.ActiveBodyAnimation;
+        }
+    }
+
+    /// <summary>Drops last frame's reflection copies nobody needs now and frees their composited textures.</summary>
+    private void EvictStaleMirrorCells()
+    {
+        foreach (var key in MirrorCellEntities.Keys.ToArray())
+        {
+            if (MirrorSeen.Contains(key))
+                continue;
+
+            Game.AislingRenderer.RemoveCachedEntity(MirrorCellEntities[key].RenderCacheId);
+            MirrorCellEntities.Remove(key);
+        }
     }
 
     private void PaintMirrorCells()

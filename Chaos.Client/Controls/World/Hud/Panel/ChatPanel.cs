@@ -222,6 +222,9 @@ public sealed class ChatPanel : ExpandablePanel
 
                 HoverTooltip.Width = tooltipWidth;
                 HoverTooltip.Height = (Math.Max(1, lines.Count) * TextRenderer.CHAR_HEIGHT) + 4;
+
+                //a collapsed panel is shorter than a long translation: cap the tooltip so it stays inside the panel
+                HoverTooltip.Height = ChatRows.ClampTooltipHeight(HoverTooltip.Height, Height, TextRenderer.CHAR_HEIGHT);
                 HoverTooltip.Text = text;
                 TooltipSizedForWidth = Width;
             }

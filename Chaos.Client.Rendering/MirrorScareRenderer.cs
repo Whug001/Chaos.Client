@@ -69,7 +69,8 @@ public sealed class MirrorScareRenderer : IDisposable
     }
 
     /// <summary>Draws one frame of the scare into an open sprite batch, scaled to <paramref name="screen" />.</summary>
-    public void Draw(SpriteBatch spriteBatch, Rectangle screen, double secondsInto, Random shake)
+    /// <param name="suppressFlashAndShake">When true, skips the white flash and the creature shake (photosensitivity option); the shatter and creature still draw.</param>
+    public void Draw(SpriteBatch spriteBatch, Rectangle screen, double secondsInto, Random shake, bool suppressFlashAndShake = false)
     {
         if (Pattern is null)
             return;
@@ -86,7 +87,7 @@ public sealed class MirrorScareRenderer : IDisposable
                 return;
             case ScarePhase.Shatter:
                 spriteBatch.Draw(Pixel, screen, Color.Black);
-                DrawCreature(spriteBatch, screen, secondsInto, shake);
+                DrawCreature(spriteBatch, screen, secondsInto, shake, suppressFlashAndShake);
 
                 break;
         }
@@ -117,18 +118,18 @@ public sealed class MirrorScareRenderer : IDisposable
                 0);
         }
 
-        if (secondsInto < MirrorScareTimeline.FLASH_SECONDS)
+        if (!suppressFlashAndShake && (secondsInto < MirrorScareTimeline.FLASH_SECONDS))
             spriteBatch.Draw(Pixel, screen, Color.White * (FLASH_ALPHA * (1 - (float)(secondsInto / MirrorScareTimeline.FLASH_SECONDS))));
     }
 
-    private void DrawCreature(SpriteBatch spriteBatch, Rectangle screen, double secondsInto, Random shake)
+    private void DrawCreature(SpriteBatch spriteBatch, Rectangle screen, double secondsInto, Random shake, bool suppressShake = false)
     {
         var frames = CreatureFrames[(int)Creature];
         var frame = frames[MirrorScareTimeline.FrameAt(Creature, secondsInto)];
         var size = MirrorScareTimeline.CreatureScale(secondsInto);
         var width = (int)(screen.Width * size);
         var height = (int)(screen.Height * size);
-        var jitter = MirrorScareTimeline.IsShaking(secondsInto) ? shake.Next(-MirrorScareTimeline.SHAKE_PIXELS, MirrorScareTimeline.SHAKE_PIXELS + 1) : 0;
+        var jitter = !suppressShake && MirrorScareTimeline.IsShaking(secondsInto) ? shake.Next(-MirrorScareTimeline.SHAKE_PIXELS, MirrorScareTimeline.SHAKE_PIXELS + 1) : 0;
 
         spriteBatch.Draw(
             frame,

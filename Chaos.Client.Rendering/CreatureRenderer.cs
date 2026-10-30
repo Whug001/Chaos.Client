@@ -19,7 +19,7 @@ public sealed class CreatureRenderer : IDisposable
 {
     private readonly Dictionary<(int SpriteId, int FrameIndex), SpriteFrame> FrameCache = [];
     //painted lit Pumpkin Carving frames, per (carving, frame, flicker phase); never shares textures with FrameCache
-    private readonly PumpkinLitCache<(string GridKey, int FrameIndex, int Phase), SpriteFrame> PumpkinCache;
+    private readonly PumpkinLitCache<(uint EntityId, int FrameIndex, int Phase), (byte[] Grid, SpriteFrame Frame)> PumpkinCache;
     private readonly PumpkinCarvingCache<Texture2D> CarvingCache;
     private readonly Dictionary<Texture2D, Texture2D> GroupTintCache = [];
     private readonly Dictionary<Texture2D, Texture2D> HighlightTintCache = [];
@@ -54,10 +54,10 @@ public sealed class CreatureRenderer : IDisposable
     public CreatureRenderer()
     {
         CarvingCache = new PumpkinCarvingCache<Texture2D>(ReleaseCarvingTexture);
-        PumpkinCache = new PumpkinLitCache<(string, int, int), SpriteFrame>(
+        PumpkinCache = new PumpkinLitCache<(uint, int, int), (byte[] Grid, SpriteFrame Frame)>(
             PUMPKIN_CACHE_LIMIT,
             PUMPKIN_CACHE_TRIM,
-            frame => ReleaseCarvingTexture(frame.Texture));
+            entry => ReleaseCarvingTexture(entry.Frame.Texture));
     }
 
     /// <inheritdoc />
@@ -323,12 +323,27 @@ public sealed class CreatureRenderer : IDisposable
         return spriteFrame;
     }
 
+    /// <summary>The cached lit frame for <paramref name="key" /> when its carving still matches <paramref name="grid" />. The grid copy check costs one 39-byte compare and no allocations; the hex-string key it replaces allocated per draw.</summary>
+    private bool TryGetLitFrame((uint EntityId, int FrameIndex, int Phase) key, byte[] grid, out SpriteFrame? frame)
+    {
+        if (PumpkinCache.TryGet(key, out var cached) && cached.Grid.AsSpan().SequenceEqual(grid))
+        {
+            frame = cached.Frame;
+
+            return true;
+        }
+
+        frame = null;
+
+        return false;
+    }
+
     /// <summary>A lit carving pumpkin's frame with its carving painted in. Falls back to the plain frame where the face map has nothing.</summary>
     public SpriteFrame? GetPumpkinFrame(int spriteId, int frameIndex, PumpkinLook look, int phase)
     {
-        var key = (Convert.ToHexString(look.Grid), frameIndex, phase);
+        var key = (look.EntityId, frameIndex, phase);
 
-        if (PumpkinCache.TryGet(key, out var cached))
+        if (TryGetLitFrame(key, look.Grid, out var cached))
             return cached;
 
         if (GetFrame(spriteId, frameIndex) is not { } plain)
@@ -346,7 +361,7 @@ public sealed class CreatureRenderer : IDisposable
         scope.CommitTo(texture);
 
         var painted = new SpriteFrame(texture, plain.CenterX, plain.CenterY, plain.Left, plain.Top);
-        PumpkinCache.Add(key, painted);
+        PumpkinCache.Add(key, (look.Grid.ToArray(), painted));
 
         return painted;
     }

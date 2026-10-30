@@ -75,6 +75,10 @@ public sealed class PumpkinCarvingModel
         }
 
         StrokeStart = null;
+
+        //a finished stroke may have cleared the redo stack (or changed nothing at all): either way the buttons
+        //refresh on the next update through the version bump, without marking anything unsent
+        Version++;
     }
 
     public void Load(byte[] grid)

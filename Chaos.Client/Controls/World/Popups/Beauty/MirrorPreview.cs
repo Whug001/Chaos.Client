@@ -128,7 +128,30 @@ public sealed class MirrorPreview : UIElement
         var x = ScreenX + (Width / 2) - (AislingRenderer.CANVAS_CENTER_X * scale);
         var y = ScreenY + (Height / 2) - (AislingRenderer.BODY_CENTER_Y * scale);
 
-        DrawTextureFitted(spriteBatch, Figure, new Rectangle(x, y, w, h), Color.White);
+        //DrawTextureFitted only culls a fully-offscreen destination, so a composite taller than the box would paint
+        //past it; intersect with the clip rect and draw just the visible slice instead.
+        var dest = new Rectangle(x, y, w, h);
+        var visible = Rectangle.Intersect(dest, ClipRect);
+
+        if (visible is { Width: > 0, Height: > 0 })
+        {
+            var source = new Rectangle(
+                (visible.X - dest.X) / scale,
+                (visible.Y - dest.Y) / scale,
+                visible.Width / scale,
+                visible.Height / scale);
+
+            Texture2D actual = Figure;
+            var src = source;
+
+            if (Figure is CachedTexture2D { AtlasRegion: { } region })
+            {
+                actual = region.Atlas;
+                src = new Rectangle(region.SourceRect.X + source.X, region.SourceRect.Y + source.Y, source.Width, source.Height);
+            }
+
+            spriteBatch.Draw(actual, visible, src, Color.White);
+        }
     }
 
     public override void Dispose()

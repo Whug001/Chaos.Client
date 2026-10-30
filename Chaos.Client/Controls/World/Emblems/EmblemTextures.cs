@@ -17,6 +17,9 @@ public static class EmblemTextures
     //frame counts by art number; 0 = the file is missing. Read on the UI thread only.
     private static readonly Dictionary<ushort, int> FrameCounts = [];
 
+    //file names by art number, so cache hits never allocate the "emblNNN.spf" string per draw
+    private static readonly Dictionary<ushort, string> FileNames = [];
+
     public static string FileName(ushort art) => $"embl{art:D3}.spf";
 
     public static int FrameAt(int frameCount, long clockMs) => frameCount <= 1 ? 0 : (int)(clockMs / FRAME_MS % frameCount);
@@ -27,7 +30,8 @@ public static class EmblemTextures
         if ((art == 0) || UiRenderer.Instance is not { } cache)
             return null;
 
-        var fileName = FileName(art);
+        if (!FileNames.TryGetValue(art, out var fileName))
+            FileNames[art] = fileName = FileName(art);
 
         if (!FrameCounts.TryGetValue(art, out var count))
             FrameCounts[art] = count = cache.GetSpfFrameCount(fileName);

@@ -107,6 +107,35 @@ public class PumpkinCarvingModelTests
     }
 
     [Test]
+    public void Ending_a_stroke_advances_the_version_so_the_buttons_refresh()
+    {
+        var model = new PumpkinCarvingModel();
+        var before = model.Version;
+
+        model.BeginStroke();
+        model.EndStroke();
+
+        model.Version.Should().BeGreaterThan(before);
+        model.HasUnsent.Should().BeFalse();
+    }
+
+    [Test]
+    public void Ending_a_stroke_after_undo_clears_redo_and_bumps_the_version()
+    {
+        var model = new PumpkinCarvingModel();
+        Stroke(model, (2, 2));
+        model.Undo();
+
+        var before = model.Version;
+        model.CanRedo.Should().BeTrue();
+
+        Stroke(model, (3, 3));
+
+        model.CanRedo.Should().BeFalse();
+        model.Version.Should().BeGreaterThan(before);
+    }
+
+    [Test]
     public void Cells_outside_the_grid_are_ignored()
     {
         var model = new PumpkinCarvingModel();

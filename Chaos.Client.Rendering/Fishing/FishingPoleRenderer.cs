@@ -46,6 +46,17 @@ public static class FishingPoleRenderer
     /// </summary>
     public static Point[] PolePoints(Point hand, float angle, float bend, Point? pullToward)
     {
+        var points = new Point[POLE_LENGTH + 1];
+        FillPolePoints(points, hand, angle, bend, pullToward);
+
+        return points;
+    }
+
+    private static readonly Point[] PoleBuffer = new Point[POLE_LENGTH + 1];
+
+    /// <summary>Fills <paramref name="points" /> with the pole's pixels from <paramref name="hand" /> to the tip, bending toward <paramref name="pullToward" />. Zero allocations: <see cref="Draw" /> reuses <see cref="PoleBuffer" />.</summary>
+    private static void FillPolePoints(Point[] points, Point hand, float angle, float bend, Point? pullToward)
+    {
         var radians = MathHelper.ToRadians(angle);
         var tipX = hand.X + MathF.Cos(radians) * POLE_LENGTH;
         var tipY = hand.Y - MathF.Sin(radians) * POLE_LENGTH;
@@ -59,8 +70,6 @@ public static class FishingPoleRenderer
                 pull = Vector2.Normalize(delta) * (bend * PULL);
         }
 
-        var points = new Point[POLE_LENGTH + 1];
-
         for (var s = 0; s <= POLE_LENGTH; s++)
         {
             var t = s / (float)POLE_LENGTH;
@@ -68,8 +77,6 @@ public static class FishingPoleRenderer
             var y = hand.Y + (tipY - hand.Y) * t + pull.Y * t * t;
             points[s] = new Point((int)MathF.Round(x), (int)MathF.Round(y));
         }
-
-        return points;
     }
 
     /// <summary>The pixels of a one-pixel line from <paramref name="from" /> to <paramref name="to" />, both ends included.</summary>
@@ -126,7 +133,9 @@ public static class FishingPoleRenderer
         var origin = camera.WorldToScreen(new Vector2(baseX, baseY));
         var pen = new Pen(batch, origin, flip, alpha);
 
-        var pole = PolePoints(shot.Hand, shot.Angle, shot.Bend, shot.LineEnd);
+        FillPolePoints(PoleBuffer, shot.Hand, shot.Angle, shot.Bend, shot.LineEnd);
+
+        var pole = PoleBuffer;
         var tip = pole[^1];
 
         if (shot.LineEnd is { } end)

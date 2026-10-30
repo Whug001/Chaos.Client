@@ -1,5 +1,7 @@
 #region
 using Chaos.Client.Controls.Components;
+using Chaos.Client.Controls.Generic;
+using Chaos.Client.Controls.Scrolling;
 using Chaos.Client.Controls.Custom;
 using Chaos.Client.Controls.World.Emblems;
 using Chaos.Client.Controls.World.Popups.GuildCloak;
@@ -24,9 +26,9 @@ namespace Chaos.Client.Controls.World.Popups.TownBallot;
 /// </summary>
 /// <remarks>
 ///     Layout, top to bottom: title, stage line, then the list (left, 8 rows of 34 px) beside the detail column (right: the
-///     figure with the detail lines to its right, then the statement). Under the taller column: the page row, the note line
+///     figure with the detail lines to its right, then the statement, which scrolls). Under the taller column: the page row, the note line
 ///     and the action buttons, then the frame's bottom border with Close. The statement box shows 9 lines of text, which
-///     holds 400 characters at this width.
+///     holds 400 characters at this width; longer statements scroll.
 /// </remarks>
 public sealed class TownBallotControl : GuildCloakDialogBase
 {
@@ -66,6 +68,7 @@ public sealed class TownBallotControl : GuildCloakDialogBase
     private readonly CustomButton SaveButton;
     private readonly UILabel StageLabel;
     private readonly UILabel StatementLabel;
+    private readonly ScrollViewerControl StatementViewer;
     private readonly TownBallotState State = new();
     private readonly UILabel TermsLabel;
     private readonly UILabel TitleLabel;
@@ -158,7 +161,17 @@ public sealed class TownBallotControl : GuildCloakDialogBase
             IsHitTestVisible = false
         };
 
-        AddChild(StatementLabel);
+        StatementViewer = new ScrollViewerControl(StatementLabel)
+        {
+            X = rightLeft,
+            Y = statementTop,
+            Width = RIGHT_WIDTH,
+            Height = statementHeight,
+            VerticalScrollBarVisibility = ScrollBarVisibility.Auto,
+            HorizontalScrollBarVisibility = ScrollBarVisibility.Hidden
+        };
+
+        AddChild(StatementViewer);
 
         Editor = new UITextBox
         {
@@ -276,7 +289,7 @@ public sealed class TownBallotControl : GuildCloakDialogBase
         CancelButton.Visible = editing;
 
         Editor.Visible = editing;
-        StatementLabel.Visible = !editing;
+        StatementViewer.Visible = !editing;
 
         if (!editing)
             Editor.IsFocused = false;
@@ -313,7 +326,13 @@ public sealed class TownBallotControl : GuildCloakDialogBase
         GuildLabel.Text = selected is null ? string.Empty : string.IsNullOrEmpty(selected.GuildName) ? "No guild" : selected.GuildName;
         CitizenLabel.Text = selected is null ? string.Empty : TownBallotState.CitizenLine(selected);
         TermsLabel.Text = selected is null ? string.Empty : TownBallotState.TermsLine(selected);
-        StatementLabel.Text = selected is null ? string.Empty : string.IsNullOrEmpty(selected.Statement) ? "No statement yet." : selected.Statement;
+        var statement = selected is null ? string.Empty : string.IsNullOrEmpty(selected.Statement) ? "No statement yet." : selected.Statement;
+
+        if (StatementLabel.Text != statement)
+        {
+            StatementLabel.Text = statement;
+            StatementLabel.ScrollOffset = 0;
+        }
 
         NoteLabel.Text = State.Note;
         RefreshActions();

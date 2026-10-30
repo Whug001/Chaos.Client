@@ -8,6 +8,7 @@ using Chaos.Client.Extensions;
 using Chaos.Client.Rendering;
 using Chaos.Networking.Entities.Server;
 using Microsoft.Xna.Framework.Graphics;
+using Microsoft.Xna.Framework.Input;
 #endregion
 
 namespace Chaos.Client.Controls.World.Popups.QuestLog;
@@ -197,6 +198,14 @@ public sealed class QuestLogControl : UIPanel
     {
         if (Dragging)
         {
+            //the mouse-up can be missed when the window loses focus mid-drag; stop instead of sticking to the cursor
+            if (Mouse.GetState().LeftButton != ButtonState.Pressed)
+            {
+                Dragging = false;
+
+                return;
+            }
+
             X = e.ScreenX - DragOffsetX;
             Y = e.ScreenY - DragOffsetY;
             ClampOnScreen();

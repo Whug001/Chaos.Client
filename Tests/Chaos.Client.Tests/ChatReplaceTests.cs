@@ -115,6 +115,20 @@ public sealed class ChatReplaceTests
     }
 
     [Test]
+    public void ClampTooltipHeight_ShortTooltipKeepsItsHeight()
+    {
+        ChatRows.ClampTooltipHeight(28, 100, 12).Should().Be(28);
+        ChatRows.ClampTooltipHeight(16, 20, 12).Should().Be(16);
+    }
+
+    [Test]
+    public void ClampTooltipHeight_TallTooltipFitsTheCollapsedPanel()
+    {
+        ChatRows.ClampTooltipHeight(200, 40, 12).Should().Be(40);
+        ChatRows.ClampTooltipHeight(200, 40, 12).Should().BeLessThan(200);
+    }
+
+    [Test]
     public void Replace_UnknownOrZeroId_ChangesNothing()
     {
         var rows = new List<ChatLine> { new("a", Color.White, 1) };

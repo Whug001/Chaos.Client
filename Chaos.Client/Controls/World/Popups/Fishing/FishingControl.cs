@@ -129,6 +129,9 @@ public sealed class FishingControl : FramedDialogPanelBase
     /// <summary>The window closed, for any reason. The world screen tells the server.</summary>
     public event Action? Closed;
 
+    /// <summary>When true, mouse and space input is ignored for the catch zone: chat (or another control) owns input. Set by the world screen each frame.</summary>
+    public bool InputBlocked { get; set; }
+
     public FishingControl()
         : base("_nsett", false)
     {
@@ -283,8 +286,9 @@ public sealed class FishingControl : FramedDialogPanelBase
 
         if (TakingInput)
         {
-            var wantHold = (Mouse.GetState().LeftButton == ButtonState.Pressed)
-                           || Keyboard.GetState().IsKeyDown(Keys.Space);
+            var wantHold = !InputBlocked
+                           && ((Mouse.GetState().LeftButton == ButtonState.Pressed)
+                           || Keyboard.GetState().IsKeyDown(Keys.Space));
 
             if (wantHold != Holding)
             {
@@ -674,6 +678,13 @@ public sealed class FishingControl : FramedDialogPanelBase
         //space is the line, not an assail, for as long as the window is up
         if (e.Keycode == Keycode.Space)
             e.Handled = true;
+    }
+
+    public override void Dispose()
+    {
+        FishMask?.Dispose();
+        FishMask = null;
+        base.Dispose();
     }
 
     private void ReleaseIfHeld()
