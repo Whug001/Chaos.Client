@@ -106,6 +106,24 @@ public class UITextBoxTests
     }
 
     [Test]
+    public void ShorteningTheTextBelowAStaleSelectionClampsTheSelectionGetters()
+    {
+        var box = FocusedBox();
+        Type(box, "100000000");
+        box.OnKeyDown(new KeyDownEvent { Keycode = Keycode.Left, Modifiers = KeyModifiers.Shift });
+
+        //anchor 9, cursor 8 — now shorten the text directly, with no Update to clamp them
+        //(hidden boxes skip Update, so this is the stale state a reopened panel can hold)
+        box.Text = "12";
+
+        Func<string> selected = () => box.SelectedText;
+
+        selected.Should().NotThrow();
+        box.HasSelection.Should().BeFalse();
+        box.SelectedText.Should().BeEmpty();
+    }
+
+    [Test]
     public void ClickingAnAlreadyFocusedBoxReannouncesFocusWithoutRefiringOnFocused()
     {
         var box = FocusedBox();

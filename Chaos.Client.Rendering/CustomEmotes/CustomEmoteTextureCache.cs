@@ -32,8 +32,8 @@ public sealed class CustomEmoteTextureCache : IDisposable
     }
 
     /// <summary>
-    ///     Returns the texture for this key, building it on first use. A null result is cached, so a failed build (missing
-    ///     or wrong-shaped source art) is not retried every frame.
+    ///     Returns the texture for this key, building it on first use. A null result is not cached, so the next draw tries
+    ///     again instead of sticking with a cached miss.
     /// </summary>
     public Texture2D? GetOrBuild(string key, Func<Texture2D?> build)
     {
@@ -41,7 +41,9 @@ public sealed class CustomEmoteTextureCache : IDisposable
             return cached;
 
         var texture = build();
-        Cache[key] = texture;
+
+        if (texture is not null)
+            Cache[key] = texture;
 
         return texture;
     }

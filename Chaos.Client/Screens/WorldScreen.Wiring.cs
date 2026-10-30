@@ -9,6 +9,7 @@ using Chaos.Client.Controls.World.Hud.Panel;
 using Chaos.Client.Controls.World.Popups.BugReport;
 using Chaos.Client.Controls.World.Popups.Options;
 using Chaos.Client.Extensions;
+using Chaos.Client.Networking.Definitions;
 using Chaos.Client.Systems;
 using Chaos.Client.Systems.KeyBinds;
 using Chaos.Client.ViewModel;
@@ -348,6 +349,16 @@ public sealed partial class WorldScreen
     /// </summary>
     private void SendBugReport(BugReportSubmission submission)
     {
+        //SendIfWorld drops silently outside the World state: keep the window open with the
+        //player's text and say so, instead of losing the report
+        if (Game.Connection.State != ConnectionState.World)
+        {
+            BugReport.Reopen(submission);
+            WorldState.Chat.AddOrangeBarMessage("Could not send the bug report: not connected.");
+
+            return;
+        }
+
         var picture = submission.Picture;
         var bounds = Game.Window.ClientBounds;
 
@@ -635,23 +646,44 @@ public sealed partial class WorldScreen
         SocialStatusPicker.Show();
     }
 
+    /// <summary>What the shared town-map toggle does for its inputs, so the order of checks is unit-tested.</summary>
+    internal enum TownMapToggle
+    {
+        Close,
+        Open,
+        Ignore
+    }
+
+    internal static TownMapToggle DecideTownMapToggle(bool townMapVisible, MapFlags mapFlags)
+    {
+        //an open map always closes first, even on a NoTownMap map: the flag may have arrived while it was open
+        if (townMapVisible)
+            return TownMapToggle.Close;
+
+        return mapFlags.HasFlag(MapFlags.NoTownMap) ? TownMapToggle.Ignore : TownMapToggle.Open;
+    }
+
     /// <summary>
     ///     Opens or closes the town map. Shared by the T key and the HUD map button, so the NoTownMap map flag holds for
     ///     both.
     /// </summary>
     private void ToggleTownMap()
     {
-        if (CurrentMapFlags.HasFlag(MapFlags.NoTownMap))
-            return;
-
-        if (TownMapControl.Visible)
-            TownMapControl.Hide();
-        else
+        switch (DecideTownMapToggle(TownMapControl.Visible, CurrentMapFlags))
         {
-            var player = WorldState.GetPlayerEntity();
+            case TownMapToggle.Close:
+                TownMapControl.Hide();
 
-            if (player is not null)
-                TownMapControl.Show(CurrentMapId, player.TileX, player.TileY);
+                break;
+            case TownMapToggle.Open:
+                var player = WorldState.GetPlayerEntity();
+
+                if (player is not null)
+                    TownMapControl.Show(CurrentMapId, player.TileX, player.TileY);
+
+                break;
+            case TownMapToggle.Ignore:
+                break;
         }
     }
 

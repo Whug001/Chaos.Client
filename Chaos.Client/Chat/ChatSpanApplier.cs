@@ -8,7 +8,7 @@ namespace Chaos.Client.Chat;
 /// <summary>
 ///     Pure client-side transform for tagged chat spans. Tags index the message BODY (UTF-16 indices, no sender
 ///     prefix); the caller passes the body plus its tags and reattaches any prefix itself (Task 5).
-///     Out-of-range spans are clamped and empty ones skipped, so stale indices can never break rendering.
+///     Out-of-range spans are clamped, and empty or overlapping ones are skipped, so stale indices can never break rendering.
 ///     Unknown rule IDs always mask to <c>****</c> and are never shown raw (spec safety rule).
 /// </summary>
 public static class ChatSpanApplier
@@ -47,13 +47,16 @@ public static class ChatSpanApplier
                           .ToArray();
 
         var sb = new StringBuilder(body);
+        //end-to-start, so the previously applied tag starts at or after this one: an end past its
+        //start overlaps already-masked text, and an end past the builder length would throw on Remove
+        var appliedStart = int.MaxValue;
 
         foreach (var tag in ordered)
         {
             var start = Math.Max(0, tag.Start);
             var end = Math.Min(body.Length, tag.Start + tag.Length);
 
-            if (start >= end)
+            if ((start >= end) || (end > appliedStart) || (end > sb.Length))
                 continue;
 
             string replacement;
@@ -67,6 +70,7 @@ public static class ChatSpanApplier
 
             sb.Remove(start, end - start);
             sb.Insert(start, replacement);
+            appliedStart = start;
         }
 
         return sb.ToString();

@@ -77,7 +77,7 @@ public sealed class LightningRenderer : IAmbientOverlay
 
     /// <summary>
     ///     Arms/disarms the renderer. Disarming lets any in-flight strike finish, then goes idle; with
-    ///     <paramref name="immediate" /> an in-flight strike is cleared too (used on map change). Arming rolls a
+    ///     <paramref name="immediate" /> an in-flight strike is cleared too, whether arming or disarming. Arming rolls a
     ///     fresh delay, so the first strike never lands the instant the map loads.
     /// </summary>
     public void SetActive(bool on, bool immediate = false)
@@ -87,7 +87,7 @@ public sealed class LightningRenderer : IAmbientOverlay
 
         Active = on;
 
-        if (immediate && !on)
+        if (immediate)
         {
             Flash = 0f;
             Bolts.Clear();

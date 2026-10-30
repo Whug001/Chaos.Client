@@ -40,6 +40,8 @@ public sealed class StageLightAnimator
     private readonly Dictionary<byte, StageLightFrame> FadeFrom = [];
     private readonly List<FadingEntry> FadingOut = [];
     private readonly List<StageLightInfo> LightList = [];
+    private readonly List<StageLightFrame> ActiveBuffer = [];
+    private readonly List<byte> ExpiredReleases = [];
 
     private Func<uint, Vector2?> LastLookup = _ => null;
     private float FromHouseDarkness;
@@ -51,6 +53,8 @@ public sealed class StageLightAnimator
     public Rectangle Stage { get; private set; }
     public byte HouseLevel { get; private set; } = 100;
     public bool StageGlow { get; private set; } = true;
+    /// <summary>Photosensitivity: when true, pulse/flicker/colour-cycle hold a steady look instead of strobing.</summary>
+    public bool SteadyEffects { get; set; }
 
     /// <summary>The lights in id order. A light the director is dragging shows its local copy.</summary>
     public IReadOnlyList<StageLightInfo> Lights => LightList;
@@ -67,7 +71,9 @@ public sealed class StageLightAnimator
 
         if (HasSetup)
         {
-            foreach (var frame in ComputeActiveFrames(nowMs))
+            ComputeActiveFrames(nowMs, ActiveBuffer);
+
+            foreach (var frame in ActiveBuffer)
                 snapshot[frame.Id] = frame;
 
             foreach (var entry in FadingOut)
@@ -172,11 +178,18 @@ public sealed class StageLightAnimator
         }
 
         if (Releasing.Count > 0)
-            foreach (var (id, deadline) in Releasing.ToList())
+        {
+            ExpiredReleases.Clear();
+            foreach (var (id, deadline) in Releasing)
                 if (nowMs >= deadline)
-                    EndHold(id);
+                    ExpiredReleases.Add(id);
 
-        frames.AddRange(ComputeActiveFrames(nowMs));
+            foreach (var id in ExpiredReleases)
+                EndHold(id);
+        }
+
+        ComputeActiveFrames(nowMs, ActiveBuffer);
+        frames.AddRange(ActiveBuffer);
 
         //each fading-out light decays on its own clock and drops off once it's done
         for (var i = FadingOut.Count - 1; i >= 0; i--)
@@ -278,11 +291,12 @@ public sealed class StageLightAnimator
     /// <summary>
     ///     Every active target's frame at <paramref name="nowMs" />, already blended from <see cref="FadeFrom" /> by the
     ///     current fade progress. The single computation shared by <see cref="Evaluate" /> (what to draw) and
-    ///     <see cref="Apply" /> (what to fade the next setup in from).
+    ///     <see cref="Apply" /> (what to fade the next setup in from). Fills the reused
+    ///     <paramref name="result" /> buffer instead of allocating, so per-frame calls stay allocation-free.
     /// </summary>
-    private List<StageLightFrame> ComputeActiveFrames(long nowMs)
+    private List<StageLightFrame> ComputeActiveFrames(long nowMs, List<StageLightFrame> result)
     {
-        var result = new List<StageLightFrame>(Targets.Count);
+        result.Clear();
         var k = FadeProgress(nowMs);
 
         foreach (var target in Targets.Values)
@@ -315,17 +329,19 @@ public sealed class StageLightAnimator
         var color = new Color(light.R, light.G, light.B);
         var strength = light.Brightness / 100f;
 
+        //steady mode (the player's disable-lightning option): effects hold full brightness and the base
+        //colour instead of strobing; the light still shows and motion still runs
         switch (light.Effect)
         {
-            case StageLightEffect.Pulse:
+            case StageLightEffect.Pulse when !SteadyEffects:
                 strength *= PulseFactor(effectMs, light.EffectSpeed);
 
                 break;
-            case StageLightEffect.Flicker:
+            case StageLightEffect.Flicker when !SteadyEffects:
                 strength *= FlickerFactor(light.Id, effectMs, light.EffectSpeed);
 
                 break;
-            case StageLightEffect.ColorCycle:
+            case StageLightEffect.ColorCycle when !SteadyEffects:
                 color = CycleColor(color, effectMs, light.EffectSpeed);
 
                 break;

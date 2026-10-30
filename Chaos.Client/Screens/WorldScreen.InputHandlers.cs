@@ -147,15 +147,10 @@ public sealed partial class WorldScreen
         //stackable items with more than one — prompt for count before dropping
         var invSlot = WorldState.Inventory.GetSlot(slot);
 
+        //a ground drop always asks how many, even with Shift held: silently dropping the whole
+        //stack is how stacks get lost. Shift still moves the whole stack for the bank, the market and a trade.
         if (invSlot is { Stackable: true, Count: > 1 })
         {
-            if (IsWholeStackHeld())
-            {
-                Game.Connection.DropItem(slot, tileX, tileY, (int)invSlot.Count);
-
-                return;
-            }
-
             var capturedSlot = slot;
             var capturedX = tileX;
             var capturedY = tileY;
@@ -175,7 +170,7 @@ public sealed partial class WorldScreen
         Game.Connection.DropItem(slot, tileX, tileY);
     }
 
-    //shift held on a stack drop moves the whole stack without asking how many — for the ground, the bank, the market and
+    //shift held on a stack drop moves the whole stack without asking how many — for the bank, the market and
     //a trade. read at drop time, because the modifier is what the player is holding as they let go
     private static bool IsWholeStackHeld() => (InputBuffer.CurrentModifiers & KeyModifiers.Shift) != 0;
 

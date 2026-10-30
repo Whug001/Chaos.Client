@@ -300,7 +300,17 @@ public sealed partial class WorldScreen
         if (args.PublicMessageType == PublicMessageType.Chant)
         {
             if (entityExists)
-                Overlays.AddChantOverlay(args.SourceId, args.Message);
+            {
+                //chants draw over the caster, not in the chat log, but they carry the same filter tags:
+                //run them through the shared public-chat path so Censored/Hide modes apply here too
+                var chant = ChatDisplayBuilder.BuildPublic(
+                    WithLocalTime(args.Message, args.Tags),
+                    args.Tags,
+                    WorldState.UserOptions.ChatFilterMode,
+                    FantasyDictionary.Default);
+
+                Overlays.AddChantOverlay(args.SourceId, chant.DisplayText);
+            }
 
             return;
         }

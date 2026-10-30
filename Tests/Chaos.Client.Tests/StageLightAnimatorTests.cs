@@ -204,6 +204,31 @@ public class StageLightAnimatorTests
     }
 
     [Test]
+    public void Steady_effects_hold_a_constant_look()
+    {
+        var pulsing = Light(1) with { Brightness = 100, Effect = StageLightEffect.Pulse, EffectSpeed = 3 };
+        var cycling = Light(3) with { Brightness = 100, Effect = StageLightEffect.ColorCycle, EffectSpeed = 3, R = 255, G = 0, B = 0 };
+
+        var lively = new StageLightAnimator();
+        lively.Apply(State(0, 100, Entry(pulsing), Entry(cycling)), 0);
+
+        var steady = new StageLightAnimator { SteadyEffects = true };
+        steady.Apply(State(0, 100, Entry(pulsing), Entry(cycling)), 0);
+
+        //speed 3 pulses 0.30 -> 1.0 over 2 s, so the lively rig visibly breathes between these moments
+        Frames(lively, 0).Single(f => f.Id == 1).Strength.Should().BeApproximately(0.30f, 0.01f);
+        Frames(lively, 500).Single(f => f.Id == 1).Strength.Should().BeApproximately(0.65f, 0.01f);
+
+        //the steady rig holds full brightness and the base colour at both moments: still shown, never strobing
+        foreach (var now in new long[] { 0, 500 })
+        {
+            var frames = Frames(steady, now);
+            frames.Should().OnlyContain(f => f.Strength == 1f);
+            frames.Single(f => f.Id == 3).Color.Should().Be(new Color(255, 0, 0));
+        }
+    }
+
+    [Test]
     public void Clear_forgets_everything()
     {
         var animator = new StageLightAnimator();

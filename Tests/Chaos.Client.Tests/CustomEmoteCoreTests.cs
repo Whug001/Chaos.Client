@@ -1,6 +1,7 @@
 using Chaos.Client.Rendering;
 using Chaos.Client.Rendering.CustomEmotes;
 using FluentAssertions;
+using Microsoft.Xna.Framework.Graphics;
 using Microsoft.Xna.Framework;
 using SkiaSharp;
 
@@ -129,6 +130,28 @@ public class CustomEmoteCoreTests
         CustomEmoteGeometry.EaseInRows(0f, 100f, -10).Should().Be(-10);
         CustomEmoteGeometry.EaseInRows(100f, 100f, -10).Should().Be(0);
         CustomEmoteGeometry.EaseInRows(-5f, 100f, -10).Should().Be(-10);
+        await Task.CompletedTask;
+    }
+
+    [Test]
+    public async Task String_keyed_build_retries_after_a_null_result()
+    {
+        using var cache = new CustomEmoteTextureCache();
+        var builds = 0;
+
+        Texture2D? Miss()
+        {
+            builds++;
+
+            return null;
+        }
+
+        cache.GetOrBuild("test:missing", Miss).Should().BeNull();
+        cache.GetOrBuild("test:missing", Miss).Should().BeNull();
+
+        //a null build is never cached, so each miss builds again instead of sticking
+        builds.Should().Be(2);
+
         await Task.CompletedTask;
     }
 

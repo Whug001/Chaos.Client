@@ -90,6 +90,8 @@ public sealed partial class WorldScreen
         var now = Environment.TickCount64;
         var lights = WorldState.StageLights;
 
+        //the player's disable-lightning map-effects option freezes strobing effects at a steady look
+        lights.SteadyEffects = ClientSettings.HideLightning;
         lights.Evaluate(now, StageLightAnimator.EntityTileOf, SpotlightFrames);
         HouseDarknessNow = lights.CurrentHouseDarkness(now);
         DarknessRenderer.SetHouseDarkness(lights.HasSetup ? HouseDarknessNow : null);

@@ -343,7 +343,12 @@ public sealed partial class WorldScreen : IScreen
     /// <inheritdoc />
     //the dispatcher outlives this screen — drop the predicate so it doesn't keep answering (or keep this screen alive)
     //after the world is gone
-    public void Dispose() => Game.Dispatcher.DragBlocked = null;
+    public void Dispose()
+    {
+        Game.Dispatcher.DragBlocked = null;
+        PendingBugReport?.Frame?.Dispose();
+        PendingBugReport = null;
+    }
 
     /// <inheritdoc />
     public void Initialize(ChaosGame game)
@@ -1157,6 +1162,8 @@ public sealed partial class WorldScreen : IScreen
         Game.Connection.OnBeautyShopDisplay -= HandleBeautyShopDisplay;
         Game.Connection.OnFittingRoomDisplay -= HandleFittingRoomDisplay;
         Game.Connection.OnBugReportOpen -= HandleBugReportOpen;
+        PendingBugReport?.Frame?.Dispose();
+        PendingBugReport = null;
         UnwireStageLighting();
         UnwireCinema();
         UnwireMirrors();

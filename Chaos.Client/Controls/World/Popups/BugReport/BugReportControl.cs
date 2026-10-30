@@ -172,7 +172,7 @@ public sealed class BugReportControl : FramedDialogPanelBase
             Width = CapturedFrame.THUMBNAIL_WIDTH,
             Height = CustomCheckBox.CHECKBOX_SIZE,
             Text = "Include it",
-            Checked = true
+            Checked = false
         };
 
         IncludePicture.Clicked += () => IncludePicture.Checked = !IncludePicture.Checked;
@@ -226,7 +226,26 @@ public sealed class BugReportControl : FramedDialogPanelBase
         Preview.Texture = frame is null ? null : TextureConverter.ToTexture2D(frame.Thumbnail);
         NoPictureLabel.Visible = frame is null;
         IncludePicture.Visible = frame is not null;
-        IncludePicture.Checked = frame is not null;
+        IncludePicture.Checked = false;
+        RefreshSendState();
+        Show();
+    }
+
+    /// <summary>Re-shows the window with a failed submission's text, after a send that could not go out.</summary>
+    public void Reopen(BugReportSubmission submission)
+    {
+        ReportId = submission.ReportId;
+        Category = submission.Category;
+
+        foreach ((var key, var button) in CategoryButtons)
+            button.Selected = key == submission.Category;
+
+        TitleBox.Text = submission.Title;
+        DescriptionBox.Text = submission.Description;
+        Preview.Texture = null;
+        NoPictureLabel.Visible = true;
+        IncludePicture.Visible = false;
+        IncludePicture.Checked = false;
         RefreshSendState();
         Show();
     }

@@ -146,7 +146,7 @@ public class ChatSpanApplierTests
     }
 
     [Test]
-    public async Task Overlapping_spans_apply_inner_first()
+    public async Task Overlapping_spans_skip_the_outer_span()
     {
         var body = "abcdef";
         var tags = new List<ChatTag>
@@ -155,10 +155,51 @@ public class ChatSpanApplierTests
             new(1, 4, ZORP_ID, 0)
         };
 
-        //descending start: (1,4) masks first -> "a****f", then (0,5) -> "****f"
+        //descending start: (1,4) masks first -> "a****f"; (0,5) ends past that start, so it is skipped
         ChatSpanApplier.Apply(body, tags, ChatFilterMode.Censored, ZorpDictionary())
                        .Should()
-                       .Be("****f");
+                       .Be("a****f");
+
+        await Task.CompletedTask;
+    }
+
+    [Test]
+    public async Task Duplicate_spans_mask_once()
+    {
+        var body = "abcdef";
+        var tags = new List<ChatTag>
+        {
+            new(1, 4, ZORP_ID, 0),
+            new(1, 4, ZORP_ID, 0)
+        };
+
+        //the second copy ends past the first copy's start, so it is skipped instead of masking twice
+        ChatSpanApplier.Apply(body, tags, ChatFilterMode.Censored, ZorpDictionary())
+                       .Should()
+                       .Be("a****f");
+
+        await Task.CompletedTask;
+    }
+
+    [Test]
+    public async Task Out_of_range_spans_never_throw()
+    {
+        var body = "abcdef";
+        var tags = new List<ChatTag>
+        {
+            new(50, 5, ZORP_ID, 0),
+            new(-50, 2, ZORP_ID, 0),
+            new(4, 40, ZORP_ID, 0)
+        };
+
+        //past-the-end and negative spans are skipped; the overlong span clamps to the body end
+        Action act = () => ChatSpanApplier.Apply(body, tags, ChatFilterMode.Censored, ZorpDictionary());
+
+        act.Should().NotThrow();
+
+        ChatSpanApplier.Apply(body, tags, ChatFilterMode.Censored, ZorpDictionary())
+                       .Should()
+                       .Be("abcd****");
 
         await Task.CompletedTask;
     }

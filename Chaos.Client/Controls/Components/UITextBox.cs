@@ -152,9 +152,24 @@ public class UITextBox : UIElement, IVerticalScrollable
 
     private int FirstVisibleLine => ScrollOffset / TextRenderer.CHAR_HEIGHT;
 
-    public bool HasSelection => IsSelectable && (SelectionAnchor != CursorPosition);
+    //clamped: text changed externally (or while hidden, where Update never runs) can leave the anchor and
+    //cursor past the end; these getters must never index out of range
+    public bool HasSelection
+        => IsSelectable && (Math.Clamp(SelectionAnchor, 0, Text.Length) != Math.Clamp(CursorPosition, 0, Text.Length));
 
-    public string SelectedText => HasSelection ? Text[SelectionStart..Math.Min(SelectionEnd, Text.Length)] : string.Empty;
+    public string SelectedText
+    {
+        get
+        {
+            if (!HasSelection)
+                return string.Empty;
+
+            var start = Math.Min(SelectionStart, Text.Length);
+            var end = Math.Min(SelectionEnd, Text.Length);
+
+            return start >= end ? string.Empty : Text[start..end];
+        }
+    }
 
     public int SelectionEnd => Math.Max(SelectionAnchor, CursorPosition);
     public int SelectionLength => SelectionEnd - SelectionStart;
