@@ -47,8 +47,10 @@ public sealed class CinemaPlayer : ICinemaVideo
     private readonly GraphicsDevice Device;
     private readonly MediaPlayer Player;
     private readonly nint Buffer;
-    private readonly byte[] Staging = new byte[FRAME_BYTES];
-    private readonly byte[] Upload = new byte[FRAME_BYTES];
+
+    //double-buffered: VLC writes Back on its own thread while the game uploads Front, then they swap
+    private byte[] Front = new byte[FRAME_BYTES];
+    private byte[] Back = new byte[FRAME_BYTES];
     private readonly Lock FrameLock = new();
 
     //kept in fields so the garbage collector can't free them while VLC still calls them
@@ -72,7 +74,8 @@ public sealed class CinemaPlayer : ICinemaVideo
         LockCallback = OnLock;
         DisplayCallback = OnDisplay;
 
-        Player.SetVideoFormat("RV32", WIDTH, HEIGHT, PITCH);
+        //RGBA lands in memory as R, G, B, A, matching the texture, so no channel swap is needed
+        Player.SetVideoFormat("RGBA", WIDTH, HEIGHT, PITCH);
         Player.SetVideoCallbacks(LockCallback, null, DisplayCallback);
 
         Player.EncounteredError += (_, _) => IsFailed = true;
@@ -115,19 +118,12 @@ public sealed class CinemaPlayer : ICinemaVideo
 
         using (FrameLock.EnterScope())
         {
-            Array.Copy(Staging, Upload, FRAME_BYTES);
+            (Front, Back) = (Back, Front);
             FrameReady = false;
         }
 
-        //VLC's RV32 is B, G, R, X in memory; the texture wants R, G, B, A
-        for (var i = 0; i < FRAME_BYTES; i += 4)
-        {
-            (Upload[i], Upload[i + 2]) = (Upload[i + 2], Upload[i]);
-            Upload[i + 3] = 255;
-        }
-
         Texture ??= new Texture2D(Device, WIDTH, HEIGHT, false, SurfaceFormat.Color);
-        Texture.SetData(Upload);
+        Texture.SetData(Front);
     }
 
     public void Dispose()
@@ -166,7 +162,7 @@ public sealed class CinemaPlayer : ICinemaVideo
     {
         using (FrameLock.EnterScope())
         {
-            Marshal.Copy(Buffer, Staging, 0, FRAME_BYTES);
+            Marshal.Copy(Buffer, Back, 0, FRAME_BYTES);
             FrameReady = true;
         }
     }

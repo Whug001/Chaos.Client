@@ -71,12 +71,23 @@ public static class CinemaScreenLayout
     public static IReadOnlyList<Rectangle> DimAroundColumns(Rectangle viewport, IReadOnlyList<Rectangle> columns)
     {
         var rects = new List<Rectangle>(2 + 2 * columns.Count);
+        DimAroundColumnsInto(viewport, columns, rects);
+
+        return rects;
+    }
+
+    /// <summary>Fills <paramref name="into" /> with the dim rectangles, so the draw pass reuses its list.</summary>
+    public static void DimAroundColumnsInto(Rectangle viewport, IReadOnlyList<Rectangle> columns, List<Rectangle> into)
+    {
+        into.Clear();
+
+        var rects = into;
 
         if (columns.Count == 0)
         {
             rects.Add(viewport);
 
-            return rects;
+            return;
         }
 
         var first = columns[0];
@@ -90,8 +101,6 @@ public static class CinemaScreenLayout
             AddClipped(rects, viewport, new Rectangle(column.X, viewport.Y, column.Width, column.Y - viewport.Y));
             AddClipped(rects, viewport, new Rectangle(column.X, column.Bottom, column.Width, viewport.Bottom - column.Bottom));
         }
-
-        return rects;
     }
 
     private static void AddClipped(List<Rectangle> rects, Rectangle viewport, Rectangle candidate)

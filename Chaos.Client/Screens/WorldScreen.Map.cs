@@ -1,4 +1,4 @@
-﻿#region
+#region
 using Chaos.Client.Collections;
 using Chaos.Client.Data;
 using Chaos.Client.Systems;
@@ -108,6 +108,18 @@ public sealed partial class WorldScreen
         ResetWorkMarks();
         TcgBattleMarks.Clear();
         TcgSpectatePrompt?.Hide();
+
+        //windows tied to the old map go without telling the server: the close already happened
+        //map-side (Hide/CloseFromServer/Close send nothing here; the server re-sends on the way back in)
+        CommissionBoardWindow?.Hide();
+        HideTcgWindows();
+        WarRoom?.Hide();
+        HallBattleOffer?.Close();
+
+        //the bar belongs to the battle on its own map: a move anywhere else clears it, and the server
+        //re-sends Bar while the battle runs
+        if (args.MapId != HallBattleBarMapId)
+            HallBattleBar?.Clear();
 
         //a spectator who leaves the match map stops watching; a same-map refresh (above) keeps the window
         if ((args.MapId != CurrentMapId) && (TcgMatchWindow?.Spectating ?? false))

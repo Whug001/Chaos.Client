@@ -77,6 +77,19 @@ public class FrameRateSettingsTests
     }
 
     [Test]
+    [Arguments(60, 60)]
+    [Arguments(144, 144)]
+    [Arguments(240, 240)]
+    public void Match_monitor_cap_uses_the_monitor_rate(int refreshRateHz, int expected)
+        => FrameRateSettings.MatchMonitorCap(refreshRateHz).Should().Be(expected);
+
+    [Test]
+    [Arguments(0)]
+    [Arguments(-1)]
+    public void Match_monitor_cap_falls_back_to_240_when_unknown(int refreshRateHz)
+        => FrameRateSettings.MatchMonitorCap(refreshRateHz).Should().Be(240);
+
+    [Test]
     public void TargetFrameMs_IsNullUnderMatchMonitor()
         => FrameRateSettings.TargetFrameMs(FrameRateMode.MatchMonitor)
                             .Should()

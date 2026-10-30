@@ -147,6 +147,17 @@ public sealed partial class WorldScreen
         college.BoardView.Hide();
         college.BoardEditor.Hide();
         college.BoardSaved.Hide();
+
+        //the shelf and its lists belong to the room, like the wall: the room sends them again on the way back in
+        college.LibraryCarousel.Hide();
+        college.LibrarySubmissions.Hide();
+        college.LibraryReview.Hide();
+        college.LibraryCollegePieces.Hide();
+
+        //a piece being read goes too; typed-but-unsaved writing stays in the writer's local draft first
+        college.Reader.Hide();
+        college.Writer.PreserveDraft();
+        college.Writer.Hide();
         college.Wall.Clear();
         college.Board.Clear();
         college.WallSlots = [];

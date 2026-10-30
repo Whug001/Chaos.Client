@@ -156,6 +156,9 @@ public sealed class WarRoomControl : UIPanel
     private readonly CustomTextBox WagerBox;
     private int ListOffset;
 
+    //the last team subtitle actually assigned: it ticks every second, not every frame
+    private string LastSubtitle = string.Empty;
+
     public WarRoomControl(int screenWidth, int screenHeight)
     {
         Name = "WarRoom";
@@ -333,7 +336,15 @@ public sealed class WarRoomControl : UIPanel
         base.Update(gameTime);
 
         if (Visible && (State.Page == WarRoomPage.Team))
-            Subtitle.Text = TeamSubtitle();
+        {
+            var subtitle = TeamSubtitle();
+
+            if (!string.Equals(subtitle, LastSubtitle, StringComparison.Ordinal))
+            {
+                LastSubtitle = subtitle;
+                Subtitle.Text = subtitle;
+            }
+        }
     }
 
     private ArenaHostRow Row(Rectangle rect)
@@ -521,6 +532,7 @@ public sealed class WarRoomControl : UIPanel
     private void RefreshTeam()
     {
         Subtitle.Text = TeamSubtitle();
+        LastSubtitle = Subtitle.Text;
         OurHeader.Text = $"{State.OurGuild} {State.OurCountText}";
         TheirHeader.Text = $"{State.TheirGuild} {State.TheirCountText}";
         State.ClampCandidateOffset(WarRoomLayout.CANDIDATE_ROWS);

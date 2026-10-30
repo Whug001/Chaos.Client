@@ -25,6 +25,10 @@ public sealed class HallBattleBarControl : UIPanel
     private HallBattleDisplayArgs? Current;
     private DateTime ReceivedAt;
 
+    //the last text and fill actually assigned: the bar only rebuilds its strings on change, not every frame
+    private string LastText = string.Empty;
+    private int LastFill;
+
     public HallBattleBarControl(int screenWidth)
     {
         Name = "HallBattleBar";
@@ -74,6 +78,8 @@ public sealed class HallBattleBarControl : UIPanel
     public void Clear()
     {
         Current = null;
+        LastText = string.Empty;
+        LastFill = 0;
         Visible = false;
     }
 
@@ -99,7 +105,20 @@ public sealed class HallBattleBarControl : UIPanel
             return;
 
         var left = Math.Max(0, Current.SecondsLeft - (int)(now - ReceivedAt).TotalSeconds);
-        Text.Text = TextFor(Current with { SecondsLeft = (ushort)left });
-        Fill.Width = FillWidth(Current.HeartPercent, BAR_WIDTH - (2 * PADDING));
+        var text = TextFor(Current with { SecondsLeft = (ushort)left });
+
+        if (!string.Equals(text, LastText, StringComparison.Ordinal))
+        {
+            LastText = text;
+            Text.Text = text;
+        }
+
+        var fill = FillWidth(Current.HeartPercent, BAR_WIDTH - (2 * PADDING));
+
+        if (fill != LastFill)
+        {
+            LastFill = fill;
+            Fill.Width = fill;
+        }
     }
 }

@@ -77,7 +77,8 @@ public sealed class HallBattleOfferWindow : UIPanel
     {
         if (e.Keycode == Keycode.Escape)
         {
-            Decline();
+            //Escape only closes the window: no Decline goes out, and the offer can still expire server-side
+            Close();
             e.Handled = true;
 
             return;

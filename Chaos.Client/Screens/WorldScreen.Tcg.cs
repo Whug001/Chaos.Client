@@ -158,6 +158,7 @@ public sealed partial class WorldScreen
 
     private void UnwireTcg()
     {
+        TcgCardFace.DisposeShared();
         Game.Connection.OnTcgCollectionDisplay -= HandleTcgCollectionDisplay;
         Game.Connection.OnTcgDisplay -= OnTcgDisplay;
         UnwireTcgRanked();

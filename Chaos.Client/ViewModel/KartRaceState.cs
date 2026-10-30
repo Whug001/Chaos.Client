@@ -40,6 +40,9 @@ public sealed class KartRaceState
     public uint GoStep { get; private set; }
     public uint LatestTick { get; private set; }
     public ushort LatestAck { get; private set; }
+
+    /// <summary>Bumped by every snapshot-layout change, so draw passes rebuild cached lists only on change.</summary>
+    public int SnapshotsVersion { get; private set; }
     public IReadOnlyList<KartResultEntry> Results { get; private set; } = [];
 
     public IReadOnlyList<KartRacerSnapshot> Standings
@@ -118,6 +121,7 @@ public sealed class KartRaceState
         LastSnapshotTicks.Clear();
         LatestTick = 0;
         LatestAck = 0;
+        SnapshotsVersion++;
 
         if (!sameRace)
         {
@@ -163,6 +167,8 @@ public sealed class KartRaceState
             Snapshots[racer.Index] = racer;
             LastSnapshotTicks[racer.Index] = args.ServerTick;
         }
+
+        SnapshotsVersion++;
     }
 
     public void ApplyEvent(KartRaceEventArgs args)
@@ -221,6 +227,7 @@ public sealed class KartRaceState
         LastSnapshotTicks.Clear();
         RecordedLapTimes.Clear();
         FinishTimes.Clear();
+        SnapshotsVersion++;
     }
 
     private static bool TickElapsed(uint current, uint previous, uint threshold)

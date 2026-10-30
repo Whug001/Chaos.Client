@@ -30,6 +30,12 @@ public sealed class CinemaController(Func<ICinemaVideo> createVideo, Func<bool>?
     private int Volume = 80;
     private bool Mute;
 
+    //a repeat Apply for the same film only seeks when the new position is well off the expected one
+    private const long REPEAT_SEEK_THRESHOLD_MS = 2000;
+
+    //set when a video opens or the volume changes while it is not playing yet: pushed again once it plays
+    private bool VolumePending;
+
     public CinemaStatus Status { get; private set; }
     public CinemaStateArgs? State { get; private set; }
     public ICinemaVideo? Video { get; private set; }
@@ -47,6 +53,9 @@ public sealed class CinemaController(Func<ICinemaVideo> createVideo, Func<bool>?
 
         var sameFilm = State is not null && (State.FilmId == args.FilmId) && (State.Url == args.Url);
         var start = args.Paused ? args.PositionMs : CinemaSync.StartPosition(args.PositionMs, pingMs);
+
+        //where the previous Apply left the film: a repeat Apply that agrees with it needs no seek
+        var expected = State is null ? start : ExpectedPositionMs(nowMs);
 
         State = args;
         AnchorNowMs = nowMs;
@@ -69,7 +78,11 @@ public sealed class CinemaController(Func<ICinemaVideo> createVideo, Func<bool>?
             }
 
             Video.SetPaused(args.Paused);
-            Video.Seek(start);
+
+            //a routine re-Apply must not hitch the picture: seek only when well off the expected time
+            if (Math.Abs(start - expected) > REPEAT_SEEK_THRESHOLD_MS)
+                Video.Seek(start);
+
             NextCheckMs = nowMs + 2 * CinemaSync.CHECK_INTERVAL_MS;
 
             return;
@@ -104,6 +117,13 @@ public sealed class CinemaController(Func<ICinemaVideo> createVideo, Func<bool>?
 
         if (Video is null)
             return;
+
+        //VLC can drop the volume set before Open: push it again once the picture is actually playing
+        if (VolumePending && Video.Playing)
+        {
+            Video.SetVolume(Volume, Mute);
+            VolumePending = false;
+        }
 
         if (Video.Failed)
         {
@@ -185,6 +205,7 @@ public sealed class CinemaController(Func<ICinemaVideo> createVideo, Func<bool>?
         Volume = volume;
         Mute = mute;
         Video?.SetVolume(volume, mute);
+        VolumePending = Video is not { Playing: true };
     }
 
     public void Stop()
@@ -221,6 +242,7 @@ public sealed class CinemaController(Func<ICinemaVideo> createVideo, Func<bool>?
             video = createVideo();
             Video = video;
             video.SetVolume(Volume, Mute);
+            VolumePending = true;
             video.Open(State!.Url, startMs);
 
             if (State.Paused)

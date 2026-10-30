@@ -1,6 +1,7 @@
 #region
 using Chaos.Client.Collections;
 using Chaos.Client.Controls.World.Popups.Tcg;
+using Chaos.Client.ViewModel;
 using Chaos.DarkAges.Definitions;
 using Chaos.Networking.Entities.Server;
 #endregion
@@ -11,6 +12,10 @@ public sealed partial class WorldScreen
 {
     private TcgChallengeWindow? TcgChallengeWindow;
     private TcgOfferWindow? TcgOfferWindow;
+
+    //an incoming challenge that arrived while a match window was open: held until the match closes
+    //so it never sits hidden on top of the input stack, then shown if it has not expired yet
+    private (TcgDisplayArgs Args, DateTime ReceivedAt)? HeldTcgOffer;
 
     private void EnsureTcgChallengeWindows()
     {
@@ -31,6 +36,21 @@ public sealed partial class WorldScreen
         TcgOfferWindow?.Hide();
     }
 
+    /// <summary>Shows a challenge offer held while a match was open, if it has not expired yet.</summary>
+    private void ReleaseHeldTcgOffer()
+    {
+        if (HeldTcgOffer is not { } held)
+            return;
+
+        HeldTcgOffer = null;
+
+        if (TcgChallengeState.SecondsLeft(held.Args.ExpiresMs, held.ReceivedAt, DateTime.UtcNow) <= 0)
+            return;
+
+        EnsureTcgChallengeWindows();
+        TcgOfferWindow!.ShowOffer(held.Args.OtherName, held.Args.Stakes, held.Args.StakeGold, held.Args.ExpiresMs, held.Args.DeckNames);
+    }
+
     private void OnTcgDisplay(TcgDisplayArgs args)
     {
         switch (args.Type)
@@ -43,7 +63,14 @@ public sealed partial class WorldScreen
 
             case TcgDisplayType.ChallengeOffer when args.Incoming:
                 EnsureTcgChallengeWindows();
-                TcgOfferWindow!.ShowOffer(args.OtherName, args.Stakes, args.StakeGold, args.ExpiresMs, args.DeckNames);
+
+                if (TcgMatchOpen)
+                {
+                    //a match is already showing: the offer waits until it closes rather than sitting
+                    //hidden behind the match window while sitting on top of the input stack
+                    HeldTcgOffer = (args, DateTime.UtcNow);
+                } else
+                    TcgOfferWindow!.ShowOffer(args.OtherName, args.Stakes, args.StakeGold, args.ExpiresMs, args.DeckNames);
 
                 break;
 
@@ -54,6 +81,7 @@ public sealed partial class WorldScreen
                 break;
 
             case TcgDisplayType.ChallengeClosed:
+                HeldTcgOffer = null;
                 HideTcgChallengeWindows();
                 WorldState.Chat.AddOrangeBarMessage(args.Reason);
 

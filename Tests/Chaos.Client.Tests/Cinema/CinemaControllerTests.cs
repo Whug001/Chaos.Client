@@ -36,7 +36,13 @@ public class CinemaControllerTests
 
         public void Seek(long positionMs) => Seeks.Add(positionMs);
         public void SetPaused(bool paused) => LastPaused = paused;
-        public void SetVolume(int volume, bool mute) => LastVolume = (volume, mute);
+        public int VolumePushes;
+
+        public void SetVolume(int volume, bool mute)
+        {
+            VolumePushes++;
+            LastVolume = (volume, mute);
+        }
         public void UploadFrame() => Uploads++;
         public void Dispose() => Disposed = true;
     }
@@ -120,11 +126,40 @@ public class CinemaControllerTests
         var c = Make();
         c.Apply(Film(), 0, null);
 
+        c.Apply(Film(positionMs: 75_000, paused: true), 10_000, null);
+
+        Videos.Should().ContainSingle();
+        Videos[0].Seeks.Should().Equal(75_000);
+        Videos[0].LastPaused.Should().BeTrue();
+    }
+
+    [Test]
+    public void Repeat_apply_within_two_seconds_does_not_seek()
+    {
+        var c = Make();
+        c.Apply(Film(), 0, null);
+
+        //the server re-sends the same film while it plays: the expected spot is 70 s in, so 70 s seeks nothing
         c.Apply(Film(positionMs: 70_000, paused: true), 10_000, null);
 
         Videos.Should().ContainSingle();
-        Videos[0].Seeks.Should().Equal(70_000);
+        Videos[0].Seeks.Should().BeEmpty();
         Videos[0].LastPaused.Should().BeTrue();
+    }
+
+    [Test]
+    public void Volume_is_pushed_again_once_playback_starts()
+    {
+        var c = Make();
+        c.Apply(Film(), 0, null);
+
+        Videos[0].VolumePushes.Should().Be(1);
+
+        Videos[0].Playing = true;
+        c.Update(1);
+
+        Videos[0].VolumePushes.Should().Be(2);
+        Videos[0].LastVolume.Should().Be((80, false));
     }
 
     [Test]

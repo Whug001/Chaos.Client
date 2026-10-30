@@ -20,6 +20,7 @@ public sealed partial class WorldScreen
     private OkPopupMessageControl? TcgSpectatePrompt;
     private string? TcgSpectateTarget;
     private (int TileX, int TileY)? TcgSpectateTile;
+    private short TcgSpectateMapId;
 
     private bool TcgMatchOpen => TcgMatchWindow?.Visible ?? false;
 
@@ -40,13 +41,17 @@ public sealed partial class WorldScreen
             {
                 TcgSpectatePrompt.Hide();
 
-                if ((TcgSpectateTile is { } tile) && IsTileOnMap(tile.TileX, tile.TileY))
+                //the prompt is hidden on a map change, but a late No must still never click a tile on the new map
+                if ((TcgSpectateTile is { } tile)
+                    && (CurrentMapId == TcgSpectateMapId)
+                    && IsTileOnMap(tile.TileX, tile.TileY))
                     Game.Connection.ClickTile(tile.TileX, tile.TileY);
             };
         }
 
         TcgSpectateTarget = name;
         TcgSpectateTile = (tileX, tileY);
+        TcgSpectateMapId = CurrentMapId;
         TcgSpectatePrompt.Show("Watch this card battle?");
     }
 
@@ -59,6 +64,7 @@ public sealed partial class WorldScreen
         Root!.AddChild(TcgMatchWindow);
         TcgMatchWindow.Action += args => Game.Connection.SendTcgAction(args);
         TcgMatchWindow.SpectateStopped += () => Game.Connection.SendTcgAction(new TcgActionArgs { Type = TcgActionType.StopSpectate });
+        TcgMatchWindow.Closed += ReleaseHeldTcgOffer;
         TcgMatchWindow.WhisperSent += (target, text) =>
         {
             WorldState.Chat.RecordWhisperTo(target);

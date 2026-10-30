@@ -166,6 +166,47 @@ public class WritingDocumentTests
         heading.Blocks[0].Text.Should().HaveLength(60).And.StartWith("a b");
     }
 
+    private static bool HasLoneSurrogate(string text)
+    {
+        for (var i = 0; i < text.Length; i++)
+        {
+            if (char.IsHighSurrogate(text[i]) && ((i + 1 >= text.Length) || !char.IsLowSurrogate(text[i + 1])))
+                return true;
+
+            if (char.IsLowSurrogate(text[i]) && ((i == 0) || !char.IsHighSurrogate(text[i - 1])))
+                return true;
+        }
+
+        return false;
+    }
+
+    [Test]
+    public void Trimming_through_a_surrogate_pair_removes_both_halves()
+    {
+        //49_997 a's plus one emoji: 49_999 characters but 50_001 bytes, so the budget cuts one unit
+        //from the end, right through the emoji's low half
+        var doc = WithText(new string('a', 49_997) + "\U0001F600");
+
+        var text = doc.Blocks[0].Text;
+        text.Should().HaveLength(49_997);
+        HasLoneSurrogate(text).Should().BeFalse();
+    }
+
+    [Test]
+    public void Trimming_the_first_half_of_a_pair_removes_the_second_half_too()
+    {
+        var tail = "tail";
+        var doc = WithText("A" + new string('a', 49_000) + "\uD83D\uDE00" + tail);
+
+        //same head and high half but a different low half, over the byte budget with a shared tail:
+        //the cut takes the shared high half and must take the kept low half with it
+        doc.SetText(0, "A" + new string('a', 49_992) + "\uD83D\uDE01" + tail);
+
+        var text = doc.Blocks[0].Text;
+        text.Should().Be("A" + new string('a', 49_992) + tail);
+        HasLoneSurrogate(text).Should().BeFalse();
+    }
+
     [Test]
     public void To_info_drops_empty_blocks_and_from_round_trips()
     {

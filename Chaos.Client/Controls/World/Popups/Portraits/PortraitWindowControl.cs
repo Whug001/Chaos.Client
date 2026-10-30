@@ -125,12 +125,11 @@ public sealed class PortraitWindowControl : GuildCloakDialogBase
         AddChild(CurrentBox);
         CurrentHex = Caption(string.Empty, RIGHT_X, CANVAS_Y + CURRENT_SIZE + 3, WIDTH - LEFT - RIGHT_X, color: LegendColors.Gray);
 
-        Swatches = new PortraitSwatches(State.Canvas)
+        Swatches = new PortraitSwatches(State.Canvas, PickSwatch)
         {
             X = RIGHT_X,
             Y = SWATCHES_Y
         };
-        Swatches.Picked += OnSwatchPicked;
         Swatches.EditRequested += OpenPicker;
         AddChild(Swatches);
 
@@ -266,10 +265,10 @@ public sealed class PortraitWindowControl : GuildCloakDialogBase
         FinishPicking();
     }
 
-    private void OnSwatchPicked(int swatch)
+    //the swatch grid owns its highlight: a pick only changes the current color and refreshes the tools
+    private void PickSwatch(Color color)
     {
-        Swatches.Selected = swatch;
-        State.Pick(State.Canvas.Swatches[swatch]);
+        State.Pick(color);
         RefreshControls();
     }
 
@@ -647,12 +646,14 @@ public sealed class PortraitWindowControl : GuildCloakDialogBase
         private const int STEP_Y = CELL_HEIGHT + 1;
 
         private readonly PortraitCanvas Canvas;
+        private readonly Action<Color> Pick;
         private int LastClick = -1;
         private int PreviousClick = -1;
 
-        public PortraitSwatches(PortraitCanvas canvas)
+        public PortraitSwatches(PortraitCanvas canvas, Action<Color> pick)
         {
             Canvas = canvas;
+            Pick = pick;
             Width = (COLUMNS * STEP_X) - 2;
             Height = HEIGHT;
             Selected = 0;
@@ -661,7 +662,6 @@ public sealed class PortraitWindowControl : GuildCloakDialogBase
         public int Selected { get; set; }
 
         public event Action<int>? EditRequested;
-        public event Action<int>? Picked;
 
         public override void Draw(SpriteBatch spriteBatch)
         {
@@ -690,7 +690,8 @@ public sealed class PortraitWindowControl : GuildCloakDialogBase
             if (SwatchAt(e.ScreenX, e.ScreenY) is { } swatch)
             {
                 LastClick = swatch;
-                Picked?.Invoke(swatch);
+                Selected = swatch;
+                Pick(Canvas.Swatches[swatch]);
             }
         }
 

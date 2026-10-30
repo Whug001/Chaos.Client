@@ -48,7 +48,11 @@ public static class SeatedViewLayout
             (int)MathF.Ceiling(BACKDROP_HEIGHT * s) + 1);
     }
 
-    public static int[] RowsInFront(int viewerRow) => Enumerable.Range(0, viewerRow).ToArray();
+    //row 0 sits nearest the screen, so only rows 0-2 can be in front; shared, never mutated by callers
+    private static readonly int[][] RowsInFrontCache = [[], [0], [0, 1]];
+
+    public static int[] RowsInFront(int viewerRow)
+        => (viewerRow >= 0) && (viewerRow < RowsInFrontCache.Length) ? RowsInFrontCache[viewerRow] : Enumerable.Range(0, viewerRow).ToArray();
 
     public static float Scale(int distance) => distance == 1 ? 1f : FAR_SCALE;
 
@@ -65,7 +69,14 @@ public static class SeatedViewLayout
         return new Rectangle(x, y, w, h);
     }
 
+    //row panels only ever sit one or two rows ahead; shared, never mutated by callers
+    private static readonly Rectangle[] PanelNear = BuildPanel(1);
+    private static readonly Rectangle[] PanelFar = BuildPanel(2);
+
     public static Rectangle[] Panel(int distance)
+        => distance == 1 ? PanelNear : distance == 2 ? PanelFar : BuildPanel(distance);
+
+    private static Rectangle[] BuildPanel(int distance)
     {
         var s = Scale(distance);
         var w = (int)MathF.Round(CINEMA_PANEL_WIDTH * s);

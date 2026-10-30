@@ -54,8 +54,10 @@ public sealed partial class WorldScreen
         var stage = KartRace.StageAt(estimate);
 
         if (KartRace.Spectating)
-            DrawKartSpectatorPanel(scope.Batch, KartSpectatorLines(estimate, stage));
-        else
+        {
+            BuildKartSpectatorLines(estimate, stage, KartSpectatorLineCache);
+            DrawKartSpectatorPanel(scope.Batch, KartSpectatorLineCache);
+        } else
             DrawKartRacePanel(scope.Batch, estimate, stage, now);
 
         DrawKartMinimap(scope.Batch, now);
@@ -98,7 +100,12 @@ public sealed partial class WorldScreen
             DrawKartRow(batch, y + 35, "Time", clock, Color.White);
 
         var lapTimes = KartRace.LapTimes(index);
-        DrawKartRow(batch, y + 48, "Best", lapTimes.Count > 0 ? FormatRaceTime(lapTimes.Min() / 1000.0) : "-", Color.White);
+        var best = uint.MaxValue;
+
+        for (var i = 0; i < lapTimes.Count; i++)
+            best = Math.Min(best, lapTimes[i]);
+
+        DrawKartRow(batch, y + 48, "Best", lapTimes.Count > 0 ? FormatRaceTime(best / 1000.0) : "-", Color.White);
 
         if (latest?.Status == KartRacerStatus.Respawning && latest.Flags.HasFlag(KartRacerFlags.Held))
             DrawKartRow(batch, y + 61, "Drift", "Respawning", KartDim);
@@ -160,18 +167,40 @@ public sealed partial class WorldScreen
         DrawKartPanel(batch, box);
         batch.Draw(KartMapTexture, box.Location.ToVector2(), Color.White);
 
-        //the racer the camera is on goes last so its dot is never covered
+        //the racer the camera is on goes last so its dot is never covered: two passes, no ordering alloc
         var front = KartRace.Spectating ? KartFollowedIndex : KartRace.LocalIndex;
 
-        foreach (var index in KartDrawableIndexesThisFrame.OrderBy(index => index == front))
+        foreach (var index in KartDrawableIndexesThisFrame)
         {
-            if (KartBodyFor(index, now) is not { } body)
+            if (index == front)
                 continue;
 
-            var at = box.Location.ToVector2() + KartMap.Project(body.X, body.Y);
-            var color = index == front ? LegendColors.Gold : KartRace.Racers.TryGetValue(index, out var info) ? KartLayerTint.Dye(info.Dye) : Color.White;
-            DrawKartDot(batch, at, index == front ? 3 : 2, color);
+            DrawMinimapDot(batch, box, index, now, false);
         }
+
+        foreach (var index in KartDrawableIndexesThisFrame)
+        {
+            if (index != front)
+                continue;
+
+            DrawMinimapDot(batch, box, index, now, true);
+
+            break;
+        }
+    }
+
+    private void DrawMinimapDot(SpriteBatch batch, Rectangle box, byte index, double now, bool isFront)
+    {
+        if (KartBodyFor(index, now) is not { } body)
+            return;
+
+        var at = box.Location.ToVector2() + KartMap!.Project(body.X, body.Y);
+        var color = isFront
+            ? LegendColors.Gold
+            : KartRace.Racers.TryGetValue(index, out var info)
+                ? KartLayerTint.Dye(info.Dye)
+                : Color.White;
+        DrawKartDot(batch, at, isFront ? 3 : 2, color);
     }
 
     private Rectangle KartMapBox => new(Camera.ViewportWidth - KART_MARGIN - KART_MAP_WIDTH, KART_MARGIN, KART_MAP_WIDTH, KART_MAP_HEIGHT);

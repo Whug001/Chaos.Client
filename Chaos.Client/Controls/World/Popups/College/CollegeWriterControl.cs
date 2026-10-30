@@ -477,6 +477,12 @@ public sealed class CollegeWriterControl : GuildCloakDialogBase
     }
 
     /// <summary>
+    ///     Copies any typed text into the in-memory draft so hiding the window (a map change, a list shown over it)
+    ///     loses nothing: the draft keeps it until the next save. Sends nothing, unlike SaveIfDirty.
+    /// </summary>
+    public void PreserveDraft() => PullText();
+
+    /// <summary>
     ///     Sends a draft with unsent changes, as Close does, but leaves the window as it is. For logging out, where the
     ///     window goes away without Close. A hand-in is only ever sent by Hand in, so it is left alone.
     /// </summary>

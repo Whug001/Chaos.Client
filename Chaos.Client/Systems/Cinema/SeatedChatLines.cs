@@ -21,6 +21,9 @@ public sealed class SeatedChatLines
 
     public IReadOnlyList<(string Text, Color Color, float Alpha)> Visible(long now)
     {
+        if (Lines.Count == 0)
+            return [];
+
         var visible = new List<(string, Color, float)>(Lines.Count);
 
         foreach (var (text, color, at) in Lines)

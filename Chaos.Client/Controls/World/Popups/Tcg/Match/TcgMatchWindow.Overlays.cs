@@ -239,6 +239,10 @@ public sealed partial class TcgMatchWindow
     private const int HINT_WIDTH = 368;
     private const int HINT_MAX_LINES = 3;
 
+    //the wrapped hint lines, rebuilt only when the hint text changes rather than every frame
+    private string HintCacheKey = string.Empty;
+    private List<string> HintCacheLines = [];
+
     /// <summary>
     ///     Where the hint banner goes. During the redraw phase the redraw cards fill the board, so the banner moves below
     ///     the redraw overlay instead of dimming under it.
@@ -261,7 +265,13 @@ public sealed partial class TcgMatchWindow
         if (string.IsNullOrEmpty(State.Hint))
             return;
 
-        var lines = TextRenderer.WrapLines(State.Hint, HINT_WIDTH - 16).Take(HINT_MAX_LINES).ToList();
+        if (!string.Equals(State.Hint, HintCacheKey, StringComparison.Ordinal))
+        {
+            HintCacheKey = State.Hint;
+            HintCacheLines = TextRenderer.WrapLines(State.Hint, HINT_WIDTH - 16).Take(HINT_MAX_LINES).ToList();
+        }
+
+        var lines = HintCacheLines;
 
         if (lines.Count == 0)
             return;

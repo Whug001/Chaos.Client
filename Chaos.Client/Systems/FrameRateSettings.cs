@@ -1,4 +1,4 @@
-﻿namespace Chaos.Client.Systems;
+namespace Chaos.Client.Systems;
 
 /// <summary>
 ///     Frame pacing modes selectable from the F4 Frame rate dropdown. The enum ordinal IS the dropdown index and the int
@@ -61,6 +61,12 @@ public static class FrameRateSettings
             FrameRateMode.Fixed320     => (true, PerSecond(320), false),
             _                          => (true, PerSecond(60), false)
         };
+
+    /// <summary>
+    ///     The fixed-step cap for <see cref="FrameRateMode.MatchMonitor" />: the monitor's own refresh rate, or 240
+    ///     when it is unknown, so the loop never runs uncapped if vsync is ignored.
+    /// </summary>
+    public static int MatchMonitorCap(int refreshRateHz) => refreshRateHz > 0 ? refreshRateHz : 240;
 
     /// <summary>The frame budget in milliseconds, or null when vsync paces the loop and there is no fixed target.</summary>
     public static float? TargetFrameMs(FrameRateMode mode)

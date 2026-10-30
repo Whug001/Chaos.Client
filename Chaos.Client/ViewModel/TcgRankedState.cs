@@ -30,6 +30,9 @@ public sealed class TcgRankedState
     private DateTime SearchStart = DateTime.MaxValue;
     private DateTime ReadyEnd = DateTime.MinValue;
 
+    /// <summary>How long past the ready check's end an accept may still wait for the server to confirm.</summary>
+    public static readonly TimeSpan ACCEPT_GRACE = TimeSpan.FromSeconds(5);
+
     public TcgQueueMode Mode { get; private set; } = TcgQueueMode.Hidden;
 
     /// <summary>How many players are waiting in the ranked queue, including the viewer.</summary>
@@ -76,6 +79,21 @@ public sealed class TcgRankedState
     {
         if (Mode == TcgQueueMode.ReadyCheck)
             Mode = TcgQueueMode.Accepted;
+    }
+
+    /// <summary>
+    ///     Drops an accept the server never confirmed back to hidden once the ready-check window plus a small
+    ///     margin has passed. True when the mode changed.
+    /// </summary>
+    public bool ExpireStaleAccept(DateTime now)
+    {
+        if ((Mode != TcgQueueMode.Accepted) || (now < ReadyEnd + ACCEPT_GRACE))
+            return false;
+
+        Mode = TcgQueueMode.Hidden;
+        ReadyEnd = DateTime.MinValue;
+
+        return true;
     }
 
     /// <summary>Whole seconds spent searching, or 0.</summary>

@@ -282,9 +282,9 @@ public sealed partial class TcgMatchWindow
         var pulse = 0.55f + (0.45f * MathF.Sin(Environment.TickCount64 / 240f));
         var gold = LegendColors.Gold * pulse;
 
-        foreach (var rect in Input.Targets.Select(id => TargetRect(board, Input, id)))
+        foreach (var id in Input.Targets)
         {
-            if (rect is not { } local)
+            if (TargetRect(board, Input, id) is not { } local)
                 continue;
 
             var at = new Rectangle(ScreenX + local.X, ScreenY + local.Y, local.Width, local.Height);
@@ -351,7 +351,18 @@ public sealed partial class TcgMatchWindow
         if ((DraggingHandCard() is not { } id) || (State.Latest is not { } latest) || (latest.Players.Count < 2))
             return;
 
-        if (latest.Players[(int)latest.YourSeat].Hand.Find(card => card.Id == id) is not { } view)
+        var hand = latest.Players[(int)latest.YourSeat].Hand;
+        TcgCardView? view = null;
+
+        for (var i = 0; i < hand.Count; i++)
+            if (hand[i].Id == id)
+            {
+                view = hand[i];
+
+                break;
+            }
+
+        if (view is null)
             return;
 
         DragFace.Card = Catalog.Get(view.Key);

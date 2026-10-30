@@ -18,6 +18,9 @@ public sealed partial class WorldScreen
 
     private readonly SeatedViewState SeatedView = new();
     private readonly SeatedChatLines SeatedChat = new();
+
+    //the seat occupants, rebuilt every frame into the same dictionary rather than a new one
+    private readonly Dictionary<(int X, int Y), Models.WorldEntity> SeatedOccupants = [];
     private CinemaHeadRenderer? CinemaHeads;
     private Texture2D? SeatedBackdrop;
     private Texture2D? SeatedCurtains;
@@ -159,7 +162,7 @@ public sealed partial class WorldScreen
 
             if (SeatBackTexture is not null || SeatPanelTexture is not null)
             {
-                var occupants = new Dictionary<(int X, int Y), Models.WorldEntity>();
+                SeatedOccupants.Clear();
 
                 foreach (var entity in WorldState.CurrentFrame.SortedEntities)
                 {
@@ -170,7 +173,7 @@ public sealed partial class WorldScreen
                         || CinemaSeats.At(entity.TileX, entity.TileY) is null)
                         continue;
 
-                    occupants[(entity.TileX, entity.TileY)] = entity;
+                    SeatedOccupants[(entity.TileX, entity.TileY)] = entity;
                 }
 
                 //rows in front come farthest first, so nearer rows overdraw farther rows;
@@ -183,7 +186,7 @@ public sealed partial class WorldScreen
                             var back = SeatedViewLayout.SeatBack(seat.Row, seat.Col, row, col);
 
                             if (SeatsByRowCol.TryGetValue((row, col), out var front)
-                                && occupants.TryGetValue((front.X, front.Y), out var occupant)
+                                && SeatedOccupants.TryGetValue((front.X, front.Y), out var occupant)
                                 && occupant.Appearance is { } appearance
                                 && CinemaHeads?.Get(in appearance) is { } head)
                                 spriteBatch.Draw(head, SeatedViewLayout.Head(back, seat.Row - row), Color.White);

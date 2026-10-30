@@ -606,6 +606,41 @@ public sealed class GuildHallEditorStateTests
     }
 
     [Test]
+    public async Task Stroke_tiles_send_once_per_drag()
+    {
+        var state = new GuildHallEditorState();
+        var tile = new Point(5, 6);
+
+        state.BeginStrokeBatch(1_000);
+        state.TryClaimStrokeTile(tile).Should().BeTrue();
+
+        //a drag passing back over the same tile skips it, and a new stroke sends it again
+        state.TryClaimStrokeTile(tile).Should().BeFalse();
+
+        state.BeginStrokeBatch(2_000);
+        state.TryClaimStrokeTile(tile).Should().BeTrue();
+
+        await Task.CompletedTask;
+    }
+
+    [Test]
+    public async Task Stroke_batches_wait_out_the_send_interval()
+    {
+        var state = new GuildHallEditorState();
+        var interval = (long)GuildHallEditorState.STROKE_SEND_INTERVAL.TotalMilliseconds;
+
+        state.BeginStrokeBatch(1_000);
+
+        state.StrokeBatchDue(1_000 + interval - 1).Should().BeFalse();
+        state.StrokeBatchDue(1_000 + interval).Should().BeTrue();
+
+        state.MarkStrokeBatchSent(1_000 + interval);
+        state.StrokeBatchDue(1_000 + 2 * interval - 1).Should().BeFalse();
+
+        await Task.CompletedTask;
+    }
+
+    [Test]
     public async Task PlanMarkers_only_on_the_defenses_tab()
     {
         var state = new GuildHallEditorState();

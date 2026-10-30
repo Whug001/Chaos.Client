@@ -460,7 +460,7 @@ public sealed class WritingDocument
     ///     Cuts block <paramref name="index" /> until the piece is within the server's count, first from the text between
     ///     <paramref name="start" /> and <paramref name="end" />, backwards from its end, then from the end of the block.
     ///     Each pass cuts the overrun, and a joining line break can go as the block empties, so the loop settles in a pass or
-    ///     two.
+    ///     two. A cut through a surrogate pair takes the pair's other half too, so the text never holds a lone surrogate.
     /// </summary>
     private void FitText(int index, int start = 0, int end = int.MaxValue)
     {
@@ -477,7 +477,17 @@ public sealed class WritingDocument
                 from = Math.Max(0, to - over);
             }
 
-            block.Text = block.Text.Remove(from, to - from);
+            var original = block.Text;
+            block.Text = original.Remove(from, to - from);
+
+            //the cut ended inside a pair: the kept low half now sits at the seam
+            if ((to < original.Length) && char.IsHighSurrogate(original[to - 1]) && char.IsLowSurrogate(original[to]))
+                block.Text = block.Text.Remove(from, 1);
+
+            //the cut started inside a pair: the kept high half sits just before the seam
+            if ((from > 0) && char.IsLowSurrogate(original[from]) && char.IsHighSurrogate(original[from - 1]))
+                block.Text = block.Text.Remove(from - 1, 1);
+
             end = from;
         }
     }

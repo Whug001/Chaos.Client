@@ -17,6 +17,15 @@ public sealed partial class WorldScreen
     private Texture2D? CinemaUnavailableText;
     private IReadOnlyList<CinemaWallColumn>? CinemaWallColumns;
 
+    //the house-dim holes and rectangles, rebuilt only when the viewport or the camera moves
+    private readonly List<Rectangle> CinemaHoles = [];
+    private readonly List<Rectangle> CinemaDimRects = [];
+    private Rectangle CinemaDimViewport;
+    private Vector2 CinemaDimCamPos;
+    private Vector2 CinemaDimCamOffset;
+    private float CinemaDimZoom;
+    private bool CinemaDimSmooth;
+
     private static float CinemaSnap(float value, bool smooth) => smooth ? MathF.Round(value) : MathF.Floor(value);
 
     private void WireCinema()
@@ -132,21 +141,37 @@ public sealed partial class WorldScreen
             //same floor + viewport-offset mapping as DrawCinemaWall's transformed batch, so the hole
             //lines up exactly with the drawn screen
             var smooth = ClientSettings.ScrollLevel > 0;
-            var holes = new List<Rectangle>(CinemaWallColumns.Count);
 
-            foreach (var column in CinemaWallColumns)
+            if ((CinemaDimViewport != viewport)
+                || (CinemaDimCamPos != Camera.Position)
+                || (CinemaDimCamOffset != Camera.Offset)
+                || (CinemaDimZoom != Camera.Zoom)
+                || (CinemaDimSmooth != smooth)
+                || (CinemaDimRects.Count == 0))
             {
-                var top = Camera.WorldToScreen(new Vector2(column.Back.X, column.Back.Y));
+                CinemaHoles.Clear();
 
-                holes.Add(
-                    new Rectangle(
-                        viewport.X + (int)CinemaSnap(top.X, smooth),
-                        viewport.Y + (int)CinemaSnap(top.Y, smooth),
-                        column.Back.Width,
-                        column.Back.Height));
+                foreach (var column in CinemaWallColumns)
+                {
+                    var top = Camera.WorldToScreen(new Vector2(column.Back.X, column.Back.Y));
+
+                    CinemaHoles.Add(
+                        new Rectangle(
+                            viewport.X + (int)CinemaSnap(top.X, smooth),
+                            viewport.Y + (int)CinemaSnap(top.Y, smooth),
+                            column.Back.Width,
+                            column.Back.Height));
+                }
+
+                CinemaDimViewport = viewport;
+                CinemaDimCamPos = Camera.Position;
+                CinemaDimCamOffset = Camera.Offset;
+                CinemaDimZoom = Camera.Zoom;
+                CinemaDimSmooth = smooth;
+                CinemaScreenLayout.DimAroundColumnsInto(viewport, CinemaHoles, CinemaDimRects);
             }
 
-            foreach (var rect in CinemaScreenLayout.DimAroundColumns(viewport, holes))
+            foreach (var rect in CinemaDimRects)
                 RenderHelper.DrawRect(spriteBatch, rect, Color.Black * CinemaScreenLayout.CINEMA_HOUSE_DARKNESS);
         } finally
         {

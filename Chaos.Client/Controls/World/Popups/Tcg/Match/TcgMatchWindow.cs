@@ -265,6 +265,10 @@ public sealed partial class TcgMatchWindow : UIPanel
         if (!Visible || (State.Latest is null))
             return;
 
+        //the match is over: the end banner is up and no decision can still be ticking
+        if (State.Ended is not null)
+            return;
+
         var left = State.DecisionSecondsLeft(DateTime.UtcNow);
 
         if (TcgSounds.ShouldTickDecision(State.Latest, left, LastTickSecond))

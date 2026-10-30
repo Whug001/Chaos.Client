@@ -1,4 +1,4 @@
-﻿#region
+#region
 using Chaos.Client.Collections;
 using Chaos.Client.Controls.Components;
 using Chaos.Client.Data.Utilities;
@@ -54,6 +54,16 @@ public sealed partial class WorldScreen
         GroupVitals.Suppressed = WorldMap.Visible || TcgMatchOpen;
         RaidVitals.Suppressed = WorldMap.Visible || TcgMatchOpen;
         SuppressHotbars(WorldMap.Visible || TcgMatchOpen);
+
+        //an accept the server never confirms falls back to hidden once the ready-check window plus a
+        //small margin has passed, so the bar cannot stick on "Waiting..." and the binder refreshes with it
+        if (WorldState.TcgRanked.ExpireStaleAccept(DateTime.UtcNow) && (TcgBinderWindow?.Visible ?? false))
+            TcgBinderWindow.Refresh();
+
+        //the queue bar stacks below the hall battle bar while both are visible: both sit top-centre
+        if (TcgQueueBar is not null)
+            TcgQueueBar.StackBelow = (HallBattleBar?.Visible ?? false) ? HallBattleBar.Height + 4 : 0;
+
         TcgQueueBar?.Sync();
 
         var elapsedMs = (float)gameTime.ElapsedGameTime.TotalMilliseconds;
@@ -167,7 +177,10 @@ public sealed partial class WorldScreen
         var movementHandled = false;
 
         if (KartRefusesStep())
+        {
             Pathfinding.Clear();
+            QueuedWalkDirection = null;
+        }
 
         if (!KartRefusesStep() && player is not null && player.IsAtRest && QueuedWalkDirection.HasValue)
         {

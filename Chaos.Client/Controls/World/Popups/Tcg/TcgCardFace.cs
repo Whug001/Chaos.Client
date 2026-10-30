@@ -113,6 +113,15 @@ public sealed class TcgCardFace : UIElement
     private static Texture2D? FoilTextureField;
     private static long FoilPaintedAt;
 
+    /// <summary>Disposes the shared foil texture; called with the world screen so it never outlives the device.</summary>
+    public static void DisposeShared()
+    {
+        if (FoilTextureField is { IsDisposed: false } foil)
+            foil.Dispose();
+
+        FoilTextureField = null;
+    }
+
     /// <summary>The shared foil frame for this tick, repainted at most every 50 ms.</summary>
     private static Texture2D FoilTexture(SpriteBatch spriteBatch, long clock)
     {
@@ -578,12 +587,30 @@ public sealed class TcgCardFace : UIElement
         if (TextRenderer.MeasureWidth(text) <= width)
             return text;
 
-        var cut = text;
+        var dots = TextRenderer.MeasureWidth("..");
 
-        while ((cut.Length > 1) && (TextRenderer.MeasureWidth(cut + "..") > width))
-            cut = cut[..^1];
+        //longest prefix that still fits with the dots; binary search keeps this per-frame trim cheap
+        var lo = 0;
+        var hi = text.Length;
 
-        return cut + "..";
+        while (lo < hi)
+        {
+            var mid = (lo + hi + 1) / 2;
+
+            if (TextRenderer.MeasureWidth(text.AsSpan(0, mid)) + dots <= width)
+                lo = mid;
+            else
+                hi = mid - 1;
+        }
+
+        if (text.Length > 0 && lo == 0)
+            lo = 1;
+
+        //never split a surrogate pair at the cut
+        if ((lo > 0) && (lo < text.Length) && char.IsHighSurrogate(text[lo - 1]) && char.IsLowSurrogate(text[lo]))
+            lo--;
+
+        return text[..lo] + "..";
     }
 
     private static Color MultiplyTint(Color color, Color tint)

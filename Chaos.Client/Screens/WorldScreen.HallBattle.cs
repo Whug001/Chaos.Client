@@ -15,6 +15,9 @@ public sealed partial class WorldScreen
     private HallBattleOfferWindow? HallBattleOffer;
     private WarRoomControl? WarRoom;
 
+    //the map the hall battle bar was last shown on: a map change anywhere else clears the bar
+    private short HallBattleBarMapId = -1;
+
     private void WireHallBattle() => Game.Connection.OnHallBattleDisplay += HandleHallBattleDisplay;
 
     private void UnwireHallBattle()
@@ -61,11 +64,13 @@ public sealed partial class WorldScreen
 
             case HallBattleDisplayKind.Bar:
                 EnsureHallBattleBar().Show(args);
+                HallBattleBarMapId = CurrentMapId;
 
                 break;
 
             case HallBattleDisplayKind.BarClear:
                 HallBattleBar?.Clear();
+                HallBattleBarMapId = -1;
 
                 break;
         }

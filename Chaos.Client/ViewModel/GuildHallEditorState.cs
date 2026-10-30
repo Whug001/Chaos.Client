@@ -238,6 +238,28 @@ public sealed class GuildHallEditorState
         return owned;
     }
 
+    /// <summary>Longest a paint/erase drag goes without sending its tiles.</summary>
+    public static readonly TimeSpan STROKE_SEND_INTERVAL = TimeSpan.FromMilliseconds(40);
+
+    private readonly HashSet<Point> StrokeSentTiles = [];
+    private long StrokeLastBatchMs;
+
+    /// <summary>Starts tracking a paint/erase drag: every tile sends once until the next stroke.</summary>
+    public void BeginStrokeBatch(long nowMs)
+    {
+        StrokeSentTiles.Clear();
+        StrokeLastBatchMs = nowMs;
+    }
+
+    /// <summary>True when a paint/erase drag may send its tiles now.</summary>
+    public bool StrokeBatchDue(long nowMs) => (nowMs - StrokeLastBatchMs) >= STROKE_SEND_INTERVAL.TotalMilliseconds;
+
+    /// <summary>Remembers that a stroke batch went out now.</summary>
+    public void MarkStrokeBatchSent(long nowMs) => StrokeLastBatchMs = nowMs;
+
+    /// <summary>True the first time a drag covers a tile: later passes over it in the same stroke skip it.</summary>
+    public bool TryClaimStrokeTile(Point tile) => StrokeSentTiles.Add(tile);
+
     public static readonly TimeSpan ResetConfirmWindow = TimeSpan.FromSeconds(3);
 
     public bool ResetArmed { get; private set; }

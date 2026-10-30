@@ -44,6 +44,12 @@ public sealed class TownMapControl : UIPanel
     private readonly List<UIImage> PinImages = [];
     private Texture2D[]? PinFrames;
 
+    //the last pins actually laid out: rebuilt only when the group, the positions or the player change
+    private IReadOnlyList<GroupPosition>? PinPositions;
+    private IReadOnlyList<GroupMemberSnapshot>? PinMembers;
+    private string? PinPlayerName;
+    private IReadOnlyList<TownMapPin>? Pins;
+
     //marker animation frames (swapped onto markerimage.texture each tick)
     private Texture2D[]? MarkerFrames;
 
@@ -385,7 +391,21 @@ public sealed class TownMapControl : UIPanel
         if (PinFrames is null || TownImageLayer is null)
             return;
 
-        var pins = TownMapPins.Build(WorldState.GroupMembers, WorldState.GroupPositions.Members, WorldState.PlayerName);
+        var members = WorldState.GroupMembers.Members;
+        var positions = WorldState.GroupPositions.Members;
+        var player = WorldState.PlayerName;
+
+        if (!ReferenceEquals(members, PinMembers)
+            || !ReferenceEquals(positions, PinPositions)
+            || !string.Equals(player, PinPlayerName, StringComparison.Ordinal))
+        {
+            PinMembers = members;
+            PinPositions = positions;
+            PinPlayerName = player;
+            Pins = TownMapPins.Build(WorldState.GroupMembers, positions, player);
+        }
+
+        var pins = Pins ?? [];
         var used = 0;
 
         foreach (var pin in pins)

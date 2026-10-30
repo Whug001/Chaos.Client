@@ -155,6 +155,35 @@ public sealed class TcgRankedStateTests
     }
 
     [Test]
+    public void Stale_accept_falls_back_to_hidden_after_the_ready_check_plus_a_margin()
+    {
+        var ranked = new TcgRankedState();
+        var start = new DateTime(2026, 1, 1, 0, 0, 0, DateTimeKind.Utc);
+        ranked.Apply(Args(TcgRankedDisplayKind.ReadyCheck, left: 30), start);
+        ranked.MarkAccepted();
+
+        ranked.ExpireStaleAccept(start.AddSeconds(34)).Should().BeFalse();
+        ranked.Mode.Should().Be(TcgQueueMode.Accepted);
+
+        ranked.ExpireStaleAccept(start.AddSeconds(35)).Should().BeTrue();
+        ranked.Mode.Should().Be(TcgQueueMode.Hidden);
+    }
+
+    [Test]
+    public void Expiring_never_touches_modes_other_than_accepted()
+    {
+        var ranked = new TcgRankedState();
+
+        ranked.ExpireStaleAccept(DateTime.UtcNow).Should().BeFalse();
+
+        var start = DateTime.UtcNow;
+        ranked.Apply(Args(TcgRankedDisplayKind.Queue), start);
+
+        ranked.ExpireStaleAccept(start.AddHours(1)).Should().BeFalse();
+        ranked.Mode.Should().Be(TcgQueueMode.Searching);
+    }
+
+    [Test]
     public void Clear_hides_and_drops_the_snapshot()
     {
         var state = new TcgRankedState();

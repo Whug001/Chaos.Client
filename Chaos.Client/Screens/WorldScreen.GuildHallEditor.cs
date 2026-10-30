@@ -225,6 +225,13 @@ public sealed partial class WorldScreen
             HallStrokeTool = tool;
             HallStrokeStart = tile;
             HallStrokeLast = tile;
+
+            //a drag sends each tile once: the press tile already went out above (except for Rect),
+            //so it counts as sent for Paint and Erase
+            WorldState.GuildHallEditor.BeginStrokeBatch(Environment.TickCount64);
+
+            if (tool is GuildHallTool.Paint or GuildHallTool.Erase)
+                WorldState.GuildHallEditor.TryClaimStrokeTile(tile);
         }
 
         return true;
@@ -283,10 +290,23 @@ public sealed partial class WorldScreen
         if (HoveredHallTile() is { } tile && (tile != HallStrokeLast))
         {
             if (HallStrokeTool is GuildHallTool.Paint or GuildHallTool.Erase)
-                foreach (var step in GuildHallStroke.Line(HallStrokeLast, tile))
-                    SendHallTile(step);
+            {
+                var editor = WorldState.GuildHallEditor;
+                var nowMs = Environment.TickCount64;
 
-            HallStrokeLast = tile;
+                //a held drag covers each tile once and sends at most one batch per interval, so a fast
+                //mouse cannot flood the server; an unsent stretch keeps bridging from the last sent tile
+                if (editor.StrokeBatchDue(nowMs))
+                {
+                    foreach (var step in GuildHallStroke.Line(HallStrokeLast, tile))
+                        if (editor.TryClaimStrokeTile(step))
+                            SendHallTile(step);
+
+                    editor.MarkStrokeBatchSent(nowMs);
+                    HallStrokeLast = tile;
+                }
+            } else
+                HallStrokeLast = tile;
         }
 
         if (InputBuffer.IsLeftButtonHeld)

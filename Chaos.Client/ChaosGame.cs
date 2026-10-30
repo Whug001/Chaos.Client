@@ -1,4 +1,4 @@
-﻿#region
+#region
 using System.Buffers.Binary;
 using System.Diagnostics;
 using System.IO.Compression;
@@ -681,6 +681,15 @@ public sealed class ChaosGame : Game
     {
         var (fixedStep, target, vsync) = FrameRateSettings.Resolve(mode);
 
+        if (mode == FrameRateMode.MatchMonitor)
+        {
+            //vsync normally paces the loop, but a driver that ignores it would leave the unfixed loop
+            //uncapped: fall back to a fixed step at the monitor rate (or 240 when it is unknown)
+            var cap = FrameRateSettings.MatchMonitorCap(DisplayRefreshRateHz());
+            fixedStep = true;
+            target = TimeSpan.FromTicks(TimeSpan.TicksPerSecond / cap);
+        }
+
         IsFixedTimeStep = fixedStep;
         TargetElapsedTime = target;
 
@@ -694,6 +703,23 @@ public sealed class ChaosGame : Game
         Graphics.SynchronizeWithVerticalRetrace = vsync;
         Graphics.ApplyChanges();
         ResizingInProgress = false;
+    }
+
+    /// <summary>The window's display refresh rate in Hz, or 0 when SDL cannot say.</summary>
+    private int DisplayRefreshRateHz()
+    {
+        try
+        {
+            var index = Sdl.SDL_GetWindowDisplayIndex(Window.Handle);
+
+            if ((index >= 0) && (Sdl.SDL_GetCurrentDisplayMode(index, out var displayMode) == 0))
+                return displayMode.RefreshRate;
+        } catch (Exception e) when (e is DllNotFoundException or EntryPointNotFoundException)
+        {
+            //no SDL on this platform: the caller falls back to 240
+        }
+
+        return 0;
     }
 
     /// <summary>

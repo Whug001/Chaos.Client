@@ -281,12 +281,21 @@ public sealed partial class TcgMatchWindow
         return fallback;
     }
 
+    private static int IndexOf(IReadOnlyList<int> order, int id)
+    {
+        for (var i = 0; i < order.Count; i++)
+            if (order[i] == id)
+                return i;
+
+        return -1;
+    }
+
     private string? CreatureBadge(TcgDisplayArgs board, TcgCreatureView view)
     {
         if ((Input.Mode != TcgInputMode.Ordering) || !board.Blocks.Any(block => (block.AttackerId == Input.OrderingAttacker) && (block.BlockerId == view.Id)))
             return null;
 
-        var order = Input.DamageOrder.ToList().IndexOf(view.Id);
+        var order = IndexOf(Input.DamageOrder, view.Id);
 
         return order < 0 ? null : (order + 1).ToString();
     }
@@ -436,9 +445,18 @@ public sealed partial class TcgMatchWindow
     public static List<TcgBlockArrow> ConfirmedBlockArrows(TcgDisplayArgs board, TcgMatchInput input, Func<string, TcgCatalogCardView?> lookup)
     {
         var arrows = new List<TcgBlockArrow>();
+        ConfirmedBlockArrowsInto(board, input, lookup, arrows);
+
+        return arrows;
+    }
+
+    /// <summary>Fills <paramref name="into" /> with the confirmed block arrows, so the draw pass reuses its list.</summary>
+    public static void ConfirmedBlockArrowsInto(TcgDisplayArgs board, TcgMatchInput input, Func<string, TcgCatalogCardView?> lookup, List<TcgBlockArrow> into)
+    {
+        into.Clear();
 
         if (!ShowsConfirmedBlocks(board, input))
-            return arrows;
+            return;
 
         var defenderSeat = TcgMatchRules.Other(AttackerSeat(board));
         var seal = defenderSeat == board.YourSeat ? TcgMatchLayout.YourSeal.Center : TcgMatchLayout.OpponentSeal.Center;
@@ -459,16 +477,14 @@ public sealed partial class TcgMatchWindow
 
                 blocked = true;
                 var feet = DrawFeet(board, input, block.BlockerId, blocker.Yours, blocker.Index, blocker.Count);
-                arrows.Add(new TcgBlockArrow(from, new Point(feet.X, feet.Y - 24), true));
+                into.Add(new TcgBlockArrow(from, new Point(feet.X, feet.Y - 24), true));
             }
 
             if (!blocked)
                 //a blocked attacker whose blockers all died still hits nothing unless it tramples
                 if (!board.Blocks.Any(block => block.AttackerId == attackerId) || AttackerTramples(board, attacker, lookup))
-                    arrows.Add(new TcgBlockArrow(from, seal, false));
+                    into.Add(new TcgBlockArrow(from, seal, false));
         }
-
-        return arrows;
     }
 
     private static TcgSeat AttackerSeat(TcgDisplayArgs board)
@@ -509,9 +525,14 @@ public sealed partial class TcgMatchWindow
                && ((card.Keywords & TcgKeyword.Trample) != 0);
     }
 
+    //reused by the draw pass so confirmed arrows never allocate per frame
+    private readonly List<TcgBlockArrow> ArrowCache = [];
+
     private void DrawConfirmedBlockArrows(SpriteBatch batch, TcgDisplayArgs board)
     {
-        foreach (var arrow in ConfirmedBlockArrows(board, Input, Catalog.Get))
+        ConfirmedBlockArrowsInto(board, Input, Catalog.Get, ArrowCache);
+
+        foreach (var arrow in ArrowCache)
             DrawArrow(
                 batch,
                 new Point(ScreenX + arrow.From.X, ScreenY + arrow.From.Y),

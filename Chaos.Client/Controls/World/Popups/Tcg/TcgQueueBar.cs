@@ -34,6 +34,10 @@ public sealed class TcgQueueBar : UIPanel
     private readonly int ScreenWidth;
     private readonly UILabel Title;
 
+    /// <summary>How far below the top of the screen the bar sits: the world screen raises it past the hall
+    /// battle bar while both are visible, so the two never overlap.</summary>
+    public int StackBelow { get; set; }
+
     public TcgQueueBar(int screenWidth, Func<bool> isMatchOpen)
     {
         Name = "TcgQueueBar";
@@ -90,6 +94,10 @@ public sealed class TcgQueueBar : UIPanel
     public event Action? DeclineClicked;
     public event Action? LeaveClicked;
 
+    //the last mode and text actually laid out: the bar only rebuilds its strings on change, not every frame
+    private TcgQueueMode LastMode = TcgQueueMode.Hidden;
+    private string LastText = string.Empty;
+
     /// <summary>
     ///     Called by the world screen every frame. Not done in Update: a parent panel never updates a hidden child,
     ///     so a hidden bar could never show itself.
@@ -104,6 +112,19 @@ public sealed class TcgQueueBar : UIPanel
             return;
 
         var now = DateTime.UtcNow;
+        var top = TOP + StackBelow;
+        var text = ranked.Mode switch
+        {
+            TcgQueueMode.Searching => ranked.QueueText(now),
+            TcgQueueMode.ReadyCheck => $"Match found! {ranked.SecondsLeft(now)} s",
+            _ => $"Waiting... {ranked.SecondsLeft(now)}"
+        };
+
+        if ((ranked.Mode == LastMode) && string.Equals(text, LastText, StringComparison.Ordinal))
+            return;
+
+        LastMode = ranked.Mode;
+        LastText = text;
 
         switch (ranked.Mode)
         {
@@ -111,7 +132,8 @@ public sealed class TcgQueueBar : UIPanel
                 Width = SEARCH_WIDTH;
                 Height = SEARCH_HEIGHT;
                 X = (ScreenWidth - Width) / 2;
-                Title.Text = ranked.QueueText(now);
+                Y = top;
+                Title.Text = text;
                 Title.X = PADDING;
                 Title.Y = (Height - Title.Height) / 2;
                 Title.Width = (Width - LEAVE_SIZE - 2) - PADDING - 4;
@@ -128,7 +150,8 @@ public sealed class TcgQueueBar : UIPanel
                 Width = READY_WIDTH;
                 Height = READY_HEIGHT;
                 X = (ScreenWidth - Width) / 2;
-                Title.Text = $"Match found! {ranked.SecondsLeft(now)} s";
+                Y = top;
+                Title.Text = text;
                 Title.X = PADDING;
                 Title.Y = 4;
                 Title.Width = Width - (2 * PADDING);
@@ -147,7 +170,8 @@ public sealed class TcgQueueBar : UIPanel
                 Width = SEARCH_WIDTH;
                 Height = SEARCH_HEIGHT;
                 X = (ScreenWidth - Width) / 2;
-                Title.Text = $"Waiting... {ranked.SecondsLeft(now)}";
+                Y = top;
+                Title.Text = text;
                 Title.X = PADDING;
                 Title.Y = (Height - Title.Height) / 2;
                 Title.Width = Width - (2 * PADDING);

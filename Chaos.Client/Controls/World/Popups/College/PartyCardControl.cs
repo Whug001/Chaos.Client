@@ -141,6 +141,7 @@ public sealed class PartyCardControl : GuildCloakDialogBase
         if (info.Phase is PartyPhase.Waiting or PartyPhase.Ended)
         {
             AnswerBox.IsFocused = false;
+            Drawings.Clear();
             Hide();
 
             return;
@@ -176,6 +177,7 @@ public sealed class PartyCardControl : GuildCloakDialogBase
     public void Close()
     {
         State.Apply(new CollegePartyInfo());
+        Drawings.Clear();
         DismissedStep = null;
         Hidden = false;
         LastWriteKey = null;

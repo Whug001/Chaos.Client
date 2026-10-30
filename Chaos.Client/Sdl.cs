@@ -112,6 +112,21 @@ internal static partial class Sdl
     [UnmanagedCallConv(CallConvs = [typeof(CallConvCdecl)])]
     public static partial int SDL_GetDisplayBounds(int displayIndex, out SdlRect rect);
 
+    [StructLayout(LayoutKind.Sequential)]
+    public struct SdlDisplayMode
+    {
+        public uint Format;
+        public int W;
+        public int H;
+        public int RefreshRate;
+        public nint DriverData;
+    }
+
+    //0 on success; the current desktop mode of a display, whose RefreshRate paces Match-monitor mode
+    [LibraryImport("SDL2")]
+    [UnmanagedCallConv(CallConvs = [typeof(CallConvCdecl)])]
+    public static partial int SDL_GetCurrentDisplayMode(int displayIndex, out SdlDisplayMode mode);
+
     [LibraryImport("SDL2")]
     [UnmanagedCallConv(CallConvs = [typeof(CallConvCdecl)])]
     public static partial uint SDL_GetWindowFlags(nint window);

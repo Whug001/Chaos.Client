@@ -29,6 +29,10 @@ public sealed partial class WorldScreen
     private readonly KartSpectator KartSpectator = new();
     private readonly List<KartDraw> KartDraws = [];
     private IReadOnlyList<byte> KartDrawableIndexesThisFrame = [];
+
+    //the drawable indexes, rebuilt only when the snapshots change rather than every frame
+    private IReadOnlyList<byte> KartDrawableCache = [];
+    private int KartDrawableVersion = -1;
     private byte? KartFollowedDrawIndex;
     private Vector2? KartSpectatorCameraTarget;
     private readonly KartFinishHandover KartFinishHandover = new();
@@ -307,7 +311,21 @@ public sealed partial class WorldScreen
     private bool PrepareKartDraws(double now)
     {
         KartDraws.Clear();
-        KartDrawableIndexesThisFrame = KartRace.Active ? KartRace.DrawableIndexes() : [];
+
+        if (KartRace.Active)
+        {
+            if (KartRace.SnapshotsVersion != KartDrawableVersion)
+            {
+                KartDrawableVersion = KartRace.SnapshotsVersion;
+                KartDrawableCache = KartRace.DrawableIndexes();
+            }
+
+            KartDrawableIndexesThisFrame = KartDrawableCache;
+        } else
+        {
+            KartDrawableCache = [];
+            KartDrawableIndexesThisFrame = [];
+        }
         KartFollowedDrawIndex = KartFollowedIndex;
 
         if (!KartRace.Active || MapFile is null)
@@ -481,6 +499,7 @@ public sealed partial class WorldScreen
 
     private void ResetKartRace()
     {
+        KartResults?.Hide();
         KartRace.Clear();
         KartInterpolator.Clear();
         KartSpectator.Clear();
@@ -502,9 +521,12 @@ public sealed partial class WorldScreen
         ClearKartHud();
     }
 
-    private List<string> KartSpectatorLines(uint estimate, KartRaceStage stage)
+    //reused by the spectator panel so its lines never allocate per frame
+    private readonly List<string> KartSpectatorLineCache = [];
+
+    private void BuildKartSpectatorLines(uint estimate, KartRaceStage stage, List<string> lines)
     {
-        var lines = new List<string>();
+        lines.Clear();
 
         if (KartFollowedIndex is { } followed)
         {
@@ -523,8 +545,6 @@ public sealed partial class WorldScreen
             var placeText = ownPlace > 0 ? $"{KartTime.Ordinal(ownPlace)} " : string.Empty;
             lines.Add($"You finished {placeText}in {FormatRaceTime(finishTime.TotalMs / 1000.0)}");
         }
-
-        return lines;
     }
 
     private void DrawKartBanner(BatchBlendScope scope, uint estimate, KartRaceStage stage, double now)

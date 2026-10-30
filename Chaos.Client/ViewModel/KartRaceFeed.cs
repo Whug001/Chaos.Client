@@ -23,7 +23,15 @@ public sealed class KartRaceFeed
     {
         Entries.RemoveAll(entry => entry.Until <= now);
 
-        return Entries.Select(entry => (entry.Text, (float)Math.Clamp((entry.Until - now) / FADE_SECONDS, 0, 1))).ToList();
+        if (Entries.Count == 0)
+            return [];
+
+        var lines = new List<(string Text, float Alpha)>(Entries.Count);
+
+        foreach (var entry in Entries)
+            lines.Add((entry.Text, (float)Math.Clamp((entry.Until - now) / FADE_SECONDS, 0, 1)));
+
+        return lines;
     }
 
     public void Add(string text, double now)

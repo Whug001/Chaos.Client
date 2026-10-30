@@ -339,11 +339,29 @@ public sealed partial class TcgMatchWindow
         if (TextRenderer.MeasureWidth(text) <= width)
             return text;
 
-        var cut = text;
+        var dots = TextRenderer.MeasureWidth("..");
 
-        while ((cut.Length > 1) && (TextRenderer.MeasureWidth(cut + "..") > width))
-            cut = cut[..^1];
+        //longest prefix that still fits with the dots; binary search keeps this per-frame trim cheap
+        var lo = 0;
+        var hi = text.Length;
 
-        return cut + "..";
+        while (lo < hi)
+        {
+            var mid = (lo + hi + 1) / 2;
+
+            if (TextRenderer.MeasureWidth(text.AsSpan(0, mid)) + dots <= width)
+                lo = mid;
+            else
+                hi = mid - 1;
+        }
+
+        if (text.Length > 0 && lo == 0)
+            lo = 1;
+
+        //never split a surrogate pair at the cut
+        if ((lo > 0) && (lo < text.Length) && char.IsHighSurrogate(text[lo - 1]) && char.IsLowSurrogate(text[lo]))
+            lo--;
+
+        return text[..lo] + "..";
     }
 }
