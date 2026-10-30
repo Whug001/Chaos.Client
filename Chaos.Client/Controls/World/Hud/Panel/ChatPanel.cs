@@ -94,6 +94,7 @@ public sealed class ChatPanel : ExpandablePanel
         AddChild(HoverTooltip);
         WorldState.Chat.MessageAdded += OnMessageAdded;
         WorldState.Chat.MessageReplaced += OnMessageReplaced;
+        WorldState.Chat.HistoryReRendered += RebuildAll;
     }
 
     //word-wraps one message into rows that all carry its line id and hover text
@@ -176,11 +177,29 @@ public sealed class ChatPanel : ExpandablePanel
     {
         WorldState.Chat.MessageAdded -= OnMessageAdded;
         WorldState.Chat.MessageReplaced -= OnMessageReplaced;
+        WorldState.Chat.HistoryReRendered -= RebuildAll;
 
         base.Dispose();
     }
 
     private void OnMessageAdded(ViewModel.Chat.ChatMessage msg) => AddMessage(msg.Text, msg.Color, msg.LineId, msg.HoverText);
+
+    //a filter mode change re-rendered every stored line: rebuild all rows from the stored messages so old
+    //lines follow the new mode. A reader scrolled up into history is re-pinned to the bottom; the re-render
+    //rewrote the lines in place, so holding the old offset would point at unrelated rows.
+    private void RebuildAll()
+    {
+        ChatLog.Clear();
+
+        foreach (var msg in WorldState.Chat.GetMessages())
+            ChatLog.AddRange(Wrap(msg.Text, msg.Color, msg.LineId, msg.HoverText));
+
+        if (ChatLog.Count > MAX_CHAT_LINES)
+            ChatLog.RemoveRange(0, ChatLog.Count - MAX_CHAT_LINES);
+
+        RowList.ScrollToBottom();
+        RowList.Invalidate();
+    }
 
     //swaps the line's rows in place; a reader scrolled up keeps the same first visible line, a pinned one stays pinned
     private void OnMessageReplaced(ViewModel.Chat.ChatMessage previous, ViewModel.Chat.ChatMessage current)

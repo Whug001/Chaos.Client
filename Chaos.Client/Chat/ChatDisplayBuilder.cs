@@ -124,6 +124,23 @@ public static class ChatDisplayBuilder
     ///     the chat log line to the orange bar with the same tags; it transforms the same way. Untagged system lines
     ///     pass through unchanged.
     /// </summary>
+    /// <summary>
+    ///     Re-renders a kept full line (<see cref="ChatDisplayResult.OriginalText" />) under a new
+    ///     <paramref name="mode" />. Every inbound builder splits the sender prefix the same way, so one seam
+    ///     re-renders every line kind (public, whisper, group, orange bar) from its original plus tags.
+    /// </summary>
+    public static string Rebuild(
+        string originalLine,
+        IReadOnlyList<ChatTag>? tags,
+        ChatFilterMode mode,
+        FantasyDictionary? fantasy = null,
+        Action<string>? log = null)
+    {
+        var (prefix, body) = SplitPrefix(originalLine ?? string.Empty);
+
+        return Build(prefix, body, tags, mode, fantasy, log).DisplayText;
+    }
+
     public static ChatDisplayResult BuildOrangeBar(
         string message,
         IReadOnlyList<ChatTag>? tags,

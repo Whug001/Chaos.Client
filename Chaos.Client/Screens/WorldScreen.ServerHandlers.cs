@@ -408,8 +408,8 @@ public sealed partial class WorldScreen
 
                 WorldState.Chat.AddMessage(whisper.DisplayText, TextColors.Whisper, whisper.OriginalText, whisper.Tags, args.LineId);
                 RememberTranslatableLine(args.LineId, TranslatedLineKind.Whisper, 0, false, TextColors.Whisper, message);
-                WorldState.Chat.AddOrangeBarMessage(whisper.DisplayText, TextColors.Whisper);
-                SystemMessagePane.AddMessage(whisper.DisplayText, TextColors.Whisper);
+                WorldState.Chat.AddOrangeBarMessage(whisper.DisplayText, TextColors.Whisper, whisper.OriginalText, whisper.Tags);
+                SystemMessagePane.AddMessage(whisper.DisplayText, TextColors.Whisper, whisper.OriginalText, whisper.Tags);
                 if (TcgMatchOpen && !TcgMatchWindow!.Spectating)
                     TcgMatchWindow!.AcceptWhisper(args.Message, whisper.DisplayText);
 
@@ -425,8 +425,8 @@ public sealed partial class WorldScreen
 
                 WorldState.Chat.AddMessage(groupChat.DisplayText, TextColors.GroupChat, groupChat.OriginalText, groupChat.Tags, args.LineId);
                 RememberTranslatableLine(args.LineId, TranslatedLineKind.Group, 0, false, TextColors.GroupChat, message);
-                WorldState.Chat.AddOrangeBarMessage(groupChat.DisplayText, TextColors.GroupChat);
-                SystemMessagePane.AddMessage(groupChat.DisplayText, TextColors.GroupChat);
+                WorldState.Chat.AddOrangeBarMessage(groupChat.DisplayText, TextColors.GroupChat, groupChat.OriginalText, groupChat.Tags);
+                SystemMessagePane.AddMessage(groupChat.DisplayText, TextColors.GroupChat, groupChat.OriginalText, groupChat.Tags);
 
                 break;
 
@@ -440,8 +440,8 @@ public sealed partial class WorldScreen
 
                 WorldState.Chat.AddMessage(guildChat.DisplayText, TextColors.GuildChat, guildChat.OriginalText, guildChat.Tags, args.LineId);
                 RememberTranslatableLine(args.LineId, TranslatedLineKind.Guild, 0, false, TextColors.GuildChat, message);
-                WorldState.Chat.AddOrangeBarMessage(guildChat.DisplayText, TextColors.GuildChat);
-                SystemMessagePane.AddMessage(guildChat.DisplayText, TextColors.GuildChat);
+                WorldState.Chat.AddOrangeBarMessage(guildChat.DisplayText, TextColors.GuildChat, guildChat.OriginalText, guildChat.Tags);
+                SystemMessagePane.AddMessage(guildChat.DisplayText, TextColors.GuildChat, guildChat.OriginalText, guildChat.Tags);
 
                 break;
 
@@ -463,7 +463,7 @@ public sealed partial class WorldScreen
                     WorldState.UserOptions.ChatFilterMode,
                     FantasyDictionary.Default);
 
-                WorldState.Chat.AddOrangeBarMessage(orangeBar.DisplayText);
+                WorldState.Chat.AddOrangeBarMessage(orangeBar.DisplayText, null, orangeBar.OriginalText, orangeBar.Tags);
 
                 break;
 

@@ -437,6 +437,7 @@ public sealed partial class WorldScreen : IScreen
         //a map effect ticked on or off in F4 takes hold on the current map straight away. UserOptions is static and
         //outlives this screen, so this is unwired on unload
         userOptions.ValueChanged += HandleMapEffectSettingChanged;
+        userOptions.ValueChanged += HandleChatFilterModeChanged;
 
         //route user-initiated toggles and dropdown selections for server-controlled settings to the network. UserOptions
         //is static and outlives this screen, so these are unwired on unload too
@@ -1206,6 +1207,7 @@ public sealed partial class WorldScreen : IScreen
         WorldHud.Tools.WorldSpells.OnSlotClicked -= HandleSpellSlotClicked;
 
         WorldState.UserOptions.ValueChanged -= HandleMapEffectSettingChanged;
+        WorldState.UserOptions.ValueChanged -= HandleChatFilterModeChanged;
         WorldState.UserOptions.UserToggled -= HandleUserOptionToggled;
         WorldState.UserOptions.UserChoiceSelected -= HandleUserOptionChoiceSelected;
 

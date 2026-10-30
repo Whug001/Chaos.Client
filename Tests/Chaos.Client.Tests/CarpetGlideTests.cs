@@ -5,6 +5,7 @@ using Chaos.Client.Systems;
 using Chaos.DarkAges.Definitions;
 using Chaos.Geometry.Abstractions.Definitions;
 using FluentAssertions;
+using Microsoft.Xna.Framework;
 
 namespace Chaos.Client.Tests;
 
@@ -55,6 +56,48 @@ public class CarpetGlideTests
         AnimationSystem.GetAislingFrame(Walker(Direction.Down, AnimationSystem.MAGIC_CARPET_SPRITE, 16))
                        .Should()
                        .Be((11, true, "04", true));
+    }
+
+    private static WorldEntity StridingRider(Direction direction, int accessorySprite)
+    {
+        var entity = new WorldEntity
+        {
+            Direction = direction,
+            Appearance = new AislingAppearance { Gender = Gender.Male, Accessory2Sprite = accessorySprite }
+        };
+
+        AnimationSystem.StartWalk(entity, direction);
+
+        return entity;
+    }
+
+    /// <summary>
+    ///     The rider's sprite holds its standing pose while moving, so its slide must glide smoothly even when
+    ///     the player picked the classic stepped walk-slide. Stepped offsets jump once per walk frame.
+    /// </summary>
+    [Test]
+    public void ACarpetRiderGlidesSmoothlyUnderTheSteppedSetting()
+    {
+        var stepped = StridingRider(Direction.Right, AnimationSystem.MAGIC_CARPET_SPRITE);
+        var smooth = StridingRider(Direction.Right, AnimationSystem.MAGIC_CARPET_SPRITE);
+
+        AnimationSystem.Advance(stepped, 100f, WalkSlide.Stepped);
+        AnimationSystem.Advance(smooth, 100f, WalkSlide.Exact);
+
+        stepped.VisualOffset.Should().Be(smooth.VisualOffset);
+        stepped.VisualOffset.Should().NotBe(Vector2.Zero);
+    }
+
+    [Test]
+    public void AWalkerWithoutTheCarpetStillSteps()
+    {
+        var stepped = StridingRider(Direction.Right, 0);
+        var smooth = StridingRider(Direction.Right, 0);
+
+        AnimationSystem.Advance(stepped, 100f, WalkSlide.Stepped);
+        AnimationSystem.Advance(smooth, 100f, WalkSlide.Exact);
+
+        stepped.VisualOffset.Should().NotBe(smooth.VisualOffset);
     }
 
     [Test]

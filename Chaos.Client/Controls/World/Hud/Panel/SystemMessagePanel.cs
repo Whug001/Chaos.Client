@@ -73,6 +73,7 @@ public sealed class SystemMessagePanel : ExpandablePanel
 
         LastHistoryCount = History.Count;
         WorldState.Chat.OrangeBarMessageAdded += OnOrangeBarMessageAdded;
+        WorldState.Chat.HistoryReRendered += OnHistoryReRendered;
     }
 
     /// <summary>
@@ -143,9 +144,13 @@ public sealed class SystemMessagePanel : ExpandablePanel
     public override void Dispose()
     {
         WorldState.Chat.OrangeBarMessageAdded -= OnOrangeBarMessageAdded;
+        WorldState.Chat.HistoryReRendered -= OnHistoryReRendered;
 
         base.Dispose();
     }
+
+    //a filter mode change rewrote the stored lines in place (no add, no eviction): re-render them as-is.
+    private void OnHistoryReRendered() => RowList.Invalidate();
 
     //event-driven re-render (matches ChatPanel). The old per-frame `History.Count != Last` poll silently died once the
     //backing CircularBuffer hit its cap: Count saturates at capacity, so it never changed again and new messages stopped

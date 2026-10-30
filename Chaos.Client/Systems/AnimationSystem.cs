@@ -283,6 +283,12 @@ public static class AnimationSystem
                 ? Math.Clamp((int)(entity.AnimElapsedMs / entity.AnimFrameIntervalMs), 0, entity.AnimFrameCount - 1)
                 : 0;
 
+        //a carpet rider glides: it holds its standing pose while walking (see GetAislingFrame), so a
+        //stepped slide would jump it across the tile while the sprite never steps. Glide smoothly whatever
+        //the player's walk-slide setting is.
+        if ((slide == WalkSlide.Stepped) && RidesMagicCarpet(entity))
+            slide = WalkSlide.Exact;
+
         if (slide == WalkSlide.Stepped)
         {
             //stepped: offset jumps discretely, paced by translation progress (not the walk pose) so the

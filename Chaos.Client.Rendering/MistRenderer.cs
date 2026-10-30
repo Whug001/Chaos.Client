@@ -133,6 +133,20 @@ public sealed class MistRenderer : IAmbientOverlay
     }
 
     /// <inheritdoc />
+    /// <summary>
+    ///     Releases the cached GPU textures without deactivating the effect; they rebuild lazily on the next
+    ///     draw. Called for effects no longer active after a map change, so the old map's textures don't linger.
+    /// </summary>
+    public void ReleaseTextures()
+    {
+        CloudTexture?.Dispose();
+        CloudTexture = null;
+        VignetteTexture?.Dispose();
+        VignetteTexture = null;
+    }
+
+    internal bool HasAllocatedTextures => (CloudTexture is not null) || (VignetteTexture is not null);
+
     public void Dispose()
     {
         CloudTexture?.Dispose();

@@ -17,6 +17,19 @@ namespace Chaos.Client.Rendering;
 public sealed class ParticleRenderer : IAmbientOverlay
 {
     private const float REFERENCE_AREA = 640f * 480f; // viewport area ParticleStyle.Count is tuned for
+
+    /// <summary>
+    ///     How far the reference-area density may scale up on very large viewports. Normal window sizes keep
+    ///     their current density; anything larger is capped at this multiple instead of scaling without limit.
+    /// </summary>
+    internal const int MAX_AREA_SCALE = 4;
+
+    internal static int CappedCount(ParticleStyle style, int width, int height)
+    {
+        var scaled = (int)MathF.Round(style.Count * (width * height / REFERENCE_AREA));
+
+        return Math.Max(1, Math.Min(scaled, style.Count * MAX_AREA_SCALE));
+    }
     internal const float WRAP_MARGIN = 24f;            // px past each edge before a particle wraps, so it never pops in view
     private const int SOFT_TEX = 32;                  // soft dot / bubble texture size
     private const int LEAF_TEX_W = 16;
@@ -222,6 +235,43 @@ public sealed class ParticleRenderer : IAmbientOverlay
     }
 
     /// <inheritdoc />
+    /// <summary>
+    ///     Releases the cached GPU textures without deactivating the effect; they rebuild lazily on the next
+    ///     draw. Called for effects no longer active after a map change, so the old map's textures don't linger.
+    /// </summary>
+    public void ReleaseTextures()
+    {
+        PixelTexture?.Dispose();
+        PixelTexture = null;
+        SoftDotTexture?.Dispose();
+        SoftDotTexture = null;
+        LeafTexture?.Dispose();
+        LeafTexture = null;
+        BubbleTexture?.Dispose();
+        BubbleTexture = null;
+        WingTexture?.Dispose();
+        WingTexture = null;
+        BalloonTexture?.Dispose();
+        BalloonTexture = null;
+        BalloonDetailTexture?.Dispose();
+        BalloonDetailTexture = null;
+
+        if (GhostTextures is not null)
+            foreach (var ghostTexture in GhostTextures)
+                ghostTexture.Dispose();
+
+        GhostTextures = null;
+    }
+
+    internal bool HasAllocatedTextures => (PixelTexture is not null)
+                                          || (SoftDotTexture is not null)
+                                          || (LeafTexture is not null)
+                                          || (BubbleTexture is not null)
+                                          || (WingTexture is not null)
+                                          || (BalloonTexture is not null)
+                                          || (BalloonDetailTexture is not null)
+                                          || (GhostTextures is not null);
+
     public void Dispose()
     {
         PixelTexture?.Dispose();
@@ -254,7 +304,7 @@ public sealed class ParticleRenderer : IAmbientOverlay
         ParticlesForWidth = width;
         ParticlesForHeight = height;
 
-        var count = Math.Max(1, (int)MathF.Round(Style.Count * (width * height / REFERENCE_AREA)));
+        var count = CappedCount(Style, width, height);
         Particles = new Particle[count];
 
         for (var i = 0; i < count; i++)

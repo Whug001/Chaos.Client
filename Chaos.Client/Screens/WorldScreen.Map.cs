@@ -1,4 +1,5 @@
 #region
+using Chaos.Client.Chat;
 using Chaos.Client.Collections;
 using Chaos.Client.Data;
 using Chaos.Client.Systems;
@@ -314,6 +315,21 @@ public sealed partial class WorldScreen
         var visible = MapEffectFilter.Visible(CurrentMapFlags);
         WeatherRenderer.OnMapChanged(visible);
         AmbientEffects.Apply(visible, immediate: true);
+    }
+
+    /// <summary>
+    ///     The chat filter mode changed (the F4 dropdown echoes back through the server): re-render kept chat
+    ///     history, orange bar history, and message pane lines from their originals plus tags so old lines follow
+    ///     the new mode. Translated lines keep their display (see <see cref="ViewModel.Chat.ReapplyFilter" />).
+    /// </summary>
+    private void HandleChatFilterModeChanged(SettingKey key, bool value)
+    {
+        if (key != SettingKey.ChatFilterMode)
+            return;
+
+        var mode = WorldState.UserOptions.ChatFilterMode;
+        WorldState.Chat.ReapplyFilter(mode, FantasyDictionary.Default);
+        SystemMessagePane.ReapplyFilter(mode, FantasyDictionary.Default);
     }
 
     private void HandleMapEffectSettingChanged(SettingKey key, bool value)

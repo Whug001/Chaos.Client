@@ -50,6 +50,7 @@ public sealed class ChaosGame : Game
 #endif
     private bool ScreenshotRequested;
     private Action<CapturedFrame?>? PendingCapture;
+    private long CaptureRequestedMs;
     private bool MetaSyncStarted;
     private RenderTarget2D RenderTarget = null!;
     private RenderTarget2D? CaptureTarget;
@@ -290,7 +291,19 @@ public sealed class ChaosGame : Game
     ///     <paramref name="onCaptured" /> from inside that frame's <see cref="Draw" />. Used by bug reports, so nothing is
     ///     written to disk. The callback gets null if the capture fails.
     /// </summary>
-    public void RequestCapture(Action<CapturedFrame?> onCaptured) => PendingCapture = onCaptured;
+    /// <summary>
+    ///     How long a bug report waits for its frame capture before opening without a picture.
+    /// </summary>
+    internal const long CAPTURE_TIMEOUT_MS = 1000;
+
+    /// <summary>True when a capture requested at <paramref name="requestedMs" /> has waited past the timeout.</summary>
+    internal static bool CaptureTimedOut(long requestedMs, long nowMs) => (nowMs - requestedMs) >= CAPTURE_TIMEOUT_MS;
+
+    public void RequestCapture(Action<CapturedFrame?> onCaptured)
+    {
+        PendingCapture = onCaptured;
+        CaptureRequestedMs = Environment.TickCount64;
+    }
 
     private void SaveScreenshot()
     {
@@ -1070,6 +1083,15 @@ public sealed class ChaosGame : Game
         //drain and process network packets each frame
         PacketBuffer.Clear();
         Connection.ProcessPackets(PacketBuffer);
+
+        //a bug report capture only runs inside Draw: if the window is minimized or no frame draws
+        //within the timeout, hand the waiter a null frame so the report window opens without a picture
+        //instead of doing nothing. Update keeps running while minimized, so this still fires there.
+        if ((PendingCapture is { } timedOut) && CaptureTimedOut(CaptureRequestedMs, Environment.TickCount64))
+        {
+            PendingCapture = null;
+            timedOut(null);
+        }
 
         Screens.Update(gameTime);
 

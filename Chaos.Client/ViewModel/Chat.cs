@@ -1,4 +1,5 @@
 #region
+using Chaos.Client.Chat;
 using Chaos.Client.Collections;
 using Chaos.DarkAges.Definitions;
 using Chaos.Extensions.Common;
@@ -114,9 +115,17 @@ public sealed class Chat
     ///     Adds an orange bar message. Defaults to orange for system/server notifications; callers may pass a custom color
     ///     for whisper/group/guild messages so the Shift+F history and orange bar expand view preserve their chat color.
     /// </summary>
-    public void AddOrangeBarMessage(string text, Color? color = null)
+    public void AddOrangeBarMessage(
+        string text,
+        Color? color = null,
+        string? originalText = null,
+        IReadOnlyList<ChatTag>? tags = null)
     {
-        var msg = new OrangeBarMessage(text, color ?? Color.Orange);
+        var msg = new OrangeBarMessage(
+            text,
+            color ?? Color.Orange,
+            originalText ?? text,
+            tags ?? []);
         OrangeBarHistory.Add(msg);
         OrangeBarMessageAdded?.Invoke(msg);
     }
@@ -165,6 +174,54 @@ public sealed class Chat
     public IReadOnlyList<OrangeBarMessage> GetOrangeBarHistory() => OrangeBarHistory;
 
     /// <summary>
+    ///     Snapshot of the stored chat messages, oldest first. Used to rebuild panels after a re-render.
+    /// </summary>
+    public IReadOnlyList<ChatMessage> GetMessages() => Messages.ToList();
+
+    /// <summary>
+    ///     Re-renders every kept line under <paramref name="mode" /> from its stored original plus tags, so old
+    ///     lines follow a chat filter mode change. Translated lines (those carrying hover text) keep their
+    ///     display: their tags index the translated body, not the kept original, so rebuilding them from the
+    ///     original would un-translate the line. Fires <see cref="HistoryReRendered" /> once when anything changed.
+    /// </summary>
+    public void ReapplyFilter(ChatFilterMode mode, FantasyDictionary? fantasy = null)
+    {
+        var map = fantasy ?? FantasyDictionary.Default;
+        var changed = false;
+
+        for (var i = 0; i < Messages.Count; i++)
+        {
+            var previous = Messages[i];
+
+            if ((previous.OriginalText is null) || (previous.HoverText is not null))
+                continue;
+
+            var text = ChatDisplayBuilder.Rebuild(previous.OriginalText, previous.Tags, mode, map);
+
+            if (!string.Equals(text, previous.Text, StringComparison.Ordinal))
+            {
+                Messages[i] = previous with { Text = text };
+                changed = true;
+            }
+        }
+
+        for (var i = 0; i < OrangeBarHistory.Count; i++)
+        {
+            var previous = OrangeBarHistory[i];
+            var text = ChatDisplayBuilder.Rebuild(previous.OriginalText ?? previous.Text, previous.Tags, mode, map);
+
+            if (!string.Equals(text, previous.Text, StringComparison.Ordinal))
+            {
+                OrangeBarHistory[i] = previous with { Text = text };
+                changed = true;
+            }
+        }
+
+        if (changed)
+            HistoryReRendered?.Invoke();
+    }
+
+    /// <summary>
     ///     Fired when a chat message is added (public, whisper, group, guild). Carries the message data.
     /// </summary>
     public event ChatMessageAddedHandler? MessageAdded;
@@ -178,6 +235,12 @@ public sealed class Chat
     ///     Fired when an orange bar message is added (system messages). Carries the message text.
     /// </summary>
     public event OrangeBarMessageAddedHandler? OrangeBarMessageAdded;
+
+    /// <summary>
+    ///     Fired once after <see cref="ReapplyFilter" /> rewrites stored lines under a new filter mode.
+    ///     Panels showing history rebuild from the stored lines when this fires.
+    /// </summary>
+    public event ClearedHandler? HistoryReRendered;
 
     /// <summary>
     ///     A single chat message with display text and color, plus the pre-transform original and its filter
@@ -196,5 +259,14 @@ public sealed class Chat
     ///     A single orange bar entry with text and display color. System/server notifications default to orange; whisper,
     ///     group, and guild messages carry their own chat color.
     /// </summary>
-    public readonly record struct OrangeBarMessage(string Text, Color Color);
+    /// <summary>
+    ///     A single orange bar entry with display text and color, plus the pre-transform original and its filter
+    ///     tags beside it so a filter mode change can re-render it. Untagged system lines keep the display text
+    ///     as their original.
+    /// </summary>
+    public readonly record struct OrangeBarMessage(
+        string Text,
+        Color Color,
+        string? OriginalText = null,
+        IReadOnlyList<ChatTag>? Tags = null);
 }

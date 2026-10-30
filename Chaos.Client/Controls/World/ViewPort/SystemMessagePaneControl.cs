@@ -1,5 +1,7 @@
 #region
+using Chaos.Client.Chat;
 using Chaos.Client.Controls.Components;
+using Chaos.DarkAges.Definitions;
 using Microsoft.Xna.Framework;
 #endregion
 
@@ -18,6 +20,8 @@ public sealed class SystemMessagePaneControl : UIPanel
 
     private readonly UILabel[] Lines = new UILabel[MAX_LINES];
     private readonly Color[] BaseColors = new Color[MAX_LINES];
+    private readonly string?[] Originals = new string?[MAX_LINES];
+    private readonly IReadOnlyList<ChatTag>[] FilterTags = new IReadOnlyList<ChatTag>[MAX_LINES];
     private int Count;
     private float ElapsedMs;
 
@@ -55,7 +59,7 @@ public sealed class SystemMessagePaneControl : UIPanel
         Y = viewportBounds.Y;
     }
 
-    public void AddMessage(string text, Color? color = null)
+    public void AddMessage(string text, Color? color = null, string? originalText = null, IReadOnlyList<ChatTag>? tags = null)
     {
         var messageColor = color ?? LegendColors.White;
 
@@ -64,6 +68,8 @@ public sealed class SystemMessagePaneControl : UIPanel
             for (var i = 0; i < (MAX_LINES - 1); i++)
             {
                 Lines[i].Text = Lines[i + 1].Text;
+                Originals[i] = Originals[i + 1];
+                FilterTags[i] = FilterTags[i + 1];
                 BaseColors[i] = BaseColors[i + 1];
             }
         else
@@ -73,6 +79,8 @@ public sealed class SystemMessagePaneControl : UIPanel
         var slot = Count - 1;
         Lines[slot].Text = text;
         BaseColors[slot] = messageColor;
+        Originals[slot] = originalText ?? text;
+        FilterTags[slot] = tags ?? [];
 
         //reset timer and restore all colors/opacity
         ElapsedMs = 0;
@@ -84,6 +92,19 @@ public sealed class SystemMessagePaneControl : UIPanel
         }
 
         RepositionLabels();
+    }
+
+    /// <summary>
+    ///     Re-renders the visible lines under a new filter mode from their kept originals plus tags, so old
+    ///     lines follow the mode change.
+    /// </summary>
+    public void ReapplyFilter(ChatFilterMode mode, FantasyDictionary? fantasy = null)
+    {
+        var map = fantasy ?? FantasyDictionary.Default;
+
+        for (var i = 0; i < Count; i++)
+            if (Originals[i] is { } original)
+                Lines[i].Text = ChatDisplayBuilder.Rebuild(original, FilterTags[i], mode, map);
     }
 
     private void RepositionLabels()

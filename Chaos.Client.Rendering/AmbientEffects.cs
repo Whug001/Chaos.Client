@@ -75,6 +75,12 @@ public sealed class AmbientEffects : IDisposable
     {
         foreach (var (flag, overlay) in Overlays)
             overlay.SetActive(flags.HasFlag(flag), immediate);
+
+        //a snapped apply is a map change (or an F4 re-filter): effects that are off now are fully faded out,
+        //so drop their GPU textures instead of carrying the old map's textures until Dispose. A fading apply
+        //(immediate: false) still needs its textures to draw the fade-out.
+        if (immediate)
+            ReleaseInactiveTextures();
     }
 
     /// <summary>Advances every overlay that is on or still fading out. Call once per frame.</summary>
@@ -108,6 +114,27 @@ public sealed class AmbientEffects : IDisposable
     }
 
     /// <inheritdoc />
+    /// <summary>
+    ///     Releases cached GPU textures for overlays that are no longer active (off and fully faded out).
+    ///     Active overlays keep theirs; every renderer rebuilds lazily on its next draw.
+    /// </summary>
+    public void ReleaseInactiveTextures()
+    {
+        foreach (var (_, overlay) in Overlays)
+            if (!overlay.IsActive)
+                switch (overlay)
+                {
+                    case MistRenderer mist:
+                        mist.ReleaseTextures();
+
+                        break;
+                    case ParticleRenderer particles:
+                        particles.ReleaseTextures();
+
+                        break;
+                }
+    }
+
     public void Dispose()
     {
         foreach (var (_, overlay) in Overlays)
