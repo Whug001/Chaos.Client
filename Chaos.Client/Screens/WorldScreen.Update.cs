@@ -419,26 +419,83 @@ public sealed partial class WorldScreen
         if (_suppressWorldListUntilERelease && !KeyBindings.IsHeld(GameAction.WorldList))
             _suppressWorldListUntilERelease = false;
 
-        if (Game.Dispatcher.ControlStackCount > 0 && !EmoteWheel.IsOpen)
-            return;
-
         var held = InputBuffer.IsMiddleButtonHeld && KeyBindings.IsHeld(GameAction.WorldList);
+
+        if (!EmoteWheel.IsOpen)
+        {
+            //an external close (Escape) while the chord is still held must not reopen until release + repress
+            if (!held)
+                _emoteWheelHeld = false;
+
+            if (Game.Dispatcher.ControlStackCount > 0)
+                return;
+
+            if (held)
+                _suppressWorldListUntilERelease = true;
+
+            //never open over a focused textbox, and never on a stale chord that already closed the wheel
+            if (!held || _emoteWheelHeld || UITextBox.IsAnyFocused)
+                return;
+
+            var opener = WorldState.GetPlayerEntity();
+            var bodyColor = opener?.Appearance?.BodyColor ?? (int)BodyColor.White;
+            EmoteWheel.ShowAt(
+                InputBuffer.MouseX,
+                InputBuffer.MouseY,
+                bodyColor,
+                CurrentMapId,
+                opener?.TileX,
+                opener?.TileY);
+            _emoteWheelHeld = true;
+
+            //E pressed before middle mouse toggles the world list first; the chord owns the gesture now
+            if (WorldList.Visible)
+                WorldList.SlideClose();
+
+            return;
+        }
 
         if (held)
         {
             _suppressWorldListUntilERelease = true;
-
-            if (!EmoteWheel.IsOpen)
-            {
-                var bodyColor = WorldState.GetPlayerEntity()?.Appearance?.BodyColor ?? (int)BodyColor.White;
-                EmoteWheel.ShowAt(InputBuffer.MouseX, InputBuffer.MouseY, bodyColor);
-            }
-
             _emoteWheelHeld = true;
         }
 
-        if (!EmoteWheel.IsOpen)
+        //losing focus clears the held flags; that edge must not count as a release that sends the emote
+        if (!Game.IsActive)
+        {
+            CancelEmoteWheel();
+
             return;
+        }
+
+        //a map change or a warp (server position snap) ends the gesture silently
+        var player = WorldState.GetPlayerEntity();
+
+        if ((CurrentMapId != EmoteWheel.MapIdAtOpen)
+            || ((player is not null)
+                && (EmoteWheel.TileXAtOpen is { } openX)
+                && (EmoteWheel.TileYAtOpen is { } openY)
+                && ((player.TileX != openX) || (player.TileY != openY))))
+        {
+            CancelEmoteWheel();
+
+            return;
+        }
+
+        //another popup opened on top of the wheel
+        if (Game.Dispatcher.ControlStackCount > EmoteWheel.StackDepthAtOpen)
+        {
+            //a late world-list answer belongs to this same chord - dismiss it and keep the wheel
+            if (WorldList.Visible)
+                WorldList.SlideClose();
+
+            //anything still on top after that is a real popup, so the wheel goes
+            if (Game.Dispatcher.ControlStackCount > EmoteWheel.StackDepthAtOpen)
+                CancelEmoteWheel();
+
+            return;
+        }
 
         if (!EmoteWheel.IsCatalogOpen)
             EmoteWheel.UpdateHover(InputBuffer.MouseX, InputBuffer.MouseY);
@@ -447,7 +504,7 @@ public sealed partial class WorldScreen
         {
             if (EmoteWheel.IsCatalogOpen)
             {
-                //chord release while configuring — keep the catalog open
+                //chord release while configuring - keep the catalog open
                 _emoteWheelHeld = false;
 
                 return;
@@ -455,9 +512,9 @@ public sealed partial class WorldScreen
 
             if (EmoteWheel.GetHighlightedEmote() is { } emote)
             {
-                var player = WorldState.GetPlayerEntity();
+                var emotePlayer = WorldState.GetPlayerEntity();
 
-                if (player is not null && player.IsAtRest)
+                if (emotePlayer is not null && emotePlayer.IsAtRest)
                 {
                     Game.Connection.SendEmote(emote);
                     TryPlayLocalEmote(emote);
@@ -467,6 +524,14 @@ public sealed partial class WorldScreen
             EmoteWheel.Hide();
             _emoteWheelHeld = false;
         }
+    }
+
+    private void CancelEmoteWheel()
+    {
+        //silent close: no emote is sent. _emoteWheelHeld stays latched so a still-held chord cannot reopen
+        //the wheel; the closed branch above clears it once the chord is released.
+        EmoteWheel.Hide();
+        _emoteWheelHeld = true;
     }
 
     private void TryPlayLocalEmote(BodyAnimation anim)

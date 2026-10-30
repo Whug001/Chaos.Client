@@ -55,6 +55,7 @@ public sealed class EmoteWheelControl : UIPanel
     private readonly CatalogScrollHost _catalogScrollHost;
     private readonly ScrollViewerControl _catalogScroll;
 
+    private Texture2D? _catalogBackground;
     private int _centerX;
     private int _centerY;
     private int _hoveredSegment = -1;
@@ -139,6 +140,15 @@ public sealed class EmoteWheelControl : UIPanel
 
     public bool IsCatalogOpen => _mode == WheelMode.Catalog;
 
+    /// <summary>
+    ///     Snapshot of the world and input-stack state taken when the wheel opens. WorldScreen.UpdateEmoteWheel
+    ///     compares these every frame to close the wheel silently on a map change, a warp, or another popup.
+    /// </summary>
+    public int StackDepthAtOpen { get; private set; }
+    public short MapIdAtOpen { get; private set; }
+    public int? TileXAtOpen { get; private set; }
+    public int? TileYAtOpen { get; private set; }
+
     public void LoadSlots()
     {
         for (var i = 0; i < EmoteCatalog.SLOT_COUNT; i++)
@@ -147,11 +157,14 @@ public sealed class EmoteWheelControl : UIPanel
         RefreshSlotIcons();
     }
 
-    public void ShowAt(int screenX, int screenY, int bodyColor = (int)BodyColor.White)
+    public void ShowAt(int screenX, int screenY, int bodyColor, short mapId, int? tileX, int? tileY)
     {
         _bodyColor = bodyColor;
         _centerX = screenX;
         _centerY = screenY;
+        MapIdAtOpen = mapId;
+        TileXAtOpen = tileX;
+        TileYAtOpen = tileY;
         ApplyWheelLayout();
         _hoveredSegment = -1;
         _mode = WheelMode.Wheel;
@@ -164,6 +177,7 @@ public sealed class EmoteWheelControl : UIPanel
         Visible = true;
         IsHitTestVisible = true;
         InputDispatcher.Instance?.PushControl(this);
+        StackDepthAtOpen = InputDispatcher.Instance?.ControlStackCount ?? 0;
     }
 
     public void UpdateHover(int mouseX, int mouseY)
@@ -199,6 +213,14 @@ public sealed class EmoteWheelControl : UIPanel
 
         foreach (var wedge in _wedgeHighlights)
             wedge.Dispose();
+
+        if (_catalogBackground is not null)
+        {
+            //the catalog panel holds this same instance; clear it so the base dispose below does not free it twice
+            _catalogPanel.Background = null;
+            _catalogBackground.Dispose();
+            _catalogBackground = null;
+        }
 
         base.Dispose();
     }
@@ -485,10 +507,21 @@ public sealed class EmoteWheelControl : UIPanel
         _gearButton.Y = (PANEL_SIZE - _gearButton.Height) / 2;
     }
 
+    /// <summary>
+    ///     Clamps a panel centred near (<paramref name="cursorX" />, <paramref name="cursorY" />) so it stays
+    ///     fully on screen (virtual resolution), keeping the centre as close to the cursor as possible.
+    ///     Selection maths uses the clamped centre.
+    /// </summary>
+    public static (int CenterX, int CenterY) ClampCenter(int cursorX, int cursorY, int panelWidth, int panelHeight)
+        => (
+            Math.Clamp(cursorX, panelWidth / 2, ChaosGame.VIRTUAL_WIDTH - panelWidth / 2),
+            Math.Clamp(cursorY, panelHeight / 2, ChaosGame.VIRTUAL_HEIGHT - panelHeight / 2));
+
     private void ApplyWheelLayout()
     {
         Width = PANEL_SIZE;
         Height = PANEL_SIZE;
+        (_centerX, _centerY) = ClampCenter(_centerX, _centerY, Width, Height);
         X = _centerX - Width / 2;
         Y = _centerY - Height / 2;
     }
@@ -497,6 +530,7 @@ public sealed class EmoteWheelControl : UIPanel
     {
         Width = CATALOG_WIDTH;
         Height = CATALOG_HEIGHT;
+        (_centerX, _centerY) = ClampCenter(_centerX, _centerY, Width, Height);
         X = _centerX - Width / 2;
         Y = _centerY - Height / 2;
         LayoutCatalogPanel();
@@ -508,7 +542,8 @@ public sealed class EmoteWheelControl : UIPanel
         _catalogPanel.Y = 0;
         _catalogPanel.Width = CATALOG_WIDTH;
         _catalogPanel.Height = CATALOG_HEIGHT;
-        _catalogPanel.Background = DialogFrame.BuildRecessedTexture(new SKColor(10, 8, 5, 255), CATALOG_WIDTH, CATALOG_HEIGHT);
+        _catalogBackground ??= DialogFrame.BuildRecessedTexture(new SKColor(10, 8, 5, 255), CATALOG_WIDTH, CATALOG_HEIGHT);
+        _catalogPanel.Background = _catalogBackground;
 
         var innerWidth = CATALOG_WIDTH - (CATALOG_PAD * 2);
         var btnWidth = innerWidth / EmoteCatalog.SLOT_COUNT;
