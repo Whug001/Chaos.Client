@@ -14,6 +14,28 @@ public static class ChatBubblePainter
     public const int GLOW_MARGIN = 2;
     public const int TAIL_HEIGHT = 4;
 
+    /// <summary>How far the cat head overlaps the bubble top edge.</summary>
+    public const int HEAD_OVERLAP = 7;
+
+    /// <summary>How far the tail left edge sits inside the bubble right edge.</summary>
+    public const int TAIL_OVERLAP_X = 3;
+
+    /// <summary>How far the tail bottom edge sits above the body bottom edge.</summary>
+    public const int TAIL_BOTTOM_INSET = 3;
+
+    /// <summary>
+    ///     The head top-left, with the body top-left at (0, 0): centred on the body and overlapping its top edge.
+    /// </summary>
+    public static (int X, int Y) HeadPosition(int bodyWidth, int headWidth, int headHeight)
+        => ((bodyWidth - headWidth) / 2, HEAD_OVERLAP - headHeight);
+
+    /// <summary>
+    ///     The tail top-left, with the body top-left at (0, 0): overlapping the body right edge and curling past
+    ///     it. <paramref name="bodyHeight" /> excludes <see cref="TAIL_HEIGHT" />.
+    /// </summary>
+    public static (int X, int Y) TailPosition(int bodyWidth, int bodyHeight, int tailHeight)
+        => (bodyWidth - TAIL_OVERLAP_X, bodyHeight - TAIL_BOTTOM_INSET - tailHeight);
+
     private static readonly Color DefaultFill = new(0, 0, 0, 85);
 
     public static int MarginFor(ChatBubbleEffect effect) => effect == ChatBubbleEffect.Glow ? GLOW_MARGIN : 0;

@@ -31,6 +31,9 @@ public sealed class ChatBubble : UIImage
     private static readonly Color NormalTextColor = LegendColors.White;
     private static readonly Color ShoutTextColor = TextColors.Shout;
 
+    //head/tail textures are shared per frame number, never per bubble, and never disposed per bubble
+    private static readonly Dictionary<byte, (Texture2D? Head, Texture2D? Tail)> DecorCache = [];
+
     private readonly List<string> Lines;
     private readonly Color TextColor;
 
@@ -54,6 +57,9 @@ public sealed class ChatBubble : UIImage
     private int Margin { get; init; }
 
     private int TextPad { get; init; } = INNER_PADDING_TOP;
+
+    private Texture2D? HeadDecor { get; init; }
+    private Texture2D? TailDecor { get; init; }
 
     public bool IsExpired => ElapsedMs >= DISPLAY_DURATION_MS;
 
@@ -114,6 +120,8 @@ public sealed class ChatBubble : UIImage
         var texture = new Texture2D(ChaosGame.Device, bufferWidth, bufferHeight);
         scope.CommitTo(texture);
 
+        var (headDecor, tailDecor) = DecorFor(look.Frame);
+
         return new ChatBubble(
             entityId,
             texture,
@@ -126,8 +134,32 @@ public sealed class ChatBubble : UIImage
             IsShout = isShout,
             Look = look,
             Margin = ChatBubblePainter.MarginFor(look.Effect),
-            TextPad = pad
+            TextPad = pad,
+            HeadDecor = headDecor,
+            TailDecor = tailDecor
         };
+    }
+
+    private static (Texture2D? Head, Texture2D? Tail) DecorFor(byte frame)
+    {
+        if (DecorCache.TryGetValue(frame, out var cached))
+            return cached;
+
+        var result = (Head: DecorTexture(frame, "head"), Tail: DecorTexture(frame, "tail"));
+        DecorCache[frame] = result;
+
+        return result;
+    }
+
+    private static Texture2D? DecorTexture(byte frame, string part)
+    {
+        if (ChatBubbleFrames.GetDecor(frame, part) is not { } decor)
+            return null;
+
+        var texture = new Texture2D(ChaosGame.Device, decor.Width, decor.Height);
+        texture.SetData(decor.Pixels);
+
+        return texture;
     }
 
     /// <summary>A small text-free bubble in <paramref name="look" />, for picker tiles. The caller owns the texture.</summary>
@@ -167,6 +199,22 @@ public sealed class ChatBubble : UIImage
             1f,
             bgEffect,
             0f);
+
+        //cat decor rides outside the bubble edge, so flipped bubbles skip it: an upside-down cat must never show
+        if (!TailOnTop)
+        {
+            if (HeadDecor is not null)
+            {
+                var (headX, headY) = ChatBubblePainter.HeadPosition(Width, HeadDecor.Width, HeadDecor.Height);
+                spriteBatch.Draw(HeadDecor, new Vector2(ScreenX + headX, ScreenY + headY), Color.White);
+            }
+
+            if (TailDecor is not null)
+            {
+                var (tailX, tailY) = ChatBubblePainter.TailPosition(Width, Height - ChatBubblePainter.TAIL_HEIGHT, TailDecor.Height);
+                spriteBatch.Draw(TailDecor, new Vector2(ScreenX + tailX, ScreenY + tailY), Color.White);
+            }
+        }
 
         //draw text lines on top of the bubble background
         var textX = ScreenX + LEFT_CAP_WIDTH + INNER_PADDING_LEFT;

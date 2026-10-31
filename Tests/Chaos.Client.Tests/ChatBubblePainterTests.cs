@@ -122,6 +122,12 @@ public sealed class ChatBubblePainterTests
     [Arguments((byte)2)]
     [Arguments((byte)3)]
     [Arguments((byte)4)]
+    [Arguments((byte)5)]
+    [Arguments((byte)6)]
+    [Arguments((byte)7)]
+    [Arguments((byte)8)]
+    [Arguments((byte)9)]
+    [Arguments((byte)10)]
     //formatter:on
     public void Embedded_frames_load_with_a_clear_centre(byte frame)
     {
@@ -132,6 +138,44 @@ public sealed class ChatBubblePainterTests
         for (var y = 7; y < 14; y++)
             for (var x = 7; x < 14; x++)
                 pixels![(y * 21) + x].A.Should().Be(0);
+    }
+
+    //formatter:off
+    [Test]
+    [Arguments((byte)9, "head", 40, 28)]
+    [Arguments((byte)9, "tail", 13, 24)]
+    [Arguments((byte)10, "head", 40, 28)]
+    [Arguments((byte)10, "tail", 13, 24)]
+    //formatter:on
+    public void Decor_loads_with_its_size(byte frame, string part, int width, int height)
+    {
+        var decor = ChatBubbleFrames.GetDecor(frame, part);
+
+        decor.Should().NotBeNull();
+        decor!.Width.Should().Be(width);
+        decor.Height.Should().Be(height);
+        decor.Pixels.Should().HaveCount(width * height);
+        decor.Pixels.Should().Contain(pixel => pixel.A > 0);
+    }
+
+    [Test]
+    public void Frame_1_has_no_decor()
+    {
+        ChatBubbleFrames.GetDecor(1, "head").Should().BeNull();
+        ChatBubbleFrames.GetDecor(1, "tail").Should().BeNull();
+        ChatBubbleFrames.GetDecor(5, "head").Should().BeNull();
+        ChatBubbleFrames.GetDecor(0, "head").Should().BeNull();
+        ChatBubbleFrames.GetDecor(99, "head").Should().BeNull();
+        ChatBubbleFrames.GetDecor(99, "tail").Should().BeNull();
+    }
+
+    [Test]
+    public void Decor_positions_match_the_spec_numbers()
+    {
+        ChatBubblePainter.HeadPosition(100, 40, 28).Should().Be((30, -21));
+        ChatBubblePainter.HeadPosition(130, 40, 28).Should().Be((45, -21));
+        ChatBubblePainter.TailPosition(100, 50, 24).Should().Be((97, 23));
+        ChatBubblePainter.TailPosition(130, 30, 24).Should().Be((127, 3));
     }
 
     [Test]
