@@ -159,6 +159,18 @@ public sealed class SketchDrawCard : GuildCloakDialogBase
             Show();
     }
 
+    /// <summary>
+    ///     Hide while already hidden is a no-op: RemoveControl would hand explicit focus to the control
+    ///     stack top, stealing it from the guesser's answer box on every PartyCard update.
+    /// </summary>
+    public override void Hide()
+    {
+        if (!Visible)
+            return;
+
+        base.Hide();
+    }
+
     /// <summary>ToolClosed: the game is over and the card goes.</summary>
     public void Close()
     {
