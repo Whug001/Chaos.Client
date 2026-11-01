@@ -92,6 +92,7 @@ public sealed class MusicComposerControl : GuildCloakDialogBase
     private readonly CustomButton UndoButton;
 
     private string? CaptionTitle;
+    private int _LastNoteLength = -1;
     private bool CloseArmed;
 
     //Close sent a save and waits for its Saved before hiding
@@ -403,10 +404,12 @@ public sealed class MusicComposerControl : GuildCloakDialogBase
         if (Visible)
         {
             AutosaveDraft();
-            var counter = $"{NoteBox.Text.Length}/{CollegeProtocol.MAX_MUSIC_NOTE_CHARS}";
-
-            if (NoteCounter.Text != counter)
-                NoteCounter.Text = counter;
+            //the box rebuilds its text while typing, so the counter rebuilds only when its length moves
+            if (NoteBox.Text.Length != _LastNoteLength)
+            {
+                _LastNoteLength = NoteBox.Text.Length;
+                NoteCounter.Text = $"{_LastNoteLength}/{CollegeProtocol.MAX_MUSIC_NOTE_CHARS}";
+            }
 
             if ((Mode == MusicComposerMode.Draft) && (TitleBox.Text != CaptionTitle))
             {

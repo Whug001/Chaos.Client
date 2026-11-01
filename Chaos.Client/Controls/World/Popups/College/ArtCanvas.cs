@@ -37,6 +37,9 @@ public sealed class ArtCanvas : UIElement
     }
 
     public bool ShowGrid { get; set; } = true;
+    private Texture2D? GridTexture;
+    private int GridWidth = -1;
+    private int GridHeight = -1;
 
     /// <summary>Raised after a press, a drag or a release, so the window can refresh its buttons.</summary>
     public event Action? Changed;
@@ -44,6 +47,7 @@ public sealed class ArtCanvas : UIElement
     public override void Dispose()
     {
         Texture?.Dispose();
+        GridTexture?.Dispose();
         base.Dispose();
     }
 
@@ -62,13 +66,7 @@ public sealed class ArtCanvas : UIElement
             DrawRectClipped(spriteBatch, new Rectangle(ScreenX + (pixel.X * Zoom), ScreenY + (pixel.Y * Zoom), Zoom, Zoom), preview);
 
         if (ShowGrid)
-        {
-            for (var x = 1; x < Editor.Drawing.Width; x++)
-                DrawRectClipped(spriteBatch, new Rectangle(ScreenX + (x * Zoom), ScreenY, 1, Height), GridLine);
-
-            for (var y = 1; y < Editor.Drawing.Height; y++)
-                DrawRectClipped(spriteBatch, new Rectangle(ScreenX, ScreenY + (y * Zoom), Width, 1), GridLine);
-        }
+            DrawTexture(spriteBatch, EnsureGrid(), new Vector2(ScreenX, ScreenY), Color.White);
 
         if (Editor.Mirror)
             DrawRectClipped(spriteBatch, new Rectangle(ScreenX + (Width / 2), ScreenY, 1, Height), MirrorLine);
@@ -129,6 +127,31 @@ public sealed class ArtCanvas : UIElement
         Changed?.Invoke();
     }
 
+    //The grid lines never move for a canvas size, so they are baked once instead of redrawn as ~166 rects every frame.
+    private Texture2D EnsureGrid()
+    {
+        if ((GridTexture is null) || (GridWidth != Width) || (GridHeight != Height))
+        {
+            GridTexture?.Dispose();
+            GridTexture = new Texture2D(TextureConverter.Device, Width, Height);
+            GridWidth = Width;
+            GridHeight = Height;
+            var colours = new Color[Width * Height];
+
+            for (var x = 1; x < Editor.Drawing.Width; x++)
+                for (var y = 0; y < Height; y++)
+                    colours[(y * Width) + (x * Zoom)] = GridLine;
+
+            for (var y = 1; y < Editor.Drawing.Height; y++)
+                for (var x = 0; x < Width; x++)
+                    colours[((y * Zoom) * Width) + x] = GridLine;
+
+            GridTexture.SetData(colours);
+        }
+
+        return GridTexture;
+    }
+
     private void Resize()
     {
         Width = Editor.Drawing.Width * Zoom;
@@ -158,6 +181,8 @@ public sealed class ArtCanvas : UIElement
             Texture?.Dispose();
             Texture = null;
             TextureColours = null;
+            GridTexture?.Dispose();
+            GridTexture = null;
         }
 
         Texture ??= new Texture2D(TextureConverter.Device, Width, Height);

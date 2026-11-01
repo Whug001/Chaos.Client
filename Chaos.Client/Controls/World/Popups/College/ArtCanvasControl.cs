@@ -99,6 +99,7 @@ public sealed class ArtCanvasControl : GuildCloakDialogBase
     private int EditingSwatch = -1;
     private string? ReplacingHash;
     private string SavedNote = string.Empty;
+    private int _LastNoteLength = -1;
     private string SavedTitle = string.Empty;
     private CollegeDisplayArgs? Session;
     private bool SubmitArmed;
@@ -525,10 +526,12 @@ public sealed class ArtCanvasControl : GuildCloakDialogBase
 
         if (Visible)
         {
-            var counter = $"{NoteBox.Text.Length}/{CollegeProtocol.MAX_ART_NOTE_CHARS}";
-
-            if (NoteCounter.Text != counter)
-                NoteCounter.Text = counter;
+            //the box rebuilds its text while typing, so the counter rebuilds only when its length moves
+            if (NoteBox.Text.Length != _LastNoteLength)
+            {
+                _LastNoteLength = NoteBox.Text.Length;
+                NoteCounter.Text = $"{_LastNoteLength}/{CollegeProtocol.MAX_ART_NOTE_CHARS}";
+            }
 
             if (LibraryMode)
             {
@@ -845,7 +848,7 @@ public sealed class ArtCanvasControl : GuildCloakDialogBase
 
     private void OnCoverUploadClicked()
     {
-        if (CoverPicking is not null || !LibraryMode)
+        if ((CoverPicking is not null) || !LibraryMode || (CoverUpload.Length > 0))
             return;
 
         if (CoverTransfers is null)
@@ -965,7 +968,7 @@ public sealed class ArtCanvasControl : GuildCloakDialogBase
 
     private void ShowCoverChoice()
     {
-        if (!LibraryMode)
+        if (!LibraryMode || (CoverUpload.Length > 0))
             return;
 
         DisarmSubmit();

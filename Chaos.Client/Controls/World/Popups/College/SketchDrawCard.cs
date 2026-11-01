@@ -111,7 +111,7 @@ public sealed class SketchDrawCard : GuildCloakDialogBase
         EraseButton = ToolButton("Erase", 48, ref x, () => PickTool(SketchTool.Erase));
         UndoButton = ToolButton("Undo", 42, ref x, Undo);
         ClearButton = ToolButton("Clear", 42, ref x, Clear);
-        DoneButton = AddButton("Done", INNER_WIDTH, LEFT, DONE_TOP, SubmitDrawing);
+        DoneButton = AddButton("Done", INNER_WIDTH, LEFT, DONE_TOP, () => SubmitDrawing(deadline: false));
 
         StatusLabel = Caption(string.Empty, LEFT, DONE_TOP + CustomButton.HEIGHT + 4, INNER_WIDTH, HorizontalAlignment.Center, LegendColors.White);
     }
@@ -196,7 +196,7 @@ public sealed class SketchDrawCard : GuildCloakDialogBase
         RefreshTools();
 
         if (!Info.Paused && (Countdown.Left == 0) && (Toolbox.Drawing.Version != SentVersion) && (Toolbox.Drawing.DrawnPixels > 0))
-            SubmitDrawing();
+            SubmitDrawing(deadline: true);
     }
 
     public override void OnKeyDown(KeyDownEvent e)
@@ -247,9 +247,13 @@ public sealed class SketchDrawCard : GuildCloakDialogBase
         RefreshTools();
     }
 
-    private void SubmitDrawing()
+    private void SubmitDrawing(bool deadline)
     {
         if (!Step.HasValue || (Info.Phase != PartyPhase.Drawing))
+            return;
+
+        //The deadline path is the single exception: after time is up Done does nothing, and Tick sends once.
+        if (!deadline && (Info.Paused || (Countdown.Left == 0)))
             return;
 
         if (Toolbox.Drawing.Version == SentVersion)
@@ -270,6 +274,7 @@ public sealed class SketchDrawCard : GuildCloakDialogBase
     private void RefreshTools()
     {
         var open = !Info.Paused && (Countdown.Left > 0);
+        Canvas.Enabled = open;
         PenButton.Selected = Toolbox.Tool == SketchTool.Pen;
         BigPenButton.Selected = Toolbox.Tool == SketchTool.BigPen;
         FillButton.Selected = Toolbox.Tool == SketchTool.Fill;

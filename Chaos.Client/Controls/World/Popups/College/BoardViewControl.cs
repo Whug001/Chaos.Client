@@ -56,6 +56,7 @@ public sealed class BoardViewControl : GuildCloakDialogBase
     private List<string> Students = [];
     private int StudentIndex;
     private Texture2D? Texture;
+    private Color[]? BoardColours;
 
     public BoardViewControl()
         : base("_nsett", false)
@@ -95,8 +96,22 @@ public sealed class BoardViewControl : GuildCloakDialogBase
     {
         if (ShownDrawingVersion != state.DrawingVersion)
         {
-            Texture?.Dispose();
-            Texture = DrawingTextures.BuildBoard(state.Drawing, CollegeProtocol.BOARD_ZOOM);
+            //One texture and colour buffer for the window: a live class resends the board often.
+            var drawing = state.Drawing ?? BoardState.NewBoard();
+            var width = drawing.Width * CollegeProtocol.BOARD_ZOOM;
+            var height = drawing.Height * CollegeProtocol.BOARD_ZOOM;
+
+            if ((Texture is null) || (Texture.Width != width) || (Texture.Height != height))
+            {
+                Texture?.Dispose();
+                Texture = new Texture2D(TextureConverter.Device, width, height);
+                BoardColours = null;
+            }
+
+            var palette = drawing.Palette.ToArray();
+            palette[0] = BoardState.Pane;
+            BoardColours = DrawingTextures.ToColors(palette, drawing.Pixels, CollegeProtocol.BOARD_ZOOM, drawing.Width, drawing.Height, BoardColours ?? new Color[width * height]);
+            Texture.SetData(BoardColours);
             ShownDrawingVersion = state.DrawingVersion;
         }
 

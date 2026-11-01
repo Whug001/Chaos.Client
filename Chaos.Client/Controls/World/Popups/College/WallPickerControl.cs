@@ -146,6 +146,9 @@ public sealed class WallPickerControl : GuildCloakDialogBase
 
             if (row.Pixels.Length == CollegeProtocol.DRAWING_PIXELS)
                 cell.Picture = DrawingTextures.Build(PixelDrawing.From(row.Palette, row.Pixels), 1);
+                else
+                    //a row whose pixels are missing or corrupt shows a state instead of "Loading..." forever
+                    cell.Broken = true;
 
             cell.Visible = true;
         }
@@ -191,6 +194,7 @@ public sealed class WallPickerControl : GuildCloakDialogBase
         {
             cell.Picture?.Dispose();
             cell.Picture = null;
+            cell.Broken = false;
             cell.Visible = false;
             cell.Selected = false;
         }

@@ -95,7 +95,8 @@ public sealed class PartyListEditorControl : GuildCloakDialogBase
     private readonly CustomButton UpEntryButton;
 
     private bool AskingKind;
-    private bool AwaitingSave;
+    private readonly DraftAutosave Autosave = new();
+    private readonly PendingSave Saver = new();
     private bool BackAfterSave;
     private PartyListKind BankKind;
     private List<CollegePartyListRowInfo> BankRows = [];
@@ -108,7 +109,7 @@ public sealed class PartyListEditorControl : GuildCloakDialogBase
     private int RefusedVersion = -1;
     private int ScrollTop;
     private int SelectedRow = -1;
-    private int SentVersion;
+    private bool ClosedByPlayer;
     private int ShownVersion = -1;
 
     public PartyListDocument Document { get; } = new();
@@ -325,22 +326,22 @@ public sealed class PartyListEditorControl : GuildCloakDialogBase
         if (EditingPage && Visible)
             return;
 
-        //unsaved edits of a closed editor: the save goes out first and its result returns to the list, so nothing is dropped
-        if (EditingPage && !IsPreview)
+        //a closed editor stays shut: a save echo only refreshes its rows, until the player asks for a list again
+        if (!Visible && ClosedByPlayer)
         {
-            Pull();
+            ClosedByPlayer = false;
 
-            if (Document.IsDirty)
+            //unsaved edits of a closed editor: the save goes out first and its result returns to the list, so nothing is dropped
+            if (EditingPage && !IsPreview)
             {
-                if (Document.Version != RefusedVersion)
-                    Save(true);
+                Pull();
 
-                Show();
-
-                return;
+                if (Document.IsDirty && (Document.Version != RefusedVersion))
+                    Save(false);
             }
-        }
 
+            return;
+        }
         BankTabShown = false;
         AskingKind = false;
         SelectedRow = MineRows.Count == 0 ? -1 : Math.Clamp(SelectedRow, 0, MineRows.Count - 1);
@@ -387,7 +388,8 @@ public sealed class PartyListEditorControl : GuildCloakDialogBase
         }
 
         Document.Load(id, draft, mode == WordListEditMode.Preview);
-        AwaitingSave = false;
+        Saver.Reset();
+        ClosedByPlayer = false;
         BackAfterSave = false;
         RefusedVersion = -1;
         DeleteArmed = string.Empty;
@@ -406,48 +408,79 @@ public sealed class PartyListEditorControl : GuildCloakDialogBase
         Status.Text = message;
 
         //Copy and Delete results only need the status line; the list that follows refreshes page 1
-        if (!AwaitingSave)
+        if (!Saver.AwaitingSave)
             return false;
-
-        AwaitingSave = false;
 
         if (code == WordListResultCode.Saved)
         {
+            var sentVersion = Saver.SentVersion;
+
+            //the in-flight save answered; a logout or exit save queued behind it still has to go out
+            var followUp = Saver.TakeQueued(Document.IsDirty, Document.Version, RefusedVersion);
+
             if (Document.Id.Length == 0)
                 Document.SetId(id);
 
             //typing after Save was pressed is still unsaved
-            if (Document.Version == SentVersion)
+            if (Document.Version == sentVersion)
                 Document.MarkClean();
 
             //typing after Back was pressed stays on page 2, still unsaved
-            if (BackAfterSave && (Document.Version == SentVersion))
+            if (BackAfterSave && (Document.Version == sentVersion))
             {
                 BackAfterSave = false;
-                GoToList();
+
+                //a closed editor stays shut: only a visible Back goes back to the list
+                if (Visible)
+                    GoToList();
             }
 
-            BackAfterSave = false;
+            if (followUp)
+            {
+                var back = BackAfterSave;
+                BackAfterSave = false;
 
-            //the player closed while this save was in flight, so edits made since were never sent
-            if (!Visible && Document.IsDirty)
-                Save(false);
+                if (!Visible)
+                    ClosedByPlayer = true;
+
+                Save(back);
+            }
+            else
+            {
+                BackAfterSave = false;
+
+                //the player closed while this save was in flight, so edits made since were never sent
+                if (!Visible && Document.IsDirty)
+                {
+                    ClosedByPlayer = true;
+                    Save(false);
+                }
+            }
 
             return false;
         }
 
         BackAfterSave = false;
-        RefusedVersion = SentVersion;
+        RefusedVersion = Saver.SentVersion;
+
+        //a save queued while this one was in flight still has newer edits the server never saw
+        if (Saver.TakeQueued(Document.IsDirty, Document.Version, RefusedVersion))
+        {
+            if (!Visible)
+                ClosedByPlayer = true;
+
+            Save(false);
+        }
 
         if (Visible)
             return false;
 
+        ClosedByPlayer = false;
         ShowPage(true);
         Show();
 
         return true;
     }
-
     /// <summary>Logging out takes the editor away without its Close, so a dirty list is saved here.</summary>
     public void SaveIfDirty()
     {
@@ -468,6 +501,8 @@ public sealed class PartyListEditorControl : GuildCloakDialogBase
 
             if (Document.Version != ShownVersion)
                 RefreshEdit();
+
+            AutosaveDraft();
         }
 
         base.Update(gameTime);
@@ -519,12 +554,17 @@ public sealed class PartyListEditorControl : GuildCloakDialogBase
 
             //a save the server refused is not retried until something changes, or the window could never close
             if (Document.IsDirty && (Document.Version != RefusedVersion))
+            {
+                //a save echo must not pop the closed editor back open
+                ClosedByPlayer = true;
                 Save(false);
+            }
+            else if (Saver.AwaitingSave || Saver.SaveQueued)
+                ClosedByPlayer = true;
         }
 
         Hide();
     }
-
     private void OnBackClicked()
     {
         if (IsPreview)
@@ -558,13 +598,13 @@ public sealed class PartyListEditorControl : GuildCloakDialogBase
     {
         Pull();
 
-        //a second save while one is in flight could make a second list, or let an older save land last
-        if (AwaitingSave)
+        BackAfterSave = thenBack;
+
+        //a second save while one is in flight is queued behind it instead of dropped, so a logout or
+        //exit save still sends the newest edits when the pending save answers
+        if (!Saver.TryBegin(Document.Version))
             return;
 
-        AwaitingSave = true;
-        BackAfterSave = thenBack;
-        SentVersion = Document.Version;
         Status.Text = "Saving...";
 
         Raise(
@@ -574,6 +614,15 @@ public sealed class PartyListEditorControl : GuildCloakDialogBase
                 PartyListId = Document.Id,
                 PartyListDraft = Document.ToInfo()
             });
+    }
+
+    private void AutosaveDraft()
+    {
+        if (IsPreview || Saver.AwaitingSave || Saver.SaveQueued)
+            return;
+
+        if (Autosave.IsDue(Document.IsDirty && (Document.Version != RefusedVersion), DateTime.UtcNow))
+            Save(false);
     }
 
     private void CopyPreviewToMine()
@@ -649,7 +698,8 @@ public sealed class PartyListEditorControl : GuildCloakDialogBase
         }
 
         Document.New(kind);
-        AwaitingSave = false;
+        Saver.Reset();
+        ClosedByPlayer = false;
         BackAfterSave = false;
         RefusedVersion = -1;
         ScrollTop = 0;

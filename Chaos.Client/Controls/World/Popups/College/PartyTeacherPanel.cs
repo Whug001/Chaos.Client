@@ -29,7 +29,8 @@ public sealed class PartyTeacherPanel : GuildCloakDialogBase
     private const int CHOICE_ROWS = 6;
     private const int SCORE_ROWS = 6;
     private const int NAME_COLUMN = INNER_WIDTH - 68;
-    private const int DRAW_ZOOM = 2;
+    //The Sketch Guess drawing shows at 1x here (the student card uses 2x), so a 6-choice vote still fits on screen.
+    private const int DRAW_ZOOM = 1;
     private const int DRAW_WIDTH = CollegeProtocol.DRAWING_WIDTH * DRAW_ZOOM;
     private const int DRAW_HEIGHT = CollegeProtocol.DRAWING_HEIGHT * DRAW_ZOOM;
     private const int BUTTON_GAP = 4;
@@ -77,6 +78,7 @@ public sealed class PartyTeacherPanel : GuildCloakDialogBase
     private int PlayerPage;
     private byte SelectedChoice = CollegeProtocol.PARTY_NO_CHOICE;
     private byte ShownDrawingId;
+    private byte[] ShownPixels = [];
 
     public event Action<CollegeActionArgs>? Send;
 
@@ -182,6 +184,15 @@ public sealed class PartyTeacherPanel : GuildCloakDialogBase
     /// <summary>A PartyDrawing message: keeps the drawing whose id matches the card's, for the Sketch Guess vote.</summary>
     public void ShowDrawing(byte id, byte[] pixels)
     {
+        //Like the student card's DrawingImage: an unchanged drawing keeps its texture.
+        if ((id == ShownDrawingId) && (DrawingTexture is not null) && ShownPixels.AsSpan().SequenceEqual(pixels))
+        {
+            Refresh();
+
+            return;
+        }
+
+        ShownPixels = [];
         DrawingTexture?.Dispose();
         DrawingTexture = null;
         ShownDrawingId = 0;
@@ -196,6 +207,7 @@ public sealed class PartyTeacherPanel : GuildCloakDialogBase
             DrawingTexture = new Texture2D(TextureConverter.Device, DRAW_WIDTH, DRAW_HEIGHT);
             DrawingTexture.SetData(DrawingTextures.ToColors(SketchToolbox.Colours, clean, DRAW_ZOOM));
             ShownDrawingId = id;
+            ShownPixels = (byte[])pixels.Clone();
         }
 
         Refresh();
@@ -215,6 +227,7 @@ public sealed class PartyTeacherPanel : GuildCloakDialogBase
         DrawingTexture?.Dispose();
         DrawingTexture = null;
         ShownDrawingId = 0;
+        ShownPixels = [];
         DrawingShown = false;
         Hide();
     }

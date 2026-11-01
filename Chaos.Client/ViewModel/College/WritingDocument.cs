@@ -70,6 +70,14 @@ public sealed class WritingDocument
 
     public int PictureCount => Blocks.Count(b => b.Kind == WritingBlockKind.Picture);
 
+    /// <summary>The characters and bytes the server counts, measured together so the per-frame counter walks the piece once.</summary>
+    public (int Characters, int Bytes) MeasureText()
+    {
+        var measured = Measure();
+
+        return (measured.Characters, measured.Bytes);
+    }
+
     /// <summary>The server's cleaning of piece text: every line break becomes \n and other control characters go.</summary>
     public static string Clean(string text)
     {

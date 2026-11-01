@@ -2,6 +2,7 @@ using Chaos.Client.Controls.Components;
 using Chaos.Client.Controls.Custom;
 using Chaos.Client.Controls.World.Popups.GuildCloak;
 using Chaos.Client.Extensions;
+using Chaos.Client.Rendering;
 using Chaos.Client.ViewModel.College;
 using Chaos.DarkAges.Definitions;
 using Chaos.Networking.Entities.Client;
@@ -59,6 +60,8 @@ public sealed class HangmanBoardControl : GuildCloakDialogBase
     private readonly CustomTextBox SolveBox;
     private readonly ToolCountdown Countdown = new();
     private int DismissedNumber = -1;
+    private readonly Texture2D?[] GallowsStages = new Texture2D?[HangmanGallows.STAGES];
+    private static readonly string[] LetterText = Enumerable.Range(0, 26).Select(i => ((char)('A' + i)).ToString()).ToArray();
     private bool Hidden;
     private bool SolveShown;
     private HangmanBoardState? State;
@@ -238,6 +241,14 @@ public sealed class HangmanBoardControl : GuildCloakDialogBase
                 LegendColors.Red * 0.45f);
     }
 
+    public override void Dispose()
+    {
+        foreach (var stage in GallowsStages)
+            stage?.Dispose();
+
+        base.Dispose();
+    }
+
     private HangmanTurnStrip StripFor(CollegeHangmanInfo info)
     {
         //the strip only depends on the game snapshot, so keep it across frames and rebuild on a new one
@@ -272,8 +283,19 @@ public sealed class HangmanBoardControl : GuildCloakDialogBase
 
     private void DrawGallows(SpriteBatch spriteBatch, int stage)
     {
-        var originX = ScreenX + LEFT + ((GALLOWS_SLOT - HangmanGallows.WIDTH) / 2) - 4;
-        var originY = ScreenY + GALLOWS_TOP;
+        var texture = StageTexture(Math.Clamp(stage, 0, HangmanGallows.STAGES - 1));
+
+        if (texture is not null)
+            DrawTexture(spriteBatch, texture, new Vector2(ScreenX + LEFT + ((GALLOWS_SLOT - HangmanGallows.WIDTH) / 2) - 4, ScreenY + GALLOWS_TOP), Color.White);
+    }
+
+    //The gallows never change, so each stage is rasterised once instead of redrawn as hundreds of rects every frame.
+    private Texture2D StageTexture(int stage)
+    {
+        if (GallowsStages[stage] is { } cached)
+            return cached;
+
+        var colours = new Color[HangmanGallows.WIDTH * HangmanGallows.HEIGHT];
 
         foreach (var s in HangmanGallows.Segments(stage))
         {
@@ -283,10 +305,33 @@ public sealed class HangmanBoardControl : GuildCloakDialogBase
             {
                 var x = steps == 0 ? s.X1 : s.X1 + ((s.X2 - s.X1) * i / steps);
                 var y = steps == 0 ? s.Y1 : s.Y1 + ((s.Y2 - s.Y1) * i / steps);
-                DrawRect(spriteBatch, new Rectangle(originX + x, originY + y, 2, 2), LegendColors.White);
+                colours[(y * HangmanGallows.WIDTH) + x] = Color.White;
             }
         }
+
+        var zoomed = new Color[colours.Length * 4];
+
+        for (var y = 0; y < HangmanGallows.HEIGHT; y++)
+            for (var x = 0; x < HangmanGallows.WIDTH; x++)
+            {
+                var c = colours[(y * HangmanGallows.WIDTH) + x];
+
+                if (c == default)
+                    continue;
+
+                for (var dy = 0; dy < 2; dy++)
+                    for (var dx = 0; dx < 2; dx++)
+                        zoomed[(((y * 2) + dy) * HangmanGallows.WIDTH * 2) + ((x * 2) + dx)] = c;
+            }
+
+        var texture = new Texture2D(TextureConverter.Device, HangmanGallows.WIDTH * 2, HangmanGallows.HEIGHT * 2);
+        texture.SetData(zoomed);
+        GallowsStages[stage] = texture;
+
+        return texture;
     }
+    //One cached string per letter: the mask draws every frame while the board is open.
+    private static string LetterName(char c) => c is >= 'A' and <= 'Z' ? LetterText[c - 'A'] : c.ToString();
 
     private void DrawMask(SpriteBatch spriteBatch, CollegeHangmanInfo info)
     {
@@ -309,7 +354,7 @@ public sealed class HangmanBoardControl : GuildCloakDialogBase
                 TextRenderer.DrawText(
                     spriteBatch,
                     new Vector2(x + ((MASK_CELL - (TextRenderer.CHAR_WIDTH * MASK_SCALE)) / 2), ScreenY + MASK_TOP),
-                    c.ToString(),
+                    LetterName(c),
                     color,
                     false,
                     scale: MASK_SCALE);
