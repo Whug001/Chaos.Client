@@ -125,6 +125,38 @@ public sealed class GuildHallEditorLayoutTests
     }
 
     [Test]
+    public async Task House_shows_four_tabs()
+    {
+        var visible = Enumerable.Range(0, GuildHallEditorControl.TabNames.Length)
+                               .Where(i => GuildHallEditorControl.IsTabVisible(i, isHouse: true))
+                               .ToList();
+
+        visible.Should().Equal(0, 1, 2, 4);
+
+        var x = GuildHallEditorControl.PAD;
+
+        foreach (var index in visible)
+        {
+            GuildHallEditorControl.TabLeft(index, isHouse: true).Should().Be(x);
+            x += GuildHallEditorControl.TabWidths[index] + GuildHallEditorControl.TAB_GAP;
+        }
+
+        await Task.CompletedTask;
+    }
+
+    [Test]
+    public async Task Hall_shows_six_tabs()
+    {
+        for (var i = 0; i < GuildHallEditorControl.TabNames.Length; i++)
+        {
+            GuildHallEditorControl.IsTabVisible(i, isHouse: false).Should().BeTrue();
+            GuildHallEditorControl.TabLeft(i, isHouse: false).Should().Be(GuildHallEditorControl.TabX(i));
+        }
+
+        await Task.CompletedTask;
+    }
+
+    [Test]
     public async Task Every_visible_control_fits_inside_the_panel_on_every_tab()
     {
         foreach (var tab in Enum.GetValues<GuildHallTab>())

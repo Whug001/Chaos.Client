@@ -51,6 +51,7 @@ public sealed class GuildHallEditorState
     private int FacingIndex;
 
     public bool IsOpen { get; private set; }
+    public bool IsHouse { get; private set; }
     public IReadOnlyList<GuildHallPaletteSet> Sets { get; private set; } = [];
     public IReadOnlyList<GuildHallNpcOption> Npcs { get; private set; } = [];
     public Point Entrance { get; private set; }
@@ -129,6 +130,7 @@ public sealed class GuildHallEditorState
         Npcs = args.Npcs;
         Entrance = new Point(args.EntranceX, args.EntranceY);
         IsOpen = true;
+        IsHouse = args.SpaceKind == EditableSpaceKind.House;
         LastRefusedReason = null;
 
         var keptSet = setKey is null ? -1 : Sets.ToList().FindIndex(s => s.Key == setKey);
@@ -136,7 +138,22 @@ public sealed class GuildHallEditorState
 
         if (wasOpen)
         {
-            Page = Math.Clamp(Page, 0, PageCount - 1);
+            if (IsHouse && Tab is GuildHallTab.Npcs or GuildHallTab.Defenses)
+            {
+                Tab = GuildHallTab.Floors;
+                Page = 0;
+
+                if (Tool is GuildHallTool.Npc or GuildHallTool.Entrance or GuildHallTool.Defense or GuildHallTool.AttackerEntrance or GuildHallTool.Heart)
+                    Tool = GuildHallTool.Paint;
+            }
+            else
+            {
+                Page = Math.Clamp(Page, 0, PageCount - 1);
+            }
+
+            if (IsHouse && Tool == GuildHallTool.Entrance)
+                Tool = GuildHallTool.Paint;
+
             SelectedPrefab = SelectedPrefab is { } kept
                 ? args.Sets.SelectMany(s => s.Prefabs).FirstOrDefault(p => p.Key == kept.Key)
                 : null;
@@ -302,6 +319,7 @@ public sealed class GuildHallEditorState
     public void Close()
     {
         IsOpen = false;
+        IsHouse = false;
         PressOwned = false;
         Sets = [];
         Npcs = [];
@@ -330,6 +348,9 @@ public sealed class GuildHallEditorState
 
     public void SetTab(GuildHallTab tab)
     {
+        if (IsHouse && tab is GuildHallTab.Npcs or GuildHallTab.Defenses)
+            return;
+
         Tab = tab;
         LastRefusedReason = null;
         Page = 0;
@@ -346,6 +367,9 @@ public sealed class GuildHallEditorState
 
     public void SetTool(GuildHallTool tool)
     {
+        if (IsHouse && (tool is GuildHallTool.Npc or GuildHallTool.Entrance))
+            return;
+
         if (Tab == GuildHallTab.Defenses)
         {
             if (tool is GuildHallTool.Defense or GuildHallTool.AttackerEntrance or GuildHallTool.Heart or GuildHallTool.Erase)

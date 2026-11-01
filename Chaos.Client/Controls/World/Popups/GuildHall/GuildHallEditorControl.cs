@@ -71,6 +71,7 @@ public sealed class GuildHallEditorControl : UIPanel
         [GuildHallTool.Paint, GuildHallTool.Rect, GuildHallTool.Fill, GuildHallTool.Erase, GuildHallTool.Entrance];
     private static readonly string[] SideNames = ["Both", "Left", "Right"];
 
+    private readonly UILabel TitleLabel;
     private readonly GuildHallEditorButton CheckButton;
     private readonly GuildHallEditorButton ResetButton;
     private readonly GuildHallEditorButton NextButton;
@@ -108,7 +109,7 @@ public sealed class GuildHallEditorControl : UIPanel
         BorderColor = new Color(138, 109, 59);
         Thumbnails = new GuildHallThumbnails(creatures, effects);
 
-        Label("GUILD HALL EDITOR", PAD, HEADER_Y + ((HEADER_H - TextRenderer.CHAR_HEIGHT) / 2), TITLE_W, LegendColors.Gold);
+        TitleLabel = Label(TitleFor(isHouse: false), PAD, HEADER_Y + ((HEADER_H - TextRenderer.CHAR_HEIGHT) / 2), TITLE_W, LegendColors.Gold);
         CheckButton = Button(string.Empty, CHECK_X, HEADER_Y, CHECK_W, HEADER_H, Done);
         CheckButton.Green = true;
         ResetButton = Button("Reset", RESET_X, HEADER_Y, RESET_W, HEADER_H, SendReset);
@@ -190,15 +191,34 @@ public sealed class GuildHallEditorControl : UIPanel
             Math.Clamp(viewport.Right - PANEL_WIDTH - 2, 0, ChaosGame.VIRTUAL_WIDTH - PANEL_WIDTH),
             Math.Clamp(viewport.Y + 2, 0, ChaosGame.VIRTUAL_HEIGHT - PANEL_HEIGHT));
 
-    public static int TabX(int index)
+    internal static bool IsTabVisible(int index, bool isHouse)
+        => !isHouse || ((GuildHallTab)index is not (GuildHallTab.Npcs or GuildHallTab.Defenses));
+
+    /// <summary>The header caption: houses edit a home, halls edit a guild hall.</summary>
+    internal static string TitleFor(bool isHouse) => isHouse ? "HOUSE EDITOR" : "GUILD HALL EDITOR";
+
+    /// <summary>Whether a tool button shows; houses have no door entrance to move.</summary>
+    internal static bool IsToolVisible(GuildHallTool tool, bool isHouse) => !isHouse || (tool != GuildHallTool.Entrance);
+
+    /// <summary>Whether the Reset button shows; the server refuses resets in a home.</summary>
+    internal static bool IsResetVisible(bool isHouse) => !isHouse;
+
+    /// <summary>Where to buy a locked set: the Land Agent for houses, Tibbs for halls.</summary>
+    internal static string LockedSetMessage(string setName, bool isHouse)
+        => isHouse ? $"Buy {setName} from the Land Agent to use these tiles." : $"Buy {setName} from Tibbs to use these tiles.";
+
+    internal static int TabLeft(int index, bool isHouse)
     {
         var x = PAD;
 
         for (var i = 0; i < index; i++)
-            x += TabWidths[i] + TAB_GAP;
+            if (IsTabVisible(i, isHouse))
+                x += TabWidths[i] + TAB_GAP;
 
         return x;
     }
+
+    public static int TabX(int index) => TabLeft(index, false);
 
     /// <summary>Each tab is as wide as its caption, and the space left over is shared out so the row fills the panel.</summary>
     private static int[] FitTabWidths()
@@ -341,6 +361,8 @@ public sealed class GuildHallEditorControl : UIPanel
     {
         var state = State;
 
+        TitleLabel.Text = TitleFor(state.IsHouse);
+        ResetButton.Visible = IsResetVisible(state.IsHouse);
         CheckButton.Icon = Icons.Get("check");
 
         for (var i = 0; i < TabButtons.Length; i++)
@@ -350,6 +372,8 @@ public sealed class GuildHallEditorControl : UIPanel
             TabButtons[i].Selected = selected;
             TabButtons[i].Recessed = !selected;
             TabButtons[i].JoinedBottom = selected;
+            TabButtons[i].Visible = IsTabVisible(i, state.IsHouse);
+            TabButtons[i].X = TabLeft(i, state.IsHouse);
         }
 
         RefreshDefenses(state);
@@ -440,7 +464,7 @@ public sealed class GuildHallEditorControl : UIPanel
         {
             ToolButtons[i].Icon = Icons.Get(ToolIconKeys[i]);
             ToolButtons[i].Selected = state.Tool == Tools[i];
-            ToolButtons[i].Visible = !npcTab;
+            ToolButtons[i].Visible = !npcTab && IsToolVisible(Tools[i], state.IsHouse);
         }
 
         ToolLabel.Visible = !npcTab;
@@ -537,7 +561,7 @@ public sealed class GuildHallEditorControl : UIPanel
     {
         if (!State.Select(pick) && State.CurrentSet is { } set)
         {
-            var message = $"Buy {set.Name} from Tibbs to use these tiles.";
+            var message = LockedSetMessage(set.Name, State.IsHouse);
             State.Refuse(message);
             MessageRequested?.Invoke(message);
         }

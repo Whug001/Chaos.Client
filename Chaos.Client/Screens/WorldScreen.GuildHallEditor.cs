@@ -137,7 +137,7 @@ public sealed partial class WorldScreen
     /// <summary>Every aisling in the hall gets these, editor or not; only the hall map takes them.</summary>
     private void ApplyGuildHallTiles(IReadOnlyList<GuildHallTileInfo> tiles)
     {
-        if (MapFile is null || (CurrentMapId != CONSTANTS.GUILD_HALL_MAP_ID))
+        if (MapFile is null || !MapStreaming.IsEditableMap(CurrentMapId))
             return;
 
         if (GuildHallTileApply.Apply(MapFile, tiles) == 0)
@@ -256,7 +256,7 @@ public sealed partial class WorldScreen
     /// </summary>
     private void UpdateGuildHallEditor()
     {
-        if (HallTilesDirty && (MapFile is not null) && (CurrentMapId == CONSTANTS.GUILD_HALL_MAP_ID))
+        if (HallTilesDirty && (MapFile is not null) && MapStreaming.IsEditableMap(CurrentMapId))
         {
             HallTilesDirty = false;
             TabMapRenderer.Generate(Device, MapFile);
