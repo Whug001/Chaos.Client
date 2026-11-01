@@ -472,7 +472,7 @@ public sealed partial class WorldScreen
         return true;
     }
 
-    private static MapFile? LoadMapFile(
+    internal static MapFile? LoadMapFile(
         int mapId,
         int width,
         int height,

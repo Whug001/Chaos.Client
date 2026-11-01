@@ -89,6 +89,8 @@ public sealed class LobbyLoginControl : PrefabPanel
         VersionLabel?.Text = "Chaos v0.1.0";
     }
 
+    public void AddScryView(UIElement view) => AddChild(view);
+
     public void EnableButtons() => SetButtonsEnabled(true);
 
     public void SetButtonsEnabled(bool enabled)

@@ -320,6 +320,14 @@ public static class WorldState
 
         SortVersion++;
 
+        ApplyAislingLook(entity, args);
+    }
+
+    /// <summary>
+    ///     Applies an aisling's look (position, name, flags, appearance) from a DisplayAisling packet.
+    /// </summary>
+    public static void ApplyAislingLook(WorldEntity entity, DisplayAislingArgs args)
+    {
         entity.Type = ClientEntityType.Aisling;
         entity.TileX = args.X;
         entity.TileY = args.Y;
@@ -390,33 +398,41 @@ public static class WorldState
                 Entities[obj.Id] = entity;
             }
 
-            entity.TileX = obj.X;
-            entity.TileY = obj.Y;
-            entity.SpriteId = obj.Sprite;
-            entity.Appearance = null;
-
-            switch (obj)
-            {
-                case CreatureInfo creature:
-                    entity.Type = ClientEntityType.Creature;
-                    entity.CreatureType = creature.CreatureType;
-                    entity.Direction = creature.Direction;
-                    entity.Name = creature.Name ?? string.Empty;
-                    entity.LanternSize = LanternFor(obj.Id);
-
-                    break;
-
-                case GroundItemInfo groundItem:
-                    entity.Type = ClientEntityType.GroundItem;
-                    entity.ItemColor = (byte)groundItem.Color;
-
-                    break;
-            }
-
-            AnimationSystem.CancelAllAnimations(entity);
+            ApplyVisibleEntityLook(entity, obj);
         }
 
         SortVersion++;
+    }
+
+    /// <summary>
+    ///     Applies a visible entity's look (position, sprite, type-specific fields) from a batch packet entry.
+    /// </summary>
+    public static void ApplyVisibleEntityLook(WorldEntity entity, VisibleEntityInfo info)
+    {
+        entity.TileX = info.X;
+        entity.TileY = info.Y;
+        entity.SpriteId = info.Sprite;
+        entity.Appearance = null;
+
+        switch (info)
+        {
+            case CreatureInfo creature:
+                entity.Type = ClientEntityType.Creature;
+                entity.CreatureType = creature.CreatureType;
+                entity.Direction = creature.Direction;
+                entity.Name = creature.Name ?? string.Empty;
+                entity.LanternSize = LanternFor(info.Id);
+
+                break;
+
+            case GroundItemInfo groundItem:
+                entity.Type = ClientEntityType.GroundItem;
+                entity.ItemColor = (byte)groundItem.Color;
+
+                break;
+        }
+
+        AnimationSystem.CancelAllAnimations(entity);
     }
 
     /// <summary>

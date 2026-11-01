@@ -573,6 +573,8 @@ public delegate void KartTrackLayoutReceivedHandler(KartTrackLayoutArgs args);
 
 /// <summary>Fired when a kart race snapshot arrives.</summary>
 public delegate void KartSnapshotReceivedHandler(KartSnapshotArgs args);
+/// <summary>Fired when a login-screen scrying frame arrives.</summary>
+public delegate void ScryFrameReceivedHandler(ScryFrameArgs args);
 
 /// <summary>Fired when a kart race event arrives.</summary>
 public delegate void KartRaceEventReceivedHandler(KartRaceEventArgs args);

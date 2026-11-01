@@ -517,6 +517,7 @@ public sealed partial class WorldScreen
         userOptions.Apply(SettingKey.HideEnemyHealthBars, args.HideEnemyHealthBars);
         userOptions.Apply(SettingKey.ShowFriendlyNametags, args.AlwaysShowFriendlyNametags);
         userOptions.Apply(SettingKey.DamageNumbersMyOutputOnly, args.DamageNumbersMyOutputOnly);
+        userOptions.Apply(SettingKey.ShowOnLoginScreen, args.ShowOnLoginScreen);
 
         //stored chat filter prefs (Task 6): the mode lands in the choice cache the Task 5 call sites
         //read, so the login sync flips every chat path at once; out-of-range indices are ignored.
