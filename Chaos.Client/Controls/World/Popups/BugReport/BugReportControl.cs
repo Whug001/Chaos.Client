@@ -239,6 +239,7 @@ public sealed class BugReportControl : FramedDialogPanelBase
     /// <summary>Re-shows the window with a failed submission's text, after a send that could not go out.</summary>
     public void Reopen(BugReportSubmission submission)
     {
+        ReleaseFrame();
         ReportId = submission.ReportId;
         Category = submission.Category;
 
@@ -254,11 +255,12 @@ public sealed class BugReportControl : FramedDialogPanelBase
             NoPictureLabel.Visible = false;
             IncludePicture.Visible = true;
             IncludePicture.Checked = true;
+        } else
+        {
+            NoPictureLabel.Visible = true;
+            IncludePicture.Visible = false;
+            IncludePicture.Checked = false;
         }
-        Preview.Texture = null;
-        NoPictureLabel.Visible = true;
-        IncludePicture.Visible = false;
-        IncludePicture.Checked = false;
         RefreshSendState();
         Show();
     }

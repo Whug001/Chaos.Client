@@ -62,6 +62,7 @@ public sealed class EmoteWheelControl : UIPanel
     private int _centerY;
     private int _hoveredSegment = -1;
     private int _editingSlot;
+    private bool _slotsDirty;
     private int _bodyColor = (int)BodyColor.White;
     private WheelMode _mode = WheelMode.Wheel;
 
@@ -201,6 +202,7 @@ public sealed class EmoteWheelControl : UIPanel
 
     public void Hide()
     {
+        SaveSlotsIfDirty();
         _mode = WheelMode.Wheel;
         _catalogPanel.Visible = false;
         _catalogScroll.Visible = false;
@@ -344,11 +346,12 @@ public sealed class EmoteWheelControl : UIPanel
         ApplyWheelLayout();
     }
 
-    // catalog picks save to disk only here (not on every click), and the wheel goes back to its open centre:
+    // catalog picks save to disk here (not on every click; Hide persists them too if the wheel closes first),
+    // and the wheel goes back to its open centre:
     // the catalog layout re-clamps the centre for its bigger panel, so exiting from that centre would jump it
     private void ExitCatalogMode()
     {
-        ClientSettings.Save();
+        SaveSlotsIfDirty();
         _centerX = _wheelCenterX;
         _centerY = _wheelCenterY;
         ExitCatalogModeCore();
@@ -358,9 +361,19 @@ public sealed class EmoteWheelControl : UIPanel
     {
         _slots[index] = animation;
         ClientSettings.EmoteWheelSlots[index] = animation;
+        _slotsDirty = true;
 
         RefreshSlotIcons();
         RefreshSlotPicker();
+    }
+
+    private void SaveSlotsIfDirty()
+    {
+        if (!_slotsDirty)
+            return;
+
+        ClientSettings.Save();
+        _slotsDirty = false;
     }
 
     private void SelectEditingSlot(int index)
