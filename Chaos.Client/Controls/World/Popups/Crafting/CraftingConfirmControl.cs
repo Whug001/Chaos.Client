@@ -147,6 +147,10 @@ public sealed class CraftingConfirmControl : PrefabPanel, IInventoryDropTarget
 
     public void Open()
     {
+        //an empty window with no detail helps no one: the detail arrives first through TakePendingConfirm
+        if (State.Detail is null)
+            return;
+
         Show();
         Refresh();
     }

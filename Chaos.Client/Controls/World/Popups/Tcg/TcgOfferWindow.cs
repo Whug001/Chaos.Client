@@ -25,6 +25,7 @@ public sealed class TcgOfferWindow : UIPanel
     private int DeckIndex;
     private uint OfferMs;
     private DateTime ReceivedAt;
+    private readonly CustomButton AcceptButton;
 
     public TcgOfferWindow(int screenWidth, int screenHeight)
     {
@@ -48,15 +49,15 @@ public sealed class TcgOfferWindow : UIPanel
 
         var prev = new CustomButton("<", 24) { X = PADDING, Y = PADDING + (2 * ROW) };
         var next = new CustomButton(">", 24) { X = BOX_WIDTH - PADDING - 24, Y = PADDING + (2 * ROW) };
-        var accept = new CustomButton("Accept", 92) { X = BOX_WIDTH - PADDING - 192, Y = BOX_HEIGHT - CustomButton.HEIGHT - PADDING };
+        AcceptButton = new CustomButton("Accept", 92) { X = BOX_WIDTH - PADDING - 192, Y = BOX_HEIGHT - CustomButton.HEIGHT - PADDING };
         var decline = new CustomButton("Decline", 92) { X = BOX_WIDTH - PADDING - 92, Y = BOX_HEIGHT - CustomButton.HEIGHT - PADDING };
 
         prev.Clicked += () => MoveDeck(-1);
         next.Clicked += () => MoveDeck(1);
-        accept.Clicked += Accept;
+        AcceptButton.Clicked += Accept;
         decline.Clicked += Decline;
 
-        foreach (var control in new UIElement[] { Title, StakesLabel, prev, DeckLabel, next, Countdown, accept, decline })
+        foreach (var control in new UIElement[] { Title, StakesLabel, prev, DeckLabel, next, Countdown, AcceptButton, decline })
             AddChild(control);
     }
 
@@ -90,9 +91,10 @@ public sealed class TcgOfferWindow : UIPanel
         DeckIndex = 0;
         OfferMs = expiresMs;
         ReceivedAt = DateTime.UtcNow;
-        Title.Text = $"{challenger} challenges you to a card match";
+        Title.Text = $"{challenger} challenges you!";
         StakesLabel.Text = TcgChallengeState.StakesText(stakes, gold);
         DeckLabel.Text = Decks.Count > 0 ? Decks[0] : "No Ready deck";
+        AcceptButton.Enabled = Decks.Count > 0;
         Show();
     }
 

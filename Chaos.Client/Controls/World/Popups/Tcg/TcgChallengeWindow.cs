@@ -36,6 +36,7 @@ public sealed class TcgChallengeWindow : UIPanel
     private TcgStakes Stakes;
     private string Target = string.Empty;
     private bool Waiting;
+    private bool Sending;
 
     public TcgChallengeWindow(int screenWidth, int screenHeight)
     {
@@ -105,6 +106,8 @@ public sealed class TcgChallengeWindow : UIPanel
         if (UsesControlStack)
             InputDispatcher.Instance?.RemoveControl(this);
 
+        GoldBox.IsFocused = false;
+
         Visible = false;
     }
 
@@ -122,9 +125,11 @@ public sealed class TcgChallengeWindow : UIPanel
         Decks = decks.ToList();
         DeckIndex = 0;
         Waiting = false;
+        Sending = false;
+        SendButton.Enabled = true;
         Title.Text = $"Challenge {target} to a card match";
         GoldBox.Text = string.Empty;
-        Status.Text = string.Empty;
+        Status.Text = Decks.Count == 0 ? TcgChallengeState.NoReadyDeckMessage : string.Empty;
         PickStakes(TcgStakes.None);
         SetSetupVisible(true);
         Show();
@@ -133,6 +138,7 @@ public sealed class TcgChallengeWindow : UIPanel
     public void ShowWaiting(TcgStakes stakes, int gold, uint expiresMs)
     {
         Waiting = true;
+        Sending = false;
         OfferMs = expiresMs;
         OfferReceivedAt = DateTime.UtcNow;
         Title.Text = $"Waiting for {Target}...";
@@ -195,8 +201,16 @@ public sealed class TcgChallengeWindow : UIPanel
 
     private void Send()
     {
-        if (Decks.Count == 0)
+        //one send per setup: repeats are ignored until the server answers with a waiting view
+        if (Sending || Waiting)
             return;
+
+        if (Decks.Count == 0)
+        {
+            Status.Text = TcgChallengeState.NoReadyDeckMessage;
+
+            return;
+        }
 
         var gold = 0;
 
@@ -207,6 +221,8 @@ public sealed class TcgChallengeWindow : UIPanel
             return;
         }
 
+        Sending = true;
+        SendButton.Enabled = false;
         Action?.Invoke(TcgChallengeState.SendAction(Target, Decks[DeckIndex], Stakes, gold));
     }
 
@@ -216,6 +232,9 @@ public sealed class TcgChallengeWindow : UIPanel
 
         foreach (var button in StakeButtons)
             button.Visible = visible;
+
+        if (!visible)
+            GoldBox.IsFocused = false;
 
         GoldBox.Visible = visible && (Stakes == TcgStakes.Gold);
     }

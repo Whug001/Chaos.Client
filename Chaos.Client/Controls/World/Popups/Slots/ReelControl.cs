@@ -179,8 +179,8 @@ public sealed class ReelControl : UIPanel
         if (Strip.Length == 0)
             return;
 
-        ArgumentOutOfRangeException.ThrowIfNegative(stop);
-        ArgumentOutOfRangeException.ThrowIfGreaterThanOrEqual(stop, Strip.Length);
+        //a malformed stop lands somewhere valid instead of crashing the client inside Update
+        stop = ((stop % Strip.Length) + Strip.Length) % Strip.Length;
 
         var stripPixels = Strip.Length * CELL_H;
         float target = stop * CELL_H;

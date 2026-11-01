@@ -55,7 +55,9 @@ public sealed class TcgDeckBuilderControl : FramedDialogPanelBase
     private readonly TcgDeckRowsView RowsView;
     private readonly CustomButton SaveButton;
     private readonly CustomButton[] TabButtons = new CustomButton[TabNames.Length];
+    private const float SAVE_TIMEOUT_SECONDS = 10f;
     private bool AwaitingSave;
+    private float AwaitingSaveSeconds;
     private TcgDeckDraft? Draft;
     private int Page;
     private TcgBinderTab Tab = TcgBinderTab.All;
@@ -359,6 +361,21 @@ public sealed class TcgDeckBuilderControl : FramedDialogPanelBase
             RefreshFooter(draft);
         }
 
+        //the server answers a save with a snapshot; if none arrives the button stays dead, so time out
+        if (AwaitingSave)
+        {
+            AwaitingSaveSeconds += (float)gameTime.ElapsedGameTime.TotalSeconds;
+
+            if (AwaitingSaveSeconds >= SAVE_TIMEOUT_SECONDS)
+            {
+                AwaitingSave = false;
+                MessageLabel.Text = "The server did not answer. Try again.";
+
+                if (Draft is { } waiting)
+                    RefreshFooter(waiting);
+            }
+        }
+
         UpdatePreview();
     }
 
@@ -404,10 +421,6 @@ public sealed class TcgDeckBuilderControl : FramedDialogPanelBase
         var mouseX = InputBuffer.MouseX;
         var mouseY = InputBuffer.MouseY;
 
-        if (PreviewFace.Visible && PreviewFace.ScreenBounds.Contains(mouseX, mouseY))
-            return;
-
-        PreviewFace.Visible = false;
         string? key = null;
 
         foreach (var face in Faces)
@@ -422,8 +435,21 @@ public sealed class TcgDeckBuilderControl : FramedDialogPanelBase
 
         key ??= RowsView.RowAt(mouseX, mouseY)?.Key;
 
-        if (State.Get(key) is not { } card)
+        if (key is null)
+        {
+            //the cursor left the cards but is still over the preview: keep it up so its keyword stays readable
+            if (!PreviewFace.Visible || !PreviewFace.ScreenBounds.Contains(mouseX, mouseY))
+                PreviewFace.Visible = false;
+
             return;
+        }
+
+        if (State.Get(key) is not { } card)
+        {
+            PreviewFace.Visible = false;
+
+            return;
+        }
 
         var printing = State.DeckFacePrinting(draft.Keys, card.Key);
         var position = PreviewPosition(mouseX - ScreenX, mouseY - ScreenY, Width, Height);
@@ -510,6 +536,7 @@ public sealed class TcgDeckBuilderControl : FramedDialogPanelBase
         }
 
         AwaitingSave = true;
+        AwaitingSaveSeconds = 0f;
         MessageLabel.Text = "Saving...";
         State.ClearMessage();
         RefreshFooter(draft);

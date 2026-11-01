@@ -224,6 +224,8 @@ public sealed partial class TcgMatchWindow : UIPanel
         TurnBannerElapsedMs = 0;
         LastSoundEvent = null;
         LastTickSecond = null;
+        SayBox.IsFocused = false;
+        SayBox.Text = string.Empty;
         State.Reset();
         Queue.Clear(null);
         Input.Cancel();
@@ -290,10 +292,7 @@ public sealed partial class TcgMatchWindow : UIPanel
 
         var board = Queue.ShownBoard ?? State.Latest;
 
-        AnimatedIds.Clear();
-
-        foreach (var id in AnimatedIdsFor(Queue.Current))
-            AnimatedIds.Add(id);
+        AnimatedIdsInto(Queue.Current, AnimatedIds);
 
         DestroyedIds.Clear();
         FreshIds.Clear();
@@ -365,9 +364,14 @@ public sealed partial class TcgMatchWindow : UIPanel
             {
                 SayBox.IsFocused = false;
 
+                if (State.Ended is not null)
+                    Hide();
+
                 if (InputDispatcher.Instance?.ExplicitFocus == SayBox)
                     InputDispatcher.Instance.ClearExplicitFocus();
-            } else
+            } else if (State.Ended is not null)
+                Hide();
+            else
                 Input.Cancel();
 
             e.Handled = true;

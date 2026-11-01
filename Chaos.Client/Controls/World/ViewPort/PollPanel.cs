@@ -1,4 +1,4 @@
-﻿#region
+#region
 using Chaos.Client.Collections;
 using Chaos.Client.Controls.Components;
 using Microsoft.Xna.Framework;
@@ -46,6 +46,12 @@ public sealed class PollPanel : UIPanel
 
     private Rectangle ViewportBounds;
 
+    private int FittedPollId = -1;
+    private int FittedWidth = -1;
+    private string FittedTitle = string.Empty;
+    private readonly List<(string Text, int Votes)> FittedOptions = [];
+    private readonly List<string> FittedRows = [];
+
     public event Action<byte, byte>? VoteCast;
 
     public PollPanel(Rectangle viewportBounds)
@@ -80,6 +86,41 @@ public sealed class PollPanel : UIPanel
             truncLen--;
 
         return truncLen > 0 ? text[..truncLen] + ELLIPSIS : ELLIPSIS;
+    }
+
+    /// <summary>Whether the fitted title and rows are current for this poll at this width.</summary>
+    private bool FittedMatches(Chaos.Client.ViewModel.Poll poll, int width)
+    {
+        if ((poll.PollId != FittedPollId) || (width != FittedWidth) || (poll.Options.Count != FittedOptions.Count))
+            return false;
+
+        for (var i = 0; i < poll.Options.Count; i++)
+        {
+            if (!string.Equals(poll.Options[i].Text, FittedOptions[i].Text, StringComparison.Ordinal)
+                || (poll.Options[i].Votes != FittedOptions[i].Votes))
+                return false;
+        }
+
+        return true;
+    }
+
+    private static int RowTextWidth(int width, int votes)
+        => width - (PAD * 2) - 7 - TextRenderer.MeasureWidth(votes.ToString()) - 4;
+
+    /// <summary>Refits the title and every option row: once per poll update, not once per frame per row.</summary>
+    private void RefitPoll(Chaos.Client.ViewModel.Poll poll, int width)
+    {
+        FittedPollId = poll.PollId;
+        FittedWidth = width;
+        FittedTitle = FitOptionText(poll.Title, width - 88);
+        FittedOptions.Clear();
+        FittedRows.Clear();
+
+        foreach (var o in poll.Options)
+        {
+            FittedOptions.Add((o.Text, o.Votes));
+            FittedRows.Add(FitOptionText(o.Text, RowTextWidth(width, o.Votes)));
+        }
     }
 
     private static bool IsCompact(int optionCount) => optionCount > ROOMY_OPTION_LIMIT;
@@ -157,6 +198,14 @@ public sealed class PollPanel : UIPanel
         if ((row < 0) || (row >= poll.Options.Count))
             return;
 
+        //already picked: the server has this vote, so do not send it again
+        if (row == poll.MyVoteIndex)
+        {
+            e.Handled = true;
+
+            return;
+        }
+
         poll.MyVoteIndex = row;
         VoteCast?.Invoke(poll.PollId, (byte)row);
         e.Handled = true;
@@ -180,8 +229,8 @@ public sealed class PollPanel : UIPanel
 
         OrnateFrame.Draw(spriteBatch, sx, sy, w, h);
 
-        //── title (centered, gold, shadowed) ──
-        var title = poll.Title;
+        //── title (centered, gold, shadowed; truncated like the option rows so it cannot spill past the frame) ──
+        var title = FittedTitle;
         var titleX = sx + ((w - TextRenderer.MeasureWidth(title)) / 2);
         TextRenderer.DrawShadowedText(
             spriteBatch,
@@ -245,6 +294,9 @@ public sealed class PollPanel : UIPanel
         var barY = compact ? COMPACT_BAR_Y : BAR_Y;
         var barH = compact ? COMPACT_BAR_H : BAR_H;
 
+        if (!FittedMatches(poll, w))
+            RefitPoll(poll, w);
+
         for (var i = 0; i < poll.Options.Count; i++)
         {
             var o = poll.Options[i];
@@ -253,7 +305,6 @@ public sealed class PollPanel : UIPanel
             var won = poll.IsClosed && (i == poll.WinningIndex);
             var nameColor = mine || won ? White : Silver;
             var cnt = o.Votes.ToString();
-            var maxTextWidth = w - (PAD * 2) - 7 - TextRenderer.MeasureWidth(cnt) - 4;
 
             //selected/winning marker
             if (mine || won)
@@ -269,7 +320,7 @@ public sealed class PollPanel : UIPanel
             TextRenderer.DrawShadowedText(
                 spriteBatch,
                 new Vector2(sx + PAD + 7, rowY),
-                FitOptionText(o.Text, maxTextWidth),
+                FittedRows[i],
                 nameColor,
                 Shadow);
 

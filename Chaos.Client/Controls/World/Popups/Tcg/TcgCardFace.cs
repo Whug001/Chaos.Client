@@ -71,6 +71,7 @@ public sealed class TcgCardFace : UIElement
     public TcgCardFace(CreatureRenderer creatures, int scale)
     {
         Creatures = creatures;
+        VisibilityChanged += visible => IsHovered = IsHovered && visible;
         Scale = Math.Clamp(scale, 1, 2);
         Width = WIDTH * Scale;
         Height = HEIGHT * Scale;
@@ -317,35 +318,40 @@ public sealed class TcgCardFace : UIElement
             x += TextRenderer.MeasureWidth(generic) + 1;
         }
 
-        (TcgElement Element, int Count)[] parts =
-        [
-            (TcgElement.Fire, card.Fire),
-            (TcgElement.Water, card.Water),
-            (TcgElement.Wind, card.Wind),
-            (TcgElement.Earth, card.Earth)
-        ];
+        x = LayOutElement(card.Fire, TcgElement.Fire, x, pip, text, pipAt);
+        x = LayOutElement(card.Water, TcgElement.Water, x, pip, text, pipAt);
+        x = LayOutElement(card.Wind, TcgElement.Wind, x, pip, text, pipAt);
+        x = LayOutElement(card.Earth, TcgElement.Earth, x, pip, text, pipAt);
 
-        foreach ((var element, var count) in parts)
+        return x;
+    }
+
+    private static int LayOutElement(
+        int count,
+        TcgElement element,
+        int x,
+        int pip,
+        Action<string, Color, int>? text,
+        Action<TcgElement, int, int>? pipAt)
+    {
+        if (count == 0)
+            return x;
+
+        var pips = count;
+
+        //more than 3 pips of one element would run off a 1x card; show the number in that element's colour instead
+        if (count > 3)
         {
-            if (count == 0)
-                continue;
+            var number = count.ToString();
+            text?.Invoke(number, ElementColor(element), x);
+            x += TextRenderer.MeasureWidth(number) + 1;
+            pips = 1;
+        }
 
-            var pips = count;
-
-            //more than 3 pips of one element would run off a 1x card; show the number in that element's colour instead
-            if (count > 3)
-            {
-                var number = count.ToString();
-                text?.Invoke(number, ElementColor(element), x);
-                x += TextRenderer.MeasureWidth(number) + 1;
-                pips = 1;
-            }
-
-            for (var i = 0; i < pips; i++)
-            {
-                pipAt?.Invoke(element, x, pip);
-                x += pip + 1;
-            }
+        for (var i = 0; i < pips; i++)
+        {
+            pipAt?.Invoke(element, x, pip);
+            x += pip + 1;
         }
 
         return x;
@@ -464,6 +470,36 @@ public sealed class TcgCardFace : UIElement
         DrawTextClipped(spriteBatch, new Vector2(right - TextRenderer.MeasureWidth(health), y), health, MultiplyTint(LegendColors.Red, tint), false);
     }
 
+    private string? RulesCacheKey;
+    private readonly List<string> RulesCacheLines = [];
+    private readonly List<List<TcgKeywordRun>> RulesCacheRuns = [];
+
+    /// <summary>
+    ///     The wrapped rules lines and their keyword runs, rebuilt only when the card or style changes rather
+    ///     than every frame. Both <see cref="DrawText2X" /> and <see cref="KeywordAt" /> read from this.
+    /// </summary>
+    /// <returns>The number of lines to draw or hit-test (at most the style's limit).</returns>
+    private int CachedRules(TcgCatalogCardView card, bool full)
+    {
+        var key = $"{card.Key}|{(int)Style}|{full}";
+
+        if (!string.Equals(key, RulesCacheKey, StringComparison.Ordinal))
+        {
+            RulesCacheKey = key;
+            RulesCacheLines.Clear();
+            RulesCacheLines.AddRange(TextRenderer.WrapLines(card.RulesText, RULES_WIDTH));
+            var limit = full ? FULL_RULES_LINES : RULES_LINES;
+
+            if (RulesCacheLines.Count > limit)
+                RulesCacheLines.RemoveRange(limit, RulesCacheLines.Count - limit);
+
+            RulesCacheRuns.Clear();
+            RulesCacheRuns.AddRange(TcgKeywordRuns.FindInLines(RulesCacheLines));
+        }
+
+        return RulesCacheLines.Count;
+    }
+
     private void DrawText2X(SpriteBatch spriteBatch, TcgCatalogCardView card, Rectangle bounds, Color tint, bool full)
     {
         var white = MultiplyTint(Color.White, tint);
@@ -479,8 +515,9 @@ public sealed class TcgCardFace : UIElement
         if (full && !ShowsFullArtText)
             return;
 
-        var lines = RulesLines(card, bounds, full);
-        var typeTop = full ? TypeTopFull(lines.Count) : TYPE_TOP_2X;
+        var count = CachedRules(card, full);
+        var top = full ? FULL_RULES_BOTTOM - (count * TextRenderer.CHAR_HEIGHT) : RULES_TOP;
+        var typeTop = full ? TypeTopFull(count) : TYPE_TOP_2X;
         var boxBottom = bounds.Y + (full ? FULL_RULES_BOTTOM : RULES_TOP + RULES_HEIGHT);
 
         //full art has no text box in its frame; this panel keeps the text readable over the painting
@@ -489,15 +526,15 @@ public sealed class TcgCardFace : UIElement
 
         DrawTextClipped(spriteBatch, new Vector2(bounds.X + 10, bounds.Y + typeTop), card.Type.ToString(), white, false);
 
-        var keywordRuns = TcgKeywordRuns.FindInLines(lines.ConvertAll(entry => entry.Line));
-
-        for (var i = 0; i < lines.Count; i++)
+        for (var i = 0; i < count; i++)
         {
-            var (line, x, y) = lines[i];
+            var line = RulesCacheLines[i];
+            var x = bounds.X + RULES_LEFT;
+            var y = bounds.Y + top + (i * TextRenderer.CHAR_HEIGHT);
 
             DrawTextClipped(spriteBatch, new Vector2(x, y), line, white, false);
 
-            foreach (var run in keywordRuns[i])
+            foreach (var run in RulesCacheRuns[i])
             {
                 var underlineY = y + TextRenderer.CHAR_HEIGHT - 1;
 
@@ -532,17 +569,19 @@ public sealed class TcgCardFace : UIElement
         if (full && !ShowsFullArtText)
             return null;
 
-        var lines = RulesLines(card, bounds, full);
-        var keywordRuns = TcgKeywordRuns.FindInLines(lines.ConvertAll(entry => entry.Line));
+        var count = CachedRules(card, full);
+        var top = full ? FULL_RULES_BOTTOM - (count * TextRenderer.CHAR_HEIGHT) : RULES_TOP;
 
-        for (var i = 0; i < lines.Count; i++)
+        for (var i = 0; i < count; i++)
         {
-            var (line, x, y) = lines[i];
+            var line = RulesCacheLines[i];
+            var x = bounds.X + RULES_LEFT;
+            var y = bounds.Y + top + (i * TextRenderer.CHAR_HEIGHT);
 
             if ((mouseY < y) || (mouseY >= y + TextRenderer.CHAR_HEIGHT))
                 continue;
 
-            foreach (var run in keywordRuns[i])
+            foreach (var run in RulesCacheRuns[i])
             {
                 var startX = x + TextRenderer.MeasureWidth(line.AsSpan(0, run.Index));
 
@@ -563,22 +602,6 @@ public sealed class TcgCardFace : UIElement
     private const int RULES_HEIGHT = 38;
     private const int RULES_LINES = 3;
 
-    /// <summary>
-    ///     What <see cref="DrawText2X" /> draws and <see cref="KeywordAt" /> hit-tests: the first rules lines with their
-    ///     origins. Full art shows up to 6 lines ending above the stats; the other styles 3 lines in the frame's text box.
-    /// </summary>
-    private static List<(string Line, int X, int Y)> RulesLines(TcgCatalogCardView card, Rectangle bounds, bool full)
-    {
-        var wrapped = TextRenderer.WrapLines(card.RulesText, RULES_WIDTH);
-        var count = Math.Min(wrapped.Count, full ? FULL_RULES_LINES : RULES_LINES);
-        var top = full ? FULL_RULES_BOTTOM - (count * TextRenderer.CHAR_HEIGHT) : RULES_TOP;
-        var lines = new List<(string Line, int X, int Y)>(count);
-
-        for (var i = 0; i < count; i++)
-            lines.Add((wrapped[i], bounds.X + RULES_LEFT, bounds.Y + top + (i * TextRenderer.CHAR_HEIGHT)));
-
-        return lines;
-    }
 
     private static int TypeTopFull(int lineCount) => FULL_RULES_BOTTOM - (lineCount * TextRenderer.CHAR_HEIGHT) - TextRenderer.CHAR_HEIGHT - 1;
 
