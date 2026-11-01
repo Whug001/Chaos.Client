@@ -41,6 +41,16 @@ public class GuildEmblemTexturesTests
     }
 
     [Test]
+    public void Set_ignores_a_non_positive_network_id()
+    {
+        GuildEmblemTextures.Set(0, GuildEmblemDesign.CreateDefault());
+        GuildEmblemTextures.Set(-5001, GuildEmblemDesign.CreateDefault());
+
+        GuildEmblemTextures.TryGet(0, out _).Should().BeFalse();
+        GuildEmblemTextures.TryGet(-5001, out _).Should().BeFalse();
+    }
+
+    [Test]
     public void SetLocal_gives_a_new_negative_id_and_drops_the_one_it_replaces()
     {
         var first = GuildEmblemTextures.SetLocal(0, GuildEmblemDesign.CreateDefault());

@@ -86,6 +86,9 @@ public sealed class ArenaHostPanelControl : GuildCloakDialogBase
     private readonly UILabel RosterPageLabel;
     private readonly ArenaHostRow[] RosterRows = new ArenaHostRow[ROSTER_PAGE_SIZE];
     private readonly CustomButton SecondsButton;
+    private readonly CustomButton Split2Button;
+    private readonly CustomButton Split4Button;
+    private readonly CustomButton ClearTeamsButton;
     private readonly ArenaHostPanelState State = new();
     private readonly UILabel TeamCaption;
     private readonly ArenaHostRow TeamNextPageButton;
@@ -242,9 +245,9 @@ public sealed class ArenaHostPanelControl : GuildCloakDialogBase
 
         var teamTop = pageTop + CustomButton.HEIGHT + 3;
         var teamStep = (ROSTER_WIDTH - ROSTER_BUTTON_WIDTH) / 2;
-        AddButton("Split 2", ROSTER_BUTTON_WIDTH, ROSTER_LEFT, teamTop, () => Raise(State.Split(2)));
-        AddButton("Split 4", ROSTER_BUTTON_WIDTH, ROSTER_LEFT + teamStep, teamTop, () => Raise(State.Split(4)));
-        AddButton("Clear", ROSTER_BUTTON_WIDTH, ROSTER_LEFT + (2 * teamStep), teamTop, () => Raise(State.ClearTeams()));
+        Split2Button = AddButton("Split 2", ROSTER_BUTTON_WIDTH, ROSTER_LEFT, teamTop, () => Raise(State.Split(2)));
+        Split4Button = AddButton("Split 4", ROSTER_BUTTON_WIDTH, ROSTER_LEFT + teamStep, teamTop, () => Raise(State.Split(4)));
+        ClearTeamsButton = AddButton("Clear", ROSTER_BUTTON_WIDTH, ROSTER_LEFT + (2 * teamStep), teamTop, () => Raise(State.ClearTeams()));
 
         //footer
         var footerWidth = Width - (2 * LEFT) - MAIN_BUTTON_WIDTH - GAP;
@@ -428,6 +431,11 @@ public sealed class ArenaHostPanelControl : GuildCloakDialogBase
         RosterPageLabel.Text = $"{RosterPage + 1}/{pages}";
         PrevRosterPageButton.Enabled = RosterPage > 0;
         NextRosterPageButton.Enabled = RosterPage < (pages - 1);
+
+        var teamMode = !State.VoteMode && args.Modes.Any(m => (m.Id == args.SelectedMode) && m.IsTeam);
+        Split2Button.Visible = teamMode;
+        Split4Button.Visible = teamMode;
+        ClearTeamsButton.Visible = teamMode;
     }
 
     private void RefreshSettings(ArenaHostDisplayArgs args)

@@ -38,6 +38,8 @@ public sealed class GalleryArtCell : UIPanel
 
     public int Id { get; private set; }
     public bool Selected { get; set; }
+    //Pixels missing or corrupt: shows "Can't be shown." instead of "Loading...".
+    public bool Broken { get; set; }
 
     /// <summary>The thumbnail, owned by <c>CollegeDrawings</c>; null shows "Loading...".</summary>
     public Texture2D? Picture { get; set; }
@@ -66,12 +68,16 @@ public sealed class GalleryArtCell : UIPanel
 
         if (Picture is not null)
             DrawTexture(spriteBatch, Picture, new Vector2(left + FRAME, ScreenY + FRAME), Color.White);
+        else if (Broken)
+        {
+            DrawRectClipped(spriteBatch, new Rectangle(left + FRAME, ScreenY + FRAME, PICTURE_WIDTH, PICTURE_HEIGHT), Color.Black);
+            DrawTextClipped(spriteBatch, new Vector2(left + FRAME + 2, ScreenY + FRAME + 30), "Can't be shown.", LegendColors.Gray, false);
+        }
         else
         {
             DrawRectClipped(spriteBatch, new Rectangle(left + FRAME, ScreenY + FRAME, PICTURE_WIDTH, PICTURE_HEIGHT), Color.Black);
             DrawTextClipped(spriteBatch, new Vector2(left + FRAME + 18, ScreenY + FRAME + 30), "Loading...", LegendColors.Gray, false);
         }
-
         base.Draw(spriteBatch);
     }
 

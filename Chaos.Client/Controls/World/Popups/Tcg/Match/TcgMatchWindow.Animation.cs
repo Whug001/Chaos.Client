@@ -28,9 +28,18 @@ public sealed partial class TcgMatchWindow
     public static HashSet<int> AnimatedIdsFor(TcgEventView? e)
     {
         var ids = new HashSet<int>();
+        AnimatedIdsInto(e, ids);
+
+        return ids;
+    }
+
+    /// <summary>Fills <paramref name="into" /> with the ids the board pass must skip this frame, so the draw pass reuses its set.</summary>
+    public static void AnimatedIdsInto(TcgEventView? e, HashSet<int> into)
+    {
+        into.Clear();
 
         if (e is null)
-            return ids;
+            return;
 
         var id = e.Type switch
         {
@@ -42,9 +51,7 @@ public sealed partial class TcgMatchWindow
         };
 
         if (id > 0)
-            ids.Add(id);
-
-        return ids;
+            into.Add(id);
     }
 
     /// <summary>
@@ -207,8 +214,8 @@ public sealed partial class TcgMatchWindow
         AnimFace.Badge = string.Empty;
         AnimFace.Owned = true;
         AnimFace.Selected = false;
-        AnimFace.X = at.X;
-        AnimFace.Y = at.Y;
+        AnimFace.X = ScreenX + at.X;
+        AnimFace.Y = ScreenY + at.Y;
         AnimFace.Draw(batch);
     }
 
@@ -228,8 +235,8 @@ public sealed partial class TcgMatchWindow
         AnimFace.Badge = string.Empty;
         AnimFace.Owned = true;
         AnimFace.Selected = false;
-        AnimFace.X = slot.X;
-        AnimFace.Y = slot.Y;
+        AnimFace.X = ScreenX + slot.X;
+        AnimFace.Y = ScreenY + slot.Y;
         AnimFace.Draw(batch);
     }
 

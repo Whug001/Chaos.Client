@@ -95,6 +95,8 @@ public sealed class CollegeWriterControl : GuildCloakDialogBase
 
     private bool CloseArmed;
     private readonly DraftAutosave Autosave = new();
+    private int LastCounterBlocks = -1;
+    private int LastCounterPictures = -1;
 
     //the pictures the last save sent (or the piece opened with), so a picture whose upload finishes later is known to be unsent
     private readonly HashSet<string> SentPictures = new(StringComparer.Ordinal);
@@ -320,6 +322,8 @@ public sealed class CollegeWriterControl : GuildCloakDialogBase
     /// </summary>
     public void Open(CollegeDisplayArgs args)
     {
+        LastCounterBlocks = -1;
+        LastCounterPictures = -1;
         var library = args.Mode == CollegeWriterMode.Library;
         var keep = false;
 
@@ -332,8 +336,9 @@ public sealed class CollegeWriterControl : GuildCloakDialogBase
             {
                 keep = (args.Mode == Session.Mode) && (args.Subject == Session.Subject) && (!library || (args.Id == LibraryBookId));
 
-                if (!HandInMode)
-                    Send(CollegeActionType.SaveDraft);
+                //a cover still uploading blocks the save: keep the old session open instead of dropping its edits
+                if (!HandInMode && !Send(CollegeActionType.SaveDraft))
+                    return;
             }
         }
 
@@ -488,7 +493,7 @@ public sealed class CollegeWriterControl : GuildCloakDialogBase
     /// </summary>
     public void SaveIfDirty()
     {
-        if (!Visible || Session is null || HandInMode)
+        if (Session is null || HandInMode)
             return;
 
         PullText();
@@ -506,19 +511,16 @@ public sealed class CollegeWriterControl : GuildCloakDialogBase
         if (Visible)
         {
             //typing after "Close without handing in?" takes the question back
-            if (PullText())
+            var textChanged = PullText();
+
+            if (textChanged)
                 CloseArmed = false;
 
             TrackFocus();
             LayoutBlocks();
             FollowCaret();
 
-            var counter = string.Create(
-                CultureInfo.InvariantCulture,
-                $"{WritingDocument.TextCounter(Document.TextLength, Document.TextBytes)}   {Document.PictureCount} / {CollegeProtocol.MAX_PICTURES}");
-
-            if (Counter.Text != counter)
-                Counter.Text = counter;
+            RefreshCounterAndRoom(textChanged);
 
             if (LibraryMode)
             {
@@ -547,6 +549,28 @@ public sealed class CollegeWriterControl : GuildCloakDialogBase
             Send(CollegeActionType.SaveDraft);
     }
 
+    //The counter and the boxes budgets only move when the text or pictures did: TextLength walks the whole piece.
+    private void RefreshCounterAndRoom(bool textChanged)
+    {
+        var pictures = Document.PictureCount;
+
+        if (!textChanged && (pictures == LastCounterPictures) && (Document.Blocks.Count == LastCounterBlocks))
+            return;
+
+        LastCounterPictures = pictures;
+        LastCounterBlocks = Document.Blocks.Count;
+        var (characters, bytes) = Document.MeasureText();
+        var counter = $"{WritingDocument.TextCounter(characters, bytes)}   {pictures} / {CollegeProtocol.MAX_PICTURES}";
+
+        if (Counter.Text != counter)
+            Counter.Text = counter;
+
+        var room = CollegeProtocol.MAX_TEXT_CHARS - characters;
+
+        foreach (var box in BlockViews.OfType<BlockTextBox>())
+            box.MaxLength = Math.Min(box.IsMultiLine ? CollegeProtocol.MAX_TEXT_CHARS : CollegeProtocol.MAX_HEADING_CHARS, box.Text.Length + room);
+    }
+
     // ---- blocks ----
 
     private void Rebuild((int Index, int Caret)? focusAt, bool alwaysFocus)
@@ -560,6 +584,8 @@ public sealed class CollegeWriterControl : GuildCloakDialogBase
             view.Dispose();
         }
 
+        LastCounterBlocks = -1;
+        LastCounterPictures = -1;
         BlockViews.Clear();
 
         for (var i = 0; i < Document.Blocks.Count; i++)
@@ -710,11 +736,6 @@ public sealed class CollegeWriterControl : GuildCloakDialogBase
                         box.PlaceCaret(caret);
                 }
             }
-
-        var room = CollegeProtocol.MAX_TEXT_CHARS - Document.TextLength;
-
-        foreach (var box in BlockViews.OfType<BlockTextBox>())
-            box.MaxLength = Math.Min(box.IsMultiLine ? CollegeProtocol.MAX_TEXT_CHARS : CollegeProtocol.MAX_HEADING_CHARS, box.Text.Length + room);
 
         return changed;
     }
@@ -1248,7 +1269,7 @@ public sealed class CollegeWriterControl : GuildCloakDialogBase
         Hide();
     }
 
-    private void Send(CollegeActionType type)
+    private bool Send(CollegeActionType type)
     {
         if (LibraryMode)
         {
@@ -1263,7 +1284,7 @@ public sealed class CollegeWriterControl : GuildCloakDialogBase
             {
                 Status.Text = UPLOADING_COVER;
 
-                return;
+                return false;
             }
         }
 
@@ -1304,6 +1325,8 @@ public sealed class CollegeWriterControl : GuildCloakDialogBase
 
         //marked clean as it is sent, so edits made while the reply is on its way still count as changes
         Document.MarkClean();
+
+        return true;
     }
 
     private void DisarmSubmit()

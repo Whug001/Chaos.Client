@@ -188,7 +188,7 @@ public sealed class FishingControl : FramedDialogPanelBase
     {
         CloseAfterSeconds = -1f;
         TakingInput = true;
-        Holding = false;
+        ReleaseIfHeld();
         HasSnap = false;
         BarHeight = args.BarHeight;
         FishShown = FishTarget = 50f;
@@ -286,8 +286,13 @@ public sealed class FishingControl : FramedDialogPanelBase
 
         if (TakingInput)
         {
+            //a click elsewhere (HUD buttons, the map, the Close button) is not holding the line:
+            //only a press inside the window, away from Close, counts
+            var mouse = Mouse.GetState();
+            var cursorInside = new Rectangle(ScreenX, ScreenY, Width, Height).Contains(mouse.X, mouse.Y);
+            var overClose = OkButton?.ScreenBounds.Contains(mouse.X, mouse.Y) ?? false;
             var wantHold = !InputBlocked
-                           && ((Mouse.GetState().LeftButton == ButtonState.Pressed)
+                           && (((mouse.LeftButton == ButtonState.Pressed) && cursorInside && !overClose)
                            || Keyboard.GetState().IsKeyDown(Keys.Space));
 
             if (wantHold != Holding)
@@ -452,9 +457,11 @@ public sealed class FishingControl : FramedDialogPanelBase
         }
     }
 
+    private static readonly (float Speed, float Phase, byte Alpha)[] Ripples = [(0.28f, 0f, 60), (0.18f, 2.2f, 40), (0.40f, 4.1f, 80)];
+
     private void DrawRipples(SpriteBatch spriteBatch, Rectangle water)
     {
-        (float Speed, float Phase, byte Alpha)[] ripples = [(0.28f, 0f, 60), (0.18f, 2.2f, 40), (0.40f, 4.1f, 80)];
+        var ripples = Ripples;
         var height = water.Height - SAND_HEIGHT;
 
         foreach (var (speed, phase, alpha) in ripples)

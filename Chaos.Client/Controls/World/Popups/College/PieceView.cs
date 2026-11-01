@@ -36,7 +36,8 @@ public sealed class PieceView : UIPanel
     private readonly PieceViewport Viewport;
     private readonly HashSet<string> Waiting = new(StringComparer.Ordinal);
     private CollegePieceInfo? Piece;
-    private TuneBlockView? TuneView;
+    private readonly List<TuneBlockView> KeptTunes = [];
+    private readonly List<TuneBlockView> TuneViews = [];
 
     public PieceView(CollegePictureTransfers transfers, TunePlayer player, int width, int height)
     {
@@ -92,15 +93,35 @@ public sealed class PieceView : UIPanel
 
     private void OnPictureReady(string hash)
     {
-        if (Piece is not null && Waiting.Contains(hash))
-            Layout();
-    }
+        if (Piece is null || !Waiting.Contains(hash))
+            return;
 
-    private void Layout()
+        //a relaid piece can shorten (a failed picture): keep the scrolled view in range
+        var offset = ((IVerticalScrollable)Viewport).VerticalOffset;
+        Layout(keepTunes: true);
+        ((IVerticalScrollable)Viewport).VerticalOffset = offset;
+    }
+    private void Layout(bool keepTunes = false)
     {
-        //the pictures shown so far stay held until the new layout holds its own, so the cache can't drop one in between
+        //the pictures shown so far stay held until the new layout holds its own, so the cache cannot drop one in between
         var previouslyHeld = HeldPictures.ToList();
         HeldPictures.Clear();
+
+        //a picture arriving mid-playback relays the same piece: its tunes keep playing instead of stopping
+        foreach (var kept in KeptTunes)
+            kept.Dispose();
+
+        KeptTunes.Clear();
+
+        if (keepTunes)
+        {
+            foreach (var view in TuneViews)
+                Content.Children.Remove(view);
+
+            KeptTunes.AddRange(TuneViews);
+            TuneViews.Clear();
+        }
+
         ClearContent();
 
         var y = 0;
@@ -136,6 +157,12 @@ public sealed class PieceView : UIPanel
 
         Content.Height = Math.Max(0, y - GAP);
 
+        //leftovers cannot happen for the same piece, but never leak a detached tune view
+        foreach (var kept in KeptTunes)
+            kept.Dispose();
+
+        KeptTunes.Clear();
+
         foreach (var hash in previouslyHeld)
             Transfers.Release(hash);
     }
@@ -161,6 +188,19 @@ public sealed class PieceView : UIPanel
 
     private int AddTune(CollegeBlockInfo block, int y)
     {
+        //a relaid piece keeps its tune blocks (and their playback) instead of rebuilding them
+        if (KeptTunes.Count > 0)
+        {
+            var kept = KeptTunes[0];
+            KeptTunes.RemoveAt(0);
+            kept.X = 0;
+            kept.Y = y;
+            Content.AddChild(kept);
+            TuneViews.Add(kept);
+
+            return kept.Height;
+        }
+
         var view = new TuneBlockView(TuneData.From(block), Player, Content.Width)
         {
             X = 0,
@@ -168,16 +208,19 @@ public sealed class PieceView : UIPanel
         };
 
         Content.AddChild(view);
-        TuneView = view;
+        TuneViews.Add(view);
 
         return view.Height;
     }
-
     /// <summary>Plays the piece's tune, if it has one (Show to class).</summary>
-    public void PlayTune() => TuneView?.Play();
+    public void PlayTune() => TuneViews.LastOrDefault()?.Play();
 
     /// <summary>Stops the piece's tune if it is the one playing.</summary>
-    public void StopTune() => TuneView?.Stop();
+    public void StopTune()
+    {
+        foreach (var view in TuneViews)
+            view.Stop();
+    }
 
     private int AddPicture(string hash, int y)
     {
@@ -234,9 +277,11 @@ public sealed class PieceView : UIPanel
 
     private void ClearContent()
     {
-        //a piece being replaced or closed takes its tune with it
-        TuneView?.Stop();
-        TuneView = null;
+        //a piece being replaced or closed takes its tunes with it
+        foreach (var view in TuneViews)
+            view.Stop();
+
+        TuneViews.Clear();
 
         foreach (var child in Content.Children)
         {

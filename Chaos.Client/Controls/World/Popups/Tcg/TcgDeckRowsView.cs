@@ -16,6 +16,8 @@ public sealed class TcgDeckRowsView : UIElement
 
     private IReadOnlyList<TcgDeckRow> Rows = [];
     private int ScrollRows;
+    private string[] CountTexts = [];
+    private string[] CostTexts = [];
 
     private int MaxScroll => Math.Max(0, Rows.Count - VisibleRows);
     private int VisibleRows => Math.Max(1, Height / ROW_HEIGHT);
@@ -43,11 +45,12 @@ public sealed class TcgDeckRowsView : UIElement
 
         for (var i = 0; (i < VisibleRows) && ((ScrollRows + i) < Rows.Count); i++)
         {
-            var row = Rows[ScrollRows + i];
+            var slot = ScrollRows + i;
+            var row = Rows[slot];
             var y = ScreenY + (i * ROW_HEIGHT) + 1;
             var badge = new Rectangle(ScreenX + 2, y, BADGE_SIZE, BADGE_SIZE);
-            var cost = row.Cost >= 99 ? "?" : row.Cost.ToString();
-            var count = $"x{row.Count}";
+            var cost = CostTexts[slot];
+            var count = CountTexts[slot];
 
             DrawRectClipped(spriteBatch, badge, TcgCardFace.ElementColor(row.Element));
             DrawTextClipped(spriteBatch, new Vector2(badge.X + ((BADGE_SIZE - TextRenderer.MeasureWidth(cost)) / 2), y), cost, Color.White, false);
@@ -90,5 +93,13 @@ public sealed class TcgDeckRowsView : UIElement
     {
         Rows = rows;
         ScrollRows = Math.Clamp(ScrollRows, 0, MaxScroll);
+        CountTexts = new string[rows.Count];
+        CostTexts = new string[rows.Count];
+
+        for (var i = 0; i < rows.Count; i++)
+        {
+            CountTexts[i] = $"x{rows[i].Count}";
+            CostTexts[i] = rows[i].Cost >= 99 ? "?" : rows[i].Cost.ToString();
+        }
     }
 }

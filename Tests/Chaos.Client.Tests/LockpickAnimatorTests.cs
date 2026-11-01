@@ -133,4 +133,96 @@ public class LockpickAnimatorTests
         a.State.Should().Be(LockpickAnimState.Idle);
         await Task.CompletedTask;
     }
+
+    [Test]
+    public async Task A_late_reply_after_a_timeout_is_dropped_not_inherited()
+    {
+        var a = new LockpickAnimator();
+        a.PressTurn(false).Should().BeTrue();
+
+        Run(a, LockpickAnimator.REPLY_TIMEOUT_SECONDS + LockpickAnimator.RETURN_SECONDS + 0.1f);
+        a.State.Should().Be(LockpickAnimState.Idle);
+        a.TimedOut.Should().BeTrue();
+
+        //the next press waits for the stale reply instead of starting a turn that would steal its outcome
+        a.ReleaseTurn();
+        a.PressTurn(false).Should().BeFalse();
+        a.State.Should().Be(LockpickAnimState.Idle);
+
+        //the stale reply arrives: dropped, and the animator is ready again
+        a.ApplyResult(LockpickTurnOutcome.Jammed, 40);
+        a.ReleaseTurn();
+        a.PressTurn(false).Should().BeTrue();
+        a.TimedOut.Should().BeFalse();
+
+        a.ApplyResult(LockpickTurnOutcome.Jammed, 40);
+        Run(a, 0.3f);
+        a.State.Should().Be(LockpickAnimState.Straining);
+
+        await Task.CompletedTask;
+    }
+
+    [Test]
+    public async Task A_lost_reply_stops_blocking_new_turns_after_another_wait()
+    {
+        var a = new LockpickAnimator();
+        a.PressTurn(false).Should().BeTrue();
+
+        Run(a, LockpickAnimator.REPLY_TIMEOUT_SECONDS + LockpickAnimator.RETURN_SECONDS + 0.1f);
+        a.State.Should().Be(LockpickAnimState.Idle);
+        a.TimedOut.Should().BeTrue();
+
+        //no reply ever arrives: the next press still waits for it...
+        a.ReleaseTurn();
+        a.PressTurn(false).Should().BeFalse();
+        a.ReleaseTurn();
+
+        //...but after another full wait the lock is turnable again
+        Run(a, LockpickAnimator.REPLY_TIMEOUT_SECONDS + 0.1f);
+        a.PressTurn(false).Should().BeTrue();
+        a.TimedOut.Should().BeFalse();
+
+        //the new turn runs normally
+        a.ApplyResult(LockpickTurnOutcome.Jammed, 40);
+        Run(a, 0.3f);
+        a.State.Should().Be(LockpickAnimState.Straining);
+
+        await Task.CompletedTask;
+    }
+
+    [Test]
+    public async Task A_reply_arriving_after_the_second_wait_is_ignored()
+    {
+        var a = new LockpickAnimator();
+        a.PressTurn(false).Should().BeTrue();
+
+        Run(a, LockpickAnimator.REPLY_TIMEOUT_SECONDS + LockpickAnimator.RETURN_SECONDS + 0.1f);
+        a.ReleaseTurn();
+
+        //the reply never comes, so the wait expires with no turn in progress
+        Run(a, LockpickAnimator.REPLY_TIMEOUT_SECONDS + 0.1f);
+
+        //a very late Opened finds no live turn and must not finish the idle animator
+        a.ApplyResult(LockpickTurnOutcome.Opened, 100);
+        a.State.Should().Be(LockpickAnimState.Idle);
+
+        //and the lock is turnable
+        a.PressTurn(false).Should().BeTrue();
+
+        await Task.CompletedTask;
+    }
+
+    [Test]
+    public async Task A_stale_opened_reply_does_not_finish_an_idle_animator()
+    {
+        var a = new LockpickAnimator();
+        a.PressTurn(false);
+
+        Run(a, LockpickAnimator.REPLY_TIMEOUT_SECONDS + LockpickAnimator.RETURN_SECONDS + 0.1f);
+
+        a.ApplyResult(LockpickTurnOutcome.Opened, 100);
+        a.State.Should().Be(LockpickAnimState.Idle);
+
+        await Task.CompletedTask;
+    }
 }

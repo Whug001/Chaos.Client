@@ -128,6 +128,17 @@ public sealed class TownBallotState
         PendingStatement = null;
     }
 
+    /// <summary>Why <see cref="Save" /> would refuse <paramref name="text" />: too many line breaks, or the wrong length. Null when it fits.</summary>
+    public static string? StatementProblem(string text)
+    {
+        text = text.Replace("\r\n", "\n").Replace('\r', '\n').Trim();
+
+        if (text.Count(c => c == '\n') > MAX_STATEMENT_LINE_BREAKS)
+            return $"At most {MAX_STATEMENT_LINE_BREAKS} line breaks.";
+
+        return text.Length is 0 or > TownBallotProtocol.MAX_STATEMENT_CHARS ? $"Write 1 to {TownBallotProtocol.MAX_STATEMENT_CHARS} characters." : null;
+    }
+
     /// <summary>The statement to send, or null when not editing or the text is empty, too long or has too many lines.</summary>
     public TownBallotInteractionArgs? Save(string text)
     {

@@ -85,6 +85,8 @@ public sealed class GuildCloakEditorControl : GuildCloakDialogBase
     private int EditingColor;
     private long LastPreviewMs;
     private long LastSendMs = long.MinValue / 2;
+    private int HasPaintVersion = -1;
+    private bool HasPaint;
     private bool Painting;
 
     //the design the preview shows, as handed to the renderer's design store (never changed afterwards)
@@ -355,7 +357,13 @@ public sealed class GuildCloakEditorControl : GuildCloakDialogBase
 
         var canSend = (now - LastSendMs) >= SEND_COOLDOWN_MS;
         SaveButton.Enabled = canSend;
-        SubmitButton.Enabled = canSend;
+        if (Model.Version != HasPaintVersion)
+        {
+            HasPaintVersion = Model.Version;
+            HasPaint = Model.HasPaint();
+        }
+
+        SubmitButton.Enabled = canSend && HasPaint;
     }
 
     private void EndColorDrag()

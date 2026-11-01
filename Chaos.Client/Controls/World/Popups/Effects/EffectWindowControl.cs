@@ -181,6 +181,8 @@ public sealed partial class EffectWindowControl : GuildCloakDialogBase
         {
             Hide();
             e.Handled = true;
+
+            return;
         }
 
         base.OnKeyDown(e);
@@ -228,6 +230,7 @@ public sealed partial class EffectWindowControl : GuildCloakDialogBase
         }
 
         SetBubbleControlsVisible(false);
+        WarmThumbs();
         Grid.SetItems(State.PageItems, State.Selected, State.PageCount, ThumbFor, isDimmed: e => !e.Owned, isMarked: State.IsCurrent);
         PageLabel.Text = $"{State.Page + 1}/{State.PageCount}";
         NameLabel.Text = State.Selected?.Name ?? string.Empty;
@@ -235,6 +238,34 @@ public sealed partial class EffectWindowControl : GuildCloakDialogBase
         ChooseButton.Enabled = State.CanChoose;
         Preview.SetFacing(State.Facing);
         Preview.SetEffect(State.Tab, State.Selected);
+    }
+
+    // The player figure is the same for every tile: render it once per refresh and reuse it for each uncached tile.
+    private void WarmThumbs()
+    {
+        var missing = State.PageItems.Where(entry => !Thumbs.ContainsKey((State.Tab, entry.Effect))).ToList();
+
+        if (missing.Count == 0)
+            return;
+
+        // one figure for the whole page (standing, facing down: frame 5 flipped, front layers, as the mount window's tiles)
+        using var pageFigure = Renderer.Render(in BaseLook, 5, out _, out var pageTopPadding, AislingRenderer.WALK_ANIM, true, true);
+
+        foreach (var entry in missing)
+        {
+            SpriteFrame? effect = null;
+
+            if ((entry.Effect > 0) && (Effects.GetEffectInfo(entry.Animation) is { } info))
+            {
+                var frameIndex = EffectPreviewTimeline.StillFrame(new EffectClip(entry.Animation, info.FrameCount, info.FrameIntervalMs), entry.KeyTimeMs);
+
+                if (frameIndex >= 0)
+                    effect = Effects.GetFrame(entry.Animation, frameIndex);
+            }
+
+            var texture = EffectTileRenderer.Compose(pageFigure, pageTopPadding, effect);
+            Thumbs[(State.Tab, entry.Effect)] = texture;
+        }
     }
 
     private Texture2D? ThumbFor(EffectWindowEntry entry)

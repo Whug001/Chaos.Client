@@ -1,4 +1,5 @@
 #region
+using System.IO;
 using Chaos.Client.Controls.Components;
 using Chaos.Client.Controls.Custom;
 using Chaos.Client.Controls.World.Popups.Dialog;
@@ -10,6 +11,7 @@ using Chaos.Client.Rendering.Definitions;
 using Chaos.Client.Systems;
 using Chaos.DarkAges.Definitions;
 using Microsoft.Xna.Framework;
+using Microsoft.Xna.Framework.Graphics;
 #endregion
 
 namespace Chaos.Client.Controls.World.Popups.BugReport;
@@ -214,6 +216,9 @@ public sealed class BugReportControl : FramedDialogPanelBase
     public void Open(uint reportId, CapturedFrame? frame)
     {
         ReleaseFrame();
+        if (Visible)
+            Cancelled?.Invoke(ReportId);
+
         ReportId = reportId;
         Frame = frame;
         Category = null;
@@ -242,6 +247,14 @@ public sealed class BugReportControl : FramedDialogPanelBase
 
         TitleBox.Text = submission.Title;
         DescriptionBox.Text = submission.Description;
+        Preview.Texture = DecodePicture(submission.Picture);
+
+        if (Preview.Texture is not null)
+        {
+            NoPictureLabel.Visible = false;
+            IncludePicture.Visible = true;
+            IncludePicture.Checked = true;
+        }
         Preview.Texture = null;
         NoPictureLabel.Visible = true;
         IncludePicture.Visible = false;
@@ -355,6 +368,22 @@ public sealed class BugReportControl : FramedDialogPanelBase
         var reportId = ReportId;
         Hide();
         Cancelled?.Invoke(reportId);
+    }
+
+    private static Texture2D? DecodePicture(byte[]? picture)
+    {
+        if (picture is not { Length: > 0 })
+            return null;
+
+        try
+        {
+            using var stream = new MemoryStream(picture);
+
+            return Texture2D.FromStream(ChaosGame.Device, stream);
+        } catch (Exception e) when (e is not OutOfMemoryException)
+        {
+            return null;
+        }
     }
 
     private void ReleaseFrame()

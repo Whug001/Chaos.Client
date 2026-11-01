@@ -222,6 +222,10 @@ public sealed class SlotMachineControl : FramedDialogPanelBase
     private const float MIN_SPIN_SECONDS = 1.2f;
     private const float STAGGER_SECONDS = 0.3f;
 
+    //the server answers a spin in about two seconds; past this the answer is never coming, so park the reels
+    //and hand the controls back rather than spinning forever
+    private const float SPIN_TIMEOUT_SECONDS = 10f;
+
     //mirrors SlotMachineScript.SpinCooldown (2500ms) on the server. The reel animation alone finishes sooner than
     //that -- MIN_SPIN_SECONDS + 2 * STAGGER_SECONDS + ReelControl's 0.45s settle is 2.25s -- and the server starts
     //ITS clock when it takes the bet, which is earlier still than when the client saw the result. So a player
@@ -313,6 +317,7 @@ public sealed class SlotMachineControl : FramedDialogPanelBase
     //true from the moment Spin is clicked until every reel has finished landing (or a Rejected aborts the spin).
     private bool AwaitingResult;
     private float SpinElapsed;
+    private bool SpinTimedOut;
 
     //latches which reels have already been told to land on their SpinResult stop this spin. Update's stagger
     //check re-evaluates every frame once a reel's threshold has passed; without this latch it called
@@ -710,6 +715,7 @@ public sealed class SlotMachineControl : FramedDialogPanelBase
         //reveal gate on RefreshGold/RefreshJackpot), so a panel reopened while AwaitingResult was still set from
         //an abandoned spin would otherwise skip its own repaint and open showing stale figures.
         AwaitingResult = false;
+        SpinTimedOut = false;
         SpinElapsed = 0f;
         PendingStops = null;
         Array.Clear(ReelLanded);
@@ -782,6 +788,10 @@ public sealed class SlotMachineControl : FramedDialogPanelBase
         if (AwaitingResult)
             return;
 
+        //live for the whole session, so skip the string work while hidden; Show repaints
+        if (!Visible)
+            return;
+
         var vm = WorldState.SlotMachine;
 
         //an item machine has no pot, so its count takes the jackpot readout's place and the gold purse is hidden
@@ -809,6 +819,9 @@ public sealed class SlotMachineControl : FramedDialogPanelBase
 
     private void OnInventorySlotChanged(byte slot)
     {
+        if (!Visible)
+            return;
+
         if (WorldState.SlotMachine.UsesItemCurrency)
             RefreshGold();
     }
@@ -1032,6 +1045,7 @@ public sealed class SlotMachineControl : FramedDialogPanelBase
     public void OnRejected(SlotRejectReason reason)
     {
         AwaitingResult = false;
+        SpinTimedOut = false;
         PendingStops = null;
         Array.Clear(ReelLanded);
 
@@ -1206,6 +1220,7 @@ public sealed class SlotMachineControl : FramedDialogPanelBase
             return;
 
         AwaitingResult = true;
+        SpinTimedOut = false;
         SpinElapsed = 0f;
         SpinCooldownRemaining = SERVER_SPIN_COOLDOWN_SECONDS;
         PendingStops = null;
@@ -1291,6 +1306,21 @@ public sealed class SlotMachineControl : FramedDialogPanelBase
         {
             SpinElapsed += deltaSeconds;
 
+            //watchdog: the SpinResult never arrived, so park the reels on 0 and let the settle block
+            //below hand the controls back with an error instead of spinning forever
+            if ((PendingStops is null) && (SpinElapsed >= SPIN_TIMEOUT_SECONDS))
+            {
+                SpinTimedOut = true;
+
+                for (var i = 0; i < Reels.Length; i++)
+                {
+                    Reels[i].LandOn(0);
+                    ReelLanded[i] = true;
+                }
+
+                PendingStops = [];
+            }
+
             if ((PendingStops is not null) && (SpinElapsed >= MIN_SPIN_SECONDS))
             {
                 for (var i = 0; i < Reels.Length; i++)
@@ -1322,7 +1352,9 @@ public sealed class SlotMachineControl : FramedDialogPanelBase
 
                 if (Reels.All(r => r.IsSettled))
                 {
+                    var timedOut = SpinTimedOut;
                     AwaitingResult = false;
+                    SpinTimedOut = false;
 
                     //captured before the clear: the log needs the stops that were just revealed
                     var landedStops = PendingStops;
@@ -1335,8 +1367,14 @@ public sealed class SlotMachineControl : FramedDialogPanelBase
                     //the reveal: publish the figures withheld during the spin BEFORE announcing the result, so
                     //the gold and pot the player looks at at the moment they read "JACKPOT!" already agree with it.
                     RevealDeferredState();
-                    ShowResultMessage();
-                    AppendSpinLog(landedStops);
+
+                    if (timedOut)
+                        SetMessage("No answer from the machine.", LegendColors.Red, true);
+                    else
+                    {
+                        ShowResultMessage();
+                        AppendSpinLog(landedStops);
+                    }
                 }
             }
         }
@@ -1374,6 +1412,7 @@ public sealed class SlotMachineControl : FramedDialogPanelBase
     public override void Show()
     {
         AwaitingResult = false;
+        SpinTimedOut = false;
         SpinElapsed = 0f;
         PendingStops = null;
         Array.Clear(ReelLanded);
@@ -1394,6 +1433,7 @@ public sealed class SlotMachineControl : FramedDialogPanelBase
         var wasVisible = Visible;
 
         AwaitingResult = false;
+        SpinTimedOut = false;
         PendingStops = null;
         Array.Clear(ReelLanded);
         ResultMessageHoldRemaining = 0f;

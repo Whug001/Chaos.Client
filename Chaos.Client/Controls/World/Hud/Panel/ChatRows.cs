@@ -58,11 +58,6 @@ public static class ChatRows
     }
 
     /// <summary>
-    ///     Replaces the rows of the newest message with <paramref name="lineId" /> by <paramref name="newRows" />, in
-    ///     place. Returns the index the first old row sat at and how many rows were removed; (-1, 0) when no row carries
-    ///     the id (nothing changes), e.g. the line already scrolled out of the panel.
-    /// </summary>
-    /// <summary>
     ///     Caps a tooltip's height so it stays inside a panel of <paramref name="panelHeight" /> pixels (e.g. a
     ///     collapsed chat panel shorter than a long translation). The label clips the overflow itself; the result
     ///     stays a whole number of <paramref name="lineHeight" /> rows plus padding.
@@ -77,6 +72,11 @@ public static class ChatRows
         return (Math.Max(1, (max - 4) / lineHeight) * lineHeight) + 4;
     }
 
+    /// <summary>
+    ///     Replaces the rows of the newest message with <paramref name="lineId" /> by <paramref name="newRows" />, in
+    ///     place. Returns the index the first old row sat at and how many rows were removed; (-1, 0) when no row carries
+    ///     the id (nothing changes), e.g. the line already scrolled out of the panel.
+    /// </summary>
     public static (int Index, int Removed) Replace(List<ChatLine> rows, uint lineId, IReadOnlyList<ChatLine> newRows)
     {
         if (lineId == 0)

@@ -59,8 +59,27 @@ public sealed class WarRoomState
 
     public bool ShowBlockedReason => ShowChallengeForm && (BlockedReason.Length > 0);
     public bool ShowChallengeButton => ShowChallengeForm && (BlockedReason.Length == 0);
-    public bool ShowChallengeForm => ViewerIsLeader && HasDetail && CanChallenge;
+    public bool ShowChallengeForm => ViewerIsLeader && HasDetail && CanChallenge && DetailGuild.Equals(SelectedGuild, StringComparison.OrdinalIgnoreCase);
     public bool WagerEnabled => Ranked;
+
+    // Whether the player asked for a display (select, challenge, pick) whose answer has not arrived yet.
+    public bool ExpectingDisplay { get; private set; }
+
+    // Whether any display has been taken for this window yet.
+    public bool EverShown { get; private set; }
+
+    /// <summary>Notes that the player asked for a display; its answer may pop the window.</summary>
+    public void NoteRequestSent() => ExpectingDisplay = true;
+
+    /// <summary>Whether this display may pop a hidden window: the board always answers an open, anything else only on the first display or answering a request.</summary>
+    public bool TakeAutoShow(HallBattleDisplayKind kind)
+    {
+        var show = (kind == HallBattleDisplayKind.Board) || !EverShown || ExpectingDisplay;
+        EverShown = true;
+        ExpectingDisplay = false;
+
+        return show;
+    }
 
     public uint Wager => Ranked && uint.TryParse(WagerText, out var wager) ? wager : 0;
 

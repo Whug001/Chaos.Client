@@ -74,6 +74,7 @@ public sealed class BoardEditorControl : GuildCloakDialogBase
 
     private bool CanSave;
     private int EditingSwatch = -1;
+    private string _LastFilterText = string.Empty;
     private int SeenDrawingVersion;
 
     public BoardEditorControl()
@@ -232,6 +233,8 @@ public sealed class BoardEditorControl : GuildCloakDialogBase
 
         if (!info.CanDraw || (IsLive && !info.Live))
         {
+            //the pen was taken back or the class ended with strokes still unsent: send them first
+            SendUnsent();
             Hide();
 
             return;
@@ -317,13 +320,21 @@ public sealed class BoardEditorControl : GuildCloakDialogBase
     {
         if (Visible)
         {
-            var filtered = BoardFont.FilterText(TextBox.Text);
+            //the filter allocates, so it only runs when the text changed since the last frame
+            if (TextBox.Text != _LastFilterText)
+            {
+                _LastFilterText = TextBox.Text;
+                var filtered = BoardFont.FilterText(_LastFilterText);
 
-            if (filtered != TextBox.Text)
-                TextBox.Text = filtered;
+                if (filtered != _LastFilterText)
+                {
+                    TextBox.Text = filtered;
+                    _LastFilterText = filtered;
+                }
 
-            if (Editor.PendingText != filtered)
-                Editor.PendingText = filtered;
+                if (Editor.PendingText != filtered)
+                    Editor.PendingText = filtered;
+            }
 
             var now = Environment.TickCount64;
 
@@ -350,6 +361,9 @@ public sealed class BoardEditorControl : GuildCloakDialogBase
         SaveButton.Visible = canSave;
         NameBox.Visible = canSave;
         BoardsButton.Visible = canSave;
+        //a hidden box must not keep the keyboard: typed keys would vanish into it
+        if (!canSave)
+            NameBox.IsFocused = false;
     }
 
     private void Close()

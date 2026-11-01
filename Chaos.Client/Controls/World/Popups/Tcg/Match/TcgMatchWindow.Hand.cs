@@ -155,10 +155,10 @@ public sealed partial class TcgMatchWindow
             face.Badge = string.Empty;
             face.Owned = latest is null || Playable(latest, view);
             face.Selected = (Input.SelectedCard == view.Id) && (Input.Mode == TcgInputMode.CardMenu);
-            face.X = slot.X;
-            face.Y = slot.Y - (HoverHandId == view.Id ? HOVER_LIFT : 0);
+            face.X = ScreenX + slot.X;
+            face.Y = ScreenY + slot.Y - (HoverHandId == view.Id ? HOVER_LIFT : 0);
 
-            var at = new Rectangle(ScreenX + slot.X, ScreenY + face.Y, TcgCardFace.WIDTH, TcgCardFace.HEIGHT);
+            var at = new Rectangle(face.X, face.Y, TcgCardFace.WIDTH, TcgCardFace.HEIGHT);
             DrawRectClipped(batch, at, face.Card is null || !face.Owned ? DisabledBack : new Color(40, 28, 16));
             face.Draw(batch);
 
@@ -178,11 +178,28 @@ public sealed partial class TcgMatchWindow
         DrawTextClipped(batch, new Vector2(at.Right - 2 - TextRenderer.MeasureWidth(cost), at.Y + 2), cost, tint, false);
     }
 
+    private TcgDisplayArgs? PlayCacheBoard;
+    private bool PlayCacheMana;
+    private readonly Dictionary<int, bool> PlayCache = new();
+
+    /// <summary>Whether a hand card can be played or set as mana, cached per board so Draw does not re-run the rules for every card every frame.</summary>
     private bool Playable(TcgDisplayArgs latest, TcgCardView view)
     {
-        var choice = TcgMatchRules.Play(latest, view, Catalog.Get, State.ManaPlacedThisTurn);
+        if (!ReferenceEquals(latest, PlayCacheBoard) || (State.ManaPlacedThisTurn != PlayCacheMana))
+        {
+            PlayCacheBoard = latest;
+            PlayCacheMana = State.ManaPlacedThisTurn;
+            PlayCache.Clear();
 
-        return choice.CanPlay || choice.CanMana;
+            foreach (var card in latest.Players[(int)latest.YourSeat].Hand)
+            {
+                var choice = TcgMatchRules.Play(latest, card, Catalog.Get, PlayCacheMana);
+
+                PlayCache[card.Id] = choice.CanPlay || choice.CanMana;
+            }
+        }
+
+        return PlayCache.TryGetValue(view.Id, out var playable) && playable;
     }
 
     private static int? DraggingHandCard()

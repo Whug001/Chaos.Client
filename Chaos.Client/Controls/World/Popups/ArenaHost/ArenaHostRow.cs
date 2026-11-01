@@ -85,7 +85,7 @@ public sealed class ArenaHostRow : UIPanel
     }
 
     public static string RosterText(ArenaHostRosterInfo player)
-        => player.Name + (player.IsHost ? " (host)" : string.Empty) + (player.IsCaptain ? " (captain)" : string.Empty);
+        => (player.IsHost ? "(host) " : string.Empty) + (player.IsCaptain ? "(captain) " : string.Empty) + player.Name;
 
     public static Color TeamColor(ArenaHostTeam team)
         => team switch

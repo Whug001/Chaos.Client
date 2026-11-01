@@ -15,6 +15,8 @@ public sealed class TcgCostCurveView : UIElement
     private static readonly Color Back = new(0, 0, 0, 120);
 
     private int[] Buckets = new int[TcgDeckDraft.CURVE_BUCKETS];
+    private int Tallest = 1;
+    private string[] BucketTexts = Enumerable.Repeat("0", TcgDeckDraft.CURVE_BUCKETS).ToArray();
 
     public override void Draw(SpriteBatch spriteBatch)
     {
@@ -31,7 +33,7 @@ public sealed class TcgCostCurveView : UIElement
         var count = Buckets.Length;
         var barWidth = (Width - ((count + 1) * BAR_GAP)) / count;
         var maxHeight = Height - LABEL_HEIGHT - TextRenderer.CHAR_HEIGHT - 4;
-        var tallest = Math.Max(1, Buckets.Max());
+        var tallest = Tallest;
         var baseline = ScreenY + Height - LABEL_HEIGHT;
 
         for (var i = 0; i < count; i++)
@@ -44,7 +46,7 @@ public sealed class TcgCostCurveView : UIElement
             {
                 DrawRectClipped(spriteBatch, new Rectangle(x, baseline - height, barWidth, height), LegendColors.Gold);
 
-                var number = Buckets[i].ToString();
+                var number = BucketTexts[i];
                 DrawTextClipped(spriteBatch, new Vector2(x + ((barWidth - TextRenderer.MeasureWidth(number)) / 2), baseline - height - TextRenderer.CHAR_HEIGHT - 1), number, LegendColors.White, false);
             }
 
@@ -52,5 +54,18 @@ public sealed class TcgCostCurveView : UIElement
         }
     }
 
-    public void SetCurve(int[] buckets) => Buckets = buckets.Length == TcgDeckDraft.CURVE_BUCKETS ? buckets : new int[TcgDeckDraft.CURVE_BUCKETS];
+    public void SetCurve(int[] buckets)
+    {
+        Buckets = buckets.Length == TcgDeckDraft.CURVE_BUCKETS ? buckets : new int[TcgDeckDraft.CURVE_BUCKETS];
+        Tallest = 1;
+        BucketTexts = new string[TcgDeckDraft.CURVE_BUCKETS];
+
+        for (var i = 0; i < Buckets.Length; i++)
+        {
+            if (Buckets[i] > Tallest)
+                Tallest = Buckets[i];
+
+            BucketTexts[i] = Buckets[i].ToString();
+        }
+    }
 }

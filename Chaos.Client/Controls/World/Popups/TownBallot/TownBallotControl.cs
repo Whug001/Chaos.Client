@@ -265,7 +265,7 @@ public sealed class TownBallotControl : GuildCloakDialogBase
         if (State.Save(Editor.Text) is { } save)
             InteractionRequested?.Invoke(save);
         else
-            NoteLabel.Text = $"Write 1 to {TownBallotProtocol.MAX_STATEMENT_CHARS} characters.";
+            NoteLabel.Text = TownBallotState.StatementProblem(Editor.Text) ?? $"Write 1 to {TownBallotProtocol.MAX_STATEMENT_CHARS} characters.";
     }
 
     private void OnVoteClicked()

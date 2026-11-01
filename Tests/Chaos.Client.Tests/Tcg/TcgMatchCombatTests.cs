@@ -167,7 +167,7 @@ public sealed class TcgMatchCombatTests
 
         var respond = Board(TcgDecision.Respond, decider: TcgSeat.B);
 
-        TcgMatchWindow.PhaseOverride(respond, new TcgMatchInput(Lookup), "Bo", false, Lookup).Should().Be("Waiting for Bo…");
+        TcgMatchWindow.PhaseOverride(respond, new TcgMatchInput(Lookup), "Bo", false, Lookup).Should().Be("Waiting for Bo...");
     }
 
     [Test]

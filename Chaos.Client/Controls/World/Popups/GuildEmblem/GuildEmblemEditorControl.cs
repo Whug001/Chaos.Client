@@ -39,6 +39,7 @@ public sealed class GuildEmblemEditorControl : GuildCloakDialogBase
     private const int OK_RIGHT_MARGIN = 20;
     private const int SAVE_WIDTH = 76;
     private const long SEND_COOLDOWN_MS = 2_500;
+    private const long PREVIEW_INTERVAL_MS = 150;
     private const int STATUS_LINES = 3;
     private const int SUBMIT_WIDTH = 64;
     private const int TITLE_TOP = 10;
@@ -74,6 +75,8 @@ public sealed class GuildEmblemEditorControl : GuildCloakDialogBase
     private int EditingColor;
     private long LastSendMs = long.MinValue / 2;
     private int PreviewId;
+    private bool PreviewStale;
+    private long LastPreviewMs;
     private GuildEmblemDesign? SentDesign;
     private int ShownVersion = -1;
     private GuildCloakStatus Status;
@@ -260,14 +263,22 @@ public sealed class GuildEmblemEditorControl : GuildCloakDialogBase
             ShownVersion = Model.Version;
             CloseArmed = false;
             Canvas.SetDesign(Model.Design);
-            PreviewId = GuildEmblemTextures.SetLocal(PreviewId, Model.Design.DeepCopy());
-            Preview.DesignId = PreviewId;
+            PreviewStale = true;
+            // Preview rebuilt below at most every 150 ms.
 
             //the picker always edits the selected color: follow a new selection (a box click, the pick tool, an undo)
             if (Picker.Visible && !ColorDragging && (EditingColor != Model.SelectedColor))
                 OpenPicker(Model.SelectedColor);
 
             RefreshControls();
+        }
+
+        if (PreviewStale && ((Environment.TickCount64 - LastPreviewMs) >= PREVIEW_INTERVAL_MS))
+        {
+            PreviewStale = false;
+            LastPreviewMs = Environment.TickCount64;
+            PreviewId = GuildEmblemTextures.SetLocal(PreviewId, Model.Design.DeepCopy());
+            Preview.DesignId = PreviewId;
         }
 
         var canSend = (Environment.TickCount64 - LastSendMs) >= SEND_COOLDOWN_MS;

@@ -38,6 +38,7 @@ public sealed class TowerLeaderboardControl : GuildCloakDialogBase
     private const int BUTTON_GAP = 4;
 
     private readonly UILabel EmptyLabel;
+    private readonly CustomButton CurrentButton;
     private readonly CustomButton NewerButton;
     private readonly CustomButton NextPageButton;
     private readonly CustomButton OlderButton;
@@ -68,15 +69,15 @@ public sealed class TowerLeaderboardControl : GuildCloakDialogBase
         SubtitleLabel = Caption(string.Empty, LEFT, SUBTITLE_TOP, ROW_WIDTH, HorizontalAlignment.Center, LegendColors.Gray);
 
         var tabsLeft = (Width - (TAB_WIDTH + (2 * SMALL_BUTTON) + (2 * BUTTON_GAP))) / 2;
-        OlderButton = AddButton("<", SMALL_BUTTON, tabsLeft, TABS_TOP, () => RequestSeason(State.Args.OlderSeason));
-        AddButton("This season", TAB_WIDTH, tabsLeft + SMALL_BUTTON + BUTTON_GAP, TABS_TOP, () => RequestSeason(0));
+        OlderButton = AddButton("<", SMALL_BUTTON, tabsLeft, TABS_TOP, () => { State.NoteSeasonRequested(); RefreshAll(); RequestSeason(State.Args.OlderSeason); });
+        CurrentButton = AddButton("This season", TAB_WIDTH, tabsLeft + SMALL_BUTTON + BUTTON_GAP, TABS_TOP, () => { State.NoteSeasonRequested(); RefreshAll(); RequestSeason(0); });
 
         NewerButton = AddButton(
             ">",
             SMALL_BUTTON,
             tabsLeft + SMALL_BUTTON + TAB_WIDTH + (2 * BUTTON_GAP),
             TABS_TOP,
-            () => RequestSeason(State.Args.NewerSeason));
+            () => { State.NoteSeasonRequested(); RefreshAll(); RequestSeason(State.Args.NewerSeason); });
 
         for (var i = 0; i < TowerLeaderboardState.PAGE_SIZE; i++)
         {
@@ -153,8 +154,9 @@ public sealed class TowerLeaderboardControl : GuildCloakDialogBase
         TitleLabel.Text = State.Title;
         SubtitleLabel.Text = State.Subtitle;
 
-        OlderButton.Enabled = args.OlderSeason != 0;
-        NewerButton.Enabled = args.NewerSeason != 0;
+        OlderButton.Enabled = !State.SeasonPending && args.OlderSeason != 0;
+        CurrentButton.Enabled = !State.SeasonPending;
+        NewerButton.Enabled = !State.SeasonPending && args.NewerSeason != 0;
 
         var items = State.PageItems;
 

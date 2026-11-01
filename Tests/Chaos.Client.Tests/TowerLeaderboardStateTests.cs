@@ -33,6 +33,21 @@ public class TowerLeaderboardStateTests
     }
 
     [Test]
+    public async Task A_requested_season_stays_pending_until_it_opens()
+    {
+        var state = new TowerLeaderboardState();
+        state.Open(Board(10));
+        state.SeasonPending.Should().BeFalse();
+
+        state.NoteSeasonRequested();
+        state.SeasonPending.Should().BeTrue();
+
+        state.Open(Board(10));
+        state.SeasonPending.Should().BeFalse();
+        await Task.CompletedTask;
+    }
+
+    [Test]
     public async Task Open_goes_back_to_the_first_page()
     {
         var state = new TowerLeaderboardState();

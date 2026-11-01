@@ -37,6 +37,7 @@ public sealed class StageLightingControl : UIPanel
     private const int RIGHT_X = 212;
     private const int FOOTER_Y = 198;
     private const int DELETE_CONFIRM_MS = 3000;
+    private const int PENDING_SCENE_MS = 5000;
     private const int SCENE_NAME_MAX = 24;
 
     //wide enough for a 24-character name in the dropdown header and the name box (6 px a character plus their frames)
@@ -87,10 +88,12 @@ public sealed class StageLightingControl : UIPanel
     private long DeleteArmedUntil;
     private string? DeleteArmedName;
     private bool DraggingWindow;
+    private bool DraggingLight;
     private Point Grab;
 
     /// <summary>The name last sent by <see cref="SaveScene" />, selected in <see cref="SceneList" /> once it appears there.</summary>
     private string? PendingSceneSelection;
+    private long PendingSceneUntil;
 
     private bool SaveMode;
 
@@ -331,6 +334,14 @@ public sealed class StageLightingControl : UIPanel
     /// <summary>Repaints every control from the setup and the panel state. Called on each setup and scene-list message.</summary>
     public void RefreshFromState()
     {
+        if (DraggingLight)
+        {
+            DraggingLight = false;
+            RefreshDragState();
+
+            return;
+        }
+
         var lights = Setup.Lights;
         Panel.Reconcile(lights, Environment.TickCount64);
         var selected = Selected();
@@ -422,6 +433,9 @@ public sealed class StageLightingControl : UIPanel
         if (!SceneList.Items.SequenceEqual(scenes))
         {
             var sceneList = scenes.ToList();
+
+            if ((PendingSceneSelection is not null) && (Environment.TickCount64 > PendingSceneUntil))
+                PendingSceneSelection = null;
 
             var pendingIndex = PendingSceneSelection is null
                 ? -1
@@ -587,6 +601,28 @@ public sealed class StageLightingControl : UIPanel
         Send(new StageLightingInteractionArgs { Action = StageLightingAction.RemoveLight, LightId = id });
     }
 
+    // during a drag only the chips and the view's selection can change; the labels are refreshed on press and echo
+    private void RefreshDragState()
+    {
+        var lights = Setup.Lights;
+
+        for (var i = 0; i < Chips.Length; i++)
+        {
+            var chip = Chips[i];
+            chip.Visible = i < lights.Count;
+
+            if (!chip.Visible)
+                continue;
+
+            var light = lights[i];
+            chip.Caption = light.Id.ToString();
+            chip.Dot = new Color(light.R, light.G, light.B);
+            chip.Selected = light.Id == Panel.SelectedLightId;
+        }
+
+        View.SelectedLightId = Panel.SelectedLightId;
+    }
+
     private void MoveLight(byte id, Vector2 tile, bool handle)
     {
         var light = Setup.Lights.FirstOrDefault(l => l.Id == id);
@@ -603,6 +639,7 @@ public sealed class StageLightingControl : UIPanel
 
         Setup.Hold(moved);
         SendContinuous(new StageLightingInteractionArgs { Action = StageLightingAction.UpdateLight, LightId = id, Light = moved });
+        DraggingLight = true;
         RefreshFromState();
     }
 
@@ -694,6 +731,7 @@ public sealed class StageLightingControl : UIPanel
 
         Send(new StageLightingInteractionArgs { Action = StageLightingAction.SaveScene, SceneName = name });
         PendingSceneSelection = name;
+        PendingSceneUntil = Environment.TickCount64 + PENDING_SCENE_MS;
         ExitSaveMode();
     }
 

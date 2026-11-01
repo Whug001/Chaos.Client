@@ -493,4 +493,28 @@ public class WritingDocumentTests
         WritingDocument.TextCounter(1_234, 1_234).Should().Be("1,234 / 50,000");
         WritingDocument.TextCounter(20_000, 40_000).Should().Be("80% full");
     }
+
+    [Test]
+    public void MeasureText_matches_the_public_counts_on_mixed_text()
+    {
+        var doc = WithText(new string('e', 1_000) + new string('\ud55c', 500));
+
+        var (characters, bytes) = doc.MeasureText();
+
+        characters.Should().Be(doc.TextLength);
+        bytes.Should().Be(doc.TextBytes);
+    }
+
+    [Test]
+    public void MeasureText_stays_with_the_document_as_it_changes()
+    {
+        var doc = WithText("abc");
+
+        doc.SetText(0, "abcdef");
+
+        var (characters, bytes) = doc.MeasureText();
+
+        characters.Should().Be(doc.TextLength).And.Be(6);
+        bytes.Should().Be(doc.TextBytes).And.Be(6);
+    }
 }

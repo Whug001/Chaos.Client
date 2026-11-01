@@ -256,6 +256,8 @@ public sealed class WarRoomControl : UIPanel
         ChallengeButton.Clicked += () =>
         {
             State.WagerText = WagerBox.Text;
+            State.NoteRequestSent();
+            ChallengeButton.Enabled = false;
             Action?.Invoke(State.ChallengeAction());
         };
 
@@ -295,11 +297,13 @@ public sealed class WarRoomControl : UIPanel
 
     public void Apply(HallBattleDisplayArgs args)
     {
+        var autoShow = State.TakeAutoShow(args.Kind);
         State.Apply(args);
         Refresh();
 
         if (!Visible)
-            Show();
+            if (autoShow)
+                Show();
     }
 
     public void Hide()
@@ -401,7 +405,10 @@ public sealed class WarRoomControl : UIPanel
     private void Pick(int slot)
     {
         if (CandidateNames[slot] is { } name)
+        {
+            State.NoteRequestSent();
             Action?.Invoke(State.PickAction(name));
+        }
     }
 
     private void SelectGuild(int slot)
@@ -410,6 +417,7 @@ public sealed class WarRoomControl : UIPanel
             return;
 
         State.SelectedGuild = name;
+        State.NoteRequestSent();
         Refresh();
         Action?.Invoke(WarRoomState.SelectAction(name));
     }
@@ -516,6 +524,7 @@ public sealed class WarRoomControl : UIPanel
             control.Visible = form;
 
         ChallengeButton.Visible = State.ShowChallengeButton;
+        ChallengeButton.Enabled = !State.ExpectingDisplay;
         BlockedLabel.Visible = State.ShowBlockedReason;
         BlockedLabel.Text = State.BlockedReason;
 

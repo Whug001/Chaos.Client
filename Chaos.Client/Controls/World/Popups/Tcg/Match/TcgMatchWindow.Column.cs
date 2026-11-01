@@ -10,6 +10,19 @@ namespace Chaos.Client.Controls.World.Popups.Tcg.Match;
 
 public sealed partial class TcgMatchWindow
 {
+    private readonly List<string> LogCacheLines = [];
+    private int LogCacheCount = -1;
+    private int LogCacheWidth = -1;
+    private string? LogCacheFirst;
+    private string? LogCacheLast;
+
+    private readonly List<(string Text, Color Color)> ChatCacheLines = [];
+    private TcgMatchChat? ChatCacheChat;
+    private int ChatCacheCount = -1;
+    private int ChatCacheWidth = -1;
+    private string? ChatCacheFirst;
+    private string? ChatCacheLast;
+
     private void DrawColumn(SpriteBatch batch)
     {
         var latest = State.Latest;
@@ -72,12 +85,25 @@ public sealed partial class TcgMatchWindow
     private void DrawLog(SpriteBatch batch)
     {
         var at = At(TcgMatchLayout.Log);
-        var lines = new List<string>();
+        var log = State.Log;
 
-        foreach (var entry in State.Log)
-            foreach (var wrapped in TextRenderer.WrapLines(entry, at.Width))
-                lines.Add(wrapped);
+        if ((log.Count != LogCacheCount)
+            || (at.Width != LogCacheWidth)
+            || !string.Equals(log.Count > 0 ? log[0] : null, LogCacheFirst, StringComparison.Ordinal)
+            || !string.Equals(log.Count > 0 ? log[^1] : null, LogCacheLast, StringComparison.Ordinal))
+        {
+            LogCacheCount = log.Count;
+            LogCacheWidth = at.Width;
+            LogCacheFirst = log.Count > 0 ? log[0] : null;
+            LogCacheLast = log.Count > 0 ? log[^1] : null;
+            LogCacheLines.Clear();
 
+            foreach (var entry in log)
+                foreach (var wrapped in TextRenderer.WrapLines(entry, at.Width))
+                    LogCacheLines.Add(wrapped);
+        }
+
+        var lines = LogCacheLines;
         var first = Math.Max(0, lines.Count - (at.Height / TextRenderer.CHAR_HEIGHT));
 
         for (var i = first; i < lines.Count; i++)
@@ -95,16 +121,31 @@ public sealed partial class TcgMatchWindow
             return;
 
         var at = At(TcgMatchLayout.Chat);
-        var lines = new List<(string Text, Color Color)>();
+        var entries = Chat.Lines;
 
-        foreach (var entry in Chat.Lines)
+        if (!ReferenceEquals(Chat, ChatCacheChat)
+            || (entries.Count != ChatCacheCount)
+            || (at.Width != ChatCacheWidth)
+            || !string.Equals(entries.Count > 0 ? entries[0].Text : null, ChatCacheFirst, StringComparison.Ordinal)
+            || !string.Equals(entries.Count > 0 ? entries[^1].Text : null, ChatCacheLast, StringComparison.Ordinal))
         {
-            var color = ColorOf(entry.Kind);
+            ChatCacheChat = Chat;
+            ChatCacheCount = entries.Count;
+            ChatCacheWidth = at.Width;
+            ChatCacheFirst = entries.Count > 0 ? entries[0].Text : null;
+            ChatCacheLast = entries.Count > 0 ? entries[^1].Text : null;
+            ChatCacheLines.Clear();
 
-            foreach (var wrapped in TextRenderer.WrapLines(entry.Text, at.Width))
-                lines.Add((wrapped, color));
+            foreach (var entry in entries)
+            {
+                var color = ColorOf(entry.Kind);
+
+                foreach (var wrapped in TextRenderer.WrapLines(entry.Text, at.Width))
+                    ChatCacheLines.Add((wrapped, color));
+            }
         }
 
+        var lines = ChatCacheLines;
         var first = Math.Max(0, lines.Count - (at.Height / TextRenderer.CHAR_HEIGHT));
 
         for (var i = first; i < lines.Count; i++)

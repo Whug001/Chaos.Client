@@ -140,8 +140,8 @@ public sealed class RaidGrid : UIPanel
 
         RefreshColumns();
 
-        X = Math.Clamp(X, ViewportBounds.X, Math.Max(ViewportBounds.X, ViewportBounds.Right - HEADER_HEIGHT));
-        Y = Math.Clamp(Y, ViewportBounds.Y, Math.Max(ViewportBounds.Y, ViewportBounds.Bottom - HEADER_HEIGHT));
+        X = Math.Clamp(X, ViewportBounds.X, Math.Max(ViewportBounds.X, ViewportBounds.Right - Width));
+        Y = Math.Clamp(Y, ViewportBounds.Y, Math.Max(ViewportBounds.Y, ViewportBounds.Bottom - Height));
         IsHitTestVisible = true;
     }
 
@@ -149,6 +149,31 @@ public sealed class RaidGrid : UIPanel
     ///     Refills <see cref="Columns" /> and resizes the grid if the snapshot or the player's own row has changed since
     ///     the last fill.
     /// </summary>
+    /// <summary>Truncates a cell label to the column's inner width, so wide glyphs (e.g. CP949 Korean) cannot run past it.</summary>
+    internal static string TruncateToColumn(string label)
+    {
+        var maxWidth = COLUMN_WIDTH - (CELL_PAD * 2);
+
+        if (TextRenderer.MeasureWidth(label) <= maxWidth)
+            return label;
+
+        var width = 0;
+        var length = 0;
+
+        while (length < label.Length)
+        {
+            var next = width + TextRenderer.MeasureCharWidth(label[length]);
+
+            if (next > maxWidth)
+                break;
+
+            width = next;
+            length++;
+        }
+
+        return label[..length];
+    }
+
     private void RefreshColumns()
     {
         var self = WorldState.Attributes.Current;
@@ -187,8 +212,8 @@ public sealed class RaidGrid : UIPanel
 
             var label = entry.IsLeader ? LEADER_MARK + entry.Name : entry.Name;
 
-            if (label.Length > NAME_CHARS)
-                label = label[..NAME_CHARS];
+            label = TruncateToColumn(label);
+
 
             Columns[entry.Party - 1]
                 .Add(new Cell(entry, label));

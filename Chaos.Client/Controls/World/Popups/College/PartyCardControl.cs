@@ -41,6 +41,8 @@ public sealed class PartyCardControl : GuildCloakDialogBase
     //Five vote rows keep the tallest vote card (Sketch Guess with the 2x drawing: chrome, drawing,
     //prompt, rows, pager, footer) under the 480 px screen when centred.
     private const int VOTE_PAGE_SIZE = 5;
+    //The final scores are capped like the Teacher panel's, so a big class can't push the OK button off the screen.
+    private const int FINAL_ROWS = 8;
     private const int INFO_STEP = TextRenderer.CHAR_HEIGHT + 3;
     private const int ARROW_WIDTH = 28;
     private const int PAGE_LABEL_WIDTH = 100;
@@ -524,8 +526,13 @@ public sealed class PartyCardControl : GuildCloakDialogBase
     {
         var lines = new List<(string Text, Color Color)>();
 
-        for (var i = 0; i < info.Scores.Count; i++)
+        var shown = Math.Min(info.Scores.Count, FINAL_ROWS);
+
+        for (var i = 0; i < shown; i++)
             lines.Add((ClassToolText.FinalLine(i + 1, info.Scores[i]), i == 0 ? LegendColors.Gold : LegendColors.White));
+
+        if (info.Scores.Count > shown)
+            lines.Add(($"+{info.Scores.Count - shown} more", LegendColors.Gray));
 
         if (info.Note.Length > 0)
             lines.Add((info.Note, LegendColors.Gray));

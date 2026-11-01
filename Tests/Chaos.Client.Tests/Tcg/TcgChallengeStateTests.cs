@@ -57,4 +57,10 @@ public sealed class TcgChallengeStateTests
         TcgChallengeState.SecondsLeft(30000, at, at.AddSeconds(10.5)).Should().Be(20);
         TcgChallengeState.SecondsLeft(30000, at, at.AddSeconds(45)).Should().Be(0);
     }
+
+    [Test]
+    public void Names_the_no_ready_deck_message()
+    {
+        TcgChallengeState.NoReadyDeckMessage.Should().Be("You have no Ready deck.");
+    }
 }

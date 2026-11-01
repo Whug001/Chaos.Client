@@ -33,6 +33,22 @@ public class RaidGridFitTests
     }
 
     [Test]
+    public void TruncateToColumn_KeepsShortNamesWhole()
+    {
+        RaidGrid.TruncateToColumn("*Ivy").Should().Be("*Ivy");
+    }
+
+    [Test]
+    public void TruncateToColumn_CutsWideGlyphsByWidthNotByCount()
+    {
+        var wide = new string('가', 20);
+        var cut = RaidGrid.TruncateToColumn(wide);
+
+        cut.Length.Should().BeLessThan(wide.Length);
+        Chaos.Client.Rendering.TextRenderer.MeasureWidth(cut).Should().BeLessThanOrEqualTo(60);
+    }
+
+    [Test]
     public void Fit_EmptyRosterShowsNothing()
     {
         var (parties, rows) = RaidGrid.Fit([0, 0, 0, 0]);

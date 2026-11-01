@@ -63,6 +63,7 @@ public sealed class QuizEditorControl : GuildCloakDialogBase
     private readonly DraftAutosave Autosave = new();
     private readonly PendingSave Saver = new();
     private bool BackAfterSave;
+    private bool ClosedByPlayer;
     private string DeleteArmed = string.Empty;
     private bool EditingPage;
     private List<CollegeQuizRowInfo> Quizzes = [];
@@ -220,23 +221,26 @@ public sealed class QuizEditorControl : GuildCloakDialogBase
         SelectedRow = Quizzes.Count == 0 ? -1 : Math.Clamp(SelectedRow, 0, Quizzes.Count - 1);
         DeleteArmed = string.Empty;
 
-        //unsaved edits stay on page 2: the save goes out first and its result returns to the list, so nothing is dropped
-        if (EditingPage)
+        //a visible page 2 stays put
+        if (EditingPage && Visible)
+            return;
+
+        //a closed editor stays shut: a save echo only refreshes its rows, until the player asks for a list again
+        if (!Visible && ClosedByPlayer)
         {
-            Pull();
+            ClosedByPlayer = false;
 
-            if (Document.IsDirty)
+            //unsaved edits of a closed editor: the save goes out first and its result returns to the list, so nothing is dropped
+            if (EditingPage)
             {
-                if (Document.Version != RefusedVersion)
-                    Save(true);
+                Pull();
 
-                if (!Visible)
-                    Show();
-
-                return;
+                if (Document.IsDirty && (Document.Version != RefusedVersion))
+                    Save(false);
             }
-        }
 
+            return;
+        }
         ShowPage(false);
 
         if (!Visible)
@@ -253,6 +257,7 @@ public sealed class QuizEditorControl : GuildCloakDialogBase
 
         Document.Load(args.QuizId, args.QuizDraft);
         Saver.Reset();
+        ClosedByPlayer = false;
         BackAfterSave = false;
         Status.Text = string.Empty;
         ShowPage(true);
@@ -288,13 +293,19 @@ public sealed class QuizEditorControl : GuildCloakDialogBase
             if (BackAfterSave && (Document.Version == sentVersion))
             {
                 BackAfterSave = false;
-                GoToList();
-            }
 
+                //a closed editor stays shut: only a visible Back goes back to the list
+                if (Visible)
+                    GoToList();
+            }
             if (followUp)
             {
                 var back = BackAfterSave;
                 BackAfterSave = false;
+
+                if (!Visible)
+                    ClosedByPlayer = true;
+
                 Save(back);
             }
             else
@@ -303,9 +314,11 @@ public sealed class QuizEditorControl : GuildCloakDialogBase
 
                 //the player closed while this save was in flight, so edits made since were never sent
                 if (!Visible && Document.IsDirty)
+                {
+                    ClosedByPlayer = true;
                     Save(false);
+                }
             }
-
             return false;
         }
 
@@ -314,11 +327,17 @@ public sealed class QuizEditorControl : GuildCloakDialogBase
 
         //a save queued while this one was in flight still has newer edits the server never saw
         if (Saver.TakeQueued(Document.IsDirty, Document.Version, RefusedVersion))
+        {
+            if (!Visible)
+                ClosedByPlayer = true;
+
             Save(false);
+        }
 
         if (Visible)
             return false;
 
+        ClosedByPlayer = false;
         ShowPage(true);
         Show();
 
@@ -387,12 +406,17 @@ public sealed class QuizEditorControl : GuildCloakDialogBase
 
             //a save the server refused is not retried until something changes, or the window could never close
             if (Document.IsDirty && (Document.Version != RefusedVersion))
+            {
+                //a save echo must not pop the closed editor back open
+                ClosedByPlayer = true;
                 Save(false);
+            }
+            else if (Saver.AwaitingSave || Saver.SaveQueued)
+                ClosedByPlayer = true;
         }
 
         Hide();
     }
-
     private void OnBackClicked()
     {
         Pull();
@@ -448,13 +472,14 @@ public sealed class QuizEditorControl : GuildCloakDialogBase
 
         if (Quizzes.Count >= CollegeProtocol.MAX_QUIZZES_PER_OWNER)
         {
-            Status.Text = "You can keep 20 quizzes.";
+            Status.Text = $"You can keep {CollegeProtocol.MAX_QUIZZES_PER_OWNER} quizzes.";
 
             return;
         }
 
         Document.New();
         Saver.Reset();
+        ClosedByPlayer = false;
         BackAfterSave = false;
         Status.Text = string.Empty;
         ShowPage(true);

@@ -11,6 +11,8 @@ public static class TcgChallengeState
 {
     public const int MINIMUM_GOLD = 1000;
 
+    public const string NoReadyDeckMessage = "You have no Ready deck.";
+
     public static TcgActionArgs AcceptAction(string deckName)
         => new() { Type = TcgActionType.ChallengeAccept, DeckName = deckName };
 
