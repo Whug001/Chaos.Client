@@ -157,7 +157,7 @@ public sealed class BlockTextBox : UITextBox
     private List<int> Layout()
     {
         //the same inner width UITextBox wraps at
-        var width = Width - PaddingLeft - PaddingRight;
+        var width = Width - PaddingLeft + PaddingRight;
 
         if ((width == LayoutWidth) && (Text == LayoutText) && (ColorCodesEnabled == LayoutColorCodes))
             return Starts;

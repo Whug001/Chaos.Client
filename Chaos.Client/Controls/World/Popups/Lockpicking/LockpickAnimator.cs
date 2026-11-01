@@ -34,6 +34,7 @@ public sealed class LockpickAnimator
     private LockpickTurnOutcome? Outcome;
     //the timed-out turn's reply is still in flight: new turns wait for it (and drop it) instead of inheriting its outcome
     private bool StaleReplyOutstanding;
+    private float StaleSeconds;
     private float ReturnFrom;
     private float TargetDegrees;
     private bool TurnKeyHeld;
@@ -123,6 +124,17 @@ public sealed class LockpickAnimator
     {
         StateSeconds += seconds;
 
+        //the stale reply never arrived (lost packet, silent refusal): stop waiting after a second
+        //timeout so the next press starts a turn. A reply arriving after that hits the outside-a-turn
+        //guard in ApplyResult and is ignored instead of leaking into the new turn.
+        if (StaleReplyOutstanding)
+        {
+            StaleSeconds += seconds;
+
+            if (StaleSeconds >= REPLY_TIMEOUT_SECONDS)
+                StaleReplyOutstanding = false;
+        }
+
         switch (State)
         {
             case LockpickAnimState.Turning:
@@ -136,6 +148,7 @@ public sealed class LockpickAnimator
                     {
                         TimedOut = true;
                         StaleReplyOutstanding = true;
+                        StaleSeconds = 0f;
                         StartReturn();
                     }
 
@@ -187,6 +200,7 @@ public sealed class LockpickAnimator
         TimedOut = false;
         StaleReplyOutstanding = false;
         TurnKeyHeld = false;
+        StaleSeconds = 0f;
     }
 
     private void Enter(LockpickAnimState state)

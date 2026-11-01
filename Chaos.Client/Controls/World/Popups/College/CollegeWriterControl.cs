@@ -95,8 +95,8 @@ public sealed class CollegeWriterControl : GuildCloakDialogBase
 
     private bool CloseArmed;
     private readonly DraftAutosave Autosave = new();
-    private int _LastCounterBlocks = -1;
-    private int _LastCounterPictures = -1;
+    private int LastCounterBlocks = -1;
+    private int LastCounterPictures = -1;
 
     //the pictures the last save sent (or the piece opened with), so a picture whose upload finishes later is known to be unsent
     private readonly HashSet<string> SentPictures = new(StringComparer.Ordinal);
@@ -322,6 +322,8 @@ public sealed class CollegeWriterControl : GuildCloakDialogBase
     /// </summary>
     public void Open(CollegeDisplayArgs args)
     {
+        LastCounterBlocks = -1;
+        LastCounterPictures = -1;
         var library = args.Mode == CollegeWriterMode.Library;
         var keep = false;
 
@@ -552,11 +554,11 @@ public sealed class CollegeWriterControl : GuildCloakDialogBase
     {
         var pictures = Document.PictureCount;
 
-        if (!textChanged && (pictures == _LastCounterPictures) && (Document.Blocks.Count == _LastCounterBlocks))
+        if (!textChanged && (pictures == LastCounterPictures) && (Document.Blocks.Count == LastCounterBlocks))
             return;
 
-        _LastCounterPictures = pictures;
-        _LastCounterBlocks = Document.Blocks.Count;
+        LastCounterPictures = pictures;
+        LastCounterBlocks = Document.Blocks.Count;
         var (characters, bytes) = Document.MeasureText();
         var counter = $"{WritingDocument.TextCounter(characters, bytes)}   {pictures} / {CollegeProtocol.MAX_PICTURES}";
 
@@ -582,6 +584,8 @@ public sealed class CollegeWriterControl : GuildCloakDialogBase
             view.Dispose();
         }
 
+        LastCounterBlocks = -1;
+        LastCounterPictures = -1;
         BlockViews.Clear();
 
         for (var i = 0; i < Document.Blocks.Count; i++)
