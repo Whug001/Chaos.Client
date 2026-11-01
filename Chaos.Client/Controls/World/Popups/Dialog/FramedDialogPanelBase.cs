@@ -22,7 +22,7 @@ public abstract class FramedDialogPanelBase : PrefabPanel
     ///     <see cref="MenuListPanel" /> for their own (differing) border metrics, so promoting this doesn't shadow
     ///     either of them.
     /// </summary>
-    protected const int BORDER_BOTTOM_HEIGHT = OrnateFrame.BORDER_BOTTOM_HEIGHT;
+    public const int BORDER_BOTTOM_HEIGHT = OrnateFrame.BORDER_BOTTOM_HEIGHT;
 
     /// <summary>
     ///     The OK button used to split the bottom edge into rivets (left) and plain (right). Subclasses should set this if

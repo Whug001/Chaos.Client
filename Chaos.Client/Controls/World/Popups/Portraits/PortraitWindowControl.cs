@@ -27,6 +27,8 @@ public sealed class PortraitWindowControl : GuildCloakDialogBase
     private const int CONTENT_TOP = 40;
     private const int TOOL_WIDTH = 46;
     private const int TOOL_STEP = CustomButton.HEIGHT + 2;
+    private const long REMOVE_CONFIRM_MS = 3_000;
+    private const string REMOVE_ARM_MESSAGE = "Click Remove again to remove your portrait.";
     private const int GROUP_GAP = 6;
     private const int CANVAS_X = LEFT + TOOL_WIDTH + 6;
     private const int CANVAS_Y = CONTENT_TOP;
@@ -65,6 +67,8 @@ public sealed class PortraitWindowControl : GuildCloakDialogBase
     private readonly CustomButton PickerCancel;
     private readonly UILabel PreviewLabel;
     private readonly CustomButton RedoButton;
+    private readonly CustomButton RemoveButton;
+    private long RemoveArmedUntil;
     private readonly PortraitWindowState State = new();
     private readonly UILabel Status;
     private readonly PortraitSwatches Swatches;
@@ -144,7 +148,7 @@ public sealed class PortraitWindowControl : GuildCloakDialogBase
         x += SET_WIDTH + BUTTON_GAP;
         AddButton("Make", MAKE_WIDTH, x, BUTTONS_TOP, OnMakeClicked);
         x += MAKE_WIDTH + BUTTON_GAP;
-        AddButton("Remove", REMOVE_WIDTH, x, BUTTONS_TOP, OnRemoveClicked);
+        RemoveButton = AddButton("Remove", REMOVE_WIDTH, x, BUTTONS_TOP, OnRemoveClicked);
         x += REMOVE_WIDTH + BUTTON_GAP;
         AddButton("Close", CLOSE_WIDTH, x, BUTTONS_TOP, OnCloseClicked);
 
@@ -180,6 +184,8 @@ public sealed class PortraitWindowControl : GuildCloakDialogBase
     {
         OpenGeneration++;
         State.Open(ownPicture);
+        RemoveArmedUntil = 0;
+        RemoveButton.Caption = "Remove";
         Swatches.Selected = 0;
         ClosePicker();
         Status.Text = string.Empty;
@@ -226,6 +232,11 @@ public sealed class PortraitWindowControl : GuildCloakDialogBase
             return;
 
         ClosePicker();
+        RemoveArmedUntil = 0;
+        RemoveButton.Caption = "Remove";
+        Preview?.Dispose();
+        Preview = null;
+        PreviewVersion = -1;
         base.Hide();
     }
 
@@ -263,6 +274,15 @@ public sealed class PortraitWindowControl : GuildCloakDialogBase
     {
         base.Update(gameTime);
         FinishPicking();
+
+        if ((RemoveArmedUntil != 0) && (Environment.TickCount64 > RemoveArmedUntil))
+        {
+            RemoveArmedUntil = 0;
+            RemoveButton.Caption = "Remove";
+
+            if (Status.Text == REMOVE_ARM_MESSAGE)
+                Status.Text = string.Empty;
+        }
     }
 
     //the swatch grid owns its highlight: a pick only changes the current color and refreshes the tools
@@ -304,6 +324,8 @@ public sealed class PortraitWindowControl : GuildCloakDialogBase
                 RefreshControls();
             });
 
+    private bool RequestPending() => (State.PendingSetHash is not null) || State.PendingRemove;
+
     private void ClearStatus()
         => Status.Text = string.Empty;
 
@@ -318,6 +340,9 @@ public sealed class PortraitWindowControl : GuildCloakDialogBase
     {
         ClearStatus();
         var png = State.Canvas.ToPng();
+        if (RequestPending())
+            return;
+
         State.BeginSet(PortraitCanvas.HashOf(png));
         Status.Text = "Portrait sent.";
         SetRequested?.Invoke(png);
@@ -328,12 +353,31 @@ public sealed class PortraitWindowControl : GuildCloakDialogBase
         ClearStatus();
         var png = State.Canvas.ToPng();
         Status.Text = "Portrait sent.";
+        if (RequestPending())
+            return;
+
         MakeRequested?.Invoke(png);
     }
 
     private void OnRemoveClicked()
     {
         ClearStatus();
+        if (RequestPending())
+            return;
+
+        var now = Environment.TickCount64;
+
+        if (now > RemoveArmedUntil)
+        {
+            RemoveArmedUntil = now + REMOVE_CONFIRM_MS;
+            RemoveButton.Caption = "Sure?";
+            Status.Text = REMOVE_ARM_MESSAGE;
+
+            return;
+        }
+
+        RemoveArmedUntil = 0;
+        RemoveButton.Caption = "Remove";
         State.BeginRemove();
         Status.Text = "Portrait sent.";
         RemoveRequested?.Invoke();

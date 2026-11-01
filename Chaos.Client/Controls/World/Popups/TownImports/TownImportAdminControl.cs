@@ -96,6 +96,7 @@ public sealed class TownImportAdminControl : GuildCloakDialogBase
 
     private double ClockElapsedMs;
     private bool ConfirmingEnd;
+    private bool UnsavedArmed;
 
     //a note of the window's own (a dropped-edits warning) kept until the reply it waits for, which carries no status
     private string? PendingNote;
@@ -135,7 +136,7 @@ public sealed class TownImportAdminControl : GuildCloakDialogBase
         Height = footerBottom + BORDER_GAP + BORDER_BOTTOM_HEIGHT;
         this.CenterOnScreen();
 
-        OkButton = CreateCloseButton(Hide, OK_RIGHT_MARGIN, OK_BOTTOM_MARGIN);
+        OkButton = CreateCloseButton(RequestClose, OK_RIGHT_MARGIN, OK_BOTTOM_MARGIN);
 
         TitleLabel = Caption("Town Imports", 0, TITLE_TOP, Width, HorizontalAlignment.Center, LegendColors.Gold);
 
@@ -316,12 +317,28 @@ public sealed class TownImportAdminControl : GuildCloakDialogBase
             Show();
     }
 
+    /// <summary>Closes, but unsaved pool edits need a second press: the first press only warns on the status line.</summary>
+    private void RequestClose()
+    {
+        if (Editor.Unsaved && !UnsavedArmed)
+        {
+            UnsavedArmed = true;
+            SetStatus("Unsaved pool edits will be dropped. Close again to discard them.");
+
+            return;
+        }
+
+        UnsavedArmed = false;
+        Hide();
+    }
+
     public override void Hide()
     {
         if (!Visible)
             return;
 
         //hiding resets the children's interaction state, which drops the text boxes' focus
+        UnsavedArmed = false;
         base.Hide();
         Preview.ReleaseFrames();
         ConfirmingEnd = false;
@@ -333,7 +350,7 @@ public sealed class TownImportAdminControl : GuildCloakDialogBase
         switch (e.Keycode)
         {
             case Keycode.Escape:
-                Hide();
+                RequestClose();
                 e.Handled = true;
 
                 break;
@@ -467,6 +484,9 @@ public sealed class TownImportAdminControl : GuildCloakDialogBase
 
     private void RefreshAll()
     {
+        if (!Editor.Unsaved)
+            UnsavedArmed = false;
+
         RefreshTitle();
         RefreshResults();
         RefreshPool();
@@ -521,12 +541,13 @@ public sealed class TownImportAdminControl : GuildCloakDialogBase
     private void RefreshResults()
     {
         //a result already in the pool says so in place of its (zero) price
+        var poolKeys = new HashSet<string>(Editor.Items.Select(each => each.TemplateKey), StringComparer.OrdinalIgnoreCase);
         var pages = RefreshRows(
             ResultRows,
             Results,
             ref ResultsPage,
             SelectedResult,
-            item => Editor.Items.Any(each => each.TemplateKey.Equals(item.TemplateKey, StringComparison.OrdinalIgnoreCase))
+            item => poolKeys.Contains(item.TemplateKey)
                 ? "in pool"
                 : null);
 

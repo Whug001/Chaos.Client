@@ -87,7 +87,7 @@ public sealed class StageView : UIElement
             var handle = View(StageLightAnimator.ToTile(light.X2, light.Y2), stage);
 
             if (light.Motion == StageLightMotion.Sweep)
-                DrawDots(spriteBatch, origin, [anchor, handle]);
+                DrawDots(spriteBatch, origin, anchor, handle);
             else if (light.Motion == StageLightMotion.Circle)
                 DrawCircle(spriteBatch, origin, light, stage);
 
@@ -123,6 +123,13 @@ public sealed class StageView : UIElement
         //people on the stage
         string? hoverName = null;
 
+        // ringed in the colour of the light following them: one lookup per person instead of lights-per-person
+        Dictionary<uint, Color>? followRings = null;
+
+        foreach (var light in setup.Lights)
+            if (light.Motion == StageLightMotion.Follow)
+                (followRings ??= [])[light.FollowId] = new Color(light.R, light.G, light.B);
+
         foreach (var entity in WorldState.GetEntities())
         {
             if (entity.Type != ClientEntityType.Aisling)
@@ -136,9 +143,9 @@ public sealed class StageView : UIElement
             var p = View(tile, stage);
             var screen = origin + p;
 
-            foreach (var light in setup.Lights)
-                if ((light.Motion == StageLightMotion.Follow) && (light.FollowId == entity.Id))
-                    UIElement.DrawBorder(spriteBatch, new Rectangle((int)screen.X - 5, (int)screen.Y - 5, 11, 11), new Color(light.R, light.G, light.B));
+            if ((followRings is not null) && followRings.TryGetValue(entity.Id, out var ring))
+
+                UIElement.DrawBorder(spriteBatch, new Rectangle((int)screen.X - 5, (int)screen.Y - 5, 11, 11), ring);
 
             DrawRectClipped(spriteBatch, new Rectangle((int)screen.X - 3, (int)screen.Y - 3, 7, 7), Person);
             UIElement.DrawBorder(spriteBatch, new Rectangle((int)screen.X - 3, (int)screen.Y - 3, 7, 7), Color.White);
@@ -296,10 +303,10 @@ public sealed class StageView : UIElement
         return null;
     }
 
-    private void DrawDots(SpriteBatch spriteBatch, Vector2 origin, Vector2[] line)
+    private void DrawDots(SpriteBatch spriteBatch, Vector2 origin, Vector2 from, Vector2 to)
     {
-        var from = line[0];
-        var to = line[1];
+
+
         var steps = Math.Max(1, (int)(Vector2.Distance(from, to) / 4f));
 
         for (var i = 0; i <= steps; i++)

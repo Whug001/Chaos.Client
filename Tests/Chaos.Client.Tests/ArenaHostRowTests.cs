@@ -38,7 +38,7 @@ public sealed class ArenaHostRowTests
     public void A_roster_row_marks_the_host_and_a_captain()
         => Shown(ArenaHostRow.RosterText(new ArenaHostRosterInfo { Name = "Ivy", Team = ArenaHostTeam.Green, IsHost = true, IsCaptain = true }))
             .Should()
-            .Be("Ivy (host) (captain)");
+            .Be("(host) (captain) Ivy");
 
     [Test]
     public void A_plain_roster_row_shows_only_the_name()

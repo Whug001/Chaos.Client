@@ -48,6 +48,23 @@ public class GuildCloakEditorModelTests
     }
 
     [Test]
+    public void HasPaint_is_false_for_a_blank_design()
+        => Model().HasPaint().Should().BeFalse();
+
+    [Test]
+    public void HasPaint_is_true_once_a_cell_is_painted()
+    {
+        var model = TwoColors();
+        model.Apply(GuildCloakPart.Back, 5, 5);
+
+        model.HasPaint().Should().BeTrue();
+    }
+
+    [Test]
+    public void HasPaint_is_true_for_a_palette_only_change()
+        => TwoColors().HasPaint().Should().BeTrue();
+
+    [Test]
     public void Mirror_paints_the_matching_cell_on_the_other_half()
     {
         var model = TwoColors();

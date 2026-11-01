@@ -171,6 +171,8 @@ public sealed class MountWindowControl : GuildCloakDialogBase
         {
             Hide();
             e.Handled = true;
+
+            return;
         }
 
         base.OnKeyDown(e);

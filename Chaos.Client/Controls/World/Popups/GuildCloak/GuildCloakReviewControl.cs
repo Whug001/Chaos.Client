@@ -74,6 +74,7 @@ public sealed class GuildCloakReviewControl : GuildCloakDialogBase
     private int Page;
     private int PreviewDesignId;
     private int SelectedIndex = -1;
+    private bool DecisionPending;
 
     public GuildCloakReviewControl(AislingRenderer renderer, GuildCloakReferences references)
         : base("_nsett", false)
@@ -261,8 +262,8 @@ public sealed class GuildCloakReviewControl : GuildCloakDialogBase
             return;
 
         var hasEntry = Selected is not null;
-        ApproveButton.Enabled = hasEntry;
-        RejectButton.Enabled = hasEntry && ReasonBox.Text.Trim().Length is >= 1 and <= GuildCloakProtocol.MAX_REASON_CHARS;
+        ApproveButton.Enabled = hasEntry && !DecisionPending;
+        RejectButton.Enabled = hasEntry && !DecisionPending && ReasonBox.Text.Trim().Length is >= 1 and <= GuildCloakProtocol.MAX_REASON_CHARS;
     }
 
     private void Decide(GuildCloakReviewAction action)
@@ -275,6 +276,7 @@ public sealed class GuildCloakReviewControl : GuildCloakDialogBase
         if ((action == GuildCloakReviewAction.Reject) && (reason.Length == 0))
             return;
 
+        DecisionPending = true;
         DecisionRequested?.Invoke(
             new GuildCloakReviewInteractionArgs
             {
@@ -312,10 +314,15 @@ public sealed class GuildCloakReviewControl : GuildCloakDialogBase
         if (index >= Entries.Count)
             return;
 
+        var previousId = Selected?.SubmissionId;
+        DecisionPending = false;
         SelectedIndex = index;
-        ReasonBox.Text = string.Empty;
+        // The reason box is cleared below only when the selected submission changes.
+
 
         var entry = Selected;
+        if (previousId != entry?.SubmissionId)
+            ReasonBox.Text = string.Empty;
         var showsEmblem = GuildDesignReviewText.ShowsEmblem(entry);
 
         foreach (var view in CloakViews)

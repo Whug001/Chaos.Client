@@ -348,9 +348,36 @@ public sealed class TownImportBoardControl : GuildCloakDialogBase
 
         RunningLabel.Text = string.Create(
             CultureInfo.InvariantCulture,
-            $"Now: {running.Item.Name}, {running.Item.Price:N0} gold, {timeLeft} left");
+            $"Now: {FitRunningName(running.Item.Name, running.Item.Price, timeLeft)}, {running.Item.Price:N0} gold, {timeLeft} left");
 
         RunningSalesLabel.Text = string.Create(CultureInfo.InvariantCulture, $"Sold {running.Sold:N0} for {running.Gold:N0} gold");
+    }
+
+    // Ellipsizes a running import's name so the price and time left stay visible: BankItemRow.FitToLabel, but against the width left over after the rest of the line.
+    private string FitRunningName(string name, long price, string timeLeft)
+    {
+        var rest = string.Create(CultureInfo.InvariantCulture, $"Now: , {price:N0} gold, {timeLeft} left");
+        var innerWidth = RunningLabel.Width - RunningLabel.PaddingLeft - RunningLabel.PaddingRight;
+        var maxWidth = innerWidth - TextRenderer.MeasureWidth(rest) - TextRenderer.MeasureWidth("...");
+
+        if (TextRenderer.MeasureWidth(name) <= maxWidth)
+            return name;
+
+        var width = 0;
+        var length = 0;
+
+        while (length < name.Length)
+        {
+            var next = width + TextRenderer.MeasureCharWidth(name[length]);
+
+            if (next > maxWidth)
+                break;
+
+            width = next;
+            length++;
+        }
+
+        return length > 0 ? string.Concat(name.AsSpan(0, length), "...") : "...";
     }
 
     private void Select(int index)

@@ -202,6 +202,16 @@ public class TownBallotStateTests
     }
 
     [Test]
+    public async Task Statement_problem_names_the_cause()
+    {
+        TownBallotState.StatementProblem("   ").Should().Be($"Write 1 to {TownBallotProtocol.MAX_STATEMENT_CHARS} characters.");
+        TownBallotState.StatementProblem(new string('a', TownBallotProtocol.MAX_STATEMENT_CHARS + 1)).Should().Be($"Write 1 to {TownBallotProtocol.MAX_STATEMENT_CHARS} characters.");
+        TownBallotState.StatementProblem(string.Join("\n", Enumerable.Repeat("x", 10))).Should().Be($"At most {TownBallotState.MAX_STATEMENT_LINE_BREAKS} line breaks.");
+        TownBallotState.StatementProblem("A plan").Should().BeNull();
+        await Task.CompletedTask;
+    }
+
+    [Test]
     public async Task Saving_refuses_more_than_eight_line_breaks()
     {
         var state = new TownBallotState();

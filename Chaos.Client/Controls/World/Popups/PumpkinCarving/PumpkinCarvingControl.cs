@@ -136,7 +136,7 @@ public sealed class PumpkinCarvingControl : GuildCloakDialogBase
             DrawTextureFitted(
                 spriteBatch,
                 Preview,
-                new Rectangle(ScreenX + PreviewX, ScreenY + CONTENT_TOP, Preview.Width * 2, Preview.Height * 2),
+                new Rectangle(ScreenX + PreviewX, ScreenY + CONTENT_TOP, PREVIEW_SIZE, PREVIEW_SIZE),
                 Color.White);
     }
 
