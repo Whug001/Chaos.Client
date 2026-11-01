@@ -1,4 +1,4 @@
-﻿#region
+#region
 using Chaos.Client.Data;
 using Chaos.Client.Data.Models;
 using Chaos.Client.Data.Utilities;
@@ -1245,20 +1245,7 @@ public static class WorldState
         SkillBook.Update(elapsedMs);
         SpellBook.Update(elapsedMs);
 
-        for (var i = ActiveEffects.Count - 1; i >= 0; i--)
-        {
-            var effect = ActiveEffects[i];
-            effect.ElapsedMs += elapsedMs;
-
-            while (effect.ElapsedMs >= effect.FrameIntervalMs)
-            {
-                effect.CurrentFrame++;
-                effect.ElapsedMs -= effect.FrameIntervalMs;
-            }
-
-            if (effect.IsComplete)
-                ActiveEffects.RemoveAt(i);
-        }
+        EffectSpawner.Advance(ActiveEffects, ActiveProjectiles, elapsedMs, GetEntity);
 
         for (var i = DyingEffects.Count - 1; i >= 0; i--)
         {

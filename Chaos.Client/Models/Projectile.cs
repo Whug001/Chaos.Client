@@ -25,6 +25,7 @@ public sealed class Projectile
 
     public int Direction { get; set; }
     public int FramesPerDirection { get; init; }
+    public int MapHeight { get; init; }
     public int CurrentFrameCycle { get; set; }
 
     public bool IsComplete { get; set; }

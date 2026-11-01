@@ -415,6 +415,40 @@ public static class AnimationSystem
         entity.EmoteStartFrame = 0;
         entity.EmoteFrameCount = 0;
     }
+
+    /// <summary>
+    ///     Ticks the emote overlay and client-side emote timers on an entity. Same tick both the world screen and the
+    ///     login scrying view run after Advance; kept here so the two call sites cannot drift apart.
+    /// </summary>
+    public static void TickEmotes(WorldEntity entity, float elapsedMs)
+    {
+        //tick emote overlay timer and cycle animated emote frames
+        if (entity.ActiveEmoteFrame >= 0)
+        {
+            entity.EmoteElapsedMs += elapsedMs;
+            entity.EmoteRemainingMs -= elapsedMs;
+
+            if (entity.EmoteRemainingMs <= 0)
+            {
+                entity.ActiveEmoteFrame = -1;
+                entity.EmoteFrameCount = 0;
+            } else if (entity.EmoteFrameCount > 1)
+            {
+                var frameDuration = entity.EmoteDurationMs / entity.EmoteFrameCount;
+                var frameIndex = (int)(entity.EmoteElapsedMs / frameDuration) % entity.EmoteFrameCount;
+                entity.ActiveEmoteFrame = entity.EmoteStartFrame + frameIndex;
+            }
+        }
+
+        //tick the client-side emote and retire it once it has run its course
+        if (entity.ActiveCustomEmote is { } customEmote)
+        {
+            entity.CustomEmoteElapsedMs += elapsedMs;
+
+            if (entity.CustomEmoteElapsedMs >= customEmote.DurationMs)
+                entity.StopCustomEmote();
+        }
+    }
     #endregion
 
     #region Frame Resolution

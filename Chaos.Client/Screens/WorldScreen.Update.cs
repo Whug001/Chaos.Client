@@ -109,39 +109,13 @@ public sealed partial class WorldScreen
                 //interval would otherwise stick — clear it so the aisling idle falls back to DEFAULT_IDLE_FRAME_MS.
                 entity.IdleFrameIntervalMs = 0f;
 
-            //tick emote overlay timer and cycle animated emote frames
-            if (entity.ActiveEmoteFrame >= 0)
-            {
-                entity.EmoteElapsedMs += elapsedMs;
-                entity.EmoteRemainingMs -= elapsedMs;
-
-                if (entity.EmoteRemainingMs <= 0)
-                {
-                    entity.ActiveEmoteFrame = -1;
-                    entity.EmoteFrameCount = 0;
-                } else if (entity.EmoteFrameCount > 1)
-                {
-                    var frameDuration = entity.EmoteDurationMs / entity.EmoteFrameCount;
-                    var frameIndex = (int)(entity.EmoteElapsedMs / frameDuration) % entity.EmoteFrameCount;
-                    entity.ActiveEmoteFrame = entity.EmoteStartFrame + frameIndex;
-                }
-            }
-
-            //tick the client-side emote and retire it once it has run its course
-            if (entity.ActiveCustomEmote is { } customEmote)
-            {
-                entity.CustomEmoteElapsedMs += elapsedMs;
-
-                if (entity.CustomEmoteElapsedMs >= customEmote.DurationMs)
-                    entity.StopCustomEmote();
-            }
+            AnimationSystem.TickEmotes(entity, elapsedMs);
 
             if (entity.HitTintExpiryMs > 0)
                 entity.HitTintExpiryMs = Math.Max(0, entity.HitTintExpiryMs - elapsedMs);
         }
 
         WorldState.UpdateEffects(elapsedMs);
-        AdvanceProjectiles(elapsedMs);
 
         //latched group highlight: off when the F4 toggle is turned off, otherwise re-picked twice a second
         if (GroupHighlightLatched)
@@ -637,104 +611,6 @@ public sealed partial class WorldScreen
 
         WorldState.CurrentFrame.HoveredTile = new Point(tileX, tileY);
     }
-
-    #region Projectile Advancement
-    private void AdvanceProjectiles(float elapsedMs)
-    {
-        if (MapFile is null)
-            return;
-
-        for (var i = WorldState.ActiveProjectiles.Count - 1; i >= 0; i--)
-        {
-            var proj = WorldState.ActiveProjectiles[i];
-            proj.ElapsedMs += elapsedMs;
-
-            //defensive: a malformed projectile spec (StepDelayMs <= 0 or Step <= 0) would never
-            //drain ElapsedMs or never reach the target, freezing the game thread inside this loop.
-            if (proj.StepDelayMs <= 0f || proj.Step <= 0)
-            {
-                proj.IsComplete = true;
-                WorldState.ActiveProjectiles.RemoveAt(i);
-
-                continue;
-            }
-
-            //iteration cap defends against pathological cases where the projectile genuinely
-            //can't catch a moving target within one frame's worth of elapsed time.
-            const int MAX_STEPS_PER_FRAME = 64;
-            var steps = 0;
-
-            while ((proj.ElapsedMs >= proj.StepDelayMs) && !proj.IsComplete && (steps < MAX_STEPS_PER_FRAME))
-            {
-                proj.ElapsedMs -= proj.StepDelayMs;
-                AdvanceProjectileStep(proj);
-                steps++;
-            }
-
-            if (proj.IsComplete)
-                WorldState.ActiveProjectiles.RemoveAt(i);
-        }
-    }
-
-    private const float HIT_TINT_FLASH_MS = 100f;
-
-    private void AdvanceProjectileStep(Projectile proj)
-    {
-        var targetEntity = WorldState.GetEntity(proj.TargetEntityId);
-
-        if (targetEntity is not null)
-        {
-            var targetWorld = Camera.TileToWorld(targetEntity.TileX, targetEntity.TileY, MapFile!.Height);
-            proj.LastKnownTargetX = targetWorld.X + DaLibConstants.HALF_TILE_WIDTH;
-            proj.LastKnownTargetY = targetWorld.Y + DaLibConstants.HALF_TILE_HEIGHT;
-        }
-
-        var dx = proj.LastKnownTargetX - proj.CurrentX;
-        var dy = proj.LastKnownTargetY - proj.CurrentY;
-        var distSq = dx * dx + dy * dy;
-        var stepSq = (float)proj.Step * proj.Step;
-
-        if (distSq <= stepSq)
-        {
-            proj.IsComplete = true;
-
-            targetEntity?.HitTintExpiryMs = HIT_TINT_FLASH_MS;
-
-            return;
-        }
-
-        var remainingDistance = MathF.Sqrt(distSq);
-        var unitX = dx / remainingDistance;
-        var unitY = dy / remainingDistance;
-
-        proj.CurrentX += unitX * proj.Step;
-        proj.CurrentY += unitY * proj.Step;
-        proj.DistanceTraveled += proj.Step;
-
-        if (proj is { ArcRatioV: not null, ArcRatioH: not null, InitialDistance: > 0 })
-        {
-            var progress = Math.Clamp(proj.DistanceTraveled / proj.InitialDistance, 0f, 1f);
-            var arcHeight = proj.InitialDistance * proj.ArcRatioV.Value / proj.ArcRatioH.Value / 2f;
-            var arcOffset = MathF.Sin(MathF.PI * progress) * arcHeight;
-
-            //perpendicular to heading (rotate 90°)
-            proj.ArcOffsetX = -unitY * arcOffset;
-            proj.ArcOffsetY = unitX * arcOffset;
-        }
-
-        if (targetEntity is not null)
-        {
-            var projTile = Camera.WorldToTile(proj.CurrentX, proj.CurrentY, MapFile!.Height);
-
-            proj.Direction = GetProjectileDirection(
-                targetEntity.TileX - projTile.X,
-                targetEntity.TileY - projTile.Y);
-        }
-
-        if (proj.FramesPerDirection > 1)
-            proj.CurrentFrameCycle = (proj.CurrentFrameCycle + 1) % proj.FramesPerDirection;
-    }
-    #endregion
 
     /// <summary>
     ///     Returns the first visible modal panel among Root's children (highest ZIndex first), or null.

@@ -150,6 +150,8 @@ public sealed class ChaosGame : Game
 
         ClientSettings.Load();
 
+        EffectSpawner.EffectInfoResolver = EffectRenderer.GetEffectInfo;
+
         Graphics = new GraphicsDeviceManager(this)
         {
             PreferredBackBufferWidth = VIRTUAL_WIDTH,

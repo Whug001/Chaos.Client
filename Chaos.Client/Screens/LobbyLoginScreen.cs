@@ -552,7 +552,21 @@ public sealed class LobbyLoginScreen : IScreen
         }
     }
 
-    private void OnScryFrame(ScryFrameArgs args) => ScryView?.Scene.Apply(args);
+    private void OnScryFrame(ScryFrameArgs args)
+    {
+        switch (args.Kind)
+        {
+            case ScryFrameKind.Events:
+                ScryView?.Scene.ApplyEvents(args);
+
+                break;
+
+            case ScryFrameKind.None or ScryFrameKind.Full or ScryFrameKind.Positions:
+                ScryView?.Scene.Apply(args);
+
+                break;
+        }
+    }
 
     private void OnRedirectReceived(RedirectInfo _)
     {

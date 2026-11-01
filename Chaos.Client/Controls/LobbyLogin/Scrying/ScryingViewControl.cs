@@ -69,6 +69,9 @@ public sealed class ScryingViewControl : UIElement
         //still lands at (-28, 24) oval pixels from center, the way WorldScreen centers it
         Camera = new Camera(SceneWidth, SceneHeight) { Offset = new Vector2(-28, 24) / ZOOM };
         Scene.MapChanged += OnMapChanged;
+        Scene.CreatureRenderer = Game.CreatureRenderer;
+        Scene.AislingRenderer = Game.AislingRenderer;
+        Scene.EffectInfoSource = Game.EffectRenderer.GetEffectInfo;
         Scene.TargetChanged += () => Fade = 0f;
     }
 
@@ -167,6 +170,8 @@ public sealed class ScryingViewControl : UIElement
 
         try
         {
+            DrawScryBackgroundEffects();
+
             for (var depth = bounds.MinX + bounds.MinY; depth <= bounds.MaxX + bounds.MaxY; depth++)
                 for (var tileX = bounds.MinX; tileX <= bounds.MaxX; tileX++)
                 {
@@ -190,12 +195,130 @@ public sealed class ScryingViewControl : UIElement
                         var tileCenterY = tileWorld.Y + DaLibConstants.HALF_TILE_HEIGHT;
                         DrawScryEntity(BlendScope.Batch, entity, tileCenterX, tileCenterY);
                     }
+                    DrawScryGroundEffectsAt(tileX, tileY);
+                    DrawScryProjectilesAt(tileX, tileY);
+
+                    foreach (var entity in byTile[(tileX, tileY)])
+                        DrawScryEntityEffects(entity);
                 }
         } finally
         {
             BlendScope.End();
         }
     }
+
+    private void DrawScryBackgroundEffects()
+    {
+        if (MapFile is null)
+            return;
+
+        foreach (var effect in Scene.Effects)
+        {
+            if (!effect.IsBackground || effect.IsComplete)
+                continue;
+
+            if (effect.TargetEntityId.HasValue)
+            {
+                var target = Scene.GetEntity(effect.TargetEntityId.Value);
+
+                if (target is null)
+                    continue;
+
+                var targetWorld = Camera.TileToWorld(target.TileX, target.TileY, MapFile.Height);
+
+                DrawScrySingleEffect(
+                    effect,
+                    targetWorld.X + DaLibConstants.HALF_TILE_WIDTH,
+                    targetWorld.Y + DaLibConstants.HALF_TILE_HEIGHT,
+                    target.VisualOffset);
+
+                continue;
+            }
+
+            if (!effect.TileX.HasValue || !effect.TileY.HasValue)
+                continue;
+
+            var tileWorld = Camera.TileToWorld(effect.TileX.Value, effect.TileY.Value, MapFile.Height);
+
+            DrawScrySingleEffect(
+                effect,
+                tileWorld.X + DaLibConstants.HALF_TILE_WIDTH,
+                tileWorld.Y + DaLibConstants.HALF_TILE_HEIGHT,
+                Vector2.Zero);
+        }
+    }
+
+    private void DrawScryGroundEffectsAt(int tileX, int tileY)
+    {
+        if (MapFile is null)
+            return;
+
+        foreach (var effect in Scene.Effects)
+        {
+            if (effect.TargetEntityId.HasValue || effect.IsComplete || effect.IsBackground)
+                continue;
+
+            if (effect.TileX != tileX || effect.TileY != tileY)
+                continue;
+
+            var tileWorld = Camera.TileToWorld(tileX, tileY, MapFile.Height);
+
+            DrawScrySingleEffect(
+                effect,
+                tileWorld.X + DaLibConstants.HALF_TILE_WIDTH,
+                tileWorld.Y + DaLibConstants.HALF_TILE_HEIGHT,
+                Vector2.Zero);
+        }
+    }
+
+    private void DrawScryProjectilesAt(int tileX, int tileY)
+    {
+        if (MapFile is null)
+            return;
+
+        foreach (var proj in Scene.Projectiles)
+        {
+            if (proj.IsComplete)
+                continue;
+
+            var tile = Camera.WorldToTile(proj.CurrentX, proj.CurrentY, MapFile.Height);
+
+            if ((tile.X != tileX) || (tile.Y != tileY))
+                continue;
+
+            var frameIndex = proj.Direction * proj.FramesPerDirection + proj.CurrentFrameCycle;
+
+            Game.EffectRenderer.DrawProjectile(
+                BlendScope.Batch,
+                Camera,
+                proj.MeffectId,
+                frameIndex,
+                proj.CurrentX + proj.ArcOffsetX,
+                proj.CurrentY + proj.ArcOffsetY);
+        }
+    }
+
+    private void DrawScryEntityEffects(WorldEntity entity)
+    {
+        if (MapFile is null)
+            return;
+
+        var tileWorldPos = Camera.TileToWorld(entity.TileX, entity.TileY, MapFile.Height);
+        var tileCenterX = tileWorldPos.X + DaLibConstants.HALF_TILE_WIDTH;
+        var tileCenterY = tileWorldPos.Y + DaLibConstants.HALF_TILE_HEIGHT;
+
+        foreach (var effect in Scene.Effects)
+        {
+            if ((effect.TargetEntityId != entity.Id) || effect.IsComplete || effect.IsBackground)
+                continue;
+
+            DrawScrySingleEffect(effect, tileCenterX, tileCenterY, entity.VisualOffset);
+        }
+    }
+
+    private void DrawScrySingleEffect(Animation effect, float tileCenterX, float tileCenterY, Vector2 visualOffset)
+        => Game.EffectRenderer.Draw(BlendScope, Camera, effect.EffectId, effect.CurrentFrame, effect.BlendMode, tileCenterX, tileCenterY, visualOffset);
+
 
     private void DrawScryEntity(SpriteBatch spriteBatch, WorldEntity entity, float tileCenterX, float tileCenterY)
     {
@@ -345,8 +468,11 @@ public sealed class ScryingViewControl : UIElement
             return;
         }
 
-        //fishing poses and custom emotes are skipped: scry frames only carry look and position,
-        //so those states never occur here
+        //fishing poses are skipped: scry frames only carry look and position, so those states never
+        //occur here. Custom emotes do occur (body events carry them) and draw on top of the finished
+        //composite, the same way WorldScreen.DrawAisling does.
+        var alpha = entity is { IsTransparent: true, IsDead: false } ? 1f / 3f : 1f;
+
         var drawParams = new AislingDrawParams(
             entity.RenderCacheId,
             appearance,
@@ -363,9 +489,31 @@ public sealed class ScryingViewControl : UIElement
             EntityTintType.None,
             default,
             entity.IsDead,
-            entity is { IsTransparent: true, IsDead: false } ? 1f / 3f : 1f);
+            alpha);
 
-        Game.AislingRenderer.Draw(spriteBatch, Camera, in drawParams);
+        var textureBottomY = Game.AislingRenderer.Draw(spriteBatch, Camera, in drawParams);
+
+        //custom emotes ride on top of the finished composite rather than inside it - see CustomEmoteRenderer.
+        //Only the front-facing poses show a face to hang them off.
+        if (isFrontFacing && (textureBottomY != 0) && !entity.EmoteHidden && entity.ActiveCustomEmote is { } customEmote)
+        {
+            Game.AislingRenderer.TryGetCompositeTopPadding(entity.RenderCacheId, out var topPadding);
+
+            Game.CustomEmoteRenderer.Draw(
+                spriteBatch,
+                Camera,
+                customEmote,
+                entity.CustomEmoteElapsedMs,
+                flip,
+                frameIndex,
+                animSuffix,
+                appearance.BodyColor,
+                tileCenterX,
+                tileCenterY,
+                entity.VisualOffset,
+                topPadding,
+                alpha);
+        }
     }
 
     private void EnsureTargets(GraphicsDevice device)

@@ -1,4 +1,4 @@
-﻿#region
+#region
 using Chaos.Client.Chat;
 using Chaos.Client.Collections;
 using Chaos.Client.Controls.Generic;
@@ -1224,65 +1224,10 @@ public sealed partial class WorldScreen
         if (entity is null)
             return;
 
-        //emotes are body animations — ignore if any body anim or emote overlay is already playing
-        if ((entity.AnimState == EntityAnimState.BodyAnim)
-            || (entity.ActiveEmoteFrame >= 0)
-            || entity.IsPlayingCustomEmote)
-            return;
+        var isEmote = CustomEmoteRegistry.TryGet((int)args.BodyAnimation, out _) || DataUtilities.IsEmote(args.BodyAnimation);
+        var hidden = args.SourceId == WorldState.PlayerEntityId && OwnAnimationHidden(isEmote);
 
-        //the client-side emotes ride on body-animation bytes the enum leaves unused, so they never reach
-        //ResolveBodyAnimParams or the emot01 overlay below — they are drawn on top of the composite instead.
-        //Always return here on a custom-emote byte so it never falls through to the creature attack
-        //animation below. Only start it when the entity is NOT rendered as a creature sprite — creature
-        //sprites have no aisling head to draw it on.
-        var isOwn = args.SourceId == WorldState.PlayerEntityId;
-
-        if (CustomEmoteRegistry.TryGet((int)args.BodyAnimation, out var customEmote))
-        {
-            if (!entity.IsRenderedAsCreatureSprite)
-                entity.StartCustomEmote(customEmote, isOwn && OwnAnimationHidden(isEmote: true));
-
-            return;
-        }
-
-        //your own hidden attack still runs for its full length so you can't move sooner than with it showing; the
-        //server sends your own animations even while "Show body animations" is off for the same reason
-        var hidden = isOwn && OwnAnimationHidden(DataUtilities.IsEmote(args.BodyAnimation));
-
-        //creature sprites (native creatures AND aislings in monster form) use their mpf attack frame
-        //counts; normal aislings use epf suffix-based frame counts. Gate on IsRenderedAsCreatureSprite
-        //so a form attacks with its mns frames, not garbled aisling-epf frames. Emotes are no-ops here
-        //(StartCreatureBodyAnimation skips them — a form has no aisling face overlay to composite).
-        if (entity.IsRenderedAsCreatureSprite)
-        {
-            var animInfo = Game.CreatureRenderer.GetAnimInfo(entity.SpriteId);
-
-            if (animInfo is { } info)
-                AnimationSystem.StartCreatureBodyAnimation(
-                    entity,
-                    args.BodyAnimation,
-                    args.AnimationSpeed,
-                    in info,
-                    hidden);
-        } else
-        {
-            (_, var framesPerDir, _, _) = AnimationSystem.ResolveBodyAnimParams(args.BodyAnimation);
-
-            if (framesPerDir > 0)
-            {
-                if (entity.Appearance.HasValue && !Game.AislingRenderer.HasArmorAnimation(entity.Appearance.Value, args.BodyAnimation))
-                    return;
-
-                AnimationSystem.StartBodyAnimation(entity, args.BodyAnimation, args.AnimationSpeed, hidden);
-            } else if (DataUtilities.IsEmote(args.BodyAnimation))
-            {
-                //emote overlay — face/bubble icon composited into the aisling sprite
-                (var startFrame, var frameCount, var durationMs) = AnimationSystem.ResolveEmoteFrames(args.BodyAnimation);
-
-                if (startFrame >= 0)
-                    entity.StartEmoteOverlay(startFrame, frameCount, durationMs, hidden);
-            }
-        }
+        BodyAnimationPlayer.Start(entity, args, hidden, Game.CreatureRenderer, Game.AislingRenderer);
     }
 
     /// <summary>Whether one of the player's own body animations or emotes is hidden by their F4 settings right now.</summary>
@@ -1334,11 +1279,6 @@ public sealed partial class WorldScreen
 
     private void CreateProjectile(int meffectId, uint sourceEntityId, uint targetEntityId)
     {
-        var record = DataContext.Effects.GetMeffectRecord(meffectId);
-
-        if (record is null)
-            return;
-
         var sourceEntity = WorldState.GetEntity(sourceEntityId);
         var targetEntity = WorldState.GetEntity(targetEntityId);
 
@@ -1348,43 +1288,7 @@ public sealed partial class WorldScreen
         if (MapFile is null)
             return;
 
-        var sourceWorld = Camera.TileToWorld(sourceEntity.TileX, sourceEntity.TileY, MapFile.Height);
-        var targetWorld = Camera.TileToWorld(targetEntity.TileX, targetEntity.TileY, MapFile.Height);
-
-        var srcX = sourceWorld.X + DaLibConstants.HALF_TILE_WIDTH;
-        var srcY = sourceWorld.Y + DaLibConstants.HALF_TILE_HEIGHT;
-        var tgtX = targetWorld.X + DaLibConstants.HALF_TILE_WIDTH;
-        var tgtY = targetWorld.Y + DaLibConstants.HALF_TILE_HEIGHT;
-
-        var dx = tgtX - srcX;
-        var dy = tgtY - srcY;
-        var distance = MathF.Sqrt(dx * dx + dy * dy);
-
-        if (distance < 1f)
-            return;
-
-        //direction matches server's DirectionalRelationTo (tile space): Up=0, Right=1, Down=2, Left=3
-        var direction = GetProjectileDirection(
-            targetEntity.TileX - sourceEntity.TileX,
-            targetEntity.TileY - sourceEntity.TileY);
-
-        WorldState.ActiveProjectiles.Add(
-            new Projectile
-            {
-                TargetEntityId = targetEntityId,
-                MeffectId = meffectId,
-                CurrentX = srcX,
-                CurrentY = srcY,
-                LastKnownTargetX = tgtX,
-                LastKnownTargetY = tgtY,
-                Step = record.Step,
-                StepDelayMs = record.StepDelay,
-                InitialDistance = distance,
-                ArcRatioV = record.ArcRatioV,
-                ArcRatioH = record.ArcRatioH,
-                FramesPerDirection = record.FramesPerDirection,
-                Direction = direction
-            });
+        EffectSpawner.CreateProjectile(WorldState.ActiveProjectiles, meffectId, sourceEntity, targetEntity, MapFile.Height);
     }
 
     private void CreateEffect(
@@ -1394,61 +1298,14 @@ public sealed partial class WorldScreen
         int? targetTileX = null,
         int? targetTileY = null,
         bool isBackground = false)
-    {
-        var info = Game.EffectRenderer.GetEffectInfo(effectId);
-
-        if (info is null)
-            return;
-
-        (var frameCount, var fileIntervalMs, var isEfa, var blendMode) = info.Value;
-
-        //efa effects use the interval from the file; epf effects use the packet's animation speed
-        float frameIntervalMs = isEfa
-            ? fileIntervalMs > 0 ? fileIntervalMs : 50
-            : animationSpeed > 0
-                ? animationSpeed
-                : 50;
-
-        //limit the number of effect animations playing on a single entity at once
-        if (targetEntityId.HasValue)
-        {
-            //re-casting an effect that's still playing restarts it rather than stacking an
-            //identical, pixel-for-pixel overlapping copy that would waste a slot.
-            WorldState.ActiveEffects.RemoveAll(e => (e.TargetEntityId == targetEntityId) && (e.EffectId == effectId));
-
-            var maxPerEntity = ClientSettings.MaxEffectAnimationsPerEntity;
-
-            //a cap of 0 means no effect animations play on entities at all — drop the incoming one.
-            if (maxPerEntity <= 0)
-                return;
-
-            //evict the oldest entity-attached effect(s) until there's room for the incoming one.
-            //ActiveEffects is append-ordered (completed effects are removed in place), so the
-            //lowest matching index is the oldest still-living effect — FIFO eviction.
-            while (WorldState.ActiveEffects.Count(e => e.TargetEntityId == targetEntityId) >= maxPerEntity)
-            {
-                var oldestIndex = WorldState.ActiveEffects.FindIndex(e => e.TargetEntityId == targetEntityId);
-
-                if (oldestIndex < 0)
-                    break;
-
-                WorldState.ActiveEffects.RemoveAt(oldestIndex);
-            }
-        }
-
-        WorldState.ActiveEffects.Add(
-            new Animation
-            {
-                EffectId = effectId,
-                TargetEntityId = targetEntityId,
-                TileX = targetTileX,
-                TileY = targetTileY,
-                FrameCount = frameCount,
-                FrameIntervalMs = frameIntervalMs,
-                BlendMode = blendMode,
-                IsBackground = isBackground
-            });
-    }
+        => EffectSpawner.CreateEffect(
+            WorldState.ActiveEffects,
+            effectId,
+            animationSpeed,
+            targetEntityId,
+            targetTileX,
+            targetTileY,
+            isBackground);
 
     private void HandleSound(SoundArgs args)
     {
@@ -2149,19 +2006,4 @@ public sealed partial class WorldScreen
             SellerName = e.SellerName
         };
     #endregion
-
-    //Up=0, Right=1, Down=2, Left=3 — matches server DirectionalRelationTo in tile space
-    private static int GetProjectileDirection(int dtx, int dty)
-    {
-        var absDtx = Math.Abs(dtx);
-        var absDty = Math.Abs(dty);
-
-        if (absDtx > absDty)
-            return dtx > 0 ? 1 : 3;
-
-        if (absDty > 0)
-            return dty < 0 ? 0 : 2;
-
-        return 0;
-    }
 }
