@@ -22,7 +22,6 @@ public sealed class LibraryReviewControl : CollegeListWindow<LibraryReviewRowInf
     private List<LibraryReviewRowInfo> All = [];
     private List<LibraryReviewRowInfo> Shown = [];
     private bool ShowingReports;
-    private readonly Dictionary<int, LibraryReviewKind> Kinds = new();
 
     public LibraryReviewControl()
         : base(
@@ -75,19 +74,13 @@ public sealed class LibraryReviewControl : CollegeListWindow<LibraryReviewRowInf
         {
             Type = CollegeActionType.LibraryOpenBook,
             Id = id,
-            OpenMode = Kinds.TryGetValue(id, out var kind) && (kind == LibraryReviewKind.Reported)
-                ? LibraryOpenMode.ReviewReported
-                : LibraryOpenMode.ReviewWaiting
+            //The open mode follows the visible tab: one book id can sit in both lists at once.
+            OpenMode = ShowingReports ? LibraryOpenMode.ReviewReported : LibraryOpenMode.ReviewWaiting
         };
-
     private void Refresh()
     {
         Shown = All.Where(r => (r.Kind == LibraryReviewKind.Reported) == ShowingReports)
                    .ToList();
-        Kinds.Clear();
-
-        foreach (var row in All)
-            Kinds[row.Id] = row.Kind;
 
         WaitingTab.Caption = $"Waiting ({All.Count(r => r.Kind == LibraryReviewKind.Waiting)})";
         ReportsTab.Caption = $"Reports ({All.Count(r => r.Kind == LibraryReviewKind.Reported)})";

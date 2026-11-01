@@ -81,6 +81,7 @@ public sealed class WordListEditorControl : GuildCloakDialogBase
     private readonly DraftAutosave Autosave = new();
     private readonly PendingSave Saver = new();
     private bool BackAfterSave;
+    private bool ClosedByPlayer;
     private List<CollegeWordListRowInfo> BankRows = [];
     private int BankPage;
     private int BankPageCount = 1;
@@ -273,22 +274,22 @@ public sealed class WordListEditorControl : GuildCloakDialogBase
         if (EditingPage && Visible)
             return;
 
-        //unsaved edits of a closed editor: the save goes out first and its result returns to the list, so nothing is dropped
-        if (EditingPage && !IsQuick && !IsPreview)
+        //a closed editor stays shut: a save echo only refreshes its rows, until the player asks for a list again
+        if (!Visible && ClosedByPlayer)
         {
-            Pull();
+            ClosedByPlayer = false;
 
-            if (Document.IsDirty)
+            //unsaved edits of a closed editor: the save goes out first and its result returns to the list, so nothing is dropped
+            if (EditingPage && !IsQuick && !IsPreview)
             {
-                if (Document.Version != RefusedVersion)
-                    Save(true);
+                Pull();
 
-                Show();
-
-                return;
+                if (Document.IsDirty && (Document.Version != RefusedVersion))
+                    Save(false);
             }
-        }
 
+            return;
+        }
         BankTabShown = false;
         SelectedRow = MineRows.Count == 0 ? -1 : Math.Clamp(SelectedRow, 0, MineRows.Count - 1);
         ShowPage(false);
@@ -329,7 +330,12 @@ public sealed class WordListEditorControl : GuildCloakDialogBase
         }
 
         Document.Load(id, draft, mode);
-        Saver.Reset();
+
+        //a save queued behind an in-flight one belongs to the list being left: dropping the flag would lose it
+        if (!Saver.AwaitingSave && !Saver.SaveQueued)
+            Saver.Reset();
+
+        ClosedByPlayer = false;
         BackAfterSave = false;
         RefusedVersion = -1;
         DeleteArmed = string.Empty;
@@ -371,13 +377,19 @@ public sealed class WordListEditorControl : GuildCloakDialogBase
             if (BackAfterSave && (Document.Version == sentVersion))
             {
                 BackAfterSave = false;
-                GoToList();
-            }
 
+                //a closed editor stays shut: only a visible Back goes back to the list
+                if (Visible)
+                    GoToList();
+            }
             if (followUp)
             {
                 var back = BackAfterSave;
                 BackAfterSave = false;
+
+                if (!Visible)
+                    ClosedByPlayer = true;
+
                 Save(back);
             }
             else
@@ -386,9 +398,11 @@ public sealed class WordListEditorControl : GuildCloakDialogBase
 
                 //the player closed while this save was in flight, so edits made since were never sent
                 if (!Visible && Document.IsDirty)
+                {
+                    ClosedByPlayer = true;
                     Save(false);
+                }
             }
-
             return false;
         }
 
@@ -397,11 +411,17 @@ public sealed class WordListEditorControl : GuildCloakDialogBase
 
         //a save queued while this one was in flight still has newer edits the server never saw
         if (Saver.TakeQueued(Document.IsDirty, Document.Version, RefusedVersion))
+        {
+            if (!Visible)
+                ClosedByPlayer = true;
+
             Save(false);
+        }
 
         if (Visible)
             return false;
 
+        ClosedByPlayer = false;
         ShowPage(true);
         Show();
 
@@ -484,12 +504,17 @@ public sealed class WordListEditorControl : GuildCloakDialogBase
 
             //a save the server refused is not retried until something changes, or the window could never close
             if (Document.IsDirty && (Document.Version != RefusedVersion))
+            {
+                //a save echo must not pop the closed editor back open
+                ClosedByPlayer = true;
                 Save(false);
+            }
+            else if (Saver.AwaitingSave || Saver.SaveQueued)
+                ClosedByPlayer = true;
         }
 
         Hide();
     }
-
     private void OnBackClicked()
     {
         if (IsPreview)
@@ -604,6 +629,7 @@ public sealed class WordListEditorControl : GuildCloakDialogBase
 
         Document.New(WordListEditMode.Saved);
         Saver.Reset();
+        ClosedByPlayer = false;
         BackAfterSave = false;
         RefusedVersion = -1;
         ScrollTop = 0;

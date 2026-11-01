@@ -195,7 +195,7 @@ public sealed class LibraryCarouselControl : GuildCloakDialogBase
 
         AppliedSearch = args.Search;
 
-        if (SearchBox.Text != args.Search)
+        if (!SearchBox.IsFocused && (SearchBox.Text != args.Search))
             SearchBox.Text = args.Search;
 
         RefreshChrome();

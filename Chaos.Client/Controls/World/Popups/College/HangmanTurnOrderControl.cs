@@ -97,11 +97,12 @@ public sealed class HangmanTurnOrderControl : GuildCloakDialogBase
         } else
         {
             Order = new TurnOrderList(names);
+            NewOrderEachRound = true;
             ScrollTop = 0;
         }
 
         Message = message;
-        NewOrderEachRound = true;
+        //A reconcile keeps the Teacher choice; only a new order starts ticked.
         Refresh();
         Show();
     }

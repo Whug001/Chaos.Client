@@ -14,6 +14,11 @@ public static class ScrambleTileDrawer
     private static readonly Color GreenShadow = new(70, 120, 70);
     private static readonly Color Ink = new(42, 32, 16);
 
+    private static readonly string[] LetterNames = Enumerable.Range(0, 26).Select(i => ((char)('A' + i)).ToString()).ToArray();
+
+    //One cached string per letter: the tiles draw every frame while a scramble is open.
+    private static string LetterName(char letter) => letter is >= 'A' and <= 'Z' ? LetterNames[letter - 'A'] : letter.ToString();
+
     public static void Draw(
         SpriteBatch spriteBatch,
         ScrambleTileLayout layout,
@@ -34,7 +39,7 @@ public static class ScrambleTileDrawer
             TextRenderer.DrawText(
                 spriteBatch,
                 new Vector2(x + ((layout.TileWidth - TextRenderer.CHAR_WIDTH) / 2), originY + ((tileHeight - 2 - TextRenderer.CHAR_HEIGHT) / 2)),
-                tile.Letter.ToString(),
+                LetterName(tile.Letter),
                 Ink,
                 false);
         }

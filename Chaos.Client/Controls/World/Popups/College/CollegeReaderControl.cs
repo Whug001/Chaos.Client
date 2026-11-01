@@ -67,6 +67,8 @@ public sealed class CollegeReaderControl : GuildCloakDialogBase
     private CustomButton? ReportButton;
     private CustomButton? LibraryTakeDownButton;
     private CustomButton? RejectButton;
+    private CustomButton? DismissButton;
+    private bool LibraryActionSent;
     private bool LibraryAuthor;
     private byte SelectedTier = CollegeProtocol.NO_TIER;
     private int[] Siblings = [];
@@ -133,11 +135,11 @@ public sealed class CollegeReaderControl : GuildCloakDialogBase
             return;
 
         CommentBox.IsFocused = false;
+        VotesPopup.Hide();
         View.StopTune();
         KeepUnsavedVote();
         base.Hide();
     }
-
     public override void OnKeyDown(KeyDownEvent e)
     {
         if (e.Keycode == Keycode.Escape)
@@ -183,9 +185,11 @@ public sealed class CollegeReaderControl : GuildCloakDialogBase
         SubmitButton = null;
         RemoveButton = null;
         RemoveArmed = false;
+        LibraryActionSent = false;
         ReportButton = null;
         LibraryTakeDownButton = null;
         RejectButton = null;
+        DismissButton = null;
         LibraryAuthor = false;
         CommentBox.IsFocused = false;
 
@@ -237,7 +241,7 @@ public sealed class CollegeReaderControl : GuildCloakDialogBase
                 if (args.CanTakeDown)
                     LibraryTakeDownButton = FooterAction(TAKE_DOWN_CAPTION, 150, OnLibraryTakeDownClicked);
 
-                FooterAction("Dismiss", 80, () => SendLibrary(CollegeActionType.LibraryDismiss));
+                DismissButton = FooterAction("Dismiss", 80, () => SendLibrary(CollegeActionType.LibraryDismiss));
                 FooterAction($"Reports ({args.Votes.Count})", 110, ShowReports);
 
                 break;
@@ -254,11 +258,8 @@ public sealed class CollegeReaderControl : GuildCloakDialogBase
 
         var voting = args.Context is CollegePieceContext.Judge or CollegePieceContext.Verdict;
         var y = FooterButtons.Count > 0 ? ACTIONS_TOP - GAP : FOOTER_BOTTOM;
-        var reason = args.Context
-            is CollegePieceContext.LibraryShelf
-            or CollegePieceContext.LibraryWaiting
-            or CollegePieceContext.LibraryReported
-            or CollegePieceContext.LibraryOwn;
+        //The reason box only shows when a button needs it: a shelf reader who cannot report sees no box that does nothing.
+        var reason = (ReportButton is not null) || (LibraryTakeDownButton is not null) || (RejectButton is not null);
 
         if (reason)
         {
@@ -413,10 +414,10 @@ public sealed class CollegeReaderControl : GuildCloakDialogBase
             case CollegePieceContext.LibraryShelf:
             case CollegePieceContext.LibraryOwn:
                 if (ReportButton is not null)
-                    ReportButton.Enabled = Current.CanReport && reasonOk;
+                    ReportButton.Enabled = !LibraryActionSent && Current.CanReport && reasonOk;
 
                 if (LibraryTakeDownButton is not null)
-                    LibraryTakeDownButton.Enabled = LibraryAuthor || reasonOk;
+                    LibraryTakeDownButton.Enabled = !LibraryActionSent && (LibraryAuthor || reasonOk);
 
                 break;
             case CollegePieceContext.LibraryWaiting:
@@ -426,7 +427,10 @@ public sealed class CollegeReaderControl : GuildCloakDialogBase
                 break;
             case CollegePieceContext.LibraryReported:
                 if (LibraryTakeDownButton is not null)
-                    LibraryTakeDownButton.Enabled = reasonOk;
+                    LibraryTakeDownButton.Enabled = !LibraryActionSent && reasonOk;
+
+                if (DismissButton is not null)
+                    DismissButton.Enabled = !LibraryActionSent;
 
                 break;
         }
@@ -436,6 +440,10 @@ public sealed class CollegeReaderControl : GuildCloakDialogBase
     {
         if (Current is null)
             return;
+
+        //Report, Dismiss and Take down fire once per piece: disarm until the server answers, so repeated clicks do not resend.
+        if (type is CollegeActionType.LibraryReport or CollegeActionType.LibraryDismiss or CollegeActionType.LibraryTakeDown)
+            LibraryActionSent = true;
 
         ActionRequested?.Invoke(
             new CollegeActionArgs

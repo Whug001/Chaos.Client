@@ -225,7 +225,7 @@ public class UITextBox : UIElement, IVerticalScrollable
 
     private void ComputeLineLayout()
     {
-        var innerWidth = Width - PaddingLeft + PaddingRight;
+        var innerWidth = Width - PaddingLeft - PaddingRight;
 
         if ((innerWidth == CachedLayoutWidth) && (Text == CachedLayoutText))
             return;
@@ -437,7 +437,7 @@ public class UITextBox : UIElement, IVerticalScrollable
                 var alignBounds = new Rectangle(
                     sx + PaddingLeft,
                     textY,
-                    Width - PaddingLeft + PaddingRight,
+                    Width - PaddingLeft - PaddingRight,
                     textHeight);
 
                 var alignX = HorizontalAlignment switch

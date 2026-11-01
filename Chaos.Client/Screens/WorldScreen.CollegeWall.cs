@@ -154,9 +154,9 @@ public sealed partial class WorldScreen
         college.LibraryReview.Hide();
         college.LibraryCollegePieces.Hide();
 
-        //a piece being read goes too; typed-but-unsaved writing stays in the writer's local draft first
+        //a piece being read goes too; typed-but-unsaved writing is sent first
         college.Reader.Hide();
-        college.Writer.PreserveDraft();
+        college.Writer.SaveIfDirty();
         college.Writer.Hide();
         college.Wall.Clear();
         college.Board.Clear();

@@ -148,6 +148,9 @@ public sealed class CollegeGalleryControl : CollegeListWindow<CollegeGalleryRowI
 
         Subject = args.Subject;
         All = args.GalleryRows;
+        //owner objects only live while their tune is listed, so a long session cannot grow this forever
+        foreach (var stale in TuneOwners.Keys.Where(id => All.All(row => row.Id != id)).ToList())
+            TuneOwners.Remove(stale);
         TitleLabel.Text = $"Gallery of {Subject}";
 
         for (var i = 0; i < SubjectTabs.Length; i++)
@@ -228,11 +231,15 @@ public sealed class CollegeGalleryControl : CollegeListWindow<CollegeGalleryRowI
         if (!Visible)
             return;
 
+        //held thumbnails keep CollegeDrawings from evicting them: release them so a closed gallery frees the memory
+        if (Cells is not null)
+            for (var i = 0; i < Cells.Length; i++)
+                ShowPicture(i, null);
+
         StopGalleryTune();
         TunePlay.Cancel();
         base.Hide();
     }
-
     public override void Update(GameTime gameTime)
     {
         if (Visible && IsMusic)

@@ -158,6 +158,7 @@ public sealed class ScrambleTeacherPanel : GuildCloakDialogBase
         }
 
         EndArmed = false;
+        Lines[LINE_COUNT - 1].Text = string.Empty;
         Raise(ScrambleControlType.End);
     }
 
