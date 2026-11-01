@@ -44,6 +44,11 @@ public sealed class GuildCloakEditorModel
     public bool CanUndo => UndoSteps.Count > 0;
     public GuildCloakDesign Design { get; private set; } = GuildCloakDesign.CreateDefault();
     public bool IsDirty { get; private set; }
+
+    /// <summary>True when the design differs from a blank one, like emblem HasPaint: palette or grid changes count.</summary>
+    public bool HasPaint() => !BlankDesign.ContentEquals(Design);
+
+    private static readonly GuildCloakDesign BlankDesign = GuildCloakDesign.CreateDefault();
     public bool Mirror { get; set; }
     public int SelectedColor { get; private set; } = 1;
     public GuildCloakTool Tool { get; set; } = GuildCloakTool.Pencil;

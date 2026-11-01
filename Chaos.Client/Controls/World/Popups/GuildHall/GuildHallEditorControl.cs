@@ -19,7 +19,7 @@ namespace Chaos.Client.Controls.World.Popups.GuildHall;
 public sealed class GuildHallEditorControl : UIPanel
 {
     public const int PANEL_WIDTH = 222;
-    public const int PANEL_HEIGHT = 290;
+    public const int PANEL_HEIGHT = 300;
     public const int PAD = 6;
     public const int CONTENT_W = PANEL_WIDTH - (2 * PAD);
     public const int HEADER_Y = 2;
@@ -54,18 +54,18 @@ public sealed class GuildHallEditorControl : UIPanel
     public const int MAX_POINTS = 100;
     public const int DEFENSE_ROW_Y = 70;
     public const int DEFENSE_ROW_H = 14;
-    public const int DEFENSE_MAX_ROWS = 8;
-    public const int DEFENSE_TOOL_Y = 186;
-    public const int DEFENSE_ACTION_Y = 204;
+    public const int DEFENSE_MAX_ROWS = 12;
+    public const int DEFENSE_TOOL_Y = 242;
+    public const int DEFENSE_ACTION_Y = 260;
     public const int DEFENSE_BUTTON_H = 16;
     public const int DEFENSE_BUTTON_W = 105;
     public const int DEFENSE_BUTTON_X2 = PAD + DEFENSE_BUTTON_W + 6;
-    public const int POINTS_Y = 226;
+    public const int POINTS_Y = 282;
 
     internal static readonly string[] TabNames = ["Floor", "Walls", "Decor", "NPCs", "Prefab", "Siege"];
     internal static readonly int[] TabWidths = FitTabWidths();
     internal static readonly string[] ToolNames = ["Paint", "Box", "Fill", "Erase", "Door"];
-    public static readonly string[] TabIconKeys = ["tab_floors", "tab_walls", "tab_decor", "tab_npcs", "tab_rooms", "tab_walls"];
+    public static readonly string[] TabIconKeys = ["tab_floors", "tab_walls", "tab_decor", "tab_npcs", "tab_rooms", "tool_door"];
     private static readonly string[] ToolIconKeys = ["tool_paint", "tool_box", "tool_fill", "tool_erase", "tool_door"];
     private static readonly GuildHallTool[] Tools =
         [GuildHallTool.Paint, GuildHallTool.Rect, GuildHallTool.Fill, GuildHallTool.Erase, GuildHallTool.Entrance];

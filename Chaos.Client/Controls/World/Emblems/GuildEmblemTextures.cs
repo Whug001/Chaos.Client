@@ -56,6 +56,9 @@ public static class GuildEmblemTextures
 
     public static void Set(int designId, GuildEmblemDesign design)
     {
+        if (designId <= 0)
+            return;
+
         DropTexture(designId);
         Designs[designId] = design;
         RequestedAtMs.Remove(designId);

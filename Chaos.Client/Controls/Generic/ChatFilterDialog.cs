@@ -248,6 +248,9 @@ public sealed class ChatFilterDialog : UIPanel
     {
         //Fantasy preselected, Unfiltered beside it: a suggestion, not a save — the stored default stays
         //Unfiltered until Continue sends it.
+        if (Visible)
+            return;
+
         PendingSelection = DefaultSelection;
         RefreshPending();
         InputDispatcher.Instance!.PushControl(this);

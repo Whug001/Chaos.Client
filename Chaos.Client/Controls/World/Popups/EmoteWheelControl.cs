@@ -57,6 +57,8 @@ public sealed class EmoteWheelControl : UIPanel
 
     private Texture2D? _catalogBackground;
     private int _centerX;
+    private int _wheelCenterX;
+    private int _wheelCenterY;
     private int _centerY;
     private int _hoveredSegment = -1;
     private int _editingSlot;
@@ -326,13 +328,15 @@ public sealed class EmoteWheelControl : UIPanel
         _mode = WheelMode.Catalog;
         RefreshCatalogIcons();
         RefreshSlotPicker();
+        _wheelCenterX = _centerX;
+        _wheelCenterY = _centerY;
         ApplyCatalogLayout();
         _catalogPanel.Visible = true;
         _catalogScroll.Visible = true;
         _catalogScrollHost.ResetScroll();
     }
 
-    private void ExitCatalogMode()
+    private void ExitCatalogModeCore()
     {
         _mode = WheelMode.Wheel;
         _catalogPanel.Visible = false;
@@ -340,11 +344,21 @@ public sealed class EmoteWheelControl : UIPanel
         ApplyWheelLayout();
     }
 
+    // catalog picks save to disk only here (not on every click), and the wheel goes back to its open centre:
+    // the catalog layout re-clamps the centre for its bigger panel, so exiting from that centre would jump it
+    private void ExitCatalogMode()
+    {
+        ClientSettings.Save();
+        _centerX = _wheelCenterX;
+        _centerY = _wheelCenterY;
+        ExitCatalogModeCore();
+    }
+
     private void SaveSlot(int index, BodyAnimation animation)
     {
         _slots[index] = animation;
         ClientSettings.EmoteWheelSlots[index] = animation;
-        ClientSettings.Save();
+
         RefreshSlotIcons();
         RefreshSlotPicker();
     }

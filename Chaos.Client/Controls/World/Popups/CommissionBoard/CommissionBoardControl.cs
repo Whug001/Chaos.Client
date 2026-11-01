@@ -117,6 +117,7 @@ public sealed class CommissionBoardControl : GuildCloakDialogBase
     private int Page;
     private bool ReviewHeld;
     private string? ReviewHash;
+    private (string Description, uint Gold, string Artist)? PendingPost;
     private string? ReviewId;
 
     public CommissionBoardControl(PortraitPictureTransfers transfers)
@@ -294,13 +295,35 @@ public sealed class CommissionBoardControl : GuildCloakDialogBase
     {
         Refresh();
         Show();
+
+        // Refresh runs fully now that the window is visible (it early-outs while hidden).
+        Refresh();
     }
 
     /// <summary>Rebuilds the tabs, the detail and the action buttons from the state.</summary>
     public void Refresh()
     {
+        if (!Visible)
+            return;
+
         var state = WorldState.CommissionBoard;
         var rows = state.CurrentRows;
+
+        if (PendingPost is { } pending)
+        {
+            var posted = state.MyRequests.Any(
+                r => state.IsBuyer(r)
+                    && r.Description.Trim().Equals(pending.Description, StringComparison.Ordinal)
+                    && (r.OfferGold == pending.Gold)
+                    && r.NamedArtist.Equals(pending.Artist, StringComparison.OrdinalIgnoreCase));
+
+            if (posted)
+            {
+                PendingPost = null;
+                DescBox.Text = string.Empty;
+                GoldBox.Text = string.Empty;
+            }
+        }
         var pages = Math.Max(1, (rows.Count + PAGE_SIZE - 1) / PAGE_SIZE);
         Page = Math.Clamp(Page, 0, pages - 1);
 
@@ -492,6 +515,7 @@ public sealed class CommissionBoardControl : GuildCloakDialogBase
 
     public override void Dispose()
     {
+        CloseReview();
         WorldState.CommissionBoard.Changed -= Refresh;
         ReviewPicture.Texture = null;
         base.Dispose();
@@ -755,8 +779,8 @@ public sealed class CommissionBoardControl : GuildCloakDialogBase
 
         StatusLabel.Text = string.Empty;
         ActionRequested?.Invoke(args);
-        DescBox.Text = string.Empty;
-        GoldBox.Text = string.Empty;
+        PendingPost = (args.Description.Trim(), args.Gold, args.Artist);
+
     }
 
     private void OpenReview()

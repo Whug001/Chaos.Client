@@ -44,8 +44,8 @@ public sealed class QuestLogControl : UIPanel
     private const int FULL_X_BUTTON_X = 216;
     private const int MIN_RESTORE_X = 186;
     private const int MIN_X_BUTTON_X = 213;
-    private const int SCREEN_WIDTH = 640;
-    private const int SCREEN_HEIGHT = 480;
+
+
 
     private readonly UIButton CloseButton;
     private readonly UIButton CloseXButton;
@@ -268,8 +268,8 @@ public sealed class QuestLogControl : UIPanel
 
     private void ClampOnScreen()
     {
-        X = Math.Clamp(X, 0, SCREEN_WIDTH - Width);
-        Y = Math.Clamp(Y, 0, SCREEN_HEIGHT - Height);
+        X = Math.Clamp(X, 0, ChaosGame.VIRTUAL_WIDTH - Width);
+        Y = Math.Clamp(Y, 0, ChaosGame.VIRTUAL_HEIGHT - Height);
     }
 
     private void OnGiveUpClicked()

@@ -10,6 +10,11 @@ public sealed class TowerLeaderboardState
     public TowerLeaderboardArgs Args { get; private set; } = new();
     public int Page { get; private set; }
 
+    /// <summary>A season was asked for and the server has not answered yet; the season buttons stay dim meanwhile.</summary>
+    public bool SeasonPending { get; private set; }
+
+    public void NoteSeasonRequested() => SeasonPending = true;
+
     public int Pages => Math.Max(1, (Args.Entries.Count + PAGE_SIZE - 1) / PAGE_SIZE);
 
     public IReadOnlyList<TowerLeaderboardEntryInfo> PageItems => Args.Entries.Skip(Page * PAGE_SIZE).Take(PAGE_SIZE).ToList();
@@ -26,6 +31,7 @@ public sealed class TowerLeaderboardState
     public void Open(TowerLeaderboardArgs args)
     {
         Args = args;
+        SeasonPending = false;
         Page = 0;
     }
 

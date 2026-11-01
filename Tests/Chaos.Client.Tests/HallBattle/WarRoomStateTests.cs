@@ -187,6 +187,58 @@ public sealed class WarRoomStateTests
     }
 
     [Test]
+    public void SelectingAnotherGuild_HidesFormUntilItsDetailArrives()
+    {
+        var state = new WarRoomState();
+        state.Apply(Board(leader: true));
+        state.Apply(new HallBattleDisplayArgs { Kind = HallBattleDisplayKind.GuildDetail, DetailGuild = "Lotus", CanChallenge = true });
+        state.ShowChallengeForm.Should().BeTrue();
+
+        state.SelectedGuild = "Ravens";
+        state.ShowChallengeForm.Should().BeFalse();
+
+        state.Apply(new HallBattleDisplayArgs { Kind = HallBattleDisplayKind.GuildDetail, DetailGuild = "Ravens", CanChallenge = true });
+        state.ShowChallengeForm.Should().BeTrue();
+    }
+
+    [Test]
+    public void TakeAutoShow_FirstDisplayShows()
+    {
+        var state = new WarRoomState();
+
+        state.TakeAutoShow(HallBattleDisplayKind.Team).Should().BeTrue();
+    }
+
+    [Test]
+    public void TakeAutoShow_BoardAlwaysShows()
+    {
+        var state = new WarRoomState();
+        state.TakeAutoShow(HallBattleDisplayKind.Board);
+
+        state.TakeAutoShow(HallBattleDisplayKind.Board).Should().BeTrue();
+    }
+
+    [Test]
+    public void TakeAutoShow_RosterUpdateStaysHidden()
+    {
+        var state = new WarRoomState();
+        state.TakeAutoShow(HallBattleDisplayKind.Board);
+
+        state.TakeAutoShow(HallBattleDisplayKind.Team).Should().BeFalse();
+    }
+
+    [Test]
+    public void TakeAutoShow_RequestAnswerShowsOnce()
+    {
+        var state = new WarRoomState();
+        state.TakeAutoShow(HallBattleDisplayKind.Board);
+        state.NoteRequestSent();
+
+        state.TakeAutoShow(HallBattleDisplayKind.Team).Should().BeTrue();
+        state.TakeAutoShow(HallBattleDisplayKind.Team).Should().BeFalse();
+    }
+
+    [Test]
     public void Candidates_MaxOffsetIsZeroWhenEmpty()
     {
         var state = new WarRoomState();

@@ -92,6 +92,9 @@ public sealed class PaintedPortraitWindowControl : GuildCloakDialogBase
         Picture.Texture?.Dispose();
         Picture.Texture = Decode(picture);
 
+        if ((picture is { Length: > 0 }) && (Picture.Texture is null))
+            PainterLabel.Text = "Could not show this portrait.";
+
         Show();
     }
 
@@ -111,6 +114,16 @@ public sealed class PaintedPortraitWindowControl : GuildCloakDialogBase
     private void OnSetClicked() => SetRequested?.Invoke(UniqueId);
 
     private void OnCloseClicked() => Hide();
+
+    public override void Hide()
+    {
+        if (!Visible)
+            return;
+
+        Picture.Texture?.Dispose();
+        Picture.Texture = null;
+        base.Hide();
+    }
 
     public override void Dispose()
     {

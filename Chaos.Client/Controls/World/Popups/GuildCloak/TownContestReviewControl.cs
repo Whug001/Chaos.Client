@@ -276,7 +276,9 @@ public sealed class TownContestReviewControl : GuildCloakDialogBase
             if (Entries[i].EntryId == args.PickedEntryId)
                 picked = i;
 
-        Select(picked >= 0 ? picked : Entries.Count > 0 ? 0 : -1);
+        var selected = picked >= 0 ? picked : Entries.Count > 0 ? 0 : -1;
+        Page = selected < 0 ? 0 : selected / PAGE_SIZE;
+        Select(selected);
         Show();
     }
 

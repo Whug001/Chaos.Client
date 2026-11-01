@@ -36,9 +36,12 @@ public sealed class SelfProfileEmblemTab : PrefabPanel
     private readonly EmblemIcon[] Slots = new EmblemIcon[EmblemBookLayout.PAGE_SIZE];
     private readonly UILabel StatusLabel;
     private readonly UILabel TimeLabel;
+    private readonly UILabel HoverTooltip;
 
     private int Page;
     private string? SelectedKey;
+    private int SelectedIndex = -1;
+    private int ShownIndex = -1;
 
     public SelfProfileEmblemTab(string prefabName)
         : base(prefabName, false)
@@ -80,6 +83,22 @@ public sealed class SelfProfileEmblemTab : PrefabPanel
         };
 
         AddChild(Preview);
+
+        // names the emblem under the mouse; drawn above the grid and never hit-tested, so it can't steal the hover
+        HoverTooltip = new UILabel
+        {
+            Name = "HoverTooltip",
+            Visible = false,
+            IsHitTestVisible = false,
+            PaddingLeft = 1,
+            PaddingTop = 1,
+            BackgroundColor = new Color(0, 0, 0, 128),
+            BorderColor = Gold,
+            ForegroundColor = Color.White,
+            ZIndex = 100
+        };
+
+        AddChild(HoverTooltip);
 
         NameLabel = AddLabel("NAME", HorizontalAlignment.Left);
         TimeLabel = AddLabel("TIMELEFT", HorizontalAlignment.Left);
@@ -171,12 +190,12 @@ public sealed class SelfProfileEmblemTab : PrefabPanel
 
         var entries = Book.Entries;
         var first = Page * EmblemBookLayout.PAGE_SIZE;
-        var selected = EmblemBookLayout.IndexOf(entries, SelectedKey) - first;
+        var selected = ((SelectedIndex >= 0) && (SelectedIndex < entries.Count)) ? SelectedIndex - first : -1;
 
         if (selected is >= 0 and < EmblemBookLayout.PAGE_SIZE)
             DrawOutline(spriteBatch, Slots[selected]);
 
-        var shown = EmblemBookLayout.IndexOf(entries, Book.ShownKey) - first;
+        var shown = ((ShownIndex >= 0) && (ShownIndex < entries.Count)) ? ShownIndex - first : -1;
 
         if (shown is >= 0 and < EmblemBookLayout.PAGE_SIZE)
             DrawRectClipped(
@@ -191,6 +210,7 @@ public sealed class SelfProfileEmblemTab : PrefabPanel
 
         if (Visible)
             UpdateTimeLeft();
+            UpdateHoverTooltip();
     }
 
     private UILabel AddLabel(string rectName, HorizontalAlignment alignment)
@@ -277,13 +297,20 @@ public sealed class SelfProfileEmblemTab : PrefabPanel
         }
 
         Page = Math.Min(Page, EmblemBookLayout.PageCount(entries.Count) - 1);
+        UpdateCachedIndexes();
         BindPage();
         BindSelection();
     }
 
     private EmblemBookEntry? SelectedEntry()
     {
-        var index = EmblemBookLayout.IndexOf(Book.Entries, SelectedKey);
+        var index = SelectedIndex;
+
+        if ((index < 0) || (index >= Book.Entries.Count) || !string.Equals(Book.Entries[index].Key, SelectedKey, StringComparison.OrdinalIgnoreCase))
+        {
+            UpdateCachedIndexes();
+            index = SelectedIndex;
+        }
 
         return index >= 0 ? Book.Entries[index] : null;
     }
@@ -296,6 +323,7 @@ public sealed class SelfProfileEmblemTab : PrefabPanel
             return;
 
         SelectedKey = Book.Entries[index].Key;
+        UpdateCachedIndexes();
         BindSelection();
     }
 
@@ -303,6 +331,65 @@ public sealed class SelfProfileEmblemTab : PrefabPanel
     {
         Page = page;
         BindPage();
+    }
+
+    /// <summary>Refreshes the cached entry indexes after the book or selection changes, so Draw and Update stay O(1).</summary>
+    private void UpdateCachedIndexes()
+    {
+        var entries = Book.Entries;
+        SelectedIndex = EmblemBookLayout.IndexOf(entries, SelectedKey);
+        ShownIndex = EmblemBookLayout.IndexOf(entries, Book.ShownKey);
+    }
+
+    // read every frame, not on hover events: paging under a still mouse changes which emblem sits in the hovered slot
+    private void UpdateHoverTooltip()
+    {
+        var entries = Book.Entries;
+        var first = Page * EmblemBookLayout.PAGE_SIZE;
+        EmblemBookEntry? hovered = null;
+        UIElement? cell = null;
+
+        for (var i = 0; i < Slots.Length; i++)
+            if (Slots[i].IsHovered)
+            {
+                var index = first + i;
+
+                if (index < entries.Count)
+                {
+                    hovered = entries[index];
+                    cell = Slots[i];
+                }
+
+                break;
+            }
+
+        if ((hovered is null) || (cell is null))
+        {
+            HoverTooltip.Visible = false;
+
+            return;
+        }
+
+        var text = $"{hovered.Name} - {EmblemBookLayout.TimeLeftText(hovered, Book.SecondsLeftAt(hovered, DateTime.UtcNow))}";
+
+        if (HoverTooltip.Text != text)
+        {
+            HoverTooltip.Text = text;
+            HoverTooltip.Width = TextRenderer.MeasureWidth(text) + 4;
+            HoverTooltip.Height = TextRenderer.CHAR_HEIGHT + 4;
+        }
+
+        var cellX = cell.ScreenX - ScreenX;
+        var cellY = cell.ScreenY - ScreenY;
+        var x = Math.Clamp(cellX + cell.Width - HoverTooltip.Width, 0, Math.Max(0, Width - HoverTooltip.Width));
+        var y = cellY - HoverTooltip.Height - 1;
+
+        if (y < 0)
+            y = cellY + cell.Height + 1;
+
+        HoverTooltip.X = x;
+        HoverTooltip.Y = y;
+        HoverTooltip.Visible = true;
     }
 
     private void UpdateShowButton(EmblemBookEntry? entry)

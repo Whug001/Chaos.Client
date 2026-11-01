@@ -106,6 +106,13 @@ public sealed class GuildHallThumbnails : IDisposable
         {
             var info = new SKImageInfo(width, height, SKColorType.Rgba8888, SKAlphaType.Premul);
             using var surface = SKSurface.Create(info);
+
+            if (surface is null)
+            {
+                Foregrounds[(left, right)] = null;
+
+                return null;
+            }
             surface.Canvas.Clear(SKColors.Transparent);
 
             if (leftImage is not null)

@@ -63,7 +63,7 @@ public sealed class MirrorStage : UIElement
     private static readonly SKColor GlassFill = new(46, 54, 68);
     private static readonly Color FloorColor = new(34, 29, 36);
     private static readonly Color FloorEdgeColor = new(52, 45, 50);
-    private static readonly Color WallColor = new(WallFill.Red, WallFill.Green, WallFill.Blue);
+
     private static readonly Color FrameDark = new(122, 88, 30);
     private static readonly Color SheenColor = new(14, 14, 18, 14);
     private static readonly Color ReflectionTint = new(214, 222, 236);
@@ -74,6 +74,7 @@ public sealed class MirrorStage : UIElement
     private readonly AislingRenderer Renderer;
     private readonly Texture2D Wall;
     private readonly Texture2D Glass;
+    private readonly Texture2D Frame;
     private readonly Dictionary<(int Facing, int Step), Texture2D?> Frames = [];
 
     private AislingAppearance? Look;
@@ -88,6 +89,7 @@ public sealed class MirrorStage : UIElement
         Height = height;
         Wall = DialogFrame.BuildRecessedTexture(WallFill, width, height);
         Glass = DialogFrame.BuildRecessedTexture(GlassFill, MIRROR_WIDTH, MIRROR_HEIGHT);
+        Frame = BuildFrameTexture();
     }
 
     public override void Dispose()
@@ -95,6 +97,7 @@ public sealed class MirrorStage : UIElement
         Release();
         Wall.Dispose();
         Glass.Dispose();
+        Frame.Dispose();
         base.Dispose();
     }
 
@@ -183,7 +186,7 @@ public sealed class MirrorStage : UIElement
             DrawFigure(spriteBatch, GetFrame(Reflect(Facing), step), centerX, ScreenY + REFLECTION_CENTER_Y, glass, tint);
         }
 
-        DrawMirrorFrame(spriteBatch, mirror);
+        DrawTexture(spriteBatch, Frame, new Vector2(mirror.X, mirror.Y), Color.White);
 
         if (Look is null)
             return;
@@ -218,28 +221,46 @@ public sealed class MirrorStage : UIElement
     }
 
     /// <summary>
-    ///     The gold frame, drawn over the glass and its reflection: the arch's top corners are filled row by row with the
-    ///     wall's color, so nothing in the glass shows past the curve, then each row gets its gold edge.
+    ///     Bakes the gold frame drawn over the glass and its reflection into <see cref="Frame" />: the arch's top corners
+    ///     are filled row by row with the wall's color, so nothing in the glass shows past the curve, then each row gets its gold edge.
     /// </summary>
-    private void DrawMirrorFrame(SpriteBatch spriteBatch, Rectangle mirror)
+    private static Texture2D BuildFrameTexture()
     {
-        for (var y = 0; y < MIRROR_HEIGHT; y++)
+        var info = new SKImageInfo(MIRROR_WIDTH, MIRROR_HEIGHT, SKColorType.Rgba8888, SKAlphaType.Premul);
+        using var surface = SKSurface.Create(info);
+        using var wallPaint = new SKPaint { Color = WallFill, Style = SKPaintStyle.Fill };
+        using var goldPaint = new SKPaint { Color = new SKColor(LegendColors.Gold.R, LegendColors.Gold.G, LegendColors.Gold.B), Style = SKPaintStyle.Fill };
+        using var darkPaint = new SKPaint { Color = new SKColor(FrameDark.R, FrameDark.G, FrameDark.B), Style = SKPaintStyle.Fill };
+        using var sheenPaint = new SKPaint { Color = new SKColor(SheenColor.R, SheenColor.G, SheenColor.B, SheenColor.A), Style = SKPaintStyle.Fill };
+        var canvas = surface.Canvas;
+        canvas.Clear(SKColors.Transparent);
+
+        //baked once: the loop always runs to the last row, where it snapshots and returns
+        for (var y = 0; ; y++)
         {
             var inset = y < ARCH_RADIUS ? ArchInsets[y] : 0;
-            var rowY = mirror.Y + y;
-            var left = mirror.X + inset;
-            var right = mirror.Right - inset;
+
+            var left = inset;
+            var right = MIRROR_WIDTH - inset;
 
             if (inset > 0)
             {
-                DrawRectClipped(spriteBatch, new Rectangle(mirror.X, rowY, inset, 1), WallColor);
-                DrawRectClipped(spriteBatch, new Rectangle(right, rowY, inset, 1), WallColor);
+                canvas.DrawRect(0, y, inset, 1, wallPaint);
+                canvas.DrawRect(right, y, inset, 1, wallPaint);
             }
 
             //the top and bottom edges, and the arch's own top rows, are solid gold across
             if ((y < FRAME_THICKNESS) || (y >= (MIRROR_HEIGHT - FRAME_THICKNESS)))
             {
-                DrawRectClipped(spriteBatch, new Rectangle(left, rowY, right - left, 1), y == 0 ? LegendColors.Gold : FrameDark);
+                canvas.DrawRect(left, y, right - left, 1, y == 0 ? goldPaint : darkPaint);
+
+                // the bottom row is solid, so the last row always returns here; the loop-end check below is only a backstop
+                if (y == MIRROR_HEIGHT - 1)
+                {
+                    using var snapshot = surface.Snapshot();
+
+                    return TextureConverter.ToTexture2D(snapshot);
+                }
 
                 continue;
             }
@@ -248,16 +269,23 @@ public sealed class MirrorStage : UIElement
             var previousInset = (y > 0) && (y <= ARCH_RADIUS) ? ArchInsets[y - 1] : inset;
             var edge = Math.Max(FRAME_THICKNESS, (previousInset - inset) + 1);
 
-            DrawRectClipped(spriteBatch, new Rectangle(left, rowY, edge, 1), LegendColors.Gold);
-            DrawRectClipped(spriteBatch, new Rectangle(right - edge, rowY, edge, 1), LegendColors.Gold);
+            canvas.DrawRect(left, y, edge, 1, goldPaint);
+            canvas.DrawRect(right - edge, y, edge, 1, goldPaint);
 
             //a faint diagonal sheen across the glass
-            var sheenX = mirror.X + 30 + ((MIRROR_HEIGHT - y) / 2);
+            var sheenX = 30 + ((MIRROR_HEIGHT - y) / 2);
             var sheenLeft = Math.Max(sheenX, left + edge);
             var sheenRight = Math.Min(sheenX + 10, right - edge);
 
             if (sheenRight > sheenLeft)
-                DrawRectClipped(spriteBatch, new Rectangle(sheenLeft, rowY, sheenRight - sheenLeft, 1), SheenColor);
+                canvas.DrawRect(sheenLeft, y, sheenRight - sheenLeft, 1, sheenPaint);
+
+            if (y == MIRROR_HEIGHT - 1)
+            {
+                using var snapshot = surface.Snapshot();
+
+                return TextureConverter.ToTexture2D(snapshot);
+            }
         }
     }
 

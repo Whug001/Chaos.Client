@@ -76,6 +76,8 @@ public sealed class OxygenBarControl : UIElement
 
     /// <summary>What is actually drawn, which chases <see cref="OxygenState.Amount" /> rather than matching it.</summary>
     private float DisplayedAmount;
+    private string OxygenText = string.Empty;
+    private int ShownAmount = -1;
 
     public OxygenBarControl()
     {
@@ -158,13 +160,17 @@ public sealed class OxygenBarControl : UIElement
 
         //the label reads the server's number, not the eased one: the bar may still be sliding down to it, but the
         //figure a player reads should be the figure they have
-        var text = $"Oxygen {WorldState.Oxygen.Amount}/{MAX_OXYGEN}";
-        var textWidth = TextRenderer.MeasureWidth(text);
+        if (ShownAmount != WorldState.Oxygen.Amount)
+        {
+            ShownAmount = WorldState.Oxygen.Amount;
+            OxygenText = $"Oxygen {ShownAmount}/{MAX_OXYGEN}";
+        }
+        var textWidth = TextRenderer.MeasureWidth(OxygenText);
 
         TextRenderer.DrawShadowedText(
             spriteBatch,
             new Vector2(ScreenX + ((Width - textWidth) / 2), ScreenY + 1),
-            text,
+            OxygenText,
             TextColor,
             ShadowColor);
     }

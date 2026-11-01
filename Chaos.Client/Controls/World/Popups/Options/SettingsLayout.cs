@@ -1,6 +1,7 @@
 #region
 using Chaos.Client.Controls.Custom;
 using Chaos.Client.Controls.Generic;
+using Chaos.Client.Controls.World.Popups.Dialog;
 using Chaos.Client.Rendering;
 using Chaos.Client.ViewModel;
 #endregion
@@ -18,9 +19,9 @@ public static class SettingsLayout
     public const int ContentTop = 28;
     public const int ContentRight = 22;
 
-    //height of the frame's bottom border (mirrors FramedDialogPanelBase.BORDER_BOTTOM, which is private); the
+    //height of the frame's bottom border (the shared dialog frame metric); the
     //scrollable viewer ends above it so scrolled content never overlaps the OK/rivet edge.
-    public const int FrameBottom = 47;
+    public const int FrameBottom = FramedDialogPanelBase.BORDER_BOTTOM_HEIGHT;
 
     //spacer between the content rows and the scrollbar gutter.
     public const int GutterGap = 3;
