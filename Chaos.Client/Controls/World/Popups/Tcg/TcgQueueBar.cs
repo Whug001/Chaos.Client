@@ -16,7 +16,7 @@ namespace Chaos.Client.Controls.World.Popups.Tcg;
 /// </summary>
 public sealed class TcgQueueBar : UIPanel
 {
-    private const int SEARCH_WIDTH = 160;
+    private const int SEARCH_WIDTH = 184;
     private const int SEARCH_HEIGHT = 26;
     private const int READY_WIDTH = 200;
     private const int READY_HEIGHT = 52;
@@ -80,9 +80,24 @@ public sealed class TcgQueueBar : UIPanel
             Y = READY_HEIGHT - CustomButton.HEIGHT - BOTTOM
         };
 
-        LeaveButton.Clicked += () => LeaveClicked?.Invoke();
-        AcceptButton.Clicked += () => AcceptClicked?.Invoke();
-        DeclineButton.Clicked += () => DeclineClicked?.Invoke();
+        //a click only asks: the fresh display re-enables the button, so repeats cannot stack while waiting
+        LeaveButton.Clicked += () =>
+        {
+            LeaveButton.Enabled = false;
+            LeaveClicked?.Invoke();
+        };
+        AcceptButton.Clicked += () =>
+        {
+            AcceptButton.Enabled = false;
+            DeclineButton.Enabled = false;
+            AcceptClicked?.Invoke();
+        };
+        DeclineButton.Clicked += () =>
+        {
+            AcceptButton.Enabled = false;
+            DeclineButton.Enabled = false;
+            DeclineClicked?.Invoke();
+        };
 
         AddChild(Title);
         AddChild(LeaveButton);
@@ -97,6 +112,7 @@ public sealed class TcgQueueBar : UIPanel
     //the last mode and text actually laid out: the bar only rebuilds its strings on change, not every frame
     private TcgQueueMode LastMode = TcgQueueMode.Hidden;
     private string LastText = string.Empty;
+    private int LastStackBelow;
 
     /// <summary>
     ///     Called by the world screen every frame. Not done in Update: a parent panel never updates a hidden child,
@@ -120,11 +136,12 @@ public sealed class TcgQueueBar : UIPanel
             _ => $"Waiting... {ranked.SecondsLeft(now)}"
         };
 
-        if ((ranked.Mode == LastMode) && string.Equals(text, LastText, StringComparison.Ordinal))
+        if ((ranked.Mode == LastMode) && (StackBelow == LastStackBelow) && string.Equals(text, LastText, StringComparison.Ordinal))
             return;
 
         LastMode = ranked.Mode;
         LastText = text;
+        LastStackBelow = StackBelow;
 
         switch (ranked.Mode)
         {
@@ -139,6 +156,7 @@ public sealed class TcgQueueBar : UIPanel
                 Title.Width = (Width - LEAVE_SIZE - 2) - PADDING - 4;
                 Title.HorizontalAlignment = HorizontalAlignment.Left;
                 LeaveButton.Visible = true;
+                LeaveButton.Enabled = true;
                 LeaveButton.X = Width - LEAVE_SIZE - 2;
                 LeaveButton.Y = 2;
                 AcceptButton.Visible = false;
@@ -158,9 +176,11 @@ public sealed class TcgQueueBar : UIPanel
                 Title.HorizontalAlignment = HorizontalAlignment.Center;
                 LeaveButton.Visible = false;
                 AcceptButton.Visible = true;
+                AcceptButton.Enabled = true;
                 AcceptButton.X = (Width - (ACCEPT_WIDTH + BUTTON_GAP + ACCEPT_WIDTH)) / 2;
                 AcceptButton.Y = Height - CustomButton.HEIGHT - BOTTOM;
                 DeclineButton.Visible = true;
+                DeclineButton.Enabled = true;
                 DeclineButton.X = AcceptButton.X + ACCEPT_WIDTH + BUTTON_GAP;
                 DeclineButton.Y = Height - CustomButton.HEIGHT - BOTTOM;
 

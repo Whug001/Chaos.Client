@@ -110,4 +110,19 @@ public sealed class TcgMatchAnimationTests
         TcgMatchWindow.TurnBannerText(board, new TcgEventView(TcgEventType.TurnStarted, TcgSeat.A, 0, 0, 0, "")).Should().Be("Ana's turn!");
         TcgMatchWindow.TurnBannerText(board, new TcgEventView(TcgEventType.TurnStarted, TcgSeat.B, 0, 0, 0, "")).Should().Be("Bo's turn!");
     }
+
+    [Test]
+    public void Animated_ids_into_reuses_the_draw_set()
+    {
+        var into = new HashSet<int> { 99 };
+
+        TcgMatchWindow.AnimatedIdsInto(null, into);
+        into.Should().BeEmpty();
+
+        TcgMatchWindow.AnimatedIdsInto(new TcgEventView(TcgEventType.Attacked, TcgSeat.A, 7, -1, 0, ""), into);
+        into.Should().Equal(7);
+
+        TcgMatchWindow.AnimatedIdsInto(new TcgEventView(TcgEventType.Damaged, TcgSeat.A, 7, 5, 3, ""), into);
+        into.Should().BeEmpty();
+    }
 }

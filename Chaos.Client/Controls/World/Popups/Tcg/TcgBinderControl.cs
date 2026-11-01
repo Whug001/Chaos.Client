@@ -410,16 +410,32 @@ public sealed class TcgBinderControl : FramedDialogPanelBase
         RefreshRanked(rankedTab);
     }
 
+    private string? LastQueueDeck;
+    private TcgQueueMode LastQueueMode;
+    private bool QueueButtonsSynced;
+
     public override void Update(GameTime gameTime)
     {
         base.Update(gameTime);
 
-        //the queue mode changes outside the binder, so re-check the button every frame
-        if (Visible && (State.Tab == TcgBinderTab.Decks))
+        //the queue mode changes outside the binder, so re-check the buttons when the selection or the mode changed
+        if (!Visible || (State.Tab != TcgBinderTab.Decks))
         {
-            FindMatchButton.Enabled = (SelectedDeckView() is { } selected) && WorldState.TcgRanked.CanFindMatch(selected.Status);
-            LeaveQueueButton.Enabled = WorldState.TcgRanked.ShowLeave;
+            QueueButtonsSynced = false;
+
+            return;
         }
+
+        var mode = WorldState.TcgRanked.Mode;
+
+        if (QueueButtonsSynced && string.Equals(SelectedDeck, LastQueueDeck, StringComparison.Ordinal) && (mode == LastQueueMode))
+            return;
+
+        LastQueueDeck = SelectedDeck;
+        LastQueueMode = mode;
+        QueueButtonsSynced = true;
+        FindMatchButton.Enabled = (SelectedDeckView() is { } selected) && WorldState.TcgRanked.CanFindMatch(selected.Status);
+        LeaveQueueButton.Enabled = WorldState.TcgRanked.ShowLeave;
     }
 
     private CustomButton Button(string caption, int x, int y, int width, ClickedHandler onClick)

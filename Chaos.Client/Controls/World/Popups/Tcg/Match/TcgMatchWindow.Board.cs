@@ -273,12 +273,14 @@ public sealed partial class TcgMatchWindow
     /// <summary>Creatures already entered or done attacking in this Update, drawn at their new-board seats.</summary>
     private void DrawFresh(SpriteBatch batch, TcgDisplayArgs playing, int clockMs)
     {
+        var seats = new[] { playing.YourSeat, TcgMatchRules.Other(playing.YourSeat) };
+
         foreach (var id in FreshIds)
         {
             if (DestroyedIds.Contains(id))
                 continue;
 
-            foreach (var seat in new[] { playing.YourSeat, TcgMatchRules.Other(playing.YourSeat) })
+            foreach (var seat in seats)
             {
                 var creatures = playing.Players[(int)seat].Battlefield;
                 var index = creatures.FindIndex(creature => creature.Id == id);
@@ -288,7 +290,7 @@ public sealed partial class TcgMatchWindow
 
                 var view = creatures[index];
                 var yours = seat == playing.YourSeat;
-                var slot = TcgMatchLayout.CreatureSlot(index, creatures.Count, yours);
+                var slot = DrawFeet(playing, Input, id, yours, index, creatures.Count);
                 var feet = new Point(ScreenX + slot.X, ScreenY + slot.Y);
                 var tint = view.Tapped ? TappedTint : Color.White;
 

@@ -32,6 +32,8 @@ public sealed class LockpickAnimator
     private const float SHAKE_FLIPS_PER_SECOND = 40f;
 
     private LockpickTurnOutcome? Outcome;
+    //the timed-out turn's reply is still in flight: new turns wait for it (and drop it) instead of inheriting its outcome
+    private bool StaleReplyOutstanding;
     private float ReturnFrom;
     private float TargetDegrees;
     private bool TurnKeyHeld;
@@ -72,6 +74,11 @@ public sealed class LockpickAnimator
 
         TurnKeyHeld = true;
 
+        //the previous turn timed out and its reply is still in flight: starting now would hand that
+        //reply's outcome to the wrong turn, so wait for it (it is dropped on arrival) before starting again
+        if (StaleReplyOutstanding)
+            return false;
+
         if (State != LockpickAnimState.Idle)
             return false;
 
@@ -90,6 +97,15 @@ public sealed class LockpickAnimator
     /// <summary>The server's answer to the turn in progress. Ignored outside a turn.</summary>
     public void ApplyResult(LockpickTurnOutcome outcome, byte turnPercent)
     {
+        //a reply that arrives after its turn timed out belongs to no live turn: drop it and let the
+        //next press start fresh instead of inheriting a stranger's outcome
+        if (StaleReplyOutstanding)
+        {
+            StaleReplyOutstanding = false;
+
+            return;
+        }
+
         if ((State != LockpickAnimState.Turning) || Outcome.HasValue)
             return;
 
@@ -119,6 +135,7 @@ public sealed class LockpickAnimator
                     if (WaitSeconds >= REPLY_TIMEOUT_SECONDS)
                     {
                         TimedOut = true;
+                        StaleReplyOutstanding = true;
                         StartReturn();
                     }
 
@@ -168,6 +185,7 @@ public sealed class LockpickAnimator
         CylinderDegrees = 0f;
         Outcome = null;
         TimedOut = false;
+        StaleReplyOutstanding = false;
         TurnKeyHeld = false;
     }
 

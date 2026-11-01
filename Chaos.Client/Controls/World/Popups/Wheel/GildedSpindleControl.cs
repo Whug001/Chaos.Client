@@ -1,4 +1,4 @@
-﻿#region
+#region
 using Chaos.Client.Collections;
 using Chaos.Client.Controls.Components;
 using Chaos.Client.Controls.Custom;
@@ -137,6 +137,10 @@ public sealed class GildedSpindleControl : FramedDialogPanelBase
     //the main wheel's own spin-up before LandOn. 1.5 + WheelControl.SETTLE_SECONDS(0.6) = 2.1s, matching
     //GildedSpindleScript's "~2.1s plain" cooldown comment.
     private const float MIN_SPIN_SECONDS = 1.5f;
+
+    //the server answers a spin in about two seconds; past this the answer is never coming, so park the wheel
+    //and hand the controls back rather than spinning forever
+    private const float SPIN_TIMEOUT_SECONDS = 10f;
 
     //the pause between the main wheel settling on BONUS and the bonus wheel appearing.
     private const float BONUS_BEAT_SECONDS = 0.5f;
@@ -560,6 +564,10 @@ public sealed class GildedSpindleControl : FramedDialogPanelBase
         if (AwaitingResult)
             return;
 
+        //live for the whole session, so skip the string work while hidden; Show repaints
+        if (!Visible)
+            return;
+
         var vm = WorldState.GildedSpindle;
         var gold = WorldState.Inventory.Gold;
         GoldLabel.Text = $"Gold: {gold:N0}";
@@ -689,6 +697,7 @@ public sealed class GildedSpindleControl : FramedDialogPanelBase
         MainWheel.Visible = true;
         BonusWheel.Visible = false;
         MainWheel.LandOn(0);
+        BonusWheel.Stop();
 
         //a rejection releases the reveal gate -- there is no result coming, so nothing is left to be spoiled.
         RevealDeferredState();
@@ -705,6 +714,28 @@ public sealed class GildedSpindleControl : FramedDialogPanelBase
         };
 
         SetMessage(text, LegendColors.Red, true);
+    }
+
+    /// <summary>
+    ///     The SpinResult never arrived: park both wheels, re-enable the controls and say so, the same
+    ///     shape as <see cref="OnRejected" /> with a generic reason. Safe to call only while a spin is open.
+    /// </summary>
+    private void OnSpinTimeout()
+    {
+        ResetSpinState();
+        SpinButton.Enabled = true;
+        StakeSelector.SetInteractable(true);
+
+        MainWheel.Visible = true;
+        BonusWheel.Visible = false;
+        MainWheel.LandOn(0);
+        BonusWheel.Stop();
+
+        //no cooldown is running: the server never answered this request, so it started none
+        SpinCooldownRemaining = 0f;
+
+        RevealDeferredState();
+        SetMessage("No answer from the Spindle.", LegendColors.Red, true);
     }
 
     private void RequestSpin()
@@ -834,6 +865,14 @@ public sealed class GildedSpindleControl : FramedDialogPanelBase
 
         if (!AwaitingResult)
             return;
+
+        //watchdog: the SpinResult never arrived, so treat it like a rejection instead of spinning forever
+        if ((PendingMainStop is null) && (MainSpinElapsed >= SPIN_TIMEOUT_SECONDS))
+        {
+            OnSpinTimeout();
+
+            return;
+        }
 
         if (!MainLanded)
         {

@@ -183,8 +183,12 @@ public sealed class LockpickControl : FramedDialogPanelBase
         switch (outcome)
         {
             case LockpickTurnOutcome.Jammed:
-                SoundSystem.PlaySound(SOUND_JAM);
-                SetMessage("The pick strains...");
+                //a stale reply the animator dropped (idle after a timeout) drives no turn: stay silent
+                if (Animator.State == LockpickAnimState.Turning)
+                {
+                    SoundSystem.PlaySound(SOUND_JAM);
+                    SetMessage("The pick strains...");
+                }
 
                 break;
 

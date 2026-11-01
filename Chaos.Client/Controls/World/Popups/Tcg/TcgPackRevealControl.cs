@@ -29,17 +29,18 @@ public sealed class TcgPackRevealControl : FramedDialogPanelBase
     private const int CARD_STEP_Y = 180;
     private const int CARD_TOP = 30;
     private const int COLUMNS = 4;
-    private const int MAX_CARDS = 8;
     private const int TITLE_TOP = 8;
 
+    private readonly CreatureRenderer Creatures;
     private readonly CustomButton DoneButton;
-    private readonly TcgCardFace[] Faces = new TcgCardFace[MAX_CARDS];
+    private readonly List<TcgCardFace> Faces = [];
     private readonly TcgRevealState Reveal = new();
     private readonly CustomButton RevealAllButton;
 
     public TcgPackRevealControl(CreatureRenderer creatures)
         : base("_nsett", false)
     {
+        Creatures = creatures;
         Name = "TcgPackReveal";
         Visible = false;
         UsesControlStack = true;
@@ -61,17 +62,6 @@ public sealed class TcgPackRevealControl : FramedDialogPanelBase
                 IsHitTestVisible = false
             });
 
-        for (var i = 0; i < Faces.Length; i++)
-        {
-            Faces[i] = new TcgCardFace(creatures, 2)
-            {
-                Visible = false,
-                BadgeColor = LegendColors.Gold
-            };
-
-            Faces[i].Clicked += OnFaceClicked;
-            AddChild(Faces[i]);
-        }
 
         RevealAllButton = new CustomButton("Reveal all", BUTTON_WIDTH)
         {
@@ -154,7 +144,21 @@ public sealed class TcgPackRevealControl : FramedDialogPanelBase
     {
         Reveal.Start(args);
 
-        for (var i = 0; i < Faces.Length; i++)
+        //a pack can carry any number of cards: grow the faces to the reveal rather than pooling a fixed set
+        while (Faces.Count < Reveal.Cards.Count)
+        {
+            var created = new TcgCardFace(Creatures, 2)
+            {
+                Visible = false,
+                BadgeColor = LegendColors.Gold
+            };
+
+            created.Clicked += OnFaceClicked;
+            AddChild(created);
+            Faces.Add(created);
+        }
+
+        for (var i = 0; i < Faces.Count; i++)
         {
             var face = Faces[i];
             face.Visible = false;
@@ -192,7 +196,7 @@ public sealed class TcgPackRevealControl : FramedDialogPanelBase
         var startX = (PANEL_WIDTH - (TcgCardFace.WIDTH * 2)) / 2;
         var startY = (PANEL_HEIGHT - (TcgCardFace.HEIGHT * 2)) / 2;
 
-        for (var i = 0; i < Faces.Length; i++)
+        for (var i = 0; i < Faces.Count; i++)
         {
             var face = Faces[i];
 
@@ -223,7 +227,7 @@ public sealed class TcgPackRevealControl : FramedDialogPanelBase
 
     private void OnFaceClicked(TcgCardFace face)
     {
-        var index = Array.IndexOf(Faces, face);
+        var index = Faces.IndexOf(face);
 
         if (index >= 0)
             Reveal.TryFlip(index);

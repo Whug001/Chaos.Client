@@ -91,7 +91,7 @@ public sealed partial class TcgMatchWindow
             return "Click cards to put back, then Keep.";
 
         if ((board.Decision == TcgDecision.Respond) && (board.Decider != board.YourSeat))
-            return $"Waiting for {opponent}…";
+            return $"Waiting for {opponent}...";
 
         return null;
     }
@@ -227,8 +227,8 @@ public sealed partial class TcgMatchWindow
             face.Badge = string.Empty;
             face.Owned = true;
             face.Selected = false;
-            face.X = x;
-            face.Y = y;
+            face.X = ScreenX + x;
+            face.Y = ScreenY + y;
             face.Draw(batch);
             x += TcgCardFace.WIDTH + gap;
         }
@@ -297,7 +297,7 @@ public sealed partial class TcgMatchWindow
 
         if (!State.NeedsRedraw)
         {
-            var waiting = $"Waiting for {State.OpponentName}…";
+            var waiting = $"Waiting for {State.OpponentName}...";
             var at = ToScreen(RedrawOverlay);
             var x = at.X + ((at.Width - TextRenderer.MeasureWidth(waiting)) / 2);
             DrawTextClipped(batch, new Vector2(x, at.Y + ((at.Height - TextRenderer.CHAR_HEIGHT) / 2)), waiting, Color.White, false);
@@ -323,8 +323,8 @@ public sealed partial class TcgMatchWindow
             face.Badge = string.Empty;
             face.Owned = true;
             face.Selected = false;
-            face.X = slots[i].X;
-            face.Y = slots[i].Y;
+            face.X = ScreenX + slots[i].X;
+            face.Y = ScreenY + slots[i].Y;
             face.Draw(batch);
 
             if (!Input.RedrawMarks.Contains(hand[i].Id))

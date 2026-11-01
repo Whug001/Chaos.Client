@@ -101,10 +101,11 @@ public sealed partial class TcgMatchWindow
 
             if (input.Mode == TcgInputMode.Blocking)
             {
-                var live = input.Blocks.Select(pair => new TcgBlock(pair.Key, pair.Value)).ToList();
 
                 if (input.Blocks.TryGetValue(creatureId, out var attackerId))
                 {
+                    var live = input.Blocks.Select(pair => new TcgBlock(pair.Key, pair.Value)).ToList();
+
                     if (ShiftedAttackerFeet(board, attackerId) is not { } shiftedFeet)
                         return feet;
 

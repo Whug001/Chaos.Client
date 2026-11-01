@@ -92,6 +92,7 @@ public sealed class WheelControl : UIPanel
     //one label colour per entry in Segments, resolved once here rather than re-switching on Kind every frame in
     //Draw -- the same reason ReelControl resolves idle poses once in SetStrip instead of in its own Draw.
     private Color[] LabelColors = [];
+    private float[] LabelWidths = [];
 
     private float Angle; //radians, increases without bound while spinning/settling and wraps to [0, TwoPi) at rest
     private bool Spinning;
@@ -136,6 +137,8 @@ public sealed class WheelControl : UIPanel
         Segments = [..segments];
         LabelColors = Segments.Select(s => ResolveLabelColor(s.Kind))
                               .ToArray();
+        LabelWidths = Segments.Select(s => (float)TextRenderer.MeasureWidth(s.Label))
+                              .ToArray();
 
         Angle = 0f;
         Spinning = false;
@@ -147,6 +150,16 @@ public sealed class WheelControl : UIPanel
     /// <summary>
     ///     Begins continuous rotation. No-op until <see cref="SetSegments" /> has supplied at least one segment.
     /// </summary>
+    /// <summary>
+    ///     Stops any spin or settle in place, leaving the wheel at its current angle. Used when a rejection
+    ///     hides the bonus wheel mid-spin: without this its SegmentPassed tick keeps playing with nothing on screen.
+    /// </summary>
+    public void Stop()
+    {
+        Spinning = false;
+        Settling = false;
+    }
+
     public void StartSpin()
     {
         if (Segments.Length == 0)
@@ -176,8 +189,8 @@ public sealed class WheelControl : UIPanel
         if (Settling)
             return;
 
-        ArgumentOutOfRangeException.ThrowIfNegative(stop);
-        ArgumentOutOfRangeException.ThrowIfGreaterThanOrEqual(stop, Segments.Length);
+        //a malformed stop lands somewhere valid instead of crashing the client inside Update
+        stop = ((stop % Segments.Length) + Segments.Length) % Segments.Length;
 
         //segment `stop` sits under the pointer once Angle reaches -(stop+0.5)*arc (mod TwoPi) -- see SegmentArc's
         //own remarks for why the sign is negative. The while loop below then pushes that target strictly more
@@ -286,7 +299,7 @@ public sealed class WheelControl : UIPanel
                 center.Y + (labelRadius * MathF.Sin(screenAngle)));
 
             var label = Segments[i].Label;
-            var textWidth = TextRenderer.MeasureWidth(label);
+            var textWidth = LabelWidths[i];
 
             var position = new Vector2(
                 labelCenter.X - (textWidth / 2f),
