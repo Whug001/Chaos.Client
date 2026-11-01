@@ -130,6 +130,16 @@ public sealed class ConnectionManager : IDisposable
 
     public void SendKartInput(KartInputArgs args) => SendIfWorld(args);
 
+    private void SendIfLogin<T>(T args) where T : IPacketSerializable
+    {
+        if (State != ConnectionState.Login)
+            return;
+        Client.Send(args);
+    }
+
+    public void SendScryStart() => SendIfLogin(new ScryStartArgs());
+    public void SendScryStop() => SendIfLogin(new ScryStopArgs());
+
     /// <summary>
     ///     Sends a click on an entity (NPC, creature, aisling, ground item).
     /// </summary>
@@ -651,6 +661,7 @@ public sealed class ConnectionManager : IDisposable
 
     public event KartTrackLayoutReceivedHandler? KartTrackLayoutReceived;
     public event KartSnapshotReceivedHandler? KartSnapshotReceived;
+    public event ScryFrameReceivedHandler? ScryFrameReceived;
     public event KartRaceEventReceivedHandler? KartRaceEventReceived;
 
     /// <summary>Fired when a player's reflection climbs out of a haunted mirror nearby.</summary>
@@ -2034,6 +2045,7 @@ public sealed class ConnectionManager : IDisposable
         PacketHandlers[(byte)ServerOpCode.KartTrackLayout] = HandleKartTrackLayout;
         PacketHandlers[(byte)ServerOpCode.KartSnapshot] = HandleKartSnapshot;
         PacketHandlers[(byte)ServerOpCode.KartRaceEvent] = HandleKartRaceEvent;
+        PacketHandlers[(byte)ServerOpCode.ScryFrame] = HandleScryFrame;
         PacketHandlers[(byte)ServerOpCode.MirrorDouble] = HandleMirrorDouble;
         PacketHandlers[(byte)ServerOpCode.StageLightingBoard] = HandleStageLightingBoard;
         PacketHandlers[(byte)ServerOpCode.GuildCloakEditor] = HandleGuildCloakEditor;
@@ -2601,6 +2613,12 @@ public sealed class ConnectionManager : IDisposable
     {
         var args = Client.Deserialize<KartSnapshotArgs>(in pkt);
         KartSnapshotReceived?.Invoke(args);
+    }
+
+    private void HandleScryFrame(ServerPacket pkt)
+    {
+        var args = Client.Deserialize<ScryFrameArgs>(in pkt);
+        ScryFrameReceived?.Invoke(args);
     }
 
     private void HandleKartRaceEvent(ServerPacket pkt)

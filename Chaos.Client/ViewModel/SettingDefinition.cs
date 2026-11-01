@@ -91,6 +91,7 @@ public enum SettingKey
     HealNumbersOnNpcs,
     DamageNumberSize,
     DamageNumbersMyOutputOnly,
+    ShowOnLoginScreen,
     GroundTargetSnapToEntity,
     ChatFilterMode,
     HasConfiguredChatFilter,
@@ -504,6 +505,13 @@ public static class SettingDefinitions
             SettingCategory.ClientLocal,
             Get: () => ClientSettings.ToggleGroupHighlight,
             Set: v => ClientSettings.ToggleGroupHighlight = v,
+            Span: SettingSpan.Full),
+        new(
+            SettingKey.ShowOnLoginScreen,
+            "Show me on the login screen",
+            SettingSection.Interaction,
+            SettingCategory.ServerOption,
+            UserOption.ShowOnLoginScreen,
             Span: SettingSpan.Full),
 
         //── Hotbars ──

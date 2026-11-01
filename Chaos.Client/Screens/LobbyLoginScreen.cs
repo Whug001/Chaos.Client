@@ -6,6 +6,7 @@ using Chaos.Client.Collections;
 using Chaos.Client.Controls.Components;
 using Chaos.Client.Controls.Generic;
 using Chaos.Client.Controls.LobbyLogin;
+using Chaos.Client.Controls.LobbyLogin.Scrying;
 using Chaos.Client.Data;
 using Chaos.Client.Networking;
 using Chaos.Client.Networking.Definitions;
@@ -58,6 +59,8 @@ public sealed class LobbyLoginScreen : IScreen
     private ServerSelectControl ServerSelectControl = null!;
 
     private UIButton? LastClickedButton;
+    private ScryingViewControl? ScryView;
+    private bool Watching;
 
     //ui panels
     private LobbyLoginControl StartPanel = null!;
@@ -77,6 +80,8 @@ public sealed class LobbyLoginScreen : IScreen
     /// <inheritdoc />
     public void Draw(SpriteBatch spriteBatch, GameTime gameTime)
     {
+        ScryView?.RenderOffscreen(spriteBatch);
+
         spriteBatch.Begin(samplerState: GlobalSettings.Sampler);
         Root!.Draw(spriteBatch);
         spriteBatch.End();
@@ -159,6 +164,13 @@ public sealed class LobbyLoginScreen : IScreen
             Width = ChaosGame.VIRTUAL_WIDTH,
             Height = ChaosGame.VIRTUAL_HEIGHT
         };
+        if (StartPanel.AnimatedLogo is { } logo)
+        {
+            ScryView = new ScryingViewControl(Game, logo);
+            StartPanel.AddScryView(ScryView);
+            Game.Connection.ScryFrameReceived += OnScryFrame;
+        }
+
         Root.AddChild(StartPanel);
         Root.AddChild(LoginControl);
         Root.AddChild(ServerSelectControl);
@@ -196,6 +208,12 @@ public sealed class LobbyLoginScreen : IScreen
         Game.Connection.OnLoginMessage -= OnLoginMessage;
         Game.Connection.OnLoginNotice -= OnLoginNotice;
         Game.Connection.OnLoginControl -= OnLoginControlReceived;
+        Game.Connection.ScryFrameReceived -= OnScryFrame;
+
+        if (Watching)
+            Game.Connection.SendScryStop();
+
+        Watching = false;
     }
 
     /// <inheritdoc />
@@ -228,6 +246,24 @@ public sealed class LobbyLoginScreen : IScreen
                 Game.Screens.Switch(new LobbyLoginScreen(startMessage: CONNECTION_LOST_MESSAGE));
 
                 return;
+            }
+        }
+
+        var shouldWatch = ScryView is not null
+                          && (Game.Connection.State == ConnectionState.Login)
+                          && !CharCreateControl.Visible
+                          && !PasswordChangeControl.Visible;
+
+        if (shouldWatch != Watching)
+        {
+            Watching = shouldWatch;
+
+            if (shouldWatch)
+                Game.Connection.SendScryStart();
+            else
+            {
+                Game.Connection.SendScryStop();
+                ScryView!.Scene.Clear();
             }
         }
 
@@ -515,6 +551,8 @@ public sealed class LobbyLoginScreen : IScreen
             //no servers available
         }
     }
+
+    private void OnScryFrame(ScryFrameArgs args) => ScryView?.Scene.Apply(args);
 
     private void OnRedirectReceived(RedirectInfo _)
     {
