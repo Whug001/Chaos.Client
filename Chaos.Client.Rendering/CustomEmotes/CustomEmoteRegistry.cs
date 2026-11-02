@@ -18,7 +18,12 @@ public static class CustomEmoteRegistry
         HaloEmote.Instance,
         LightbulbEmote.Instance,
         AngerSteamEmote.Instance,
-        PartyHatEmote.Instance
+        PartyHatEmote.Instance,
+        ZzzCloudEmote.Instance,
+        MoneyEyesEmote.Instance,
+        CrownEmote.Instance,
+        SkullPuffEmote.Instance,
+        PotionFlaskEmote.Instance
     ];
 
     /// <summary>Finds the custom emote that rides on this body-animation byte.</summary>

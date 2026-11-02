@@ -78,6 +78,7 @@ public sealed class PixelArt
 
 /// <summary>
 ///     One piece of art placed at an unflipped composite position. <see cref="Opacity" /> multiplies the aisling's own
-///     alpha.
+///     alpha. <see cref="MirroredArt" />, when set, replaces <see cref="Art" /> while the aisling is drawn flipped, for
+///     art such as text that must still read the right way round once mirrored.
 /// </summary>
-public readonly record struct PixelLayer(PixelArt Art, int X, int Y, float Opacity = 1f);
+public readonly record struct PixelLayer(PixelArt Art, int X, int Y, float Opacity = 1f, PixelArt? MirroredArt = null);

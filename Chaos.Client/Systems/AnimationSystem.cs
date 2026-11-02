@@ -445,7 +445,8 @@ public static class AnimationSystem
         {
             entity.CustomEmoteElapsedMs += elapsedMs;
 
-            if (entity.CustomEmoteElapsedMs >= customEmote.DurationMs)
+            if ((entity.CustomEmoteElapsedMs >= customEmote.DurationMs)
+                || (customEmote.EndsOnWalk && (entity.AnimState == EntityAnimState.Walking)))
                 entity.StopCustomEmote();
         }
     }
