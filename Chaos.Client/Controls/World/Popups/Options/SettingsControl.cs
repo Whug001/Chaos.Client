@@ -308,6 +308,7 @@ public sealed class SettingsControl : FramedDialogPanelBase
 
         Content.Height = CategoryHeights[category];
         ((IVerticalScrollable)Viewport).VerticalOffset = 0;
+        RefreshAll();
     }
 
     private void SelectHotbar(int bar)
