@@ -80,6 +80,12 @@ public static class GlobalSettings
     /// </summary>
     public static bool RequireSwimmingSkill => false;
 
+    /// <summary>
+    ///     When true, the login screens use the retail (2002) layouts and art: lmain, llogin, lsvr, lpasswd, lagre and
+    ///     lcreate. When false, they use the current _n* layouts. Fixed on purpose: switching back ships with a client update.
+    /// </summary>
+    public static bool ClassicLogin => true;
+
     // --- Floating damage / heal numbers ---
 
     //animation tunables — virtual pixels / milliseconds. snapped to the 640x480 grid at draw time.

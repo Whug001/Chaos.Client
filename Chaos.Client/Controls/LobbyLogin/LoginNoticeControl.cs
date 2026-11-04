@@ -8,13 +8,18 @@ namespace Chaos.Client.Controls.LobbyLogin;
 
 public sealed class LoginNoticeControl : PrefabPanel
 {
+    //butt001.epf frames, the same faces OkPopupMessageControl uses
+    private const int OK_NORMAL = 15;
+    private const int OK_PRESSED = 16;
+    private const int CANCEL_NORMAL = 21;
+    private const int CANCEL_PRESSED = 22;
     private readonly UILabel? AgreementTextLabel;
     public UIButton? CancelButton { get; }
 
     public UIButton? OkButton { get; }
 
     public LoginNoticeControl()
-        : base("_nagree")
+        : base(LoginLayouts.For("_nagree"))
     {
         Name = "AgreePanel";
         Visible = false;
@@ -23,6 +28,10 @@ public sealed class LoginNoticeControl : PrefabPanel
         //buttons — _nagree is one of the few prefabs with actual type 3 controls
         OkButton = CreateButton("OK");
         CancelButton = CreateButton("CANCEL");
+
+        //the retail agreement art (lagre) has blank OK and CANCEL slots
+        UseFallbackFace(OkButton, OK_NORMAL, OK_PRESSED);
+        UseFallbackFace(CancelButton, CANCEL_NORMAL, CANCEL_PRESSED);
 
         if (OkButton is not null)
             OkButton.Clicked += () => OnOk?.Invoke();
@@ -60,6 +69,23 @@ public sealed class LoginNoticeControl : PrefabPanel
 
             AddChild(viewer);
         }
+    }
+
+    private static void UseFallbackFace(UIButton? button, int normalFrame, int pressedFrame)
+    {
+        if (button is null || button.NormalTexture is not null)
+            return;
+
+        var cache = UiRenderer.Instance!;
+        var normal = cache.GetEpfTexture("butt001.epf", normalFrame);
+        var pressed = cache.GetEpfTexture("butt001.epf", pressedFrame);
+
+        button.X += (button.Width - normal.Width) / 2;
+        button.Y += (button.Height - normal.Height) / 2;
+        button.Width = normal.Width;
+        button.Height = normal.Height;
+        button.NormalTexture = normal;
+        button.PressedTexture = pressed;
     }
 
     public event CancelHandler? OnCancel;

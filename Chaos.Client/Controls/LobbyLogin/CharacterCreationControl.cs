@@ -14,24 +14,6 @@ public sealed class CharacterCreationControl : PrefabPanel
     private const int HAIR_COLOR_COLUMNS = 7;
     private const int HAIR_COLOR_ROWS = 2;
 
-    private static readonly DisplayColor[] SWATCH_COLOR_MAP =
-    [
-        DisplayColor.Teal,
-        DisplayColor.Green,
-        DisplayColor.Olive,
-        DisplayColor.Yellow,
-        DisplayColor.Pumpkin,
-        DisplayColor.Apple,
-        DisplayColor.Violet,
-        DisplayColor.Default,
-        DisplayColor.Navy,
-        DisplayColor.Blue,
-        DisplayColor.Gray,
-        DisplayColor.Carrot,
-        DisplayColor.Brown,
-        DisplayColor.Black
-    ];
-
     private const int ANIM_FRAME_COUNT = 5;
     private const float WALK_FRAME_INTERVAL_MS = 350f;
 
@@ -70,6 +52,8 @@ public sealed class CharacterCreationControl : PrefabPanel
     public UIButton? CancelButton { get; }
     public UIButton? HairLeftButton { get; }
     public UIButton? HairRightButton { get; }
+    public UIButton? ColorLeftButton { get; }
+    public UIButton? ColorRightButton { get; }
 
     //text fields — type 7 with 0 images, manually created
     public UITextBox? NameField { get; }
@@ -80,7 +64,7 @@ public sealed class CharacterCreationControl : PrefabPanel
     public UITextBox? PasswordField { get; }
 
     public CharacterCreationControl(AislingRenderer renderer)
-        : base("_ncreate", false)
+        : base(LoginLayouts.For("_ncreate"), false)
     {
         Renderer = renderer;
         BackgroundColor = Color.Black;
@@ -115,6 +99,16 @@ public sealed class CharacterCreationControl : PrefabPanel
 
         if (HairRightButton is not null)
             HairRightButton.Clicked += OnHairRightClicked;
+
+        //the retail layout (lcreate) has color arrows instead of the swatch
+        ColorLeftButton = CreateButton("ColorLeft");
+        ColorRightButton = CreateButton("ColorRight");
+
+        if (ColorLeftButton is not null)
+            ColorLeftButton.Clicked += () => StepHairColor(-1);
+
+        if (ColorRightButton is not null)
+            ColorRightButton.Clicked += () => StepHairColor(1);
 
         //text fields
         NameField = CreateTextBox("NAME");
@@ -246,10 +240,10 @@ public sealed class CharacterCreationControl : PrefabPanel
         var row = Math.Clamp(localY / cellHeight, 0, HAIR_COLOR_ROWS - 1);
         var cellIndex = row * HAIR_COLOR_COLUMNS + col;
 
-        if (cellIndex >= SWATCH_COLOR_MAP.Length)
+        if (cellIndex >= HairColorCycle.Colors.Count)
             return;
 
-        SelectedHairColor = SWATCH_COLOR_MAP[cellIndex];
+        SelectedHairColor = HairColorCycle.Colors[cellIndex];
         PreviewDirty = true;
     }
 
@@ -314,6 +308,12 @@ public sealed class CharacterCreationControl : PrefabPanel
     {
         var maxStyle = SelectedGender == Gender.Male ? MAX_MALE_HAIR_STYLE : MAX_FEMALE_HAIR_STYLE;
         SelectedHairStyle = SelectedHairStyle >= maxStyle ? (byte)1 : (byte)(SelectedHairStyle + 1);
+        PreviewDirty = true;
+    }
+
+    private void StepHairColor(int direction)
+    {
+        SelectedHairColor = HairColorCycle.Step(SelectedHairColor, direction);
         PreviewDirty = true;
     }
 
