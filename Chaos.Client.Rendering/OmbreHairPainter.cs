@@ -5,9 +5,10 @@ using SkiaSharp;
 namespace Chaos.Client.Rendering;
 
 /// <summary>
-///     Ombre hair: the hair dye slots (palette indexes 98-103) of a head layer fade row by row from the root palette
+///     Ombre dye: the dye slots (palette indexes 98-103) of a layer fade row by row from the root palette
 ///     to the tip palette. Every other pixel draws from the root palette and index 0 stays transparent, as in DALib's
-///     SimpleRender. Rows are in the sprite's frame space (frame top + row), so the h, e and f layers line up.
+///     SimpleRender. Rows are in the sprite's frame space (frame top + row). Used for hair and for clothing: the h, e
+///     and f layers share the h frame's rows so they line up, while every other layer fades over its own frame's rows.
 /// </summary>
 public static class OmbreHairPainter
 {
