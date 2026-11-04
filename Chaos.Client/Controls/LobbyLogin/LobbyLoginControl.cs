@@ -1,5 +1,6 @@
 #region
 using Chaos.Client.Controls.Components;
+using Microsoft.Xna.Framework;
 using Microsoft.Xna.Framework.Graphics;
 #endregion
 
@@ -17,11 +18,26 @@ public sealed class LobbyLoginControl : PrefabPanel
     public UILabel? VersionLabel { get; }
 
     public LobbyLoginControl()
-        : base("_nstart", false)
+        : base(LoginLayouts.For("_nstart"), false)
     {
         Name = "StartScreen";
         X = 0;
         Y = 0;
+
+        //the retail layout names only lodbk00.epf; the retail client showed one of nine at random
+        var cornerRect = GetRect("ExtraBack");
+
+        if (cornerRect != Rectangle.Empty)
+            AddChild(
+                new UIImage
+                {
+                    Name = "ExtraBack",
+                    X = cornerRect.X,
+                    Y = cornerRect.Y,
+                    Width = cornerRect.Width,
+                    Height = cornerRect.Height,
+                    Texture = UiRenderer.Instance!.GetEpfTexture(CornerPicture.Pick(Random.Shared), 0)
+                });
 
         //buttons
         SubmitCreateButton = CreateButton("Create");

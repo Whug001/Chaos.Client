@@ -14,7 +14,7 @@ public sealed class PasswordChangeControl : PrefabPanel
     public UIButton? OkButton { get; }
 
     public PasswordChangeControl()
-        : base("_npw")
+        : base(LoginLayouts.For("_npw"))
     {
         Name = "PasswordChange";
         Visible = false;

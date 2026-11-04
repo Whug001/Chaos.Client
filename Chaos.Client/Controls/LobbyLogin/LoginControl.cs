@@ -12,7 +12,7 @@ public sealed class LoginControl : PrefabPanel
     public UITextBox? UsernameField { get; }
 
     public LoginControl()
-        : base("_nlogin")
+        : base(LoginLayouts.For("_nlogin"))
     {
         Name = "LoginDialog";
         Visible = false;

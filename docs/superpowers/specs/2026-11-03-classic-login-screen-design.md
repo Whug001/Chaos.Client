@@ -64,7 +64,7 @@ The `lsvr` base control is a full-screen 640x480 rectangle with no picture. The 
 `ServerTopImage` (`svrtop.epf`, 413x146, a SERVER sign plus 5 row slots), `ServerMidImage` (`svrmid.epf`, 413x20,
 one more row slot) and `ServerBotImage` (`svrbot.epf`, 413x17, the closing border).
 
-- `ServerSelectControl` treats the layout as stacked when it contains `ServerTopImage`. Otherwise it keeps today's
+- `ServerSelectControl` builds the stacked box only when the layout is `lsvr` and it contains `ServerTopImage`. The current `_nsvr` layout also has ServerTopImage/MidImage/BotImage, so otherwise it keeps today's
   fixed numbers (first row 37, name 28, description 108, row height 20).
 - Stacked layout:
   - Middle strips: `max(1, serverCount - 5)`. The layout file itself stacks one, which gives 6 slots.
