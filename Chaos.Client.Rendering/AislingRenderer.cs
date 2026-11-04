@@ -1077,12 +1077,6 @@ public sealed class AislingRenderer : IDisposable
     }
 
     /// <summary>
-    ///     True when an equipment layer with this dye uses the ombre painter. Every layer does once its dye is an
-    ///     ombre (72-88); <paramref name="typeLetter" /> is accepted so call sites and tests read as layer policy.
-    /// </summary>
-    internal static bool ShouldUseOmbre(char typeLetter, DisplayColor dyeColor) => OmbreDyes.TryGet(dyeColor, out _);
-
-    /// <summary>
     ///     True for the head layers, whose fade rows come from the h frame so hair, e and f line up.
     ///     Every other layer fades over its own frame's dye rows.
     /// </summary>
@@ -1148,9 +1142,7 @@ public sealed class AislingRenderer : IDisposable
         if (palette is null)
             return null;
 
-        var useOmbre = OmbreDyes.TryGet(dyeColor, out var ombre) && ShouldUseOmbre(typeLetter, dyeColor);
-
-        var image = useOmbre
+        var image = OmbreDyes.TryGet(dyeColor, out var ombre)
             ? RenderOmbreLayer(
                 typeLetter,
                 lookup,
