@@ -259,6 +259,12 @@ public static class WorldState
     public static Dictionary<uint, LanternSize> EntityLanterns { get; } = [];
 
     /// <summary>
+    ///     How the server says one entity should be drawn (size and whether it floats), by entity id, from
+    ///     EntityLook. A default look is not stored.
+    /// </summary>
+    public static Dictionary<uint, EntityLookArgs> EntityLooks { get; } = [];
+
+    /// <summary>
     ///     Authoritative beauty shop state (catalog, prices, current look, and the look being tried on).
     /// </summary>
     public static BeautyShop BeautyShop { get; } = new();
@@ -479,6 +485,7 @@ public static class WorldState
         GuildCloakLooks.Clear();
         PumpkinLooks.Clear();
         EntityLanterns.Clear();
+        EntityLooks.Clear();
         ActiveEffects.Clear();
         ActiveProjectiles.Clear();
 
@@ -954,6 +961,7 @@ public static class WorldState
         GuildCloakLooks.Remove(id);
         PumpkinLooks.Remove(id);
         EntityLanterns.Remove(id);
+        EntityLooks.Remove(id);
         Causeway.Rides.Forget(id);
         SortVersion++;
     }
@@ -991,6 +999,15 @@ public static class WorldState
             entity.LanternSize = LanternFor(entityId);
     }
 
+    /// <summary>Records how the server says one entity should be drawn (size and whether it floats).</summary>
+    public static void ApplyEntityLook(EntityLookArgs args)
+    {
+        if (args.IsDefault)
+            EntityLooks.Remove(args.EntityId);
+        else
+            EntityLooks[args.EntityId] = args;
+    }
+
     /// <summary>
     ///     A creature's light: the larger of a lit pumpkin's and one the server set with EntityLantern.
     /// </summary>
@@ -1022,6 +1039,7 @@ public static class WorldState
         connection.OnRemoveSkillFromPane += args => SkillBook.ClearSlot(args.Slot);
 
         connection.OnEntityLantern += args => ApplyEntityLantern(args.EntityId, args.LanternSize);
+        connection.OnEntityLook += args => ApplyEntityLook(args);
 
         connection.OnAddSpellToPane += args =>
         {

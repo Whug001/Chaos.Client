@@ -658,6 +658,7 @@ public sealed class ConnectionManager : IDisposable
 
     /// <summary>Fired for every Glass Way state packet (round and clock, lit pane, go, step, crack, survivors, label, clear).</summary>
     public event GlassWayStateHandler? OnGlassWayState;
+    public event EntityLookHandler? OnEntityLook;
 
     public event KartTrackLayoutReceivedHandler? KartTrackLayoutReceived;
     public event KartSnapshotReceivedHandler? KartSnapshotReceived;
@@ -2042,6 +2043,7 @@ public sealed class ConnectionManager : IDisposable
         PacketHandlers[(byte)ServerOpCode.TumbleTowerState] = HandleTumbleTowerState;
         PacketHandlers[(byte)ServerOpCode.DrownedCausewayState] = HandleDrownedCausewayState;
         PacketHandlers[(byte)ServerOpCode.GlassWayState] = HandleGlassWayState;
+        PacketHandlers[(byte)ServerOpCode.EntityLook] = HandleEntityLook;
         PacketHandlers[(byte)ServerOpCode.KartTrackLayout] = HandleKartTrackLayout;
         PacketHandlers[(byte)ServerOpCode.KartSnapshot] = HandleKartSnapshot;
         PacketHandlers[(byte)ServerOpCode.KartRaceEvent] = HandleKartRaceEvent;
@@ -2601,6 +2603,12 @@ public sealed class ConnectionManager : IDisposable
     {
         var args = Client.Deserialize<GlassWayStateArgs>(in pkt);
         OnGlassWayState?.Invoke(args);
+    }
+
+    private void HandleEntityLook(ServerPacket pkt)
+    {
+        var args = Client.Deserialize<EntityLookArgs>(in pkt);
+        OnEntityLook?.Invoke(args);
     }
 
     private void HandleKartTrackLayout(ServerPacket pkt)

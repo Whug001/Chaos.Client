@@ -802,6 +802,9 @@ public sealed partial class WorldScreen
         if (KartHidesEntity(entity))
             return;
 
+        if (WorldState.EntityLooks.TryGetValue(entity.Id, out var look) && look.Floating)
+            yOffset -= EntityLookMath.FloatRaise(TumbleClock.Now);
+
         DrawEntityAt(spriteBatch, entity, tileX, tileY, yOffset, alphaScale);
     }
 
