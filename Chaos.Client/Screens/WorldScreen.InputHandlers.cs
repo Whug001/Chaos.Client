@@ -1700,7 +1700,7 @@ public sealed partial class WorldScreen
     ///     Converts screen mouse coordinates to tile coordinates, accounting for the HUD viewport offset. The world is
     ///     rendered with a translation matrix for the viewport origin, so mouse coords must be adjusted to match.
     /// </summary>
-    private WorldEntity? GetEntityAtScreen(int mouseX, int mouseY)
+    private WorldEntity? GetEntityAtScreen(int mouseX, int mouseY, bool skipHidden = false)
     {
         if (MapFile is null)
             return null;
@@ -1716,7 +1716,7 @@ public sealed partial class WorldScreen
         {
             var hitbox = EntityHitBoxes[i];
 
-            if (hitbox.ScreenRect.Contains(viewportMouseX, viewportMouseY))
+            if (hitbox.ScreenRect.Contains(viewportMouseX, viewportMouseY) && (!skipHidden || WorldState.GetEntity(hitbox.EntityId) is not { IsHidden: true }))
                 return WorldState.GetEntity(hitbox.EntityId);
         }
 
@@ -1724,7 +1724,7 @@ public sealed partial class WorldScreen
         //be picked up
         (var tileX, var tileY) = ScreenToTile(mouseX, mouseY);
 
-        if (WorldState.GetGroundItemAt(tileX, tileY) is { } groundItem)
+        if (WorldState.GetGroundItemAt(tileX, tileY) is { } groundItem && (!skipHidden || !groundItem.IsHidden))
             return groundItem;
 
         for (var i = WideSpriteHitBoxes.Count - 1; i >= 0; i--)
@@ -1736,7 +1736,7 @@ public sealed partial class WorldScreen
                     hitbox.Frame,
                     hitbox.Flip,
                     viewportMouseX - hitbox.ScreenRect.X,
-                    viewportMouseY - hitbox.ScreenRect.Y))
+                    viewportMouseY - hitbox.ScreenRect.Y) && (!skipHidden || WorldState.GetEntity(hitbox.EntityId) is not { IsHidden: true }))
                 return WorldState.GetEntity(hitbox.EntityId);
         }
 
@@ -1862,12 +1862,12 @@ public sealed partial class WorldScreen
             || (mouseY >= (viewport.Y + viewport.Height)))
             return;
 
-        var entity = GetEntityAtScreen(mouseX, mouseY);
+        var entity = GetEntityAtScreen(mouseX, mouseY, skipHidden: true);
 
         if (entity is null)
             return;
 
-        if ((entity.Type == ClientEntityType.Aisling) && (entity.Id != Game.Connection.AislingId) && !entity.IsHidden)
+        if ((entity.Type == ClientEntityType.Aisling) && (entity.Id != Game.Connection.AislingId))
         {
             var name = entity.Name;
             var id = entity.Id;
