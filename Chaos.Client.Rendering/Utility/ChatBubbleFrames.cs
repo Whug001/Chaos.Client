@@ -1,3 +1,4 @@
+using System.Collections.Concurrent;
 using Microsoft.Xna.Framework;
 using SkiaSharp;
 
@@ -13,22 +14,21 @@ public static class ChatBubbleFrames
     /// <summary>Decor pixels with their size, since decor is drawn as its own texture rather than tiled.</summary>
     public sealed record DecorImage(Color[] Pixels, int Width, int Height);
 
-    private static readonly Dictionary<byte, Color[]?> Cache = [];
-    private static readonly Dictionary<(byte Frame, string Part), DecorImage?> DecorCache = [];
+    private static readonly ConcurrentDictionary<byte, Color[]?> Cache = new();
+    private static readonly ConcurrentDictionary<(byte Frame, string Part), DecorImage?> DecorCache = new();
 
     public static Color[]? Get(byte frame)
     {
         if (frame == 0)
             return null;
 
-        if (Cache.TryGetValue(frame, out var cached))
-            return cached;
-
-        using var stream = typeof(ChatBubbleFrames).Assembly.GetManifestResourceStream($"bubbleframe.{frame}.png");
-        var pixels = stream is null ? null : Decode(stream);
-        Cache[frame] = pixels;
-
-        return pixels;
+        return Cache.GetOrAdd(
+            frame,
+            static frame =>
+            {
+                using var stream = typeof(ChatBubbleFrames).Assembly.GetManifestResourceStream($"bubbleframe.{frame}.png");
+                return stream is null ? null : Decode(stream);
+            });
     }
 
     /// <summary>
@@ -40,16 +40,13 @@ public static class ChatBubbleFrames
         if (frame == 0)
             return null;
 
-        var key = (frame, part);
-
-        if (DecorCache.TryGetValue(key, out var cached))
-            return cached;
-
-        using var stream = typeof(ChatBubbleFrames).Assembly.GetManifestResourceStream($"bubbleframe.{frame}-{part}.png");
-        var image = stream is null ? null : DecodeAnySize(stream);
-        DecorCache[key] = image;
-
-        return image;
+        return DecorCache.GetOrAdd(
+            (frame, part),
+            static key =>
+            {
+                using var stream = typeof(ChatBubbleFrames).Assembly.GetManifestResourceStream($"bubbleframe.{key.Frame}-{key.Part}.png");
+                return stream is null ? null : DecodeAnySize(stream);
+            });
     }
 
     public static DecorImage? DecodeAnySize(Stream stream)
