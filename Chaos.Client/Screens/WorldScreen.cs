@@ -70,6 +70,9 @@ public sealed partial class WorldScreen : IScreen
     //Tumble Tower's fade for a sinking player; DrawEntityAt sets it around the creature/aisling draw
     private float EntityAlphaScale = 1f;
 
+    //camera nudge for nearby giant footsteps; driven by WorldState.OnGiantStep, applied after FollowPlayerCamera
+    private readonly GiantStepShake GiantShake = new();
+
     //set true after the first successful avatar capture on world-enter so we don't re-capture every frame
     private bool _avatarCaptured;
 
@@ -112,7 +115,7 @@ public sealed partial class WorldScreen : IScreen
     //only on the frame's opaque pixels, so the floor, doors and signs showing through the art stay clickable
     private readonly List<WideSpriteHitBox> WideSpriteHitBoxes = new(16);
 
-    private readonly record struct WideSpriteHitBox(uint EntityId, Rectangle ScreenRect, Texture2D Frame, bool Flip);
+    private readonly record struct WideSpriteHitBox(uint EntityId, Rectangle ScreenRect, Texture2D Frame, bool Flip, float Scale);
 
     //set of entity ids currently highlighted as group members (auto-expires after 1000ms)
     private readonly HashSet<uint> GroupHighlightedIds = [];
@@ -1102,6 +1105,7 @@ public sealed partial class WorldScreen : IScreen
         Game.Connection.OnDisplayAisling -= HandleDisplayAisling;
         Game.Connection.OnRemoveEntity -= HandleRemoveEntity;
         Game.Connection.OnClientWalkResponse -= HandleClientWalkResponse;
+        WorldState.OnGiantStep -= HandleGiantStep;
         Game.Connection.OnAttributes -= HandleAttributes;
         Game.Connection.OnDisplayPublicMessage -= HandleDisplayPublicMessage;
         Game.Connection.OnServerMessage -= HandleServerMessage;

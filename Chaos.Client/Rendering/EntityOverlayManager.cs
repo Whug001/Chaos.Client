@@ -4,6 +4,7 @@ using Chaos.Client.Controls.Components;
 using Chaos.Client.Controls.World.ViewPort;
 using Chaos.Client.Models;
 using Chaos.Client.Systems;
+using Chaos.Client.ViewModel;
 using Chaos.Client.ViewModel.College;
 using Chaos.DarkAges.Definitions;
 using Chaos.Networking.Entities.Server;
@@ -165,7 +166,7 @@ public sealed class EntityOverlayManager
         var travel = GlobalSettings.DamageNumberTravel * (0.8f + Random.Shared.NextSingle() * 0.5f);
 
         //bottom-center anchor: a fixed gap above the health bar's top edge (resolved identically to the bar)
-        var offset = ResolveOverlayOffset(HEALTH_BAR_Y_OFFSET, entity, creatureRenderer) + DAMAGE_NUMBER_GAP_ABOVE_BAR;
+        var offset = OverlayAnchor(entity.Id, ResolveOverlayOffset(HEALTH_BAR_Y_OFFSET, entity, creatureRenderer)) + DAMAGE_NUMBER_GAP_ABOVE_BAR;
         var tileWorld = Camera.TileToWorld(entity.TileX, entity.TileY, mapHeight);
         var spawnWorld = new Vector2(
             tileWorld.X + DaLibConstants.HALF_TILE_WIDTH + entity.VisualOffset.X,
@@ -374,7 +375,7 @@ public sealed class EntityOverlayManager
 
             var tileWorld = Camera.TileToWorld(entity.TileX, entity.TileY, mapHeight);
             var entityWorldX = tileWorld.X + DaLibConstants.HALF_TILE_WIDTH + entity.VisualOffset.X;
-            var entityWorldY = tileWorld.Y + DaLibConstants.HALF_TILE_HEIGHT + entity.VisualOffset.Y - NAME_TAG_Y_OFFSET;
+            var entityWorldY = tileWorld.Y + DaLibConstants.HALF_TILE_HEIGHT + entity.VisualOffset.Y - OverlayAnchor(entity.Id, NAME_TAG_Y_OFFSET);
             var screenPos = camera.WorldToScreen(new Vector2(entityWorldX - cachedText.Width / 2, entityWorldY));
 
             cachedText.Draw(spriteBatch, screenPos);
@@ -593,6 +594,15 @@ public sealed class EntityOverlayManager
     //for creature sprites, the overlay offset is the average of the baseline offset and the sprite's average top offset.
     //this lets small sprites pull overlays closer while tall sprites push them further up, without per-frame jitter.
     //for paperdoll aislings (and non-creature entities) the baseline offset is used unchanged.
+    private static float OverlayAnchor(uint entityId, int resolvedOffset)
+        => EntityLookMath.OverlayAnchorY(resolvedOffset, OverlayScale(entityId), IsFloating(entityId), TumbleClock.Now);
+
+    private static float OverlayScale(uint entityId)
+        => EntityLookMath.Scale(WorldState.EntityLooks.GetValueOrDefault(entityId));
+
+    private static bool IsFloating(uint entityId)
+        => WorldState.EntityLooks.GetValueOrDefault(entityId)?.Floating == true;
+
     private static int ResolveOverlayOffset(int baselineOffset, WorldEntity entity, CreatureRenderer creatureRenderer)
     {
         if (!entity.IsRenderedAsCreatureSprite)
@@ -635,7 +645,7 @@ public sealed class EntityOverlayManager
             var tileCenterX = tileWorld.X + DaLibConstants.HALF_TILE_WIDTH;
             var tileCenterY = tileWorld.Y + DaLibConstants.HALF_TILE_HEIGHT;
 
-            var offset = ResolveOverlayOffset(CHANT_Y_OFFSET, entity, creatureRenderer);
+            var offset = OverlayAnchor(entity.Id, ResolveOverlayOffset(CHANT_Y_OFFSET, entity, creatureRenderer));
 
             var entityWorldX = tileCenterX + entity.VisualOffset.X;
             var entityWorldY = tileCenterY + entity.VisualOffset.Y - offset;
@@ -689,7 +699,7 @@ public sealed class EntityOverlayManager
             var tileCenterX = tileWorld.X + DaLibConstants.HALF_TILE_WIDTH;
             var tileCenterY = tileWorld.Y + DaLibConstants.HALF_TILE_HEIGHT;
 
-            var offset = ResolveOverlayOffset(CHAT_BUBBLE_Y_OFFSET, entity, creatureRenderer);
+            var offset = OverlayAnchor(entity.Id, ResolveOverlayOffset(CHAT_BUBBLE_Y_OFFSET, entity, creatureRenderer));
 
             var entityWorldX = tileCenterX + entity.VisualOffset.X;
             var entityWorldY = tileCenterY + entity.VisualOffset.Y - offset;
@@ -739,7 +749,7 @@ public sealed class EntityOverlayManager
                 continue;
             }
 
-            var offset = ResolveOverlayOffset(HEALTH_BAR_Y_OFFSET, entity, creatureRenderer);
+            var offset = OverlayAnchor(entity.Id, ResolveOverlayOffset(HEALTH_BAR_Y_OFFSET, entity, creatureRenderer));
 
             var tileWorld = Camera.TileToWorld(entity.TileX, entity.TileY, mapHeight);
             var entityWorldX = tileWorld.X + DaLibConstants.HALF_TILE_WIDTH + entity.VisualOffset.X;

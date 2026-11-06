@@ -256,6 +256,7 @@ public sealed partial class WorldScreen
 
         //camera follows player's visual position (tile + walk interpolation offset)
         FollowPlayerCamera();
+        Camera.ShakeOffset = GiantShake.OffsetAt(TumbleClock.Now, Random.Shared);
         UpdateTumbleLabel();
         UpdateGlassLabel();
 

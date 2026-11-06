@@ -43,6 +43,7 @@ public sealed partial class WorldScreen
         Game.Connection.OnDisplayAisling += HandleDisplayAisling;
         Game.Connection.OnRemoveEntity += HandleRemoveEntity;
         Game.Connection.OnClientWalkResponse += HandleClientWalkResponse;
+        WorldState.OnGiantStep += HandleGiantStep;
 
         //hud data events
         Game.Connection.OnAttributes += HandleAttributes;

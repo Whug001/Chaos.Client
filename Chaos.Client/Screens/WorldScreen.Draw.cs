@@ -827,6 +827,7 @@ public sealed partial class WorldScreen
         var tileWorldPos = Camera.TileToWorld(tileX, tileY, MapFile.Height);
         var tileCenterX = tileWorldPos.X + DaLibConstants.HALF_TILE_WIDTH;
         var tileCenterY = tileWorldPos.Y + DaLibConstants.HALF_TILE_HEIGHT + yOffset;
+        var entityScale = EntityLookMath.Scale(WorldState.EntityLooks.GetValueOrDefault(entity.Id));
 
         var entityTextureBottom = 0;
         EntityAlphaScale = alphaScale;
@@ -861,7 +862,8 @@ public sealed partial class WorldScreen
                                 entity.Id,
                                 Game.CreatureRenderer.LastDrawBounds,
                                 wideFrame,
-                                Game.CreatureRenderer.LastDrawFlipped));
+                                Game.CreatureRenderer.LastDrawFlipped,
+                                entityScale));
 
                     break;
 
@@ -888,13 +890,7 @@ public sealed partial class WorldScreen
         var hitboxY = entityTextureBottom - HITBOX_HEIGHT;
 
         EntityHitBoxes.Add(
-            new EntityHitBox(
-                entity.Id,
-                new Rectangle(
-                    hitboxX,
-                    hitboxY,
-                    HITBOX_WIDTH,
-                    HITBOX_HEIGHT)));
+            new EntityHitBox(entity.Id, EntityLookMath.HitBox(new Rectangle(hitboxX, hitboxY, HITBOX_WIDTH, HITBOX_HEIGHT), entityScale)));
     }
 
     /// <summary>
@@ -932,6 +928,7 @@ public sealed partial class WorldScreen
         var groundPaintHeight = entity.IsOnSwimmingTile ? 0 : entity.GroundPaintHeight;
 
         var statusTint = tint == EntityTintType.Status ? LegendColors.Get(entity.TintColor) : default;
+        var scale = EntityLookMath.Scale(WorldState.EntityLooks.GetValueOrDefault(entity.Id));
 
         return creatureRenderer.Draw(
             spriteBatch,
@@ -948,7 +945,8 @@ public sealed partial class WorldScreen
             entity.GroundTintColor,
             alpha,
             WorldState.PumpkinLooks.Get(entity.Id),
-            PumpkinPainter.PhaseAt(Environment.TickCount64));
+            PumpkinPainter.PhaseAt(Environment.TickCount64),
+            scale);
     }
 
     private int DrawAisling(
@@ -1041,6 +1039,7 @@ public sealed partial class WorldScreen
                 entity.VisibleEmoteFrame);
 
         var emotionFrame = entity.VisibleEmoteFrame;
+        var scale = EntityLookMath.Scale(WorldState.EntityLooks.GetValueOrDefault(entity.Id));
         var groundPaintHeight = entity.IsOnSwimmingTile ? 0 : entity.GroundPaintHeight;
 
         var tint = ResolveEntityTint(entity);
@@ -1072,6 +1071,7 @@ public sealed partial class WorldScreen
             entity.IsDead,
             alpha);
 
+        drawParams = drawParams with { Scale = scale };
         var textureBottomY = Game.AislingRenderer.Draw(spriteBatch, Camera, in drawParams);
 
         if (fishing is { } shot && (textureBottomY != 0))

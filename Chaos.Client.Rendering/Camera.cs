@@ -27,6 +27,12 @@ public sealed class Camera
     public Vector2 Position { get; set; }
 
     /// <summary>
+    ///     Transient screen-space nudge (giant footstep shake). Applied in <see cref="WorldToScreen" /> only;
+    ///     <see cref="ScreenToWorld" /> ignores it so picking stays stable while the view shakes.
+    /// </summary>
+    public Vector2 ShakeOffset { get; set; }
+
+    /// <summary>
     ///     Viewport height in screen pixels.
     /// </summary>
     public int ViewportHeight { get; private set; }
@@ -178,7 +184,7 @@ public sealed class Camera
     {
         var center = new Vector2(ViewportWidth / 2f, ViewportHeight / 2f);
 
-        return (worldPos - Position) * Zoom + center + Offset;
+        return (worldPos - Position) * Zoom + center + Offset + ShakeOffset;
     }
 
     /// <summary>

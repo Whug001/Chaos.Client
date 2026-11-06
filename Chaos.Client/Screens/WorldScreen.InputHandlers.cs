@@ -1735,8 +1735,8 @@ public sealed partial class WorldScreen
                 && Game.CreatureRenderer.IsOpaqueAt(
                     hitbox.Frame,
                     hitbox.Flip,
-                    viewportMouseX - hitbox.ScreenRect.X,
-                    viewportMouseY - hitbox.ScreenRect.Y) && (!skipHidden || WorldState.GetEntity(hitbox.EntityId) is not { IsHidden: true }))
+                    (int)((viewportMouseX - hitbox.ScreenRect.X) / hitbox.Scale),
+                    (int)((viewportMouseY - hitbox.ScreenRect.Y) / hitbox.Scale)) && (!skipHidden || WorldState.GetEntity(hitbox.EntityId) is not { IsHidden: true }))
                 return WorldState.GetEntity(hitbox.EntityId);
         }
 

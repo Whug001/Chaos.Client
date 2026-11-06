@@ -265,6 +265,11 @@ public static class WorldState
     public static Dictionary<uint, EntityLookArgs> EntityLooks { get; } = [];
 
     /// <summary>
+    ///     Raised when an entity with a giant look (scale above 100%) walks. WorldScreen listens for the footstep shake.
+    /// </summary>
+    public static event Action<uint>? OnGiantStep;
+
+    /// <summary>
     ///     Authoritative beauty shop state (catalog, prices, current look, and the look being tried on).
     /// </summary>
     public static BeautyShop BeautyShop { get; } = new();
@@ -738,6 +743,9 @@ public static class WorldState
             direction,
             entity.UsesCreatureWalkTiming,
             walkFrameOverride: walkFrameCount);
+
+        if (EntityLooks.TryGetValue(id, out var look) && look.ScalePercent > 100)
+            OnGiantStep?.Invoke(id);
     }
 
     /// <summary>

@@ -111,7 +111,8 @@ public sealed class CreatureRenderer : IDisposable
         Color groundTintColor,
         float alpha = 1f,
         PumpkinLook? pumpkin = null,
-        int pumpkinPhase = 0)
+        int pumpkinPhase = 0,
+        float scale = 1f)
     {
         LastDrawBounds = Rectangle.Empty;
         LastDrawTexture = null;
@@ -176,6 +177,35 @@ public sealed class CreatureRenderer : IDisposable
                     : StatusTintCache[(sourceTexture, statusTint.PackedValue)] = ImageUtil.BuildColorTinted(TextureConverter.Device, sourceTexture, statusTint),
                 _                        => sourceTexture
             };
+
+            if (scale != 1f)
+            {
+                //the texture pixel that sits on the tile center: scaling about it keeps the feet planted.
+                //anchorX is already pre-mirrored for flip, so it is the feet texel in both orientations.
+                var origin = new Vector2(anchorX, texCenterY);
+                var feet = screenPos + origin;
+
+                batch.Draw(
+                    drawTexture,
+                    feet,
+                    null,
+                    Color.White * alpha,
+                    0f,
+                    origin,
+                    scale,
+                    effects,
+                    0f);
+
+                LastDrawBounds = new Rectangle(
+                    (int)(feet.X - origin.X * scale),
+                    (int)(feet.Y - origin.Y * scale),
+                    (int)(frame.Texture.Width * scale),
+                    (int)(frame.Texture.Height * scale));
+                LastDrawTexture = frame.Texture;
+                LastDrawFlipped = flip;
+
+                return (int)(feet.Y + (frame.Texture.Height - origin.Y) * scale);
+            }
 
             batch.Draw(
                 drawTexture,

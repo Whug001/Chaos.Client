@@ -66,7 +66,8 @@ public readonly record struct AislingDrawParams(
     EntityTintType Tint,
     Color StatusTint,
     bool IsDead,
-    float Alpha = 1f);
+    float Alpha = 1f,
+    float Scale = 1f);
 
 /// <summary>
 ///     Renders aisling sprites by compositing body, equipment, and hair layers. All layers are positioned relative to body
@@ -430,6 +431,16 @@ public sealed class AislingRenderer : IDisposable
         //dead aislings render as translucent ghosts via uniform alpha; the call site uses the opaque base alpha for
         //dead entities (dead wins over transparent) so we never stack both modulations here.
         var effectiveAlpha = p.IsDead ? p.Alpha * GHOST_ALPHA : p.Alpha;
+        if (p.Scale != 1f)
+        {
+            //the texture pixel that sits on the tile center: scaling about it keeps the feet planted.
+            var origin = new Vector2(CANVAS_CENTER_X, CANVAS_CENTER_Y + cached.TopPadding);
+            var feet = screenPos + origin;
+            batch.Draw(finalTexture, feet, null, Color.White * effectiveAlpha, 0f, origin, p.Scale, SpriteEffects.None, 0f);
+
+            return (int)(feet.Y + (cached.ContentBottomY - origin.Y) * p.Scale);
+        }
+
         batch.Draw(finalTexture, screenPos, Color.White * effectiveAlpha);
 
         return (int)screenPos.Y + cached.ContentBottomY;

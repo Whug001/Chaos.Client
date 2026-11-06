@@ -570,6 +570,21 @@ public sealed partial class WorldScreen
     ///     Updates camera position to follow the player entity's visual position, including walk interpolation offset. In
     ///     rough scroll mode, only updates at fixed intervals for a choppier look.
     /// </summary>
+    private void HandleGiantStep(uint entityId)
+    {
+        var player = WorldState.GetPlayerEntity();
+        var entity = WorldState.GetEntity(entityId);
+
+        if ((player is null) || (entity is null))
+            return;
+
+        //chebyshev distance on tile coordinates; only nearby steps shake the camera
+        if (Math.Max(Math.Abs(player.TileX - entity.TileX), Math.Abs(player.TileY - entity.TileY)) > 8)
+            return;
+
+        GiantShake.Trigger(TumbleClock.Now);
+    }
+
     private void FollowPlayerCamera()
     {
         if (MapFile is null)
