@@ -1011,9 +1011,18 @@ public static class WorldState
     public static void ApplyEntityLook(EntityLookArgs args)
     {
         if (args.IsDefault)
+        {
             EntityLooks.Remove(args.EntityId);
-        else
-            EntityLooks[args.EntityId] = args;
+
+            return;
+        }
+
+        //ignore looks for entities that are not tracked (stale packets for despawned or never-seen entities).
+        //the local player's own id counts as known even before its display packet arrives.
+        if (!Entities.ContainsKey(args.EntityId) && (args.EntityId != PlayerEntityId))
+            return;
+
+        EntityLooks[args.EntityId] = args;
     }
 
     /// <summary>

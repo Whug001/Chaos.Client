@@ -1,3 +1,5 @@
+using Chaos.Client.Models;
+using Chaos.DarkAges.Definitions;
 using Chaos.Networking.Entities.Server;
 using Microsoft.Xna.Framework;
 
@@ -13,6 +15,19 @@ public static class EntityLookMath
         => FLOAT_BASE_PIXELS + FLOAT_BOB_PIXELS * (float)Math.Sin(2 * Math.PI * seconds / FLOAT_PERIOD_SECONDS);
 
     public static float Scale(EntityLookArgs? look) => look is null ? 1f : look.ScalePercent / 100f;
+
+    /// <summary>
+    ///     True when the entity draws its swimming or resting sprite, which has no scaled variant.
+    /// </summary>
+    public static bool UsesUnscaledSprite(WorldEntity entity)
+        => entity.IsOnSwimmingTile || entity.RestPosition != RestPosition.None;
+
+    /// <summary>
+    ///     The sprite, overlay and hitbox scale for an entity: the look scale, except swimming and resting
+    ///     entities always use 1 to match their unscaled sprite. Floating still applies on top.
+    /// </summary>
+    public static float EffectiveScale(WorldEntity entity, EntityLookArgs? look)
+        => UsesUnscaledSprite(entity) ? 1f : Scale(look);
 
     /// <summary>
     ///     Scales a click hitbox about its bottom center, so a giant's box stays planted on the same tile point.

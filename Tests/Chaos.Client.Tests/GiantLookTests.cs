@@ -1,7 +1,10 @@
 #region
 using Chaos.Client.Collections;
+using Chaos.Client.Models;
 using Chaos.Client.Rendering;
 using Chaos.Client.Systems;
+using Chaos.DarkAges.Definitions;
+using Chaos.Networking.Entities.Server;
 using FluentAssertions;
 using Microsoft.Xna.Framework;
 #endregion
@@ -58,5 +61,22 @@ public class GiantLookTests
         var before = cam.ScreenToWorld(new Vector2(320, 240));
         cam.ShakeOffset = new Vector2(2, -2);
         cam.ScreenToWorld(new Vector2(320, 240)).Should().Be(before);
+    }
+
+    [Test]
+    public void Effective_scale_uses_look_scale_normally()
+    {
+        var entity = new WorldEntity { Id = 1 };
+        var look = new EntityLookArgs { EntityId = 1, ScalePercent = 200 };
+        EntityLookMath.EffectiveScale(entity, look).Should().Be(2f);
+        EntityLookMath.EffectiveScale(entity, null).Should().Be(1f);
+    }
+
+    [Test]
+    public void Effective_scale_is_1_when_swimming_or_resting()
+    {
+        var look = new EntityLookArgs { EntityId = 1, ScalePercent = 200 };
+        EntityLookMath.EffectiveScale(new WorldEntity { Id = 1, IsOnSwimmingTile = true }, look).Should().Be(1f);
+        EntityLookMath.EffectiveScale(new WorldEntity { Id = 1, RestPosition = RestPosition.Lay }, look).Should().Be(1f);
     }
 }
