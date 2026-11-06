@@ -1867,7 +1867,7 @@ public sealed partial class WorldScreen
         if (entity is null)
             return;
 
-        if ((entity.Type == ClientEntityType.Aisling) && (entity.Id != Game.Connection.AislingId))
+        if ((entity.Type == ClientEntityType.Aisling) && (entity.Id != Game.Connection.AislingId) && !entity.IsHidden)
         {
             var name = entity.Name;
             var id = entity.Id;
