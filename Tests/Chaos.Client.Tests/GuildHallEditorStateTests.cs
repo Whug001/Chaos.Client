@@ -43,7 +43,7 @@ public sealed class GuildHallEditorStateTests
     }
 
     [Test]
-    public async Task House_open_hides_guild_tabs()
+    public async Task House_open_hides_only_the_defenses_tab()
     {
         var state = new GuildHallEditorState();
         var args = Open() with { SpaceKind = EditableSpaceKind.House };
@@ -53,6 +53,10 @@ public sealed class GuildHallEditorStateTests
         state.Tab.Should().Be(GuildHallTab.Floors);
 
         state.SetTab(GuildHallTab.Npcs);
+        state.Tab.Should().Be(GuildHallTab.Npcs);
+        state.Tool.Should().Be(GuildHallTool.Npc);
+
+        state.SetTab(GuildHallTab.Floors);
         state.SetTab(GuildHallTab.Defenses);
         state.Tab.Should().Be(GuildHallTab.Floors);
 
@@ -60,7 +64,7 @@ public sealed class GuildHallEditorStateTests
     }
 
     [Test]
-    public async Task House_set_tool_npc_stays_off_the_npc_tab()
+    public async Task House_set_tool_npc_moves_to_the_npcs_tab()
     {
         var state = new GuildHallEditorState();
         var args = Open() with { SpaceKind = EditableSpaceKind.House };
@@ -68,8 +72,8 @@ public sealed class GuildHallEditorStateTests
 
         state.SetTool(GuildHallTool.Npc);
 
-        state.Tab.Should().Be(GuildHallTab.Floors);
-        state.Tool.Should().Be(GuildHallTool.Paint);
+        state.Tab.Should().Be(GuildHallTab.Npcs);
+        state.Tool.Should().Be(GuildHallTool.Npc);
 
         await Task.CompletedTask;
     }
@@ -711,7 +715,7 @@ public sealed class GuildHallEditorStateTests
     }
 
     [Test]
-    public async Task Hall_npcs_reopened_as_house_lands_on_floors_with_paint()
+    public async Task Hall_npcs_reopened_as_house_stays_on_npcs_with_npc_tool()
     {
         var state = new GuildHallEditorState();
         state.Open(Open());
@@ -720,6 +724,20 @@ public sealed class GuildHallEditorStateTests
 
         state.Open(Open() with { SpaceKind = EditableSpaceKind.House });
 
+        state.Tab.Should().Be(GuildHallTab.Npcs);
+        state.Tool.Should().Be(GuildHallTool.Npc);
+
+        await Task.CompletedTask;
+    }
+
+    [Test]
+    public async Task House_blocked_defenses_tab_keeps_the_paint_tool()
+    {
+        var state = new GuildHallEditorState();
+        state.Open(Open() with { SpaceKind = EditableSpaceKind.House });
+
+        state.SetTab(GuildHallTab.Defenses);
+
         state.Tab.Should().Be(GuildHallTab.Floors);
         state.Tool.Should().Be(GuildHallTool.Paint);
 
@@ -727,13 +745,70 @@ public sealed class GuildHallEditorStateTests
     }
 
     [Test]
-    public async Task House_blocked_tabs_keep_the_paint_tool()
+    public async Task House_hearth_can_be_placed_and_faced()
+    {
+        var state = new GuildHallEditorState();
+        var args = Open() with { SpaceKind = EditableSpaceKind.House, Npcs = [new GuildHallNpcOption("housing_hearth", "Hearth", 61, 99, 39, true)] };
+        state.Open(args);
+
+        state.SetTab(GuildHallTab.Npcs);
+        state.Tab.Should().Be(GuildHallTab.Npcs);
+        state.Tool.Should().Be(GuildHallTool.Npc);
+        state.Items.Select(p => p.NpcKey).Should().Equal("housing_hearth");
+
+        state.ArgsAt(new Point(3, 3)).Should().BeNull();
+        state.Select(new GuildHallPick(0, 0, 0, "housing_hearth"));
+        state.TurnNpc();
+        var npc = state.ArgsAt(new Point(3, 3))!;
+        npc.Action.Should().Be(GuildHallEditorAction.PlaceNpc);
+        npc.NpcKey.Should().Be("housing_hearth");
+        npc.Direction.Should().Be(Direction.Left);
+
+        await Task.CompletedTask;
+    }
+
+    [Test]
+    public async Task House_defense_and_entrance_tools_stay_blocked()
     {
         var state = new GuildHallEditorState();
         state.Open(Open() with { SpaceKind = EditableSpaceKind.House });
+        state.SetTab(GuildHallTab.Npcs);
+
+        foreach (var tool in new[] { GuildHallTool.Defense, GuildHallTool.AttackerEntrance, GuildHallTool.Heart, GuildHallTool.Entrance })
+            state.SetTool(tool);
+
+        state.Tool.Should().Be(GuildHallTool.Npc);
+        state.Tab.Should().Be(GuildHallTab.Npcs);
+
+        await Task.CompletedTask;
+    }
+
+    [Test]
+    public async Task House_npcs_tab_with_no_options_stays_empty()
+    {
+        var state = new GuildHallEditorState();
+        state.Open(Open() with { SpaceKind = EditableSpaceKind.House, Npcs = [] });
 
         state.SetTab(GuildHallTab.Npcs);
+
+        state.Tab.Should().Be(GuildHallTab.Npcs);
+        state.Items.Should().BeEmpty();
+        state.PageItems.Should().BeEmpty();
+        state.PageCount.Should().Be(1);
+        state.ArgsAt(new Point(3, 3)).Should().BeNull();
+
+        await Task.CompletedTask;
+    }
+
+    [Test]
+    public async Task Hall_defenses_reopened_as_house_lands_on_floors_with_paint()
+    {
+        var state = new GuildHallEditorState();
+        state.Open(Open());
         state.SetTab(GuildHallTab.Defenses);
+        state.Tool.Should().Be(GuildHallTool.Defense);
+
+        state.Open(Open() with { SpaceKind = EditableSpaceKind.House });
 
         state.Tab.Should().Be(GuildHallTab.Floors);
         state.Tool.Should().Be(GuildHallTool.Paint);

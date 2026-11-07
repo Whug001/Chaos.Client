@@ -192,7 +192,7 @@ public sealed class GuildHallEditorControl : UIPanel
             Math.Clamp(viewport.Y + 2, 0, ChaosGame.VIRTUAL_HEIGHT - PANEL_HEIGHT));
 
     internal static bool IsTabVisible(int index, bool isHouse)
-        => !isHouse || ((GuildHallTab)index is not (GuildHallTab.Npcs or GuildHallTab.Defenses));
+        => !isHouse || ((GuildHallTab)index is not GuildHallTab.Defenses);
 
     /// <summary>The header caption: houses edit a home, halls edit a guild hall.</summary>
     internal static string TitleFor(bool isHouse) => isHouse ? "HOUSE EDITOR" : "GUILD HALL EDITOR";
@@ -480,7 +480,7 @@ public sealed class GuildHallEditorControl : UIPanel
 
         NpcGroupLabel.Visible = npcTab;
         TurnButton.Visible = npcTab;
-        RemoveButton.Visible = npcTab;
+        RemoveButton.Visible = npcTab && !state.IsHouse;
         RemoveButton.Enabled = state.SelectedNpc is { Placed: true };
         TurnButton.Caption = $"Face: {state.NpcFacing}";
 
@@ -571,6 +571,9 @@ public sealed class GuildHallEditorControl : UIPanel
 
     private void RemoveNpc()
     {
+        if (State.IsHouse)
+            return;
+
         if (State.SelectedNpc is not { Placed: true } npc)
             return;
 

@@ -125,13 +125,13 @@ public sealed class GuildHallEditorLayoutTests
     }
 
     [Test]
-    public async Task House_shows_four_tabs()
+    public async Task House_hides_only_the_defenses_tab()
     {
         var visible = Enumerable.Range(0, GuildHallEditorControl.TabNames.Length)
                                .Where(i => GuildHallEditorControl.IsTabVisible(i, isHouse: true))
                                .ToList();
 
-        visible.Should().Equal(0, 1, 2, 4);
+        visible.Should().Equal(0, 1, 2, 3, 4);
 
         var x = GuildHallEditorControl.PAD;
 

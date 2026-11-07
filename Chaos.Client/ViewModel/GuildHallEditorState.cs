@@ -138,12 +138,12 @@ public sealed class GuildHallEditorState
 
         if (wasOpen)
         {
-            if (IsHouse && Tab is GuildHallTab.Npcs or GuildHallTab.Defenses)
+            if (IsHouse && Tab is GuildHallTab.Defenses)
             {
                 Tab = GuildHallTab.Floors;
                 Page = 0;
 
-                if (Tool is GuildHallTool.Npc or GuildHallTool.Entrance or GuildHallTool.Defense or GuildHallTool.AttackerEntrance or GuildHallTool.Heart)
+                if (Tool is GuildHallTool.Entrance or GuildHallTool.Defense or GuildHallTool.AttackerEntrance or GuildHallTool.Heart)
                     Tool = GuildHallTool.Paint;
             }
             else
@@ -348,7 +348,7 @@ public sealed class GuildHallEditorState
 
     public void SetTab(GuildHallTab tab)
     {
-        if (IsHouse && tab is GuildHallTab.Npcs or GuildHallTab.Defenses)
+        if (IsHouse && tab is GuildHallTab.Defenses)
             return;
 
         Tab = tab;
@@ -367,7 +367,7 @@ public sealed class GuildHallEditorState
 
     public void SetTool(GuildHallTool tool)
     {
-        if (IsHouse && (tool is GuildHallTool.Npc or GuildHallTool.Entrance))
+        if (IsHouse && (tool is GuildHallTool.Entrance or GuildHallTool.Defense or GuildHallTool.AttackerEntrance or GuildHallTool.Heart))
             return;
 
         if (Tab == GuildHallTab.Defenses)
