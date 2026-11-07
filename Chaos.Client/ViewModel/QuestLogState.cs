@@ -26,8 +26,38 @@ public sealed class QuestLogState
 
     public bool CanGiveUp => Selected?.CanGiveUp == true;
 
+    /// <summary>One row in the quest list: an area heading, or a quest under its heading.</summary>
+    public sealed record QuestLogListRow(bool IsHeading, string Text, QuestLogEntryInfo? Entry)
+    {
+        public static QuestLogListRow Heading(string area) => new(true, area, null);
+        public static QuestLogListRow Quest(QuestLogEntryInfo entry) => new(false, entry.Title, entry);
+    }
+
     /// <summary>The list, the selection or the confirm changed.</summary>
     public event Action? Changed;
+
+    /// <summary>
+    ///     The list rows in display order: an area heading, then that area's quests. The server already sends entries
+    ///     sorted by area, so this walks <see cref="Entries" /> in order and inserts a heading whenever Area changes.
+    /// </summary>
+    public IReadOnlyList<QuestLogListRow> BuildDisplayList()
+    {
+        var rows = new List<QuestLogListRow>();
+        string? lastArea = null;
+
+        foreach (var entry in EntryList)
+        {
+            if (lastArea != entry.Area)
+            {
+                rows.Add(QuestLogListRow.Heading(entry.Area));
+                lastArea = entry.Area;
+            }
+
+            rows.Add(QuestLogListRow.Quest(entry));
+        }
+
+        return rows;
+    }
 
     public void Apply(IReadOnlyList<QuestLogEntryInfo> entries)
     {

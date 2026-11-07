@@ -6,6 +6,18 @@ namespace Chaos.Client.Tests;
 
 public class QuestLogStateTests
 {
+    private static QuestLogEntryInfo EntryIn(string key, string area)
+        => new()
+        {
+            Key = key,
+            Title = key.ToUpperInvariant(),
+            Area = area,
+            GivenBy = "Noahn",
+            Text = $"Do {key}.",
+            CanGiveUp = true,
+            Progress = []
+        };
+
     private static QuestLogEntryInfo Entry(string key, bool canGiveUp = true, params QuestLogProgressInfo[] progress)
         => new()
         {
@@ -155,6 +167,56 @@ public class QuestLogStateTests
         state.DetailsText()
              .Should()
              .Be("{=cA\n{=iNoahn\n\n{=uDo a.\n\n{=uHorns: 3 / 5\n{=qRuns: 10 / 10");
+
+        await Task.CompletedTask;
+    }
+
+    [Test]
+    public async Task BuildDisplayList_inserts_a_heading_at_each_area_change()
+    {
+        var state = new QuestLogState();
+        state.Apply([EntryIn("stick", "Main Story"), EntryIn("wolf", "Astrid"), EntryIn("a", "Mileth"), EntryIn("b", "Mileth")]);
+
+        var rows = state.BuildDisplayList();
+
+        rows.Select(row => (row.IsHeading, row.Text))
+            .Should()
+            .Equal(
+                (true, "Main Story"),
+                (false, "STICK"),
+                (true, "Astrid"),
+                (false, "WOLF"),
+                (true, "Mileth"),
+                (false, "A"),
+                (false, "B"));
+
+        rows.Where(row => row.IsHeading).Select(row => row.Entry).Should().OnlyContain(entry => entry == null);
+        rows.Where(row => !row.IsHeading).Select(row => row.Entry!.Key).Should().Equal("stick", "wolf", "a", "b");
+
+        await Task.CompletedTask;
+    }
+
+    [Test]
+    public async Task BuildDisplayList_keeps_the_server_order_with_main_story_first()
+    {
+        var state = new QuestLogState();
+        state.Apply([EntryIn("stick", "Main Story"), EntryIn("wolf", "Astrid"), EntryIn("horns", "Mileth")]);
+
+        var rows = state.BuildDisplayList();
+
+        rows[0].Should().Be(QuestLogState.QuestLogListRow.Heading("Main Story"));
+        rows.Select(row => row.Text).Should().Equal("Main Story", "STICK", "Astrid", "WOLF", "Mileth", "HORNS");
+
+        await Task.CompletedTask;
+    }
+
+    [Test]
+    public async Task BuildDisplayList_is_empty_when_there_are_no_quests()
+    {
+        var state = new QuestLogState();
+        state.Apply([]);
+
+        state.BuildDisplayList().Should().BeEmpty();
 
         await Task.CompletedTask;
     }

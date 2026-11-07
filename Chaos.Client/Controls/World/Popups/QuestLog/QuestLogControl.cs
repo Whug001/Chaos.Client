@@ -6,7 +6,7 @@ using Chaos.Client.Controls.Scrolling;
 using Chaos.Client.Definitions;
 using Chaos.Client.Extensions;
 using Chaos.Client.Rendering;
-using Chaos.Networking.Entities.Server;
+using Chaos.Client.ViewModel;
 using Microsoft.Xna.Framework.Graphics;
 using Microsoft.Xna.Framework.Input;
 #endregion
@@ -57,7 +57,8 @@ public sealed class QuestLogControl : UIPanel
     private readonly UIButton MinimizeButton;
     private readonly Texture2D MinimizedBackground;
     private readonly UIButton RestoreButton;
-    private readonly VirtualizedRowList<QuestLogEntryInfo> RowList;
+    private readonly VirtualizedRowList<QuestLogState.QuestLogListRow> RowList;
+    private IReadOnlyList<QuestLogState.QuestLogListRow> DisplayRows = [];
     private int DragOffsetX;
     private int DragOffsetY;
     private bool Dragging;
@@ -86,15 +87,16 @@ public sealed class QuestLogControl : UIPanel
         var rowWidth = LIST_WIDTH - ScrollBarControl.DEFAULT_WIDTH;
         var state = WorldState.QuestLog;
 
-        RowList = new VirtualizedRowList<QuestLogEntryInfo>(
+        RowList = new VirtualizedRowList<QuestLogState.QuestLogListRow>(
             rowWidth,
             LIST_HEIGHT,
             ROW_HEIGHT,
             () => new QuestLogRow(rowWidth, key => state.Select(key)),
-            (row, entry, _) => ((QuestLogRow)row).Bind(entry, entry.Key == state.SelectedKey));
+            (row, item, _) => ((QuestLogRow)row).Bind(item, item.Entry?.Key == state.SelectedKey));
 
-        //bound once: the state keeps the same list instance, so later updates only need Invalidate (which keeps the scroll)
-        RowList.SetItems(state.Entries);
+        //rebuilt on every refresh; ReplaceItems keeps the scroll position like Invalidate did
+        DisplayRows = state.BuildDisplayList();
+        RowList.SetItems(DisplayRows);
 
         ListViewer = new ScrollViewerControl(RowList)
         {
@@ -282,7 +284,8 @@ public sealed class QuestLogControl : UIPanel
     {
         var state = WorldState.QuestLog;
 
-        RowList.Invalidate();
+        DisplayRows = state.BuildDisplayList();
+        RowList.ReplaceItems(DisplayRows);
         DetailsLabel.Text = state.DetailsText();
         GiveUpButton.Enabled = state.CanGiveUp;
 
