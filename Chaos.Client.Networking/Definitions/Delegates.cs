@@ -449,6 +449,8 @@ public delegate void HallBattleDisplayHandler(HallBattleDisplayArgs args);
 /// </summary>
 public delegate void FishingDisplayHandler(FishingDisplayArgs args);
 
+public delegate void TurkeyShootDisplayHandler(TurkeyShootDisplayArgs args);
+
 /// <summary>
 ///     Fired when a Pumpkin Carving window display packet is received.
 /// </summary>

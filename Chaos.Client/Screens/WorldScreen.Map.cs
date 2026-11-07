@@ -141,6 +141,8 @@ public sealed partial class WorldScreen
         FittingRoom.Hide();
         MountWindow?.Hide();
         EffectWindow?.Hide();
+        //leaving Undine already drops the hunter on the server, so no Leave is sent
+        TurkeyShootWindow?.CloseFromServer();
         WorldState.FittingRoom.Clear();
 
         //a new map starts with no stage lighting; a same-map refresh (above) deliberately keeps it

@@ -602,6 +602,8 @@ public sealed class ConnectionManager : IDisposable
     /// </summary>
     public event FishingDisplayHandler? OnFishingDisplay;
 
+    public event TurkeyShootDisplayHandler? OnTurkeyShootDisplay;
+
     /// <summary>
     ///     Fired when the server opens or closes the Pumpkin Carving window.
     /// </summary>
@@ -1474,6 +1476,8 @@ public sealed class ConnectionManager : IDisposable
     /// <summary>The player closed the fishing window.</summary>
     public void SendFishingClose() => SendIfWorld(new FishingInteractionArgs { Type = FishingInteractionType.Close });
 
+    public void SendTurkeyShootAction(TurkeyShootActionArgs args) => SendIfWorld(args);
+
     /// <summary>Sends the carving grid. <paramref name="done" /> is true when the window is closing.</summary>
     public void SendPumpkinCarvingSave(byte[] grid, bool done)
         => SendIfWorld(
@@ -2028,6 +2032,7 @@ public sealed class ConnectionManager : IDisposable
         PacketHandlers[(byte)ServerOpCode.GuildHallEditorDisplay] = HandleGuildHallEditorDisplay;
         PacketHandlers[(byte)ServerOpCode.HallBattleDisplay] = HandleHallBattleDisplay;
         PacketHandlers[(byte)ServerOpCode.FishingDisplay] = HandleFishingDisplay;
+        PacketHandlers[(byte)ServerOpCode.TurkeyShootDisplay] = HandleTurkeyShootDisplay;
         PacketHandlers[(byte)ServerOpCode.PumpkinCarvingDisplay] = HandlePumpkinCarvingDisplay;
         PacketHandlers[(byte)ServerOpCode.PumpkinLook] = HandlePumpkinLook;
         PacketHandlers[(byte)ServerOpCode.EntityLantern] = HandleEntityLantern;
@@ -2512,6 +2517,12 @@ public sealed class ConnectionManager : IDisposable
     {
         var args = Client.Deserialize<FishingDisplayArgs>(in pkt);
         OnFishingDisplay?.Invoke(args);
+    }
+
+    private void HandleTurkeyShootDisplay(ServerPacket pkt)
+    {
+        var args = Client.Deserialize<TurkeyShootDisplayArgs>(in pkt);
+        OnTurkeyShootDisplay?.Invoke(args);
     }
 
     private void HandlePumpkinCarvingDisplay(ServerPacket pkt)

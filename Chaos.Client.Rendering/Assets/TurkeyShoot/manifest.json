@@ -1,0 +1,11 @@
+{
+  "sky": { "file": "sky.png", "frameWidth": 384, "frameHeight": 216, "frames": 1, "columns": 1, "anchorX": 0, "anchorY": 0 },
+  "wheat": { "file": "wheat.png", "frameWidth": 384, "frameHeight": 56, "frames": 1, "columns": 1, "anchorX": 0, "anchorY": 0 },
+  "turkey": { "file": "turkey.png", "frameWidth": 32, "frameHeight": 32, "frames": 6, "columns": 6, "anchorX": 16, "anchorY": 16 },
+  "turkey_gold": { "file": "turkey_gold.png", "frameWidth": 32, "frameHeight": 32, "frames": 6, "columns": 6, "anchorX": 16, "anchorY": 16 },
+  "biscuit": { "file": "biscuit.png", "frameWidth": 48, "frameHeight": 40, "frames": 20, "columns": 5, "anchorX": 24, "anchorY": 39 },
+  "crosshair": { "file": "crosshair.png", "frameWidth": 15, "frameHeight": 15, "frames": 1, "columns": 1, "anchorX": 7, "anchorY": 7 },
+  "bolt": { "file": "bolt.png", "frameWidth": 8, "frameHeight": 20, "frames": 2, "columns": 2, "anchorX": 0, "anchorY": 0 },
+  "puff": { "file": "puff.png", "frameWidth": 16, "frameHeight": 16, "frames": 1, "columns": 1, "anchorX": 8, "anchorY": 8 },
+  "banner": { "file": "banner.png", "frameWidth": 256, "frameHeight": 64, "frames": 1, "columns": 1, "anchorX": 128, "anchorY": 0 }
+}

@@ -355,6 +355,7 @@ public sealed partial class WorldScreen
         //the catch zone ignores mouse and space while chat (or another control) owns input, so typing never works the line
         FishingWindow.InputBlocked = UITextBox.IsAnyFocused || ((Game.Dispatcher.TopControl is not null) && (Game.Dispatcher.TopControl != FishingWindow));
         FishingWindow.Update(elapsedMs / 1000f);
+        TurkeyShootWindow?.Update(elapsedMs / 1000f);
 
         //ends an armed GiveUp confirm after 5 s
         WorldState.QuestLog.Update(elapsedMs / 1000f);
