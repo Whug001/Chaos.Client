@@ -22,6 +22,8 @@ public sealed partial class WorldScreen
         if (Root is null)
             return;
 
+        WorldHud.ChatInput.Unfocus();
+
         if (BrassRingWindow is null)
         {
             BrassRingWindow = new BrassRingControl(Game.AislingRenderer, Game.SoundSystem) { ZIndex = 2 };

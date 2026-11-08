@@ -29,6 +29,9 @@ public sealed class BrassRingControl : UIPanel
     private const int BLOCK_SOUND = 1;
     private const int BAR_WIDTH = 240;
     private const int STAMINA_WIDTH = 170;
+    private const int BANNER_Y = 369;
+    private const int PIP_SPACING = 20;
+    private const float TRAIL_PER_STEP = 0.75f;
     private const int KEY_ROW_Y = WINDOW_HEIGHT - 15;
     private const int KEY_LABEL_Y = WINDOW_HEIGHT - 22;
 
@@ -37,14 +40,14 @@ public sealed class BrassRingControl : UIPanel
     private static readonly Color NearColor = new(217, 72, 59);
     private static readonly Color FarColor = new(59, 127, 217);
     private static readonly Color StaminaColor = new(224, 177, 62);
-    private static readonly Color EmptyColor = new(50, 48, 58);
-    private static readonly Color StripColor = new(20, 18, 27);
+    private static readonly Color TrailColor = new(235, 225, 200);
     private static readonly (int X, int Frame)[] KeyIcons = [(149, 0), (237, 1), (333, 2), (429, 3), (455, 4)];
 
     private readonly UILabel BannerLabel;
     private readonly Camera Camera = new(WINDOW_WIDTH, WINDOW_HEIGHT) { Position = new Vector2(WINDOW_WIDTH / 2f, WINDOW_HEIGHT / 2f) };
     private readonly List<BrassRingEvent> Events = [];
     private readonly int[] FlashMs = new int[2];
+    private readonly float[] TrailHealth = new float[2];
     private readonly UILabel FarNameLabel;
     private readonly UILabel NearNameLabel;
     private readonly UILabel RoundLabel;
@@ -77,7 +80,7 @@ public sealed class BrassRingControl : UIPanel
         FarNameLabel = AddLabel(WINDOW_WIDTH - 16 - BAR_WIDTH, 6, BAR_WIDTH, HorizontalAlignment.Right);
         RoundLabel = AddLabel(WINDOW_WIDTH / 2 - 40, 6, 80, HorizontalAlignment.Center);
         TimeLabel = AddLabel(WINDOW_WIDTH / 2 - 40, 22, 80, HorizontalAlignment.Center);
-        BannerLabel = AddLabel(0, 200, WINDOW_WIDTH, HorizontalAlignment.Center);
+        BannerLabel = AddLabel(0, BANNER_Y, WINDOW_WIDTH, HorizontalAlignment.Center);
         AddLabel(165, KEY_LABEL_Y, 40, HorizontalAlignment.Left).Text = "Left";
         AddLabel(253, KEY_LABEL_Y, 44, HorizontalAlignment.Left).Text = "Right";
         AddLabel(349, KEY_LABEL_Y, 44, HorizontalAlignment.Left).Text = "Block";
@@ -96,7 +99,8 @@ public sealed class BrassRingControl : UIPanel
         ResultsMs = -1;
         SparkMs = 0;
         Array.Clear(FlashMs);
-        BannerLabel.Text = string.Empty;
+        BannerLabel.Text = "Get ready";
+        Array.Fill(TrailHealth, (float)MAX_HEALTH);
         InputDispatcher.Instance?.PushControl(this);
         Visible = true;
     }
@@ -184,6 +188,9 @@ public sealed class BrassRingControl : UIPanel
 
         Events.Clear();
 
+        for (var i = 0; i < TrailHealth.Length; i++)
+            TrailHealth[i] = Math.Max(Fight.Fighters[i].Health, TrailHealth[i] - TRAIL_PER_STEP);
+
         if (ResultsMs < 0)
             return;
 
@@ -267,21 +274,40 @@ public sealed class BrassRingControl : UIPanel
         var near = Fight.Fighters[PLAYER];
         var far = Fight.Fighters[DUMMY];
         var white = BrassRingArtAssets.Texture(ChaosGame.Device, "white");
+        var stamina = near.Stamina / (float)MAX_STAMINA;
 
-        Bar(spriteBatch, white, 16, 24, BAR_WIDTH, 16, near.Health / (float)MAX_HEALTH, NearColor, false);
-        Bar(spriteBatch, white, 16, 44, STAMINA_WIDTH, 7, near.Stamina / (float)MAX_STAMINA, StaminaColor, false);
-        Bar(spriteBatch, white, WINDOW_WIDTH - 16 - BAR_WIDTH, 24, BAR_WIDTH, 16, far.Health / (float)MAX_HEALTH, FarColor, true);
-        spriteBatch.Draw(white, new Rectangle(ScreenX, ScreenY + WINDOW_HEIGHT - 30, WINDOW_WIDTH, 30), StripColor);
+        DrawSheet(spriteBatch, "hud", 0, Vector2.Zero);
+        Bar(spriteBatch, white, 16, 24, BAR_WIDTH, 16, near.Health / (float)MAX_HEALTH, TrailHealth[PLAYER] / MAX_HEALTH, NearColor, false);
+        Bar(spriteBatch, white, 16, 44, STAMINA_WIDTH, 7, stamina, stamina, StaminaColor, false);
+        Bar(spriteBatch, white, WINDOW_WIDTH - 16 - BAR_WIDTH, 24, BAR_WIDTH, 16, far.Health / (float)MAX_HEALTH, TrailHealth[DUMMY] / MAX_HEALTH, FarColor, true);
+
+        for (var i = 0; i < ROUNDS_TO_WIN; i++)
+        {
+            DrawSheet(spriteBatch, "pip", i < near.RoundWins ? 1 : 0, new Vector2(212 + i * PIP_SPACING, 48));
+            DrawSheet(spriteBatch, "pip", i < far.RoundWins ? 1 : 0, new Vector2(608 - i * PIP_SPACING, 48));
+        }
+
+        DrawSheet(spriteBatch, "keybar", 0, new Vector2(0, WINDOW_HEIGHT - 30));
+
         foreach (var (x, frame) in KeyIcons)
             DrawSheet(spriteBatch, "keys", frame, new Vector2(x, KEY_ROW_Y));
+
+        if (!string.IsNullOrEmpty(BannerLabel.Text))
+            DrawSheet(spriteBatch, "plaque", 0, new Vector2(WINDOW_WIDTH / 2f, BANNER_Y + 6));
     }
 
-    private void Bar(SpriteBatch spriteBatch, Texture2D white, int x, int y, int width, int height, float fraction, Color color, bool fromRight)
+    private void Bar(SpriteBatch spriteBatch, Texture2D white, int x, int y, int width, int height, float fraction, float trail, Color color, bool fromRight)
     {
-        spriteBatch.Draw(white, new Rectangle(ScreenX + x, ScreenY + y, width, height), EmptyColor);
+        var trailWidth = (int)(width * trail);
+        spriteBatch.Draw(white, new Rectangle(ScreenX + (fromRight ? x + width - trailWidth : x), ScreenY + y, trailWidth, height), TrailColor);
+
         var filled = (int)(width * fraction);
-        var left = fromRight ? x + width - filled : x;
-        spriteBatch.Draw(white, new Rectangle(ScreenX + left, ScreenY + y, filled, height), color);
+        var left = ScreenX + (fromRight ? x + width - filled : x);
+        var band = Math.Max(height / 4, 1);
+
+        spriteBatch.Draw(white, new Rectangle(left, ScreenY + y, filled, height), color);
+        spriteBatch.Draw(white, new Rectangle(left, ScreenY + y, filled, band), Color.Lerp(color, Color.White, 0.35f));
+        spriteBatch.Draw(white, new Rectangle(left, ScreenY + y + height - band, filled, band), Color.Lerp(color, Color.Black, 0.3f));
     }
 
     private void DrawSheet(SpriteBatch spriteBatch, string key, int frame, Vector2 at)

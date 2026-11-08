@@ -7,7 +7,7 @@ public sealed class BrassRingArtAssetsTests
 {
     [Test]
     public void Manifest_lists_every_sheet()
-        => BrassRingArtAssets.ReadManifest().Keys.Should().BeEquivalentTo("arena", "ropes", "glove", "spark", "stars", "white", "keys");
+        => BrassRingArtAssets.ReadManifest().Keys.Should().BeEquivalentTo("arena", "ropes", "glove", "spark", "stars", "white", "keys", "hud", "keybar", "plaque", "pip");
 
     [Test]
     public void Every_sheet_opens_and_passes_its_size_check()

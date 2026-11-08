@@ -53,6 +53,42 @@
     "anchorX": 12,
     "anchorY": 12
   },
+  "hud": {
+    "file": "hud.png",
+    "frameWidth": 640,
+    "frameHeight": 64,
+    "frames": 1,
+    "columns": 1,
+    "anchorX": 0,
+    "anchorY": 0
+  },
+  "keybar": {
+    "file": "keybar.png",
+    "frameWidth": 640,
+    "frameHeight": 30,
+    "frames": 1,
+    "columns": 1,
+    "anchorX": 0,
+    "anchorY": 0
+  },
+  "plaque": {
+    "file": "plaque.png",
+    "frameWidth": 280,
+    "frameHeight": 44,
+    "frames": 1,
+    "columns": 1,
+    "anchorX": 140,
+    "anchorY": 22
+  },
+  "pip": {
+    "file": "pip.png",
+    "frameWidth": 12,
+    "frameHeight": 12,
+    "frames": 2,
+    "columns": 2,
+    "anchorX": 6,
+    "anchorY": 6
+  },
   "white": {
     "file": "white.png",
     "frameWidth": 1,
