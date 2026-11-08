@@ -16,6 +16,9 @@ public sealed class CannonFairControl : UIPanel
 {
     private const int WINDOW_WIDTH = 640;
     private const int WINDOW_HEIGHT = 480;
+    private const int TOP_BAR_HEIGHT = 28;
+    private const int BOTTOM_BAR_Y = 432;
+    private const int BOTTOM_BAR_HEIGHT = 48;
     private const int GROUND_Y = 400;
     private const int PLAYER_ID = 1;
     private const int AIM_MS = 15000;
@@ -42,6 +45,8 @@ public sealed class CannonFairControl : UIPanel
     private static readonly Color King = new(122, 184, 74);
     private static readonly Color Gold = new(255, 211, 77);
     private static readonly Color Cannon = new(59, 59, 68);
+    private static readonly Color ChromeLight = new(150, 110, 70);
+    private static readonly Color ChromeDark = new(44, 28, 16);
 
     private readonly CannonFairAim Aim = new();
     private readonly UILabel BannerLabel;
@@ -53,6 +58,8 @@ public sealed class CannonFairControl : UIPanel
     private readonly UILabel TimerLabel;
 
     private float CarryMs;
+    private float PressX;
+    private float PressY;
     private int AimMs;
     private int BotIndex;
     private AislingAppearance BotLook;
@@ -60,6 +67,7 @@ public sealed class CannonFairControl : UIPanel
     private int ImpactMs;
     private RecordingPlayer? Player;
     private Phase CurrentPhase;
+    private Texture2D? ChromeTile;
     private Texture2D? Pixel;
     private AislingAppearance PlayerLook;
     private float PlayerCannonX;
@@ -223,14 +231,15 @@ public sealed class CannonFairControl : UIPanel
         if ((e.Button == MouseButton.Left) && (CurrentPhase == Phase.Aiming))
         {
             Dragging = true;
-            ApplyDrag(e.ScreenX, e.ScreenY);
+            PressX = e.ScreenX - ScreenX;
+            PressY = e.ScreenY - ScreenY;
         }
     }
 
     public override void OnMouseMove(MouseMoveEvent e)
     {
         if (Dragging && (CurrentPhase == Phase.Aiming))
-            ApplyDrag(e.ScreenX, e.ScreenY);
+            Aim.Drag(PressX, PressY, e.ScreenX - ScreenX, e.ScreenY - ScreenY);
     }
 
     public override void OnMouseUp(MouseUpEvent e)
@@ -242,7 +251,7 @@ public sealed class CannonFairControl : UIPanel
 
         Dragging = false;
 
-        if (CurrentPhase == Phase.Aiming)
+        if ((CurrentPhase == Phase.Aiming) && Aim.Drag(PressX, PressY, e.ScreenX - ScreenX, e.ScreenY - ScreenY))
             Fire(true);
     }
 
@@ -257,6 +266,8 @@ public sealed class CannonFairControl : UIPanel
             DrawReplay(spriteBatch);
         else
             DrawAiming(spriteBatch);
+
+        DrawChrome(spriteBatch);
 
         base.Draw(spriteBatch);
     }
@@ -333,10 +344,24 @@ public sealed class CannonFairControl : UIPanel
         BannerLabel.Text = Volley.Truncated ? "Replay cut short: simulation hit its time limit" : string.Empty;
     }
 
-    private void ApplyDrag(int screenX, int screenY)
+    private void DrawChrome(SpriteBatch spriteBatch)
     {
-        var (x, y, _) = CannonFairCamera.Project(PlayerCannonX, CANNON_Y, 0f);
-        Aim.Drag(x, y, screenX - ScreenX, screenY - ScreenY);
+        ChromeTile ??= UiRenderer.Instance?.GetSpfTexture("DlgBack2.spf");
+
+        if (ChromeTile is not null)
+        {
+            OrnateFrame.TileTexture(spriteBatch, ChromeTile, ScreenX, ScreenY, WINDOW_WIDTH, TOP_BAR_HEIGHT);
+            OrnateFrame.TileTexture(spriteBatch, ChromeTile, ScreenX, ScreenY + BOTTOM_BAR_Y, WINDOW_WIDTH, BOTTOM_BAR_HEIGHT);
+        }
+
+        FillRect(spriteBatch, 0, TOP_BAR_HEIGHT - 3, WINDOW_WIDTH, 1, ChromeLight);
+        FillRect(spriteBatch, 0, TOP_BAR_HEIGHT - 2, WINDOW_WIDTH, 2, ChromeDark);
+        FillRect(spriteBatch, 0, BOTTOM_BAR_Y, WINDOW_WIDTH, 2, ChromeDark);
+        FillRect(spriteBatch, 0, BOTTOM_BAR_Y + 2, WINDOW_WIDTH, 1, ChromeLight);
+        FillRect(spriteBatch, 0, 0, WINDOW_WIDTH, 2, ChromeDark);
+        FillRect(spriteBatch, 0, WINDOW_HEIGHT - 2, WINDOW_WIDTH, 2, ChromeDark);
+        FillRect(spriteBatch, 0, 0, 2, WINDOW_HEIGHT, ChromeDark);
+        FillRect(spriteBatch, WINDOW_WIDTH - 2, 0, 2, WINDOW_HEIGHT, ChromeDark);
     }
 
     private void DrawAiming(SpriteBatch spriteBatch)

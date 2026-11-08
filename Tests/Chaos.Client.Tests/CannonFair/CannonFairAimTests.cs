@@ -40,6 +40,32 @@ public sealed class CannonFairAimTests
     }
 
     [Test]
+    public void A_pull_shorter_than_the_minimum_keeps_the_aim()
+    {
+        var aim = new CannonFairAim();
+        var angle = aim.AngleDegrees;
+        var power = aim.Power;
+
+        aim.Drag(200f, 200f, 205f, 204f).Should().BeFalse();
+
+        aim.AngleDegrees.Should().Be(angle);
+        aim.Power.Should().Be(power);
+    }
+
+    [Test]
+    public void The_same_offset_from_two_press_points_gives_the_same_aim()
+    {
+        var first = new CannonFairAim();
+        var second = new CannonFairAim();
+
+        first.Drag(100f, 100f, 50f, 150f).Should().BeTrue();
+        second.Drag(300f, 300f, 250f, 350f).Should().BeTrue();
+
+        second.AngleDegrees.Should().Be(first.AngleDegrees);
+        second.Power.Should().Be(first.Power);
+    }
+
+    [Test]
     public void Nudge_stays_inside_the_legal_range()
     {
         var aim = new CannonFairAim();
