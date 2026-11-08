@@ -44,6 +44,15 @@
     "anchorX": 32,
     "anchorY": 16
   },
+  "keys": {
+    "file": "keys.png",
+    "frameWidth": 24,
+    "frameHeight": 24,
+    "frames": 5,
+    "columns": 5,
+    "anchorX": 12,
+    "anchorY": 12
+  },
   "white": {
     "file": "white.png",
     "frameWidth": 1,
