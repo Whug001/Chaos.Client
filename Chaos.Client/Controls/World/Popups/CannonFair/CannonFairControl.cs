@@ -26,6 +26,7 @@ public sealed class CannonFairControl : UIPanel
     private const int GROUND_Y = 400;
     private const int POPUP_MS = 900;
     private const int POPUP_COUNT = 12;
+    private const int POPUP_WIDTH = 110;
     private const int AIM_DOTS = 12;
     private const float AIM_DOT_SECONDS = 0.1f;
     private const float SPRITE_SCALE_PER_METRE = 0.025f;
@@ -54,9 +55,10 @@ public sealed class CannonFairControl : UIPanel
     private static readonly Color Caption = new(214, 190, 150);
     private static readonly Color LowTime = new(255, 96, 64);
     private static readonly Color PowerShade = new(176, 120, 40);
-    private static readonly Rectangle ScorePanel = new(6, 6, 190, 120);
-    private static readonly Rectangle TimerPanel = new(288, 6, 64, 44);
+    private static readonly Rectangle ScorePanel = new(6, 6, 190, 102);
+    private static readonly Rectangle TimerPanel = new(240, 6, 160, 74);
     private static readonly Rectangle AimPanel = new(458, 6, 176, 84);
+    private static readonly Rectangle VolleyPanel = new(458, 6, 176, 46);
     private static readonly Rectangle ControlsPanel = new(6, 400, 236, 74);
 
     private readonly CannonFairAim Aim = new();
@@ -80,6 +82,8 @@ public sealed class CannonFairControl : UIPanel
     private readonly Dictionary<int, AislingAppearance> Looks = [];
     private readonly AislingRenderer Renderer;
     private readonly UILabel TimerLabel;
+    private readonly UILabel FortLabel;
+    private readonly UILabel LockLabel;
 
     private CannonFairLeaveGuard LeaveGuard = new();
     private CannonFairSession? Session;
@@ -116,14 +120,16 @@ public sealed class CannonFairControl : UIPanel
                 HorizontalAlignment.Left);
 
         VolleyTotal = AddLabel(
-            ScorePanel.X + PANEL_PADDING,
-            ScorePanel.Y + PANEL_PADDING + ((STAND_ROWS + 1) * ROW_HEIGHT),
-            ScorePanel.Width - (2 * PANEL_PADDING),
+            VolleyPanel.X + PANEL_PADDING,
+            VolleyPanel.Y + PANEL_PADDING,
+            VolleyPanel.Width - (2 * PANEL_PADDING),
             HorizontalAlignment.Left);
         VolleyTotal.ForegroundColor = Caption;
 
         TimerLabel = AddLabel(TimerPanel.X, TimerPanel.Y + PANEL_PADDING, TimerPanel.Width, HorizontalAlignment.Center);
-        AimingOnly.Add(TimerLabel);
+        FortLabel = AddLabel(TimerPanel.X, TimerPanel.Y + PANEL_PADDING + ROW_HEIGHT, TimerPanel.Width, HorizontalAlignment.Center);
+        LockLabel = AddLabel(TimerPanel.X, TimerPanel.Y + PANEL_PADDING + (2 * ROW_HEIGHT), TimerPanel.Width, HorizontalAlignment.Center);
+        LockLabel.ForegroundColor = Caption;
         ShotValue = AddStat(AimPanel, 0, "Shot", true);
         AngleValue = AddStat(AimPanel, 1, "Angle", true);
         PowerValue = AddStat(AimPanel, 2, "Power", true);
@@ -151,7 +157,7 @@ public sealed class CannonFairControl : UIPanel
         CountdownLabel = AddCardLabel(MAX_PLAYERS + 2, string.Empty);
 
         for (var index = 0; index < POPUP_COUNT; index++)
-            Popups[index] = AddLabel(0, 0, 80, HorizontalAlignment.Center);
+            Popups[index] = AddLabel(0, 0, POPUP_WIDTH, HorizontalAlignment.Center);
     }
 
     public void Open(CannonFairSession session)
@@ -441,12 +447,16 @@ public sealed class CannonFairControl : UIPanel
         if (Session!.Phase == MatchPhase.Aiming)
         {
             DrawPlaque(spriteBatch, TimerPanel);
-            DrawPlaque(spriteBatch, AimPanel);
-            DrawPlaque(spriteBatch, ControlsPanel);
 
             if (Session.CanAim)
+            {
+                DrawPlaque(spriteBatch, AimPanel);
+                DrawPlaque(spriteBatch, ControlsPanel);
                 DrawPowerBar(spriteBatch);
+            }
         }
+        else if (Session.IsReplaying)
+            DrawPlaque(spriteBatch, VolleyPanel);
 
         FillRect(spriteBatch, 0, 0, WINDOW_WIDTH, 2, ChromeDark);
         FillRect(spriteBatch, 0, WINDOW_HEIGHT - 2, WINDOW_WIDTH, 2, ChromeDark);
@@ -578,6 +588,13 @@ public sealed class CannonFairControl : UIPanel
         foreach (var label in AimingOnly)
             label.Visible = aiming;
 
+        var aimingPhase = Session.Phase == MatchPhase.Aiming;
+        TimerLabel.Visible = aimingPhase;
+        FortLabel.Visible = aimingPhase;
+        FortLabel.Text = $"Fort {Session.FortNumber + 1}/{FORT_COUNT}  Volley {Session.VolleyNumber + 1}/{VOLLEYS_PER_FORT}";
+        LockLabel.Visible = aimingPhase && (Session.ActiveCount > 0);
+        LockLabel.Text = $"Locked {Session.LockedCount}/{Session.ActiveCount}";
+
         var rows = StandingsRows();
 
         FillRows(StandRows, rows, true);
@@ -585,6 +602,7 @@ public sealed class CannonFairControl : UIPanel
         var replayMs = Session.ReplayMs(NowMs);
         var volleyTotal = Session.Volley?.Scores.Where(score => (score.Ms <= replayMs) && (score.PlayerId == Session.OwnSlot)).Sum(score => score.Points) ?? 0;
         VolleyTotal.Text = $"This volley +{volleyTotal}";
+        VolleyTotal.Visible = Session.IsReplaying && (Session.Phase != MatchPhase.Aiming);
 
         var ordered = Session.Standings.OrderBy(row => row.Place).ToList();
         var showTab = TabHeld && !Session.ShowingResults;
@@ -603,11 +621,12 @@ public sealed class CannonFairControl : UIPanel
             ResultsTitle.Text = Session.IsFinal ? "The Final Standings" : $"Fort {Session.FortNumber + 1} Standings";
 
             var winners = ordered.Where(row => row.Place == 1).Select(row => row.Name).ToList();
+            var tied = $"Laurels: {string.Join(", ", winners)}";
             WinnersLabel.Text = winners.Count switch
             {
                 0 => string.Empty,
                 1 => $"The laurel goes to {winners[0]}",
-                _ => $"Laurels: {string.Join(", ", winners)}"
+                _ => TextRenderer.MeasureWidth(tied) <= WinnersLabel.Width ? tied : $"{winners.Count} share the laurel"
             };
 
             var seconds = (Session.ResultsMsLeft(NowMs) + 999) / 1000;
