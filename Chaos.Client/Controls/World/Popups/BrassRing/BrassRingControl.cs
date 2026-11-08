@@ -29,15 +29,17 @@ public sealed class BrassRingControl : UIPanel
     private const int BLOCK_SOUND = 1;
     private const int BAR_WIDTH = 240;
     private const int STAMINA_WIDTH = 170;
-    private const string KEY_NOTE = "A left   D right   S block   arrows dodge";
+    private const int KEY_ROW_Y = WINDOW_HEIGHT - 15;
+    private const int KEY_LABEL_Y = WINDOW_HEIGHT - 22;
 
-    private static readonly Vector2 NearFeet = new(262, 375);
-    private static readonly Vector2 FarFeet = new(382, 295);
+    private static readonly Vector2 NearFeet = new(260, 290);
+    private static readonly Vector2 FarFeet = new(380, 230);
     private static readonly Color NearColor = new(217, 72, 59);
     private static readonly Color FarColor = new(59, 127, 217);
     private static readonly Color StaminaColor = new(224, 177, 62);
     private static readonly Color EmptyColor = new(50, 48, 58);
     private static readonly Color StripColor = new(20, 18, 27);
+    private static readonly (int X, int Frame)[] KeyIcons = [(149, 0), (237, 1), (333, 2), (429, 3), (455, 4)];
 
     private readonly UILabel BannerLabel;
     private readonly Camera Camera = new(WINDOW_WIDTH, WINDOW_HEIGHT) { Position = new Vector2(WINDOW_WIDTH / 2f, WINDOW_HEIGHT / 2f) };
@@ -76,7 +78,10 @@ public sealed class BrassRingControl : UIPanel
         RoundLabel = AddLabel(WINDOW_WIDTH / 2 - 40, 6, 80, HorizontalAlignment.Center);
         TimeLabel = AddLabel(WINDOW_WIDTH / 2 - 40, 22, 80, HorizontalAlignment.Center);
         BannerLabel = AddLabel(0, 200, WINDOW_WIDTH, HorizontalAlignment.Center);
-        AddLabel(0, WINDOW_HEIGHT - 22, WINDOW_WIDTH, HorizontalAlignment.Center).Text = KEY_NOTE;
+        AddLabel(165, KEY_LABEL_Y, 40, HorizontalAlignment.Left).Text = "Left";
+        AddLabel(253, KEY_LABEL_Y, 44, HorizontalAlignment.Left).Text = "Right";
+        AddLabel(349, KEY_LABEL_Y, 44, HorizontalAlignment.Left).Text = "Block";
+        AddLabel(471, KEY_LABEL_Y, 48, HorizontalAlignment.Left).Text = "Dodge";
     }
 
     public void Open(string playerName, in AislingAppearance look, in AislingAppearance dummyLook)
@@ -267,6 +272,8 @@ public sealed class BrassRingControl : UIPanel
         Bar(spriteBatch, white, 16, 44, STAMINA_WIDTH, 7, near.Stamina / (float)MAX_STAMINA, StaminaColor, false);
         Bar(spriteBatch, white, WINDOW_WIDTH - 16 - BAR_WIDTH, 24, BAR_WIDTH, 16, far.Health / (float)MAX_HEALTH, FarColor, true);
         spriteBatch.Draw(white, new Rectangle(ScreenX, ScreenY + WINDOW_HEIGHT - 30, WINDOW_WIDTH, 30), StripColor);
+        foreach (var (x, frame) in KeyIcons)
+            DrawSheet(spriteBatch, "keys", frame, new Vector2(x, KEY_ROW_Y));
     }
 
     private void Bar(SpriteBatch spriteBatch, Texture2D white, int x, int y, int width, int height, float fraction, Color color, bool fromRight)
