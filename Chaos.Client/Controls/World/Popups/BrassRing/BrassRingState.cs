@@ -9,6 +9,15 @@ public sealed class BrassRingState
 {
     public const int PREVIEW_HOLD_MS = 400;
     public const int FORFEIT_CONFIRM_MS = 3000;
+    public const int MAX_REACTIONS = 12;
+    public const int REACTION_MS = 1000;
+
+    public sealed class BrassRingReaction(BrassRingCheer kind, int x)
+    {
+        public BrassRingCheer Kind { get; } = kind;
+        public int X { get; } = x;
+        public int RemainingMs { get; set; } = REACTION_MS;
+    }
 
     private readonly BrassRingFighter PreviewFighter = new();
     private int ForfeitMs;
@@ -21,10 +30,13 @@ public sealed class BrassRingState
     public int Round { get; private set; } = 1;
     public int You { get; private set; }
     public bool ForfeitArmed => ForfeitMs > 0;
+    public bool IsSpectator { get; private set; }
+    public List<BrassRingReaction> Reactions { get; } = [];
 
-    public void Reset(int you)
+    public void Reset(int you, bool spectator = false)
     {
         You = you;
+        IsSpectator = spectator;
         Phase = BrassRingPhase.Intro;
         PhaseMs = INTRO_MS;
         Round = 1;
@@ -32,6 +44,21 @@ public sealed class BrassRingState
         Fighters[1] = new BrassRingFighter();
         PreviewMs = 0;
         ForfeitMs = 0;
+        Reactions.Clear();
+    }
+
+    public void SwitchSide()
+    {
+        if (IsSpectator)
+            You = 1 - You;
+    }
+
+    public void AddReaction(BrassRingCheer kind, int x)
+    {
+        if (Reactions.Count >= MAX_REACTIONS)
+            Reactions.RemoveAt(0);
+
+        Reactions.Add(new BrassRingReaction(kind, x));
     }
 
     public void ApplyTick(BrassRingDisplayArgs args)
@@ -62,6 +89,11 @@ public sealed class BrassRingState
         PreviewMs = Math.Max(0, PreviewMs - ms);
         PreviewFighter.PoseMs = Math.Max(0, PreviewFighter.PoseMs - ms);
 
+        foreach (var reaction in Reactions)
+            reaction.RemainingMs -= ms;
+
+        Reactions.RemoveAll(reaction => reaction.RemainingMs <= 0);
+
         foreach (var fighter in Fighters)
             if (fighter.Pose is not (BrassRingPose.Idle or BrassRingPose.Down or BrassRingPose.Block))
                 fighter.PoseMs = Math.Max(0, fighter.PoseMs - ms);
@@ -70,6 +102,9 @@ public sealed class BrassRingState
     /// <summary>Shows the fighter's own move before the server answers, when the state says it could be legal.</summary>
     public void Preview(BrassRingMove move)
     {
+        if (IsSpectator)
+            return;
+
         if (Phase != BrassRingPhase.Round)
             return;
 

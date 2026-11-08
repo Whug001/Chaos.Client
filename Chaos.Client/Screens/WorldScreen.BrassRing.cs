@@ -21,6 +21,8 @@ public sealed partial class WorldScreen
         {
             BrassRingWindow.MoveRequested -= SendBrassRingMove;
             BrassRingWindow.ForfeitRequested -= SendBrassRingForfeit;
+            BrassRingWindow.CheerRequested -= SendBrassRingCheer;
+            BrassRingWindow.StopWatchingRequested -= SendBrassRingStopWatching;
         }
     }
 
@@ -38,6 +40,8 @@ public sealed partial class WorldScreen
             BrassRingWindow = new BrassRingControl(Game.AislingRenderer, Game.SoundSystem) { ZIndex = 2 };
             BrassRingWindow.MoveRequested += SendBrassRingMove;
             BrassRingWindow.ForfeitRequested += SendBrassRingForfeit;
+            BrassRingWindow.CheerRequested += SendBrassRingCheer;
+            BrassRingWindow.StopWatchingRequested += SendBrassRingStopWatching;
             Root.AddChild(BrassRingWindow);
         }
 
@@ -53,7 +57,7 @@ public sealed partial class WorldScreen
 
                 break;
             case BrassRingDisplayType.Close when BrassRingWindow.Visible:
-                BrassRingWindow.CloseFromServer(args.Reason);
+                BrassRingWindow.CloseFromServer(args.Reason, args.Leaver);
 
                 break;
         }
@@ -64,4 +68,10 @@ public sealed partial class WorldScreen
 
     private void SendBrassRingForfeit()
         => Game.Connection.SendBrassRingAction(new BrassRingActionArgs { Type = BrassRingActionType.Forfeit });
+
+    private void SendBrassRingCheer(BrassRingCheer kind)
+        => Game.Connection.SendBrassRingAction(new BrassRingActionArgs { Type = BrassRingActionType.Cheer, Cheer = kind });
+
+    private void SendBrassRingStopWatching()
+        => Game.Connection.SendBrassRingAction(new BrassRingActionArgs { Type = BrassRingActionType.StopWatching });
 }

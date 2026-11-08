@@ -44,6 +44,7 @@ public sealed class BrassRingControl : UIPanel
     private const int KEY_PLATE_HEIGHT = 32;
     private const int BANNER_PLATE_WIDTH = 280;
     private const int BANNER_PLATE_HEIGHT = 44;
+    private const string GET_READY_TEXT = "Get ready";
 
     private static readonly Vector2 NearFeet = new(260, 290);
     private static readonly Vector2 FarFeet = new(380, 230);
@@ -55,6 +56,12 @@ public sealed class BrassRingControl : UIPanel
     private static readonly Color GrooveShadow = new(15, 9, 6);
     private static readonly Color GrooveLight = new(150, 112, 70);
     private static readonly (int X, int Frame)[] KeyIcons = [(149, 0), (237, 1), (333, 2), (429, 3), (455, 4)];
+    private const int CHEER_SOUND = 168;
+    private const int OOH_SOUND = 9;
+    private const int BOO_SOUND = 183;
+    private const int REACTION_SOUND_GAP_MS = 400;
+    private const int REACTION_RISE = 60;
+    private static readonly (int X, int Width, string Text)[] SpectatorButtons = [(150, 60, "Cheer"), (230, 60, "Ooh"), (310, 60, "Boo"), (410, 100, "Switch side")];
 
     private readonly UILabel BannerLabel;
     private readonly Camera Camera = new(WINDOW_WIDTH, WINDOW_HEIGHT) { Position = new Vector2(WINDOW_WIDTH / 2f, WINDOW_HEIGHT / 2f) };
@@ -71,12 +78,17 @@ public sealed class BrassRingControl : UIPanel
     private Texture2D? CentrePlate;
     private Texture2D? KeyPlate;
     private Texture2D? BannerPlate;
-    private readonly BrassRingState State = new();
+    internal readonly BrassRingState State = new();
+    private readonly UILabel[] KeyLabels;
+    private readonly UILabel[] SpectatorLabels;
+    internal readonly UILabel[] ReactionLabels;
     private string BannerBeforeConfirm = string.Empty;
     private bool BlockHeld;
     private bool ConfirmShown;
     private float CarryMs;
-    private string[] Names = ["", ""];
+    internal string[] Names = ["", ""];
+    private List<TownBallotLookInfo?> OpenLooks = [];
+    private int ReactionSoundMs = REACTION_SOUND_GAP_MS;
     private AislingAppearance NearLook;
     private AislingAppearance FarLook;
     private int ResultsMs = -1;
@@ -85,6 +97,8 @@ public sealed class BrassRingControl : UIPanel
 
     public event Action<BrassRingMove>? MoveRequested;
     public event Action? ForfeitRequested;
+    public event Action<BrassRingCheer>? CheerRequested;
+    public event Action? StopWatchingRequested;
 
     public BrassRingControl(AislingRenderer renderer, SoundSystem sounds)
     {
@@ -102,45 +116,107 @@ public sealed class BrassRingControl : UIPanel
         RoundLabel = AddLabel(WINDOW_WIDTH / 2 - 40, 6, 80, HorizontalAlignment.Center);
         TimeLabel = AddLabel(WINDOW_WIDTH / 2 - 40, 22, 80, HorizontalAlignment.Center);
         BannerLabel = AddLabel(0, BANNER_Y, WINDOW_WIDTH, HorizontalAlignment.Center);
-        AddLabel(165, KEY_LABEL_Y, 40, HorizontalAlignment.Left).Text = "Left";
-        AddLabel(253, KEY_LABEL_Y, 44, HorizontalAlignment.Left).Text = "Right";
-        AddLabel(349, KEY_LABEL_Y, 44, HorizontalAlignment.Left).Text = "Block";
-        AddLabel(471, KEY_LABEL_Y, 48, HorizontalAlignment.Left).Text = "Dodge";
+        KeyLabels =
+        [
+            AddLabel(165, KEY_LABEL_Y, 40, HorizontalAlignment.Left),
+            AddLabel(253, KEY_LABEL_Y, 44, HorizontalAlignment.Left),
+            AddLabel(349, KEY_LABEL_Y, 44, HorizontalAlignment.Left),
+            AddLabel(471, KEY_LABEL_Y, 48, HorizontalAlignment.Left)
+        ];
+        KeyLabels[0].Text = "Left";
+        KeyLabels[1].Text = "Right";
+        KeyLabels[2].Text = "Block";
+        KeyLabels[3].Text = "Dodge";
+        SpectatorLabels = new UILabel[SpectatorButtons.Length];
+
+        for (var i = 0; i < SpectatorButtons.Length; i++)
+        {
+            SpectatorLabels[i] = AddLabel(SpectatorButtons[i].X, KEY_LABEL_Y, SpectatorButtons[i].Width, HorizontalAlignment.Left);
+            SpectatorLabels[i].Text = SpectatorButtons[i].Text;
+            SpectatorLabels[i].Visible = false;
+        }
+
+        ReactionLabels = new UILabel[BrassRingState.MAX_REACTIONS];
+
+        for (var i = 0; i < ReactionLabels.Length; i++)
+        {
+            ReactionLabels[i] = AddLabel(0, 0, 80, HorizontalAlignment.Center);
+            ReactionLabels[i].Visible = false;
+        }
+    }
+
+    public static bool CanOpen(BrassRingDisplayArgs args, out bool spectator)
+    {
+        spectator = args.YourIndex == SPECTATOR_INDEX;
+
+        if ((!spectator && (args.YourIndex > 1)) || (args.Names.Count < 2) || (args.Looks.Count < 2))
+            return false;
+
+        return true;
     }
 
     public void Open(BrassRingDisplayArgs args)
     {
-        if ((args.YourIndex > 1) || (args.Names.Count < 2) || (args.Looks.Count < 2))
+        if (!CanOpen(args, out var spectator))
             return;
 
         EnsurePlates();
-        State.Reset(args.YourIndex);
+        State.Reset(spectator ? 0 : args.YourIndex, spectator);
         Names = args.Names.ToArray();
-        NearLook = TownBallotLook.ToAppearance(args.Looks[State.You]);
-        FarLook = TownBallotLook.ToAppearance(args.Looks[1 - State.You]);
-        NearNameLabel.Text = Names[State.You];
-        FarNameLabel.Text = Names[1 - State.You];
+        OpenLooks = args.Looks;
+        RefreshSides();
         CarryMs = 0;
         ResultsMs = -1;
         SparkMs = 0;
         BlockHeld = false;
         ConfirmShown = false;
+        ReactionSoundMs = REACTION_SOUND_GAP_MS;
         Array.Clear(FlashMs);
-        BannerLabel.Text = "Get ready";
+        BannerLabel.Text = GET_READY_TEXT;
         Array.Fill(TrailHealth, (float)MAX_HEALTH);
+
+        foreach (var label in KeyLabels)
+            label.Visible = !State.IsSpectator;
+
+        foreach (var label in SpectatorLabels)
+            label.Visible = State.IsSpectator;
+
         InputDispatcher.Instance?.PushControl(this);
         Visible = true;
+    }
+
+    private void RefreshSides()
+    {
+        if (OpenLooks.Count >= 2)
+        {
+            NearLook = TownBallotLook.ToAppearance(OpenLooks[State.You]);
+            FarLook = TownBallotLook.ToAppearance(OpenLooks[1 - State.You]);
+        }
+
+        if (Names.Length >= 2)
+        {
+            NearNameLabel.Text = Names[State.You];
+            FarNameLabel.Text = Names[1 - State.You];
+        }
     }
 
     public void ApplyTick(BrassRingDisplayArgs args)
     {
         State.ApplyTick(args);
 
+        if (ShouldClearGetReady(State.IsSpectator, args.Phase, BannerText))
+            BannerLabel.Text = string.Empty;
+
         foreach (var fightEvent in args.Events)
             Apply(fightEvent);
     }
 
-    public void CloseFromServer(BrassRingCloseReason reason)
+    internal static bool ShouldClearGetReady(bool isSpectator, BrassRingPhase phase, string banner)
+    {
+        return isSpectator && (phase != BrassRingPhase.Intro) && (banner == GET_READY_TEXT);
+    }
+
+    public void CloseFromServer(BrassRingCloseReason reason, int leaver = 0)
     {
         if (reason == BrassRingCloseReason.YouLeft)
         {
@@ -149,7 +225,12 @@ public sealed class BrassRingControl : UIPanel
             return;
         }
 
-        BannerLabel.Text = reason == BrassRingCloseReason.OpponentLeft ? $"{Names[1 - State.You]} has left the ring" : "No contest";
+        BannerLabel.Text = reason switch
+        {
+            BrassRingCloseReason.OpponentLeft => $"{Names[1 - State.You]} has left the ring",
+            BrassRingCloseReason.FighterLeft when (Names is not null) && (leaver >= 0) && (leaver < Names.Length) => $"{Names[leaver]} has left the ring",
+            _ => "No contest"
+        };
         ConfirmShown = false;
         ResultsMs = RESULTS_MS;
     }
@@ -172,6 +253,7 @@ public sealed class BrassRingControl : UIPanel
         var ms = (int)CarryMs;
         CarryMs -= ms;
         State.Advance(ms);
+        ReactionSoundMs = Math.Min(ReactionSoundMs + ms, REACTION_SOUND_GAP_MS);
         FlashMs[0] = Math.Max(0, FlashMs[0] - ms);
         FlashMs[1] = Math.Max(0, FlashMs[1] - ms);
         SparkMs = Math.Max(0, SparkMs - ms);
@@ -191,6 +273,7 @@ public sealed class BrassRingControl : UIPanel
             InputDispatcher.Instance?.PushControl(this);
 
         RefreshLabels();
+        RefreshReactions();
 
         if (ResultsMs < 0)
             return;
@@ -212,6 +295,9 @@ public sealed class BrassRingControl : UIPanel
             return;
         }
 
+        if (State.IsSpectator)
+            return;
+
         if ((ResultsMs >= 0) || BrassRingKeys.Pressed(e.Keycode, e.IsRepeat) is not { } move)
             return;
 
@@ -224,6 +310,9 @@ public sealed class BrassRingControl : UIPanel
     {
         e.Handled = true;
 
+        if (State.IsSpectator)
+            return;
+
         if ((ResultsMs >= 0) || BrassRingKeys.Released(e.Keycode) is not { } move)
             return;
 
@@ -232,8 +321,54 @@ public sealed class BrassRingControl : UIPanel
         MoveRequested?.Invoke(move);
     }
 
+    public override void OnMouseDown(MouseDownEvent e)
+    {
+        if ((e.Button == MouseButton.Left) && State.IsSpectator && TrySpectatorClick(e.ScreenX - ScreenX, e.ScreenY - ScreenY))
+        {
+            e.Handled = true;
+
+            return;
+        }
+
+        base.OnMouseDown(e);
+    }
+
+    private bool TrySpectatorClick(int x, int y)
+    {
+        if ((y < WINDOW_HEIGHT - KEY_PLATE_HEIGHT) || (y >= WINDOW_HEIGHT))
+            return false;
+
+        for (var i = 0; i < SpectatorButtons.Length; i++)
+        {
+            var (buttonX, width, _) = SpectatorButtons[i];
+
+            if ((x < buttonX) || (x >= buttonX + width))
+                continue;
+
+            if (i < 3)
+                CheerRequested?.Invoke((BrassRingCheer)i);
+            else
+            {
+                State.SwitchSide();
+                RefreshSides();
+            }
+
+            return true;
+        }
+
+        return false;
+    }
+
     private void PressEscape()
     {
+        if (State.IsSpectator)
+        {
+            Close();
+            StopWatchingRequested?.Invoke();
+
+            return;
+        }
+
         if (ResultsMs >= 0)
         {
             Close();
@@ -273,14 +408,15 @@ public sealed class BrassRingControl : UIPanel
 
     private void Apply(BrassRingEvent fightEvent)
     {
-        var yours = fightEvent.Fighter == State.You;
+        var near = fightEvent.Fighter == State.You;
+        var yours = near && !State.IsSpectator;
 
         switch (fightEvent.Type)
         {
             case BrassRingEventType.Hit:
                 FlashMs[fightEvent.Fighter] = FLASH_MS;
                 SparkMs = SPARK_MS;
-                SparkAt = (yours ? NearFeet : FarFeet) - new Vector2(0, 100);
+                SparkAt = (near ? NearFeet : FarFeet) - new Vector2(0, 100);
                 Sounds.PlaySound(HIT_SOUND);
 
                 break;
@@ -308,13 +444,37 @@ public sealed class BrassRingControl : UIPanel
 
                 break;
             case BrassRingEventType.MatchEnded:
-                BannerLabel.Text = fightEvent.Fighter == NO_WINNER ? "A drawn match" : yours ? "Victory" : "Defeat";
+                if (State.IsSpectator)
+                    BannerLabel.Text = fightEvent.Fighter == NO_WINNER ? "A drawn match" : $"{Names[fightEvent.Fighter]} wins";
+                else
+                    BannerLabel.Text = fightEvent.Fighter == NO_WINNER ? "A drawn match" : yours ? "Victory" : "Defeat";
                 ConfirmShown = false;
                 State.DisarmForfeit();
                 ResultsMs = RESULTS_MS;
 
                 break;
+            case BrassRingEventType.Cheered:
+                var kind = (BrassRingCheer)fightEvent.Damage;
+                State.AddReaction(kind, Random.Shared.Next(180, 460));
+                PlayReactionSound(kind);
+
+                break;
         }
+    }
+
+    private void PlayReactionSound(BrassRingCheer kind)
+    {
+        if (ReactionSoundMs < REACTION_SOUND_GAP_MS)
+            return;
+
+        ReactionSoundMs = 0;
+
+        Sounds?.PlaySound(kind switch
+        {
+            BrassRingCheer.Cheer => CHEER_SOUND,
+            BrassRingCheer.Ooh => OOH_SOUND,
+            _ => BOO_SOUND
+        });
     }
 
     private void DrawFighter(SpriteBatch spriteBatch, in AislingAppearance look, uint cacheId, BrassRingFighter fighter, Vector2 feet, bool near, bool flash)
@@ -377,11 +537,17 @@ public sealed class BrassRingControl : UIPanel
         DrawPlate(spriteBatch, CentrePlate, (WINDOW_WIDTH - CENTRE_PLATE_WIDTH) / 2, 0);
 
         Groove(spriteBatch, white, 16, 24, BAR_WIDTH, 16);
-        Groove(spriteBatch, white, 16, 44, STAMINA_WIDTH, 7);
+
+        if (!State.IsSpectator)
+            Groove(spriteBatch, white, 16, 44, STAMINA_WIDTH, 7);
+
         Groove(spriteBatch, white, farBarX, 24, BAR_WIDTH, 16);
 
         Bar(spriteBatch, white, 16, 24, BAR_WIDTH, 16, near.Health / (float)MAX_HEALTH, TrailHealth[State.You] / MAX_HEALTH, NearColor, false);
-        Bar(spriteBatch, white, 16, 44, STAMINA_WIDTH, 7, stamina, stamina, StaminaColor, false);
+
+        if (!State.IsSpectator)
+            Bar(spriteBatch, white, 16, 44, STAMINA_WIDTH, 7, stamina, stamina, StaminaColor, false);
+
         Bar(spriteBatch, white, farBarX, 24, BAR_WIDTH, 16, far.Health / (float)MAX_HEALTH, TrailHealth[1 - State.You] / MAX_HEALTH, FarColor, true);
 
         for (var i = 0; i < ROUNDS_TO_WIN; i++)
@@ -392,8 +558,12 @@ public sealed class BrassRingControl : UIPanel
 
         DrawPlate(spriteBatch, KeyPlate, 0, WINDOW_HEIGHT - KEY_PLATE_HEIGHT);
 
-        foreach (var (x, frame) in KeyIcons)
-            DrawSheet(spriteBatch, "keys", frame, new Vector2(x, KEY_ROW_Y));
+        if (State.IsSpectator)
+            foreach (var (x, width, _) in SpectatorButtons)
+                Groove(spriteBatch, white, x, KEY_LABEL_Y, width, TextRenderer.CHAR_HEIGHT);
+        else
+            foreach (var (x, frame) in KeyIcons)
+                DrawSheet(spriteBatch, "keys", frame, new Vector2(x, KEY_ROW_Y));
 
         if (!string.IsNullOrEmpty(BannerLabel.Text))
             DrawPlate(spriteBatch, BannerPlate, (WINDOW_WIDTH - BANNER_PLATE_WIDTH) / 2, BANNER_Y - 16);
@@ -478,6 +648,34 @@ public sealed class BrassRingControl : UIPanel
         RoundLabel.Text = $"Round {State.Round}";
         var seconds = State.Phase == BrassRingPhase.Round ? (int)Math.Ceiling(State.PhaseMs / 1000f) : 0;
         TimeLabel.Text = $"{seconds / 60}:{seconds % 60:00}";
+    }
+
+    internal string BannerText => BannerLabel.Text ?? string.Empty;
+
+    private void RefreshReactions()
+    {
+        for (var i = 0; i < ReactionLabels.Length; i++)
+        {
+            var label = ReactionLabels[i];
+
+            if (i >= State.Reactions.Count)
+            {
+                label.Visible = false;
+
+                continue;
+            }
+
+            var reaction = State.Reactions[i];
+            label.Visible = true;
+            label.Text = reaction.Kind switch
+            {
+                BrassRingCheer.Cheer => "Cheer!",
+                BrassRingCheer.Ooh => "Ooh!",
+                _ => "Boo!"
+            };
+            label.X = reaction.X;
+            label.Y = 430 - (int)(REACTION_RISE * (1 - (reaction.RemainingMs / (float)BrassRingState.REACTION_MS)));
+        }
     }
 
     private UILabel AddLabel(int x, int y, int width, HorizontalAlignment alignment)

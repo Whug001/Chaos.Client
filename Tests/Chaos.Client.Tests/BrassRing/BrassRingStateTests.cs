@@ -195,4 +195,70 @@ public sealed class BrassRingStateTests
 
         State.Drawn(0).Pose.Should().Be(BrassRingPose.WindUpLeft);
     }
+
+    [Test]
+    public void Switch_side_swaps_near_for_a_spectator()
+    {
+        var spectator = new BrassRingState();
+        spectator.Reset(0, true);
+
+        spectator.SwitchSide();
+
+        spectator.You.Should().Be(1);
+    }
+
+    [Test]
+    public void Switch_side_does_nothing_for_a_fighter()
+    {
+        var fighter = new BrassRingState();
+        fighter.Reset(0);
+
+        fighter.SwitchSide();
+
+        fighter.You.Should().Be(0);
+    }
+
+    [Test]
+    public void Reactions_are_capped_and_expire()
+    {
+        var spectator = new BrassRingState();
+        spectator.Reset(0, true);
+
+        for (var i = 0; i < BrassRingState.MAX_REACTIONS + 3; i++)
+            spectator.AddReaction(BrassRingCheer.Cheer, 200);
+
+        spectator.Reactions.Should().HaveCount(BrassRingState.MAX_REACTIONS);
+
+        spectator.Advance(BrassRingState.REACTION_MS);
+
+        spectator.Reactions.Should().BeEmpty();
+    }
+
+    [Test]
+    public void Reset_clears_the_spectator_side_and_reactions()
+    {
+        var spectator = new BrassRingState();
+        spectator.Reset(0, true);
+        spectator.SwitchSide();
+        spectator.AddReaction(BrassRingCheer.Boo, 300);
+
+        spectator.Reset(1);
+
+        spectator.IsSpectator.Should().BeFalse();
+        spectator.You.Should().Be(1);
+        spectator.Reactions.Should().BeEmpty();
+    }
+
+    [Test]
+    public void A_spectator_shows_no_preview()
+    {
+        var spectator = new BrassRingState();
+        spectator.Reset(0, true);
+        spectator.ApplyTick(Tick());
+
+        spectator.Preview(BrassRingMove.PunchRight);
+
+        spectator.Drawn(0).Pose.Should().Be(BrassRingPose.Idle);
+        spectator.Drawn(1).Pose.Should().Be(BrassRingPose.Idle);
+    }
 }
