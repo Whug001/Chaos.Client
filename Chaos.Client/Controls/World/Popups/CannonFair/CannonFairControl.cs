@@ -455,7 +455,7 @@ public sealed class CannonFairControl : UIPanel
                 DrawPowerBar(spriteBatch);
             }
         }
-        else if (Session.IsReplaying)
+        else if ((Session.Phase == MatchPhase.Replay) && (Session.OwnSlot >= 0))
             DrawPlaque(spriteBatch, VolleyPanel);
 
         FillRect(spriteBatch, 0, 0, WINDOW_WIDTH, 2, ChromeDark);
@@ -602,7 +602,7 @@ public sealed class CannonFairControl : UIPanel
         var replayMs = Session.ReplayMs(NowMs);
         var volleyTotal = Session.Volley?.Scores.Where(score => (score.Ms <= replayMs) && (score.PlayerId == Session.OwnSlot)).Sum(score => score.Points) ?? 0;
         VolleyTotal.Text = $"This volley +{volleyTotal}";
-        VolleyTotal.Visible = Session.IsReplaying && (Session.Phase != MatchPhase.Aiming);
+        VolleyTotal.Visible = (Session.Phase == MatchPhase.Replay) && (Session.OwnSlot >= 0);
 
         var ordered = Session.Standings.OrderBy(row => row.Place).ToList();
         var showTab = TabHeld && !Session.ShowingResults;
