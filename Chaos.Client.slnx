@@ -11,6 +11,7 @@
         <Project Path="Chaos-Server/Chaos.Collections/Chaos.Collections.csproj" />
         <Project Path="Chaos-Server/Chaos.Common/Chaos.Common.csproj" />
         <Project Path="Chaos-Server/Chaos.Cryptography/Chaos.Cryptography.csproj" />
+        <Project Path="Chaos-Server/Chaos.CannonFair/Chaos.CannonFair.csproj" />
         <Project Path="Chaos-Server/Chaos.DarkAges/Chaos.DarkAges.csproj" />
         <Project Path="Chaos-Server/Chaos.Geometry/Chaos.Geometry.csproj" />
         <Project Path="Chaos-Server/Chaos.IO/Chaos.IO.csproj" />
