@@ -1,0 +1,56 @@
+{
+  "arena": {
+    "file": "arena.png",
+    "frameWidth": 640,
+    "frameHeight": 480,
+    "frames": 1,
+    "columns": 1,
+    "anchorX": 0,
+    "anchorY": 0
+  },
+  "ropes": {
+    "file": "ropes.png",
+    "frameWidth": 640,
+    "frameHeight": 480,
+    "frames": 1,
+    "columns": 1,
+    "anchorX": 0,
+    "anchorY": 0
+  },
+  "glove": {
+    "file": "glove.png",
+    "frameWidth": 24,
+    "frameHeight": 24,
+    "frames": 2,
+    "columns": 2,
+    "anchorX": 12,
+    "anchorY": 12
+  },
+  "spark": {
+    "file": "spark.png",
+    "frameWidth": 48,
+    "frameHeight": 48,
+    "frames": 1,
+    "columns": 1,
+    "anchorX": 24,
+    "anchorY": 24
+  },
+  "stars": {
+    "file": "stars.png",
+    "frameWidth": 64,
+    "frameHeight": 32,
+    "frames": 1,
+    "columns": 1,
+    "anchorX": 32,
+    "anchorY": 16
+  },
+  "white": {
+    "file": "white.png",
+    "frameWidth": 1,
+    "frameHeight": 1,
+    "frames": 1,
+    "columns": 1,
+    "anchorX": 0,
+    "anchorY": 0
+  }
+}

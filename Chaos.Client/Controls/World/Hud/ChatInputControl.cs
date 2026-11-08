@@ -140,6 +140,10 @@ public sealed class ChatInputControl : UIPanel
     public event IgnoreListRequestedHandler? IgnoreListRequested;
     public event FocusChangedHandler? FocusChanged;
 
+#if DEBUG
+    public static event Action? BrassRingTestRequested;
+#endif
+
     //--- layout ---
 
     private void UpdateLayout(string prefix, Color color)
@@ -350,6 +354,14 @@ public sealed class ChatInputControl : UIPanel
         //caps lock is how people shout, so the tokens can't be case-sensitive.
         switch (token.ToLowerInvariant())
         {
+#if DEBUG
+            case "/brassring":
+                TextBox.Text = string.Empty;
+                carryBody = false;
+                BrassRingTestRequested?.Invoke();
+
+                return true;
+#endif
             case "/g":
                 EnterChannel(ChatMode.Group, sticky);
 

@@ -75,4 +75,9 @@
             <LogicalName>turkeyshoot.%(Filename)%(Extension)</LogicalName>
         </EmbeddedResource>
     </ItemGroup>
+    <ItemGroup>
+        <EmbeddedResource Include="Assets\BrassRing\*.png;Assets\BrassRing\manifest.json">
+            <LogicalName>brassring.%(Filename)%(Extension)</LogicalName>
+        </EmbeddedResource>
+    </ItemGroup>
 </Project>
