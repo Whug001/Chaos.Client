@@ -236,7 +236,7 @@ public sealed class CannonFairControl : UIPanel
             return;
         }
 
-        if ((Session is null) || !Session.CanAim || Session.Locked)
+        if ((Session is null) || !Session.CanAim || Session.Locked || (Session.Phase != MatchPhase.Aiming) || (Session.AimMsLeft(NowMs) == 0))
             return;
 
         switch (e.Keycode)
@@ -636,7 +636,7 @@ public sealed class CannonFairControl : UIPanel
         if (Session.ShowingResults)
             BannerLabel.Text = string.Empty;
         else if (Session.IsReplaying)
-            BannerLabel.Text = (Session.Volley?.Truncated ?? false) ? "Replay cut short: simulation hit its time limit" : string.Empty;
+            BannerLabel.Text = (Session.Volley?.Truncated ?? false) ? "The dust settles early on this volley" : string.Empty;
         else if (Session.Locked)
             BannerLabel.Text = "Waiting for the volley...";
         else if (!Session.CanAim)
