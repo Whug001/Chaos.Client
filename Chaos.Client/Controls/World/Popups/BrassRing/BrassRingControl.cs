@@ -1,12 +1,15 @@
 using Chaos.Client.Controls.Components;
+using Chaos.Client.Data;
 using Chaos.Client.Definitions;
 using Chaos.Client.Extensions;
 using Chaos.Client.Rendering;
 using Chaos.Client.Rendering.Definitions;
 using Chaos.Client.Systems;
+using Chaos.Client.Utilities;
 using Chaos.DarkAges.BrassRing;
 using Microsoft.Xna.Framework;
 using Microsoft.Xna.Framework.Graphics;
+using SkiaSharp;
 using static Chaos.DarkAges.BrassRing.BrassRingRules;
 
 namespace Chaos.Client.Controls.World.Popups.BrassRing;
@@ -34,6 +37,13 @@ public sealed class BrassRingControl : UIPanel
     private const float TRAIL_PER_STEP = 0.75f;
     private const int KEY_ROW_Y = WINDOW_HEIGHT - 15;
     private const int KEY_LABEL_Y = WINDOW_HEIGHT - 22;
+    private const int SIDE_PLATE_WIDTH = 264;
+    private const int SIDE_PLATE_HEIGHT = 62;
+    private const int CENTRE_PLATE_WIDTH = 96;
+    private const int CENTRE_PLATE_HEIGHT = 44;
+    private const int KEY_PLATE_HEIGHT = 32;
+    private const int BANNER_PLATE_WIDTH = 280;
+    private const int BANNER_PLATE_HEIGHT = 44;
 
     private static readonly Vector2 NearFeet = new(260, 290);
     private static readonly Vector2 FarFeet = new(380, 230);
@@ -41,6 +51,9 @@ public sealed class BrassRingControl : UIPanel
     private static readonly Color FarColor = new(59, 127, 217);
     private static readonly Color StaminaColor = new(224, 177, 62);
     private static readonly Color TrailColor = new(235, 225, 200);
+    private static readonly Color GrooveFill = new(30, 20, 13);
+    private static readonly Color GrooveShadow = new(15, 9, 6);
+    private static readonly Color GrooveLight = new(150, 112, 70);
     private static readonly (int X, int Frame)[] KeyIcons = [(149, 0), (237, 1), (333, 2), (429, 3), (455, 4)];
 
     private readonly UILabel BannerLabel;
@@ -55,6 +68,10 @@ public sealed class BrassRingControl : UIPanel
     private readonly SoundSystem Sounds;
     private readonly UILabel TimeLabel;
 
+    private Texture2D? SidePlate;
+    private Texture2D? CentrePlate;
+    private Texture2D? KeyPlate;
+    private Texture2D? BannerPlate;
     private int CarryMs;
     private BrassRingDummy Dummy = new(Random.Shared.Next);
     private BrassRingFight Fight = new();
@@ -89,6 +106,7 @@ public sealed class BrassRingControl : UIPanel
 
     public void Open(string playerName, in AislingAppearance look, in AislingAppearance dummyLook)
     {
+        EnsurePlates();
         Fight = new BrassRingFight();
         Dummy = new BrassRingDummy(Random.Shared.Next);
         NearLook = look with { WeaponSprite = 0, ShieldSprite = 0 };
@@ -275,11 +293,19 @@ public sealed class BrassRingControl : UIPanel
         var far = Fight.Fighters[DUMMY];
         var white = BrassRingArtAssets.Texture(ChaosGame.Device, "white");
         var stamina = near.Stamina / (float)MAX_STAMINA;
+        var farBarX = WINDOW_WIDTH - 16 - BAR_WIDTH;
 
-        DrawSheet(spriteBatch, "hud", 0, Vector2.Zero);
+        DrawPlate(spriteBatch, SidePlate, 4, 0);
+        DrawPlate(spriteBatch, SidePlate, WINDOW_WIDTH - 4 - SIDE_PLATE_WIDTH, 0);
+        DrawPlate(spriteBatch, CentrePlate, (WINDOW_WIDTH - CENTRE_PLATE_WIDTH) / 2, 0);
+
+        Groove(spriteBatch, white, 16, 24, BAR_WIDTH, 16);
+        Groove(spriteBatch, white, 16, 44, STAMINA_WIDTH, 7);
+        Groove(spriteBatch, white, farBarX, 24, BAR_WIDTH, 16);
+
         Bar(spriteBatch, white, 16, 24, BAR_WIDTH, 16, near.Health / (float)MAX_HEALTH, TrailHealth[PLAYER] / MAX_HEALTH, NearColor, false);
         Bar(spriteBatch, white, 16, 44, STAMINA_WIDTH, 7, stamina, stamina, StaminaColor, false);
-        Bar(spriteBatch, white, WINDOW_WIDTH - 16 - BAR_WIDTH, 24, BAR_WIDTH, 16, far.Health / (float)MAX_HEALTH, TrailHealth[DUMMY] / MAX_HEALTH, FarColor, true);
+        Bar(spriteBatch, white, farBarX, 24, BAR_WIDTH, 16, far.Health / (float)MAX_HEALTH, TrailHealth[DUMMY] / MAX_HEALTH, FarColor, true);
 
         for (var i = 0; i < ROUNDS_TO_WIN; i++)
         {
@@ -287,13 +313,66 @@ public sealed class BrassRingControl : UIPanel
             DrawSheet(spriteBatch, "pip", i < far.RoundWins ? 1 : 0, new Vector2(608 - i * PIP_SPACING, 48));
         }
 
-        DrawSheet(spriteBatch, "keybar", 0, new Vector2(0, WINDOW_HEIGHT - 30));
+        DrawPlate(spriteBatch, KeyPlate, 0, WINDOW_HEIGHT - KEY_PLATE_HEIGHT);
 
         foreach (var (x, frame) in KeyIcons)
             DrawSheet(spriteBatch, "keys", frame, new Vector2(x, KEY_ROW_Y));
 
         if (!string.IsNullOrEmpty(BannerLabel.Text))
-            DrawSheet(spriteBatch, "plaque", 0, new Vector2(WINDOW_WIDTH / 2f, BANNER_Y + 6));
+            DrawPlate(spriteBatch, BannerPlate, (WINDOW_WIDTH - BANNER_PLATE_WIDTH) / 2, BANNER_Y - 16);
+    }
+
+    private void DrawPlate(SpriteBatch spriteBatch, Texture2D? plate, int x, int y)
+    {
+        if (plate is not null)
+            spriteBatch.Draw(plate, new Vector2(ScreenX + x, ScreenY + y), Color.White);
+    }
+
+    private void Groove(SpriteBatch spriteBatch, Texture2D white, int x, int y, int width, int height)
+    {
+        var left = ScreenX + x - 2;
+        var top = ScreenY + y - 2;
+        var outerWidth = width + 4;
+        var outerHeight = height + 4;
+
+        spriteBatch.Draw(white, new Rectangle(left, top, outerWidth, outerHeight), GrooveFill);
+        spriteBatch.Draw(white, new Rectangle(left, top, outerWidth, 1), GrooveShadow);
+        spriteBatch.Draw(white, new Rectangle(left, top, 1, outerHeight), GrooveShadow);
+        spriteBatch.Draw(white, new Rectangle(left, top + outerHeight - 1, outerWidth, 1), GrooveLight);
+        spriteBatch.Draw(white, new Rectangle(left + outerWidth - 1, top, 1, outerHeight), GrooveLight);
+    }
+
+    private void EnsurePlates()
+    {
+        if (SidePlate is not null)
+            return;
+
+        using var tile = DataContext.UserControls.GetSpfImage("DlgBack2.spf");
+
+        if (tile is null)
+            return;
+
+        SidePlate = BuildPlate(tile, SIDE_PLATE_WIDTH, SIDE_PLATE_HEIGHT);
+        CentrePlate = BuildPlate(tile, CENTRE_PLATE_WIDTH, CENTRE_PLATE_HEIGHT);
+        KeyPlate = BuildPlate(tile, WINDOW_WIDTH, KEY_PLATE_HEIGHT);
+        BannerPlate = BuildPlate(tile, BANNER_PLATE_WIDTH, BANNER_PLATE_HEIGHT);
+    }
+
+    private static Texture2D? BuildPlate(SKImage tile, int width, int height)
+    {
+        using var composite = DialogFrame.Composite(tile, width, height);
+
+        return composite is null ? null : TextureConverter.ToTexture2D(composite);
+    }
+
+    public override void Dispose()
+    {
+        SidePlate?.Dispose();
+        CentrePlate?.Dispose();
+        KeyPlate?.Dispose();
+        BannerPlate?.Dispose();
+
+        base.Dispose();
     }
 
     private void Bar(SpriteBatch spriteBatch, Texture2D white, int x, int y, int width, int height, float fraction, float trail, Color color, bool fromRight)
