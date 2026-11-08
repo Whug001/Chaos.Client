@@ -52,6 +52,7 @@ public sealed class CannonFairControl : UIPanel
     private readonly UILabel ShotLabel;
     private readonly UILabel TimerLabel;
 
+    private float CarryMs;
     private int AimMs;
     private int BotIndex;
     private AislingAppearance BotLook;
@@ -123,7 +124,9 @@ public sealed class CannonFairControl : UIPanel
         if (!Visible)
             return;
 
-        var elapsedMs = (int)(seconds * 1000f);
+        var exactMs = (seconds * 1000f) + CarryMs;
+        var elapsedMs = (int)exactMs;
+        CarryMs = exactMs - elapsedMs;
 
         switch (CurrentPhase)
         {
@@ -226,7 +229,7 @@ public sealed class CannonFairControl : UIPanel
 
     public override void OnMouseMove(MouseMoveEvent e)
     {
-        if (Dragging)
+        if (Dragging && (CurrentPhase == Phase.Aiming))
             ApplyDrag(e.ScreenX, e.ScreenY);
     }
 
@@ -277,6 +280,7 @@ public sealed class CannonFairControl : UIPanel
 
     private void Fire(bool playerFires)
     {
+        Dragging = false;
         var shots = new List<AimedShot>();
 
         if (playerFires)
