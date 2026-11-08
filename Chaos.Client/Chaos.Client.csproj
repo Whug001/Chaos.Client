@@ -35,6 +35,7 @@
         <ProjectReference Include="..\Chaos.Client.Rendering\Chaos.Client.Rendering.csproj"/>
         <ProjectReference Include="..\Chaos.Client.Networking\Chaos.Client.Networking.csproj"/>
         <ProjectReference Include="$(UnoraServerPath)\Chaos.Pathfinding\Chaos.Pathfinding.csproj"/>
+        <ProjectReference Include="$(UnoraServerPath)\Chaos.CannonFair.Contracts\Chaos.CannonFair.Contracts.csproj"/>
     </ItemGroup>
 
     <ItemGroup Condition="'$(Configuration)' == 'Debug'">
