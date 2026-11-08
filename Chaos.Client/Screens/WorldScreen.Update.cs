@@ -358,6 +358,7 @@ public sealed partial class WorldScreen
         TurkeyShootWindow?.Update(elapsedMs / 1000f);
 #if DEBUG
         BrassRingWindow?.Update(elapsedMs / 1000f);
+        CannonFairWindow?.Update(elapsedMs / 1000f);
 #endif
 
         //ends an armed GiveUp confirm after 5 s

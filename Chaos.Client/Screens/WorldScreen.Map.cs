@@ -145,6 +145,7 @@ public sealed partial class WorldScreen
         TurkeyShootWindow?.CloseFromServer();
 #if DEBUG
         BrassRingWindow?.Close();
+        CannonFairWindow?.Close();
 #endif
         WorldState.FittingRoom.Clear();
 

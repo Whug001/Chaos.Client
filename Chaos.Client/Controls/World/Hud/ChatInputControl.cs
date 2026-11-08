@@ -142,6 +142,7 @@ public sealed class ChatInputControl : UIPanel
 
 #if DEBUG
     public static event Action? BrassRingTestRequested;
+    public static event Action? CannonFairTestRequested;
 #endif
 
     //--- layout ---
@@ -359,6 +360,12 @@ public sealed class ChatInputControl : UIPanel
                 TextBox.Text = string.Empty;
                 carryBody = false;
                 BrassRingTestRequested?.Invoke();
+
+                return true;
+            case "/cannonfair":
+                TextBox.Text = string.Empty;
+                carryBody = false;
+                CannonFairTestRequested?.Invoke();
 
                 return true;
 #endif
