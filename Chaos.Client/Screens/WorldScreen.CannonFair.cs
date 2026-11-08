@@ -26,7 +26,7 @@ public sealed partial class WorldScreen
 
         if (CannonFairWindow is null)
         {
-            CannonFairWindow = new CannonFairControl(Game.AislingRenderer) { ZIndex = 2 };
+            CannonFairWindow = new CannonFairControl(Game.AislingRenderer, Game.CreatureRenderer) { ZIndex = 2 };
             Root.AddChild(CannonFairWindow);
         }
 

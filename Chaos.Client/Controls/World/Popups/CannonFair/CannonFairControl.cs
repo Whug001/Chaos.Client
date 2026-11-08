@@ -16,9 +16,11 @@ public sealed class CannonFairControl : UIPanel
 {
     private const int WINDOW_WIDTH = 640;
     private const int WINDOW_HEIGHT = 480;
-    private const int TOP_BAR_HEIGHT = 28;
-    private const int BOTTOM_BAR_Y = 432;
-    private const int BOTTOM_BAR_HEIGHT = 48;
+    private const int PANEL_PADDING = 16;
+    private const int ROW_HEIGHT = 14;
+    private const int POWER_BAR_HEIGHT = 8;
+    private const int LOW_TIME_MS = 5000;
+    private const int KEY_COLUMN_WIDTH = 66;
     private const int GROUND_Y = 400;
     private const int PLAYER_ID = 1;
     private const int AIM_MS = 15000;
@@ -34,40 +36,51 @@ public sealed class CannonFairControl : UIPanel
     private const uint BOT_CACHE_ID = 0xFFCA0002;
     private const int NO_EMOTION = -1;
     private const string STAND_SUFFIX = "01";
+    private const int GOBLIN_SPRITE = 15;
+    private const int KING_SPRITE = 17;
+    private const float GOBLIN_DRAW_SCALE = 2.4f;
+    private const float KING_DRAW_SCALE = 1.7f;
+    private const float GOBLIN_SIZE = 0.8f;
+    private const float KING_SIZE = 1.2f;
+    private const float DEFAULT_BARREL_ANGLE = 45f;
+    private const int BLAST_MS = 300;
+    private const int BARREL_PIVOT_DROP = 4;
+    private const int BARREL_PIVOT_Y = 4;
 
     private static readonly int[] BotCounts = [0, 7, 23];
     private static readonly TimeSpan SimulationLimit = TimeSpan.FromSeconds(1);
-    private static readonly Color Sky = new(127, 178, 217);
-    private static readonly Color Ground = new(111, 143, 69);
-    private static readonly Color Wood = new(168, 116, 60);
-    private static readonly Color Stone = new(154, 154, 164);
-    private static readonly Color Goblin = new(94, 154, 58);
-    private static readonly Color King = new(122, 184, 74);
     private static readonly Color Gold = new(255, 211, 77);
-    private static readonly Color Cannon = new(59, 59, 68);
-    private static readonly Color ChromeLight = new(150, 110, 70);
     private static readonly Color ChromeDark = new(44, 28, 16);
+    private static readonly Color Caption = new(214, 190, 150);
+    private static readonly Color LowTime = new(255, 96, 64);
+    private static readonly Color PowerShade = new(176, 120, 40);
+    private static readonly Rectangle ScorePanel = new(6, 6, 150, 58);
+    private static readonly Rectangle TimerPanel = new(288, 6, 64, 44);
+    private static readonly Rectangle AimPanel = new(458, 6, 176, 84);
+    private static readonly Rectangle ControlsPanel = new(6, 400, 236, 74);
 
     private readonly CannonFairAim Aim = new();
+    private readonly List<UILabel> AimingOnly = [];
+    private readonly UILabel AngleValue;
+    private readonly UILabel BotsValue;
+    private readonly UILabel PowerValue;
+    private readonly UILabel ScoreValue;
+    private readonly UILabel ShotValue;
+    private readonly CreatureRenderer Creatures;
     private readonly UILabel BannerLabel;
     private readonly Camera Camera = new(WINDOW_WIDTH, WINDOW_HEIGHT) { Position = new Vector2(WINDOW_WIDTH / 2f, WINDOW_HEIGHT / 2f) };
     private readonly UILabel[] Popups = new UILabel[POPUP_COUNT];
     private readonly AislingRenderer Renderer;
-    private readonly UILabel ScoreLabel;
-    private readonly UILabel ShotLabel;
     private readonly UILabel TimerLabel;
 
     private float CarryMs;
-    private float PressX;
-    private float PressY;
     private int AimMs;
     private int BotIndex;
     private AislingAppearance BotLook;
-    private bool Dragging;
     private int ImpactMs;
     private RecordingPlayer? Player;
     private Phase CurrentPhase;
-    private Texture2D? ChromeTile;
+    private CannonFairArt? Art;
     private Texture2D? Pixel;
     private AislingAppearance PlayerLook;
     private float PlayerCannonX;
@@ -84,9 +97,10 @@ public sealed class CannonFairControl : UIPanel
         Replay
     }
 
-    public CannonFairControl(AislingRenderer renderer)
+    public CannonFairControl(AislingRenderer renderer, CreatureRenderer creatures)
     {
         Renderer = renderer;
+        Creatures = creatures;
         Name = "CannonFair";
         Visible = false;
         UsesControlStack = true;
@@ -95,10 +109,20 @@ public sealed class CannonFairControl : UIPanel
         Width = WINDOW_WIDTH;
         Height = WINDOW_HEIGHT;
 
-        ScoreLabel = AddLabel(10, 8, 300, HorizontalAlignment.Left);
-        TimerLabel = AddLabel(270, 8, 100, HorizontalAlignment.Center);
-        ShotLabel = AddLabel(330, 436, 300, HorizontalAlignment.Right);
-        BannerLabel = AddLabel(0, 456, WINDOW_WIDTH, HorizontalAlignment.Center);
+        ScoreValue = AddStat(ScorePanel, 0, "Score", false);
+        BotsValue = AddStat(ScorePanel, 1, "Bots", false);
+        TimerLabel = AddLabel(TimerPanel.X, TimerPanel.Y + PANEL_PADDING, TimerPanel.Width, HorizontalAlignment.Center);
+        AimingOnly.Add(TimerLabel);
+        ShotValue = AddStat(AimPanel, 0, "Shot", true);
+        AngleValue = AddStat(AimPanel, 1, "Angle", true);
+        PowerValue = AddStat(AimPanel, 2, "Power", true);
+        AddKeyRow(0, 0, "Up/Down", "Angle");
+        AddKeyRow(0, 1, "Left/Right", "Power");
+        AddKeyRow(0, 2, "Space", "Fire");
+        AddKeyRow(1, 0, "1-5", "Shot");
+        AddKeyRow(1, 1, "B", "Bots");
+        AddKeyRow(1, 2, "Esc", "Leave");
+        BannerLabel = AddLabel(ControlsPanel.Right, 456, WINDOW_WIDTH - ControlsPanel.Right, HorizontalAlignment.Center);
 
         for (var index = 0; index < POPUP_COUNT; index++)
             Popups[index] = AddLabel(0, 0, 80, HorizontalAlignment.Center);
@@ -107,6 +131,7 @@ public sealed class CannonFairControl : UIPanel
     public void Open(in AislingAppearance look, in AislingAppearance botLook)
     {
         Pixel ??= CreatePixel();
+        Art ??= new CannonFairArt();
         PlayerLook = look with { WeaponSprite = 0, ShieldSprite = 0 };
         BotLook = botLook with { WeaponSprite = 0, ShieldSprite = 0 };
         Score = 0;
@@ -122,7 +147,6 @@ public sealed class CannonFairControl : UIPanel
             return;
 
         Simulating = null;
-        Dragging = false;
         InputDispatcher.Instance?.RemoveControl(this);
         Visible = false;
     }
@@ -224,43 +248,16 @@ public sealed class CannonFairControl : UIPanel
         }
     }
 
-    public override void OnMouseDown(MouseDownEvent e)
-    {
-        e.Handled = true;
+    public override void OnMouseDown(MouseDownEvent e) => e.Handled = true;
 
-        if ((e.Button == MouseButton.Left) && (CurrentPhase == Phase.Aiming))
-        {
-            Dragging = true;
-            PressX = e.ScreenX - ScreenX;
-            PressY = e.ScreenY - ScreenY;
-        }
-    }
-
-    public override void OnMouseMove(MouseMoveEvent e)
-    {
-        if (Dragging && (CurrentPhase == Phase.Aiming))
-            Aim.Drag(PressX, PressY, e.ScreenX - ScreenX, e.ScreenY - ScreenY);
-    }
-
-    public override void OnMouseUp(MouseUpEvent e)
-    {
-        e.Handled = true;
-
-        if (!Dragging)
-            return;
-
-        Dragging = false;
-
-        if ((CurrentPhase == Phase.Aiming) && Aim.Drag(PressX, PressY, e.ScreenX - ScreenX, e.ScreenY - ScreenY))
-            Fire(true);
-    }
+    public override void OnMouseUp(MouseUpEvent e) => e.Handled = true;
 
     public override void Draw(SpriteBatch spriteBatch)
     {
-        if (!Visible || Pixel is null)
+        if (!Visible || Pixel is null || Art is null)
             return;
 
-        FillRect(spriteBatch, 0, 0, WINDOW_WIDTH, WINDOW_HEIGHT, Sky);
+        spriteBatch.Draw(Art.Sky, new Vector2(ScreenX, ScreenY), Color.White);
 
         if ((CurrentPhase == Phase.Replay) && Volley is not null)
             DrawReplay(spriteBatch);
@@ -275,6 +272,7 @@ public sealed class CannonFairControl : UIPanel
     public override void Dispose()
     {
         Pixel?.Dispose();
+        Art?.Dispose();
         base.Dispose();
     }
 
@@ -286,12 +284,11 @@ public sealed class CannonFairControl : UIPanel
         PlayerCannonX = 1 + Random.Shared.Next(BotCounts[BotIndex] + 1);
         Volley = null;
         Player = null;
-        BannerLabel.Text = "Drag back from the gold cannon. 1-5 shot, B bots, Esc quit.";
+        BannerLabel.Text = string.Empty;
     }
 
     private void Fire(bool playerFires)
     {
-        Dragging = false;
         var shots = new List<AimedShot>();
 
         if (playerFires)
@@ -346,39 +343,52 @@ public sealed class CannonFairControl : UIPanel
 
     private void DrawChrome(SpriteBatch spriteBatch)
     {
-        ChromeTile ??= UiRenderer.Instance?.GetSpfTexture("DlgBack2.spf");
+        DrawPlaque(spriteBatch, ScorePanel);
 
-        if (ChromeTile is not null)
+        if (CurrentPhase == Phase.Aiming)
         {
-            OrnateFrame.TileTexture(spriteBatch, ChromeTile, ScreenX, ScreenY, WINDOW_WIDTH, TOP_BAR_HEIGHT);
-            OrnateFrame.TileTexture(spriteBatch, ChromeTile, ScreenX, ScreenY + BOTTOM_BAR_Y, WINDOW_WIDTH, BOTTOM_BAR_HEIGHT);
+            DrawPlaque(spriteBatch, TimerPanel);
+            DrawPlaque(spriteBatch, AimPanel);
+            DrawPlaque(spriteBatch, ControlsPanel);
+            DrawPowerBar(spriteBatch);
         }
 
-        FillRect(spriteBatch, 0, TOP_BAR_HEIGHT - 3, WINDOW_WIDTH, 1, ChromeLight);
-        FillRect(spriteBatch, 0, TOP_BAR_HEIGHT - 2, WINDOW_WIDTH, 2, ChromeDark);
-        FillRect(spriteBatch, 0, BOTTOM_BAR_Y, WINDOW_WIDTH, 2, ChromeDark);
-        FillRect(spriteBatch, 0, BOTTOM_BAR_Y + 2, WINDOW_WIDTH, 1, ChromeLight);
         FillRect(spriteBatch, 0, 0, WINDOW_WIDTH, 2, ChromeDark);
         FillRect(spriteBatch, 0, WINDOW_HEIGHT - 2, WINDOW_WIDTH, 2, ChromeDark);
         FillRect(spriteBatch, 0, 0, 2, WINDOW_HEIGHT, ChromeDark);
         FillRect(spriteBatch, WINDOW_WIDTH - 2, 0, 2, WINDOW_HEIGHT, ChromeDark);
     }
 
+    private void DrawPlaque(SpriteBatch spriteBatch, Rectangle panel)
+        => spriteBatch.Draw(Art!.Plaque(panel.Width, panel.Height), new Vector2(ScreenX + panel.X, ScreenY + panel.Y), Color.White);
+
+    private void DrawPowerBar(SpriteBatch spriteBatch)
+    {
+        var x = AimPanel.X + PANEL_PADDING;
+        var y = AimPanel.Y + PANEL_PADDING + (3 * ROW_HEIGHT) + 1;
+        var width = AimPanel.Width - (2 * PANEL_PADDING);
+        var fill = (int)((width - 2) * (Aim.Power / MAX_POWER));
+
+        FillRect(spriteBatch, x, y, width, POWER_BAR_HEIGHT, ChromeDark);
+        FillRect(spriteBatch, x + 1, y + 1, fill, POWER_BAR_HEIGHT - 2, Gold);
+        FillRect(spriteBatch, x + 1, y + POWER_BAR_HEIGHT - 3, fill, 2, PowerShade);
+    }
+
     private void DrawAiming(SpriteBatch spriteBatch)
     {
-        FillRect(spriteBatch, 0, GROUND_Y, WINDOW_WIDTH, WINDOW_HEIGHT - GROUND_Y, Ground);
+        DrawGround(spriteBatch, GROUND_Y);
 
         foreach (var block in FortLayouts.FeelTest.Blocks)
-            DrawPiece(spriteBatch, block.X, block.Y, 0f, block.Width, block.Height, block.Material == BlockMaterial.Wood ? Wood : Stone, 0f);
+            DrawBlock(spriteBatch, block.X, block.Y, 0f, block.Width, block.Height, block.Material, 0f);
 
         foreach (var goblin in FortLayouts.FeelTest.Goblins)
-        {
-            var size = goblin.IsKing ? 1.2f : 0.8f;
-            DrawPiece(spriteBatch, goblin.X, goblin.Y, 0f, size, size, goblin.IsKing ? King : Goblin, 0f);
-        }
+            DrawGoblin(spriteBatch, goblin.X, goblin.Y, 0f, goblin.IsKing ? KING_SIZE : GOBLIN_SIZE, goblin.IsKing, 0f);
 
         for (var cannon = 1; cannon <= BotCounts[BotIndex] + 1; cannon++)
-            DrawPiece(spriteBatch, cannon, CANNON_Y, 0f, 1f, 0.5f, cannon == (int)PlayerCannonX ? Gold : Cannon, 0f);
+            if (cannon != (int)PlayerCannonX)
+                DrawCannon(spriteBatch, cannon, DEFAULT_BARREL_ANGLE, false);
+
+        DrawCannon(spriteBatch, (int)PlayerCannonX, Aim.AngleDegrees, true);
 
         for (var dot = 1; dot <= AIM_DOTS; dot++)
         {
@@ -392,7 +402,7 @@ public sealed class CannonFairControl : UIPanel
     {
         var zoom = CannonFairCamera.ZoomAt(ReplayMs, ImpactMs);
         var (_, groundY, _) = CannonFairCamera.Project(0f, 0f, zoom);
-        FillRect(spriteBatch, 0, (int)groundY, WINDOW_WIDTH, Math.Max(0, WINDOW_HEIGHT - (int)groundY), Ground);
+        DrawGround(spriteBatch, (int)groundY);
 
         foreach (var obj in Volley!.Objects)
         {
@@ -403,16 +413,18 @@ public sealed class CannonFairControl : UIPanel
 
             if (obj.Kind == ObjectKind.Body)
                 DrawFlyer(spriteBatch, obj, pose, zoom);
+            else if (obj.Kind is ObjectKind.Goblin or ObjectKind.King)
+                DrawGoblin(spriteBatch, pose.X, pose.Y, pose.Rotation, obj.Width, obj.Kind == ObjectKind.King, zoom);
             else
-                DrawPiece(spriteBatch, pose.X, pose.Y, pose.Rotation, obj.Width, obj.Height, ColorOf(obj), zoom);
+                DrawBlock(spriteBatch, pose.X, pose.Y, pose.Rotation, obj.Width, obj.Height, obj.Material, zoom);
         }
 
         foreach (var blast in Volley.Blasts)
         {
             var age = ReplayMs - blast.Ms;
 
-            if (age is >= 0 and < 300)
-                DrawPiece(spriteBatch, blast.X, blast.Y, 0f, blast.Radius * 2f, blast.Radius * 2f, Color.Orange * 0.5f, zoom);
+            if (age is >= 0 and < BLAST_MS)
+                DrawBlast(spriteBatch, blast.X, blast.Y, blast.Radius, 1f - (age / (float)BLAST_MS), zoom);
         }
 
         RefreshPopups(zoom);
@@ -449,18 +461,86 @@ public sealed class CannonFairControl : UIPanel
             FillRect(spriteBatch, (int)x - 3, (int)(y - (scale * obj.Height)) - 8, 7, 7, Gold);
     }
 
-    private void DrawPiece(SpriteBatch spriteBatch, float worldX, float worldY, float rotation, float width, float height, Color color, float zoom)
+    private void DrawGround(SpriteBatch spriteBatch, int y)
+    {
+        var height = Math.Min(CannonFairArtBaker.GROUND_HEIGHT, WINDOW_HEIGHT - y);
+
+        if (height > 0)
+            spriteBatch.Draw(Art!.Ground, new Rectangle(ScreenX, ScreenY + y, WINDOW_WIDTH, height), new Rectangle(0, 0, WINDOW_WIDTH, height), Color.White);
+    }
+
+    private void DrawBlock(SpriteBatch spriteBatch, float worldX, float worldY, float rotation, float width, float height, BlockMaterial material, float zoom)
     {
         var (x, y, scale) = CannonFairCamera.Project(worldX, worldY, zoom);
+        var texture = Art!.Block(material, width, height);
 
         spriteBatch.Draw(
-            Pixel!,
+            texture,
             new Vector2(ScreenX + x, ScreenY + y),
             null,
-            color,
+            Color.White,
             rotation,
-            new Vector2(0.5f, 0.5f),
-            new Vector2(width * scale, height * scale),
+            new Vector2(texture.Width / 2f, texture.Height / 2f),
+            scale / CannonFairArtBaker.TEXELS_PER_METRE,
+            SpriteEffects.None,
+            0f);
+    }
+
+    private void DrawGoblin(SpriteBatch spriteBatch, float worldX, float worldY, float rotation, float size, bool isKing, float zoom)
+    {
+        var sprite = isKing ? KING_SPRITE : GOBLIN_SPRITE;
+        var frame = Creatures.GetFrame(sprite, Creatures.GetAnimInfo(sprite)?.StandingFrameIndex ?? 0);
+
+        if (frame is null)
+            return;
+
+        var (x, y, scale) = CannonFairCamera.Project(worldX, worldY, zoom);
+        var texture = frame.Value.Texture;
+        var factor = size * (isKing ? KING_DRAW_SCALE : GOBLIN_DRAW_SCALE) * scale / texture.Height;
+
+        spriteBatch.Draw(
+            texture,
+            new Vector2(ScreenX + x, ScreenY + y),
+            null,
+            Color.White,
+            rotation,
+            new Vector2(texture.Width / 2f, texture.Height - (size * scale * 0.5f / factor)),
+            factor,
+            SpriteEffects.None,
+            0f);
+    }
+
+    private void DrawCannon(SpriteBatch spriteBatch, int cannon, float angleDegrees, bool own)
+    {
+        var (x, y, _) = CannonFairCamera.Project(cannon, CANNON_Y, 0f);
+
+        spriteBatch.Draw(
+            own ? Art!.BrassBarrel : Art!.IronBarrel,
+            new Vector2(ScreenX + x, ScreenY + y + BARREL_PIVOT_DROP),
+            null,
+            Color.White,
+            -MathF.PI * angleDegrees / 180f,
+            new Vector2(0f, BARREL_PIVOT_Y),
+            1f,
+            SpriteEffects.None,
+            0f);
+
+        spriteBatch.Draw(Art.Carriage, new Vector2(ScreenX + x - (Art.Carriage.Width / 2f), ScreenY + GROUND_Y - Art.Carriage.Height), Color.White);
+    }
+
+    private void DrawBlast(SpriteBatch spriteBatch, float worldX, float worldY, float radius, float strength, float zoom)
+    {
+        var (x, y, scale) = CannonFairCamera.Project(worldX, worldY, zoom);
+        var texture = Art!.Blast;
+
+        spriteBatch.Draw(
+            texture,
+            new Vector2(ScreenX + x, ScreenY + y),
+            null,
+            Color.White * strength,
+            0f,
+            new Vector2(texture.Width / 2f, texture.Height / 2f),
+            radius * 2f * scale / texture.Width,
             SpriteEffects.None,
             0f);
     }
@@ -468,19 +548,18 @@ public sealed class CannonFairControl : UIPanel
     private void FillRect(SpriteBatch spriteBatch, int x, int y, int width, int height, Color color)
         => spriteBatch.Draw(Pixel!, new Rectangle(ScreenX + x, ScreenY + y, width, height), color);
 
-    private static Color ColorOf(RecordedObject obj)
-        => obj.Kind switch
-        {
-            ObjectKind.King   => King,
-            ObjectKind.Goblin => Goblin,
-            _                 => obj.Material == BlockMaterial.Wood ? Wood : Stone
-        };
-
     private void RefreshLabels()
     {
-        ScoreLabel.Text = $"Score {Score}   Bots {BotCounts[BotIndex]}";
-        TimerLabel.Text = CurrentPhase == Phase.Aiming ? $"{(AimMs + 999) / 1000}" : string.Empty;
-        ShotLabel.Text = CurrentPhase == Phase.Aiming ? $"{Shot}  angle {Aim.AngleDegrees:F0}  power {Aim.Power * 100f:F0}" : string.Empty;
+        ScoreValue.Text = $"{Score}";
+        BotsValue.Text = $"{BotCounts[BotIndex]}";
+        TimerLabel.Text = $"{(AimMs + 999) / 1000}";
+        TimerLabel.ForegroundColor = AimMs <= LOW_TIME_MS ? LowTime : Color.White;
+        ShotValue.Text = ShotName(Shot);
+        AngleValue.Text = $"{Aim.AngleDegrees:F0}";
+        PowerValue.Text = $"{Aim.Power * 100f:F0}%";
+
+        foreach (var label in AimingOnly)
+            label.Visible = CurrentPhase == Phase.Aiming;
 
         if ((CurrentPhase != Phase.Replay) || Volley is null)
             HidePopups();
@@ -522,6 +601,47 @@ public sealed class CannonFairControl : UIPanel
         pixel.SetData([Color.White]);
 
         return pixel;
+    }
+
+    private static string ShotName(ShotKind kind)
+        => kind switch
+        {
+            ShotKind.RubberSuit => "Rubber Suit",
+            ShotKind.PowderKeg  => "Powder Keg",
+            _                   => kind.ToString()
+        };
+
+    private UILabel AddStat(Rectangle panel, int row, string caption, bool aimingOnly)
+    {
+        var x = panel.X + PANEL_PADDING;
+        var y = panel.Y + PANEL_PADDING + (row * ROW_HEIGHT);
+        var width = panel.Width - (2 * PANEL_PADDING);
+        var name = AddLabel(x, y, width, HorizontalAlignment.Left);
+        var value = AddLabel(x, y, width, HorizontalAlignment.Right);
+        name.Text = caption;
+        name.ForegroundColor = Caption;
+
+        if (aimingOnly)
+        {
+            AimingOnly.Add(name);
+            AimingOnly.Add(value);
+        }
+
+        return value;
+    }
+
+    private void AddKeyRow(int column, int row, string key, string action)
+    {
+        var x = ControlsPanel.X + PANEL_PADDING + (column * 126);
+        var y = ControlsPanel.Y + PANEL_PADDING + (row * ROW_HEIGHT);
+        var keyWidth = column == 0 ? KEY_COLUMN_WIDTH : 30;
+        var keyLabel = AddLabel(x, y, keyWidth, HorizontalAlignment.Left);
+        var actionLabel = AddLabel(x + keyWidth, y, 50, HorizontalAlignment.Left);
+        keyLabel.Text = key;
+        keyLabel.ForegroundColor = Gold;
+        actionLabel.Text = action;
+        AimingOnly.Add(keyLabel);
+        AimingOnly.Add(actionLabel);
     }
 
     private UILabel AddLabel(int x, int y, int width, HorizontalAlignment alignment)
