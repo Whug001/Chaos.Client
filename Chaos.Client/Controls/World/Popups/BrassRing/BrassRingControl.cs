@@ -227,7 +227,7 @@ public sealed class BrassRingControl : UIPanel
             cacheId,
             look,
             sprite.Frame,
-            false,
+            sprite.Flip,
             !near,
             sprite.Suffix,
             NO_EMOTION,
@@ -252,7 +252,7 @@ public sealed class BrassRingControl : UIPanel
             return;
         }
 
-        var gloves = BrassRingView.GloveOffsets(sprite);
+        var gloves = BrassRingView.GloveOffsets(sprite, look.Gender);
         DrawSheet(spriteBatch, "glove", near ? 0 : 1, feet + gloves.Left);
         DrawSheet(spriteBatch, "glove", near ? 0 : 1, feet + gloves.Right);
     }

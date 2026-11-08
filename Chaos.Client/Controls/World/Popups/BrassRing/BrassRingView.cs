@@ -1,12 +1,14 @@
 using Chaos.Client.Definitions;
+using Chaos.Client.Rendering;
 using Chaos.DarkAges.BrassRing;
+using Chaos.DarkAges.Definitions;
 using Microsoft.Xna.Framework;
 
 namespace Chaos.Client.Controls.World.Popups.BrassRing;
 
 public enum BrassRingGlove : byte { None, ScreenLeft, ScreenRight }
 
-public readonly record struct BrassRingSprite(string Suffix, int Frame, Vector2 Offset, float Rotation, bool Flash, BrassRingGlove Raised = BrassRingGlove.None);
+public readonly record struct BrassRingSprite(string Suffix, int Frame, Vector2 Offset, float Rotation, bool Flash, BrassRingGlove Raised = BrassRingGlove.None, bool Flip = false);
 
 public static class BrassRingView
 {
@@ -24,18 +26,28 @@ public static class BrassRingView
     private const float DOWN_TILT = 1.45f;
     private const float GLOVE_RAISE = 30f;
     private const int SCALE = 3;
-    private const int FOOT_X = 28;
-    private const int FOOT_Y = 76;
+    private const int FOOT_X = AislingRenderer.BODY_CENTER_X;
+    private const int FOOT_Y = AislingRenderer.CANVAS_CENTER_Y;
 
-    //hand positions measured from the bare body sheets, in unscaled canvas pixels
-    private static readonly Dictionary<(string Suffix, int Frame), (Point Left, Point Right)> Hands = new()
+    //hand positions read from the bare body sheets, in unscaled sheet pixels
+    private static readonly Dictionary<(string Suffix, int Frame), (Point Left, Point Right)> MaleHands = new()
     {
-        [(STAND_SUFFIX, NEAR_STAND)] = (new Point(19, 43), new Point(35, 54)),
-        [(STAND_SUFFIX, FAR_STAND)] = (new Point(20, 43), new Point(36, 49)),
-        [(ATTACK_SUFFIX, 0)] = (new Point(21, 28), new Point(32, 28)),
-        [(ATTACK_SUFFIX, 1)] = (new Point(26, 42), new Point(43, 40)),
-        [(ATTACK_SUFFIX, 2)] = (new Point(23, 27), new Point(36, 33)),
-        [(ATTACK_SUFFIX, 3)] = (new Point(24, 48), new Point(44, 34))
+        [(STAND_SUFFIX, NEAR_STAND)] = (new Point(22, 52), new Point(34, 55)),
+        [(STAND_SUFFIX, FAR_STAND)] = (new Point(24, 53), new Point(36, 51)),
+        [(ATTACK_SUFFIX, 0)] = (new Point(22, 32), new Point(33, 35)),
+        [(ATTACK_SUFFIX, 1)] = (new Point(27, 43), new Point(43, 41)),
+        [(ATTACK_SUFFIX, 2)] = (new Point(34, 47), new Point(36, 32)),
+        [(ATTACK_SUFFIX, 3)] = (new Point(26, 51), new Point(40, 48))
+    };
+
+    private static readonly Dictionary<(string Suffix, int Frame), (Point Left, Point Right)> FemaleHands = new()
+    {
+        [(STAND_SUFFIX, NEAR_STAND)] = (new Point(24, 48), new Point(32, 52)),
+        [(STAND_SUFFIX, FAR_STAND)] = (new Point(24, 51), new Point(34, 50)),
+        [(ATTACK_SUFFIX, 0)] = (new Point(22, 32), new Point(33, 35)),
+        [(ATTACK_SUFFIX, 1)] = (new Point(27, 44), new Point(42, 43)),
+        [(ATTACK_SUFFIX, 2)] = (new Point(35, 48), new Point(33, 40)),
+        [(ATTACK_SUFFIX, 3)] = (new Point(29, 51), new Point(40, 48))
     };
 
     public static BrassRingSprite Fighter(BrassRingFighter fighter, bool near, bool flash)
@@ -45,7 +57,7 @@ public static class BrassRingView
         var stand = near ? NEAR_STAND : FAR_STAND;
         var attack = near ? NEAR_ATTACK : FAR_ATTACK;
 
-        return fighter.Pose switch
+        var sprite = fighter.Pose switch
         {
             BrassRingPose.WindUpLeft or BrassRingPose.WindUpRight when fighter.PoseMs <= EXTEND_MS
                 => new BrassRingSprite(ATTACK_SUFFIX, attack + 1, forward * LUNGE, 0f, flash),
@@ -58,17 +70,22 @@ public static class BrassRingView
             BrassRingPose.Down => new BrassRingSprite(STAND_SUFFIX, stand, Vector2.Zero, near ? -DOWN_TILT : DOWN_TILT, flash),
             _ => new BrassRingSprite(STAND_SUFFIX, stand, Vector2.Zero, 0f, flash)
         };
+
+        return sprite with { Flip = !near };
     }
 
-    public static (Vector2 Left, Vector2 Right) GloveOffsets(BrassRingSprite sprite)
+    public static (Vector2 Left, Vector2 Right) GloveOffsets(BrassRingSprite sprite, Gender gender)
     {
-        var (left, right) = Hands[(sprite.Suffix, sprite.Frame)];
+        var (first, second) = (gender == Gender.Female ? FemaleHands : MaleHands)[(sprite.Suffix, sprite.Frame)];
+        var (left, right) = sprite.Flip ? (Mirror(second), Mirror(first)) : (first, second);
         var lift = new Vector2(0f, -GLOVE_RAISE);
 
         return (
             ToOffset(left, sprite.Offset) + (sprite.Raised == BrassRingGlove.ScreenLeft ? lift : Vector2.Zero),
             ToOffset(right, sprite.Offset) + (sprite.Raised == BrassRingGlove.ScreenRight ? lift : Vector2.Zero));
     }
+
+    private static Point Mirror(Point hand) => new(2 * FOOT_X - hand.X, hand.Y);
 
     //a far fighter faces the camera, so their left hand is on the right of the screen
     private static BrassRingGlove RaisedGlove(BrassRingPose pose, bool near)

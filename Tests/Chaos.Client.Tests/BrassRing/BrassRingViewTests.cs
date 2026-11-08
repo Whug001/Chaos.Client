@@ -1,6 +1,7 @@
 using Chaos.Client.Controls.World.Popups.BrassRing;
 using Chaos.Client.Definitions;
 using Chaos.DarkAges.BrassRing;
+using Chaos.DarkAges.Definitions;
 using FluentAssertions;
 using static Chaos.DarkAges.BrassRing.BrassRingRules;
 
@@ -45,7 +46,7 @@ public sealed class BrassRingViewTests
     [Test]
     public void Gloves_sit_at_two_different_points()
     {
-        var gloves = BrassRingView.GloveOffsets(BrassRingView.Fighter(In(BrassRingPose.Idle), true, false));
+        var gloves = BrassRingView.GloveOffsets(BrassRingView.Fighter(In(BrassRingPose.Idle), true, false), Gender.Male);
 
         gloves.Left.Should().NotBe(gloves.Right);
     }
@@ -59,11 +60,45 @@ public sealed class BrassRingViewTests
         nearLeft.Raised.Should().Be(BrassRingGlove.ScreenLeft);
         farLeft.Raised.Should().Be(BrassRingGlove.ScreenRight);
 
-        var neutral = BrassRingView.GloveOffsets(nearLeft with { Raised = BrassRingGlove.None });
-        var raised = BrassRingView.GloveOffsets(nearLeft);
+        var neutral = BrassRingView.GloveOffsets(nearLeft with { Raised = BrassRingGlove.None }, Gender.Male);
+        var raised = BrassRingView.GloveOffsets(nearLeft, Gender.Male);
 
         raised.Left.Y.Should().BeLessThan(neutral.Left.Y);
         raised.Right.Should().Be(neutral.Right);
+    }
+
+    [Test]
+    public void Only_the_far_fighter_is_flipped()
+    {
+        BrassRingView.Fighter(In(BrassRingPose.Idle), true, false).Flip.Should().BeFalse();
+        BrassRingView.Fighter(In(BrassRingPose.Idle), false, false).Flip.Should().BeTrue();
+    }
+
+    [Test]
+    public void Gloves_map_sheet_pixels_to_the_renderer_feet_anchor()
+    {
+        var gloves = BrassRingView.GloveOffsets(BrassRingView.Fighter(In(BrassRingPose.Idle), true, false), Gender.Male);
+
+        gloves.Left.Should().Be(new Microsoft.Xna.Framework.Vector2(-18, -54));
+        gloves.Right.Should().Be(new Microsoft.Xna.Framework.Vector2(18, -45));
+    }
+
+    [Test]
+    public void Flipped_gloves_are_mirrored_onto_their_screen_sides()
+    {
+        var gloves = BrassRingView.GloveOffsets(BrassRingView.Fighter(In(BrassRingPose.Idle), false, false), Gender.Female);
+
+        gloves.Left.Should().Be(new Microsoft.Xna.Framework.Vector2(-18, -60));
+        gloves.Right.Should().Be(new Microsoft.Xna.Framework.Vector2(12, -57));
+    }
+
+    [Test]
+    public void Each_gender_uses_its_own_hand_table()
+    {
+        var male = BrassRingView.GloveOffsets(BrassRingView.Fighter(In(BrassRingPose.Idle), true, false), Gender.Male);
+        var female = BrassRingView.GloveOffsets(BrassRingView.Fighter(In(BrassRingPose.Idle), true, false), Gender.Female);
+
+        male.Left.Should().NotBe(female.Left);
     }
 
     [Test]
