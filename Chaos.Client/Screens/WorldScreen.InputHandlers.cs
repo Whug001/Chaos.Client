@@ -549,10 +549,6 @@ public sealed partial class WorldScreen
     /// </summary>
     private bool IsActionUsable(GameAction action)
     {
-#if DEBUG
-        if (BrassRingWindow is { Visible: true })
-            return false;
-#endif
         if ((GameActions.SongNote(action) > 0) && !WorldState.Song.HasLiveCall)
             return false;
 

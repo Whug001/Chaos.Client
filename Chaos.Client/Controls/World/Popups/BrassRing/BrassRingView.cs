@@ -29,11 +29,11 @@ public static class BrassRingView
     private const int FOOT_X = AislingRenderer.BODY_CENTER_X;
     private const int FOOT_Y = AislingRenderer.CANVAS_CENTER_Y;
 
-    //hand positions read from the bare body sheets, in unscaled sheet pixels
+    //attack frames are hand positions read from the bare body sheets, stand frames are a boxing guard held towards the opponent, all in unscaled sheet pixels
     private static readonly Dictionary<(string Suffix, int Frame), (Point Left, Point Right)> MaleHands = new()
     {
-        [(STAND_SUFFIX, NEAR_STAND)] = (new Point(22, 52), new Point(34, 55)),
-        [(STAND_SUFFIX, FAR_STAND)] = (new Point(24, 53), new Point(36, 51)),
+        [(STAND_SUFFIX, NEAR_STAND)] = (new Point(34, 43), new Point(35, 54)),
+        [(STAND_SUFFIX, FAR_STAND)] = (new Point(27, 51), new Point(36, 47)),
         [(ATTACK_SUFFIX, 0)] = (new Point(22, 32), new Point(33, 35)),
         [(ATTACK_SUFFIX, 1)] = (new Point(27, 43), new Point(43, 41)),
         [(ATTACK_SUFFIX, 2)] = (new Point(34, 47), new Point(36, 32)),
@@ -42,8 +42,8 @@ public static class BrassRingView
 
     private static readonly Dictionary<(string Suffix, int Frame), (Point Left, Point Right)> FemaleHands = new()
     {
-        [(STAND_SUFFIX, NEAR_STAND)] = (new Point(24, 48), new Point(32, 52)),
-        [(STAND_SUFFIX, FAR_STAND)] = (new Point(24, 51), new Point(34, 50)),
+        [(STAND_SUFFIX, NEAR_STAND)] = (new Point(33, 43), new Point(33, 51)),
+        [(STAND_SUFFIX, FAR_STAND)] = (new Point(26, 50), new Point(35, 46)),
         [(ATTACK_SUFFIX, 0)] = (new Point(22, 32), new Point(33, 35)),
         [(ATTACK_SUFFIX, 1)] = (new Point(27, 44), new Point(42, 43)),
         [(ATTACK_SUFFIX, 2)] = (new Point(35, 48), new Point(33, 40)),
@@ -84,6 +84,9 @@ public static class BrassRingView
             ToOffset(left, sprite.Offset) + (sprite.Raised == BrassRingGlove.ScreenLeft ? lift : Vector2.Zero),
             ToOffset(right, sprite.Offset) + (sprite.Raised == BrassRingGlove.ScreenRight ? lift : Vector2.Zero));
     }
+
+    //a standing near fighter faces away, so only the glove closest to the camera stays in front of the body
+    public static bool LeftGloveBehindBody(BrassRingSprite sprite, bool near) => near && (sprite.Suffix == STAND_SUFFIX);
 
     private static Point Mirror(Point hand) => new(2 * FOOT_X - hand.X, hand.Y);
 

@@ -19,12 +19,12 @@
   },
   "glove": {
     "file": "glove.png",
-    "frameWidth": 24,
-    "frameHeight": 24,
+    "frameWidth": 30,
+    "frameHeight": 30,
     "frames": 2,
     "columns": 2,
-    "anchorX": 12,
-    "anchorY": 12
+    "anchorX": 15,
+    "anchorY": 15
   },
   "spark": {
     "file": "spark.png",

@@ -1,38 +1,67 @@
-#if DEBUG
-using Chaos.Client.Collections;
-using Chaos.Client.Controls.World.Hud;
 using Chaos.Client.Controls.World.Popups.BrassRing;
-using Chaos.Client.Systems;
+using Chaos.DarkAges.BrassRing;
 using Chaos.DarkAges.Definitions;
-#endif
+using Chaos.Networking.Entities.Client;
+using Chaos.Networking.Entities.Server;
 
 namespace Chaos.Client.Screens;
 
 public sealed partial class WorldScreen
 {
-#if DEBUG
+    //built on the first Open, so players who never box never load its art
     private BrassRingControl? BrassRingWindow;
 
-    private void WireBrassRing() => ChatInputControl.BrassRingTestRequested += OpenBrassRingTest;
+    private void WireBrassRing() => Game.Connection.OnBrassRingDisplay += HandleBrassRingDisplay;
 
-    private void UnwireBrassRing() => ChatInputControl.BrassRingTestRequested -= OpenBrassRingTest;
-
-    private void OpenBrassRingTest()
+    private void UnwireBrassRing()
     {
+        Game.Connection.OnBrassRingDisplay -= HandleBrassRingDisplay;
+
+        if (BrassRingWindow is not null)
+        {
+            BrassRingWindow.MoveRequested -= SendBrassRingMove;
+            BrassRingWindow.ForfeitRequested -= SendBrassRingForfeit;
+        }
+    }
+
+    private void HandleBrassRingDisplay(BrassRingDisplayArgs args)
+    {
+        //the world screen has not built its controls yet
         if (Root is null)
             return;
 
-        WorldHud.ChatInput.Unfocus();
-
         if (BrassRingWindow is null)
         {
+            if (args.Type != BrassRingDisplayType.Open)
+                return;
+
             BrassRingWindow = new BrassRingControl(Game.AislingRenderer, Game.SoundSystem) { ZIndex = 2 };
+            BrassRingWindow.MoveRequested += SendBrassRingMove;
+            BrassRingWindow.ForfeitRequested += SendBrassRingForfeit;
             Root.AddChild(BrassRingWindow);
         }
 
-        var look = ViewerLook();
-        var dummyLook = TownImportPreviewLook.Plain(look.Gender == Gender.Male ? Gender.Female : Gender.Male);
-        BrassRingWindow.Open(WorldState.GetPlayerEntity()?.Name ?? "You", in look, in dummyLook);
+        switch (args.Type)
+        {
+            case BrassRingDisplayType.Open:
+                WorldHud.ChatInput.Unfocus();
+                BrassRingWindow.Open(args);
+
+                break;
+            case BrassRingDisplayType.Tick when BrassRingWindow.Visible:
+                BrassRingWindow.ApplyTick(args);
+
+                break;
+            case BrassRingDisplayType.Close when BrassRingWindow.Visible:
+                BrassRingWindow.CloseFromServer(args.Reason);
+
+                break;
+        }
     }
-#endif
+
+    private void SendBrassRingMove(BrassRingMove move)
+        => Game.Connection.SendBrassRingAction(new BrassRingActionArgs { Type = BrassRingActionType.Move, Move = move });
+
+    private void SendBrassRingForfeit()
+        => Game.Connection.SendBrassRingAction(new BrassRingActionArgs { Type = BrassRingActionType.Forfeit });
 }

@@ -1,4 +1,4 @@
-﻿#region
+#region
 using Chaos.Geometry.Abstractions.Definitions;
 using Chaos.Networking.Entities.Client;
 using Chaos.Networking.Entities.Server;
@@ -450,6 +450,7 @@ public delegate void HallBattleDisplayHandler(HallBattleDisplayArgs args);
 public delegate void FishingDisplayHandler(FishingDisplayArgs args);
 
 public delegate void TurkeyShootDisplayHandler(TurkeyShootDisplayArgs args);
+public delegate void BrassRingDisplayHandler(BrassRingDisplayArgs args);
 
 /// <summary>
 ///     Fired when a Pumpkin Carving window display packet is received.

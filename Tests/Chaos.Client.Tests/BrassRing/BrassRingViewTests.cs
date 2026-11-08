@@ -37,6 +37,10 @@ public sealed class BrassRingViewTests
     }
 
     [Test]
+    public void A_stunned_fighter_flashes_on_its_own()
+        => BrassRingView.Fighter(new BrassRingFighter { Pose = BrassRingPose.Stunned, PoseMs = 100 }, true, false).Flash.Should().BeTrue();
+
+    [Test]
     public void Down_tilts_and_stun_flashes()
     {
         BrassRingView.Fighter(In(BrassRingPose.Down), true, false).Rotation.Should().NotBe(0f);
@@ -79,8 +83,8 @@ public sealed class BrassRingViewTests
     {
         var gloves = BrassRingView.GloveOffsets(BrassRingView.Fighter(In(BrassRingPose.Idle), true, false), Gender.Male);
 
-        gloves.Left.Should().Be(new Microsoft.Xna.Framework.Vector2(-18, -54));
-        gloves.Right.Should().Be(new Microsoft.Xna.Framework.Vector2(18, -45));
+        gloves.Left.Should().Be(new Microsoft.Xna.Framework.Vector2(18, -81));
+        gloves.Right.Should().Be(new Microsoft.Xna.Framework.Vector2(21, -48));
     }
 
     [Test]
@@ -88,8 +92,8 @@ public sealed class BrassRingViewTests
     {
         var gloves = BrassRingView.GloveOffsets(BrassRingView.Fighter(In(BrassRingPose.Idle), false, false), Gender.Female);
 
-        gloves.Left.Should().Be(new Microsoft.Xna.Framework.Vector2(-18, -60));
-        gloves.Right.Should().Be(new Microsoft.Xna.Framework.Vector2(12, -57));
+        gloves.Left.Should().Be(new Microsoft.Xna.Framework.Vector2(-21, -72));
+        gloves.Right.Should().Be(new Microsoft.Xna.Framework.Vector2(6, -60));
     }
 
     [Test]
@@ -116,4 +120,16 @@ public sealed class BrassRingViewTests
     [Test]
     public void Held_key_repeats_are_ignored()
         => BrassRingKeys.Pressed(Keycode.A, true).Should().BeNull();
+
+    [Test]
+    public void Left_glove_hides_behind_a_near_fighter_who_is_standing()
+        => BrassRingView.LeftGloveBehindBody(BrassRingView.Fighter(In(BrassRingPose.Idle), true, false), true).Should().BeTrue();
+
+    [Test]
+    public void Left_glove_stays_visible_for_a_near_attack()
+        => BrassRingView.LeftGloveBehindBody(BrassRingView.Fighter(In(BrassRingPose.WindUpLeft, WIND_UP_MS), true, false), true).Should().BeFalse();
+
+    [Test]
+    public void Left_glove_stays_visible_for_a_far_fighter()
+        => BrassRingView.LeftGloveBehindBody(BrassRingView.Fighter(In(BrassRingPose.Idle), false, false), false).Should().BeFalse();
 }

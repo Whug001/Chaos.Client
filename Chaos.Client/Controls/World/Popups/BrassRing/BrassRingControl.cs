@@ -7,6 +7,8 @@ using Chaos.Client.Rendering.Definitions;
 using Chaos.Client.Systems;
 using Chaos.Client.Utilities;
 using Chaos.DarkAges.BrassRing;
+using Chaos.DarkAges.Definitions;
+using Chaos.Networking.Entities.Server;
 using Microsoft.Xna.Framework;
 using Microsoft.Xna.Framework.Graphics;
 using SkiaSharp;
@@ -14,20 +16,17 @@ using static Chaos.DarkAges.BrassRing.BrassRingRules;
 
 namespace Chaos.Client.Controls.World.Popups.BrassRing;
 
-/// <summary>The fight window. In this stage it runs the fight locally against <see cref="BrassRingDummy" />.</summary>
+/// <summary>The fight window. It shows the server's fight and sends the fighter's moves back.</summary>
 public sealed class BrassRingControl : UIPanel
 {
     private const int WINDOW_WIDTH = 640;
     private const int WINDOW_HEIGHT = 480;
-    private const int PLAYER = 0;
-    private const int DUMMY = 1;
     private const uint NEAR_CACHE_ID = 0xFFFFFF01;
     private const uint FAR_CACHE_ID = 0xFFFFFF02;
     private const float SCALE = 3f;
     private const int NO_EMOTION = -1;
     private const int FLASH_MS = 200;
     private const int SPARK_MS = 150;
-    private const int RESULTS_MS = 5000;
     private const int HIT_SOUND = 125;
     private const int BLOCK_SOUND = 1;
     private const int BAR_WIDTH = 240;
@@ -35,6 +34,7 @@ public sealed class BrassRingControl : UIPanel
     private const int BANNER_Y = 369;
     private const int PIP_SPACING = 20;
     private const float TRAIL_PER_STEP = 0.75f;
+    private const float TRAIL_PER_MS = TRAIL_PER_STEP / STEP_MS;
     private const int KEY_ROW_Y = WINDOW_HEIGHT - 15;
     private const int KEY_LABEL_Y = WINDOW_HEIGHT - 22;
     private const int SIDE_PLATE_WIDTH = 264;
@@ -58,7 +58,6 @@ public sealed class BrassRingControl : UIPanel
 
     private readonly UILabel BannerLabel;
     private readonly Camera Camera = new(WINDOW_WIDTH, WINDOW_HEIGHT) { Position = new Vector2(WINDOW_WIDTH / 2f, WINDOW_HEIGHT / 2f) };
-    private readonly List<BrassRingEvent> Events = [];
     private readonly int[] FlashMs = new int[2];
     private readonly float[] TrailHealth = new float[2];
     private readonly UILabel FarNameLabel;
@@ -72,14 +71,20 @@ public sealed class BrassRingControl : UIPanel
     private Texture2D? CentrePlate;
     private Texture2D? KeyPlate;
     private Texture2D? BannerPlate;
-    private int CarryMs;
-    private BrassRingDummy Dummy = new(Random.Shared.Next);
-    private BrassRingFight Fight = new();
+    private readonly BrassRingState State = new();
+    private string BannerBeforeConfirm = string.Empty;
+    private bool BlockHeld;
+    private bool ConfirmShown;
+    private float CarryMs;
+    private string[] Names = ["", ""];
     private AislingAppearance NearLook;
     private AislingAppearance FarLook;
     private int ResultsMs = -1;
     private int SparkMs;
     private Vector2 SparkAt;
+
+    public event Action<BrassRingMove>? MoveRequested;
+    public event Action? ForfeitRequested;
 
     public BrassRingControl(AislingRenderer renderer, SoundSystem sounds)
     {
@@ -87,7 +92,6 @@ public sealed class BrassRingControl : UIPanel
         Sounds = sounds;
         Name = "BrassRing";
         Visible = false;
-        UsesControlStack = true;
         X = 0;
         Y = 0;
         Width = WINDOW_WIDTH;
@@ -104,23 +108,50 @@ public sealed class BrassRingControl : UIPanel
         AddLabel(471, KEY_LABEL_Y, 48, HorizontalAlignment.Left).Text = "Dodge";
     }
 
-    public void Open(string playerName, in AislingAppearance look, in AislingAppearance dummyLook)
+    public void Open(BrassRingDisplayArgs args)
     {
+        if ((args.YourIndex > 1) || (args.Names.Count < 2) || (args.Looks.Count < 2))
+            return;
+
         EnsurePlates();
-        Fight = new BrassRingFight();
-        Dummy = new BrassRingDummy(Random.Shared.Next);
-        NearLook = look with { WeaponSprite = 0, ShieldSprite = 0 };
-        FarLook = dummyLook with { WeaponSprite = 0, ShieldSprite = 0 };
-        NearNameLabel.Text = playerName;
-        FarNameLabel.Text = "Training Dummy";
+        State.Reset(args.YourIndex);
+        Names = args.Names.ToArray();
+        NearLook = TownBallotLook.ToAppearance(args.Looks[State.You]);
+        FarLook = TownBallotLook.ToAppearance(args.Looks[1 - State.You]);
+        NearNameLabel.Text = Names[State.You];
+        FarNameLabel.Text = Names[1 - State.You];
         CarryMs = 0;
         ResultsMs = -1;
         SparkMs = 0;
+        BlockHeld = false;
+        ConfirmShown = false;
         Array.Clear(FlashMs);
         BannerLabel.Text = "Get ready";
         Array.Fill(TrailHealth, (float)MAX_HEALTH);
         InputDispatcher.Instance?.PushControl(this);
         Visible = true;
+    }
+
+    public void ApplyTick(BrassRingDisplayArgs args)
+    {
+        State.ApplyTick(args);
+
+        foreach (var fightEvent in args.Events)
+            Apply(fightEvent);
+    }
+
+    public void CloseFromServer(BrassRingCloseReason reason)
+    {
+        if (reason == BrassRingCloseReason.YouLeft)
+        {
+            Close();
+
+            return;
+        }
+
+        BannerLabel.Text = reason == BrassRingCloseReason.OpponentLeft ? $"{Names[1 - State.You]} has left the ring" : "No contest";
+        ConfirmShown = false;
+        ResultsMs = RESULTS_MS;
     }
 
     public void Close()
@@ -137,41 +168,89 @@ public sealed class BrassRingControl : UIPanel
         if (!Visible)
             return;
 
-        CarryMs += (int)(seconds * 1000f);
+        CarryMs += seconds * 1000f;
+        var ms = (int)CarryMs;
+        CarryMs -= ms;
+        State.Advance(ms);
+        FlashMs[0] = Math.Max(0, FlashMs[0] - ms);
+        FlashMs[1] = Math.Max(0, FlashMs[1] - ms);
+        SparkMs = Math.Max(0, SparkMs - ms);
 
-        while (CarryMs >= STEP_MS)
+        for (var i = 0; i < TrailHealth.Length; i++)
+            TrailHealth[i] = Math.Max(State.Fighters[i].Health, TrailHealth[i] - (TRAIL_PER_MS * ms));
+
+        if (ConfirmShown && !State.ForfeitArmed)
         {
-            CarryMs -= STEP_MS;
-            StepFight();
+            ConfirmShown = false;
+            BannerLabel.Text = BannerBeforeConfirm;
         }
 
+        //popups that open mid-fight would steal the fighter's keys while hidden under the ring,
+        //so the ring keeps the top of the stack until the result closes it and they surface after
+        if ((ResultsMs < 0) && (InputDispatcher.Instance?.TopControl != this))
+            InputDispatcher.Instance?.PushControl(this);
+
         RefreshLabels();
+
+        if (ResultsMs < 0)
+            return;
+
+        ResultsMs -= ms;
+
+        if (ResultsMs < 0)
+            Close();
     }
 
     public override void OnKeyDown(KeyDownEvent e)
     {
+        e.Handled = true;
+
         if (e.Keycode == Keycode.Escape)
         {
-            Close();
-            e.Handled = true;
+            PressEscape();
 
             return;
         }
 
-        if (BrassRingKeys.Pressed(e.Keycode, e.IsRepeat) is not { } move)
+        if ((ResultsMs >= 0) || BrassRingKeys.Pressed(e.Keycode, e.IsRepeat) is not { } move)
             return;
 
-        Fight.TryMove(PLAYER, move, Events);
-        e.Handled = true;
+        BlockHeld |= move == BrassRingMove.BlockStart;
+        State.Preview(move);
+        MoveRequested?.Invoke(move);
     }
 
     public override void OnKeyUp(KeyUpEvent e)
     {
-        if (BrassRingKeys.Released(e.Keycode) is not { } move)
+        e.Handled = true;
+
+        if ((ResultsMs >= 0) || BrassRingKeys.Released(e.Keycode) is not { } move)
             return;
 
-        Fight.TryMove(PLAYER, move, Events);
-        e.Handled = true;
+        BlockHeld = false;
+        State.Preview(move);
+        MoveRequested?.Invoke(move);
+    }
+
+    private void PressEscape()
+    {
+        if (ResultsMs >= 0)
+        {
+            Close();
+
+            return;
+        }
+
+        if (State.PressEscape())
+        {
+            ForfeitRequested?.Invoke();
+
+            return;
+        }
+
+        BannerBeforeConfirm = BannerLabel.Text ?? string.Empty;
+        BannerLabel.Text = "Press Esc again to give up";
+        ConfirmShown = true;
     }
 
     public override void Draw(SpriteBatch spriteBatch)
@@ -180,8 +259,8 @@ public sealed class BrassRingControl : UIPanel
             return;
 
         DrawSheet(spriteBatch, "arena", 0, Vector2.Zero);
-        DrawFighter(spriteBatch, FarLook, FAR_CACHE_ID, Fight.Fighters[DUMMY], FarFeet, false, FlashMs[DUMMY] > 0);
-        DrawFighter(spriteBatch, NearLook, NEAR_CACHE_ID, Fight.Fighters[PLAYER], NearFeet, true, FlashMs[PLAYER] > 0);
+        DrawFighter(spriteBatch, FarLook, FAR_CACHE_ID, State.Drawn(1 - State.You), FarFeet, false, FlashMs[1 - State.You] > 0);
+        DrawFighter(spriteBatch, NearLook, NEAR_CACHE_ID, State.Drawn(State.You), NearFeet, true, FlashMs[State.You] > 0);
         DrawSheet(spriteBatch, "ropes", 0, Vector2.Zero);
 
         if (SparkMs > 0)
@@ -191,41 +270,17 @@ public sealed class BrassRingControl : UIPanel
         base.Draw(spriteBatch);
     }
 
-    private void StepFight()
-    {
-        if (Dummy.Tick(STEP_MS, Fight, DUMMY) is { } move)
-            Fight.TryMove(DUMMY, move, Events);
-
-        Fight.Step(STEP_MS, Events);
-        FlashMs[0] = Math.Max(0, FlashMs[0] - STEP_MS);
-        FlashMs[1] = Math.Max(0, FlashMs[1] - STEP_MS);
-        SparkMs = Math.Max(0, SparkMs - STEP_MS);
-
-        foreach (var fightEvent in Events)
-            Apply(fightEvent);
-
-        Events.Clear();
-
-        for (var i = 0; i < TrailHealth.Length; i++)
-            TrailHealth[i] = Math.Max(Fight.Fighters[i].Health, TrailHealth[i] - TRAIL_PER_STEP);
-
-        if (ResultsMs < 0)
-            return;
-
-        ResultsMs -= STEP_MS;
-
-        if (ResultsMs < 0)
-            Close();
-    }
 
     private void Apply(BrassRingEvent fightEvent)
     {
+        var yours = fightEvent.Fighter == State.You;
+
         switch (fightEvent.Type)
         {
             case BrassRingEventType.Hit:
                 FlashMs[fightEvent.Fighter] = FLASH_MS;
                 SparkMs = SPARK_MS;
-                SparkAt = (fightEvent.Fighter == PLAYER ? NearFeet : FarFeet) - new Vector2(0, 100);
+                SparkAt = (yours ? NearFeet : FarFeet) - new Vector2(0, 100);
                 Sounds.PlaySound(HIT_SOUND);
 
                 break;
@@ -235,14 +290,27 @@ public sealed class BrassRingControl : UIPanel
                 break;
             case BrassRingEventType.RoundStarted:
                 BannerLabel.Text = string.Empty;
+                ConfirmShown = false;
+                State.DisarmForfeit();
+
+                if (BlockHeld && (State.Fighters[State.You].Stamina > 0))
+                {
+                    State.Preview(BrassRingMove.BlockStart);
+                    MoveRequested?.Invoke(BrassRingMove.BlockStart);
+                }
 
                 break;
             case BrassRingEventType.RoundEnded:
-                BannerLabel.Text = fightEvent.Fighter == NO_WINNER ? "Drawn round" : fightEvent.Fighter == PLAYER ? "You take the round" : "The dummy takes the round";
+                var name = fightEvent.Fighter == NO_WINNER ? string.Empty : Names[fightEvent.Fighter];
+                BannerLabel.Text = fightEvent.Fighter == NO_WINNER ? "Drawn round" : yours ? "You take the round" : $"{name} takes the round";
+                ConfirmShown = false;
+                State.DisarmForfeit();
 
                 break;
             case BrassRingEventType.MatchEnded:
-                BannerLabel.Text = fightEvent.Fighter == NO_WINNER ? "A drawn match" : fightEvent.Fighter == PLAYER ? "Victory" : "Defeat";
+                BannerLabel.Text = fightEvent.Fighter == NO_WINNER ? "A drawn match" : yours ? "Victory" : "Defeat";
+                ConfirmShown = false;
+                State.DisarmForfeit();
                 ResultsMs = RESULTS_MS;
 
                 break;
@@ -273,6 +341,14 @@ public sealed class BrassRingControl : UIPanel
             SCALE,
             sprite.Rotation);
 
+        var gender = look.Gender;
+        var leftBehind = BrassRingView.LeftGloveBehindBody(sprite, near) && (fighter.Pose != BrassRingPose.Down);
+        var gloves = BrassRingView.GloveOffsets(sprite, gender);
+        var gloveFrame = near ? 0 : 1;
+
+        if (leftBehind)
+            DrawSheet(spriteBatch, "glove", gloveFrame, feet + gloves.Left);
+
         Renderer.Draw(spriteBatch, Camera, in drawParams);
 
         if (fighter.Pose == BrassRingPose.Down)
@@ -282,15 +358,16 @@ public sealed class BrassRingControl : UIPanel
             return;
         }
 
-        var gloves = BrassRingView.GloveOffsets(sprite, look.Gender);
-        DrawSheet(spriteBatch, "glove", near ? 0 : 1, feet + gloves.Left);
-        DrawSheet(spriteBatch, "glove", near ? 0 : 1, feet + gloves.Right);
+        if (!leftBehind)
+            DrawSheet(spriteBatch, "glove", gloveFrame, feet + gloves.Left);
+
+        DrawSheet(spriteBatch, "glove", gloveFrame, feet + gloves.Right);
     }
 
     private void DrawBars(SpriteBatch spriteBatch)
     {
-        var near = Fight.Fighters[PLAYER];
-        var far = Fight.Fighters[DUMMY];
+        var near = State.Fighters[State.You];
+        var far = State.Fighters[1 - State.You];
         var white = BrassRingArtAssets.Texture(ChaosGame.Device, "white");
         var stamina = near.Stamina / (float)MAX_STAMINA;
         var farBarX = WINDOW_WIDTH - 16 - BAR_WIDTH;
@@ -303,9 +380,9 @@ public sealed class BrassRingControl : UIPanel
         Groove(spriteBatch, white, 16, 44, STAMINA_WIDTH, 7);
         Groove(spriteBatch, white, farBarX, 24, BAR_WIDTH, 16);
 
-        Bar(spriteBatch, white, 16, 24, BAR_WIDTH, 16, near.Health / (float)MAX_HEALTH, TrailHealth[PLAYER] / MAX_HEALTH, NearColor, false);
+        Bar(spriteBatch, white, 16, 24, BAR_WIDTH, 16, near.Health / (float)MAX_HEALTH, TrailHealth[State.You] / MAX_HEALTH, NearColor, false);
         Bar(spriteBatch, white, 16, 44, STAMINA_WIDTH, 7, stamina, stamina, StaminaColor, false);
-        Bar(spriteBatch, white, farBarX, 24, BAR_WIDTH, 16, far.Health / (float)MAX_HEALTH, TrailHealth[DUMMY] / MAX_HEALTH, FarColor, true);
+        Bar(spriteBatch, white, farBarX, 24, BAR_WIDTH, 16, far.Health / (float)MAX_HEALTH, TrailHealth[1 - State.You] / MAX_HEALTH, FarColor, true);
 
         for (var i = 0; i < ROUNDS_TO_WIN; i++)
         {
@@ -398,8 +475,8 @@ public sealed class BrassRingControl : UIPanel
 
     private void RefreshLabels()
     {
-        RoundLabel.Text = $"Round {Fight.Round}";
-        var seconds = Fight.Phase == BrassRingPhase.Round ? (int)Math.Ceiling(Fight.PhaseMs / 1000f) : 0;
+        RoundLabel.Text = $"Round {State.Round}";
+        var seconds = State.Phase == BrassRingPhase.Round ? (int)Math.Ceiling(State.PhaseMs / 1000f) : 0;
         TimeLabel.Text = $"{seconds / 60}:{seconds % 60:00}";
     }
 

@@ -1,4 +1,4 @@
-﻿#region
+#region
 using System.Buffers;
 using System.Diagnostics;
 using System.Net;
@@ -603,6 +603,7 @@ public sealed class ConnectionManager : IDisposable
     public event FishingDisplayHandler? OnFishingDisplay;
 
     public event TurkeyShootDisplayHandler? OnTurkeyShootDisplay;
+    public event BrassRingDisplayHandler? OnBrassRingDisplay;
 
     /// <summary>
     ///     Fired when the server opens or closes the Pumpkin Carving window.
@@ -1477,6 +1478,7 @@ public sealed class ConnectionManager : IDisposable
     public void SendFishingClose() => SendIfWorld(new FishingInteractionArgs { Type = FishingInteractionType.Close });
 
     public void SendTurkeyShootAction(TurkeyShootActionArgs args) => SendIfWorld(args);
+    public void SendBrassRingAction(BrassRingActionArgs args) => SendIfWorld(args);
 
     /// <summary>Sends the carving grid. <paramref name="done" /> is true when the window is closing.</summary>
     public void SendPumpkinCarvingSave(byte[] grid, bool done)
@@ -2033,6 +2035,7 @@ public sealed class ConnectionManager : IDisposable
         PacketHandlers[(byte)ServerOpCode.HallBattleDisplay] = HandleHallBattleDisplay;
         PacketHandlers[(byte)ServerOpCode.FishingDisplay] = HandleFishingDisplay;
         PacketHandlers[(byte)ServerOpCode.TurkeyShootDisplay] = HandleTurkeyShootDisplay;
+        PacketHandlers[(byte)ServerOpCode.BrassRingDisplay] = HandleBrassRingDisplay;
         PacketHandlers[(byte)ServerOpCode.PumpkinCarvingDisplay] = HandlePumpkinCarvingDisplay;
         PacketHandlers[(byte)ServerOpCode.PumpkinLook] = HandlePumpkinLook;
         PacketHandlers[(byte)ServerOpCode.EntityLantern] = HandleEntityLantern;
@@ -2523,6 +2526,12 @@ public sealed class ConnectionManager : IDisposable
     {
         var args = Client.Deserialize<TurkeyShootDisplayArgs>(in pkt);
         OnTurkeyShootDisplay?.Invoke(args);
+    }
+
+    private void HandleBrassRingDisplay(ServerPacket pkt)
+    {
+        var args = Client.Deserialize<BrassRingDisplayArgs>(in pkt);
+        OnBrassRingDisplay?.Invoke(args);
     }
 
     private void HandlePumpkinCarvingDisplay(ServerPacket pkt)
