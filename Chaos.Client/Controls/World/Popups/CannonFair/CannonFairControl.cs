@@ -291,10 +291,9 @@ public sealed class CannonFairControl : UIPanel
             DrawAiming(spriteBatch);
 
         if (Session.ShowingResults)
-            DrawResultsCard(spriteBatch);
-
-        if (TabHeld && (Session.Standings.Count > 0))
-            DrawTabCard(spriteBatch);
+            DrawCard(spriteBatch);
+        else if (TabHeld && (Session.Standings.Count > 0))
+            DrawCard(spriteBatch);
 
         DrawChrome(spriteBatch);
 
@@ -432,10 +431,7 @@ public sealed class CannonFairControl : UIPanel
             FillRect(spriteBatch, (int)x - 3, (int)(y - (scale * obj.Height)) - 8, 7, 7, Gold);
     }
 
-    private void DrawTabCard(SpriteBatch spriteBatch)
-        => DrawPlaque(spriteBatch, new Rectangle(CARD_X, CARD_Y, CARD_WIDTH, CARD_HEIGHT));
-
-    private void DrawResultsCard(SpriteBatch spriteBatch)
+    private void DrawCard(SpriteBatch spriteBatch)
         => DrawPlaque(spriteBatch, new Rectangle(CARD_X, CARD_Y, CARD_WIDTH, CARD_HEIGHT));
 
     private void DrawChrome(SpriteBatch spriteBatch)
@@ -584,66 +580,19 @@ public sealed class CannonFairControl : UIPanel
 
         var rows = StandingsRows();
 
-        for (var index = 0; index < StandRows.Length; index++)
-        {
-            var label = StandRows[index];
-
-            if (index >= rows.Count)
-            {
-                label.Visible = false;
-
-                continue;
-            }
-
-            var row = rows[index];
-            label.Text = StandingLine(row);
-            label.ForegroundColor = row.Slot == Session.OwnSlot ? Gold : Color.White;
-            label.Visible = true;
-        }
+        FillRows(StandRows, rows, true);
 
         var replayMs = Session.ReplayMs(NowMs);
         var volleyTotal = Session.Volley?.Scores.Where(score => (score.Ms <= replayMs) && (score.PlayerId == Session.OwnSlot)).Sum(score => score.Points) ?? 0;
         VolleyTotal.Text = $"This volley +{volleyTotal}";
 
         var ordered = Session.Standings.OrderBy(row => row.Place).ToList();
+        var showTab = TabHeld && !Session.ShowingResults;
 
-        for (var index = 0; index < TabRows.Length; index++)
-        {
-            var label = TabRows[index];
-            var show = TabHeld && (index < ordered.Count);
+        FillRows(TabRows, ordered, showTab);
+        FillRows(ResultsRows, ordered, Session.ShowingResults);
 
-            if (!show)
-            {
-                label.Visible = false;
-
-                continue;
-            }
-
-            var row = ordered[index];
-            label.Text = StandingLine(row);
-            label.ForegroundColor = row.Slot == Session.OwnSlot ? Gold : Color.White;
-            label.Visible = true;
-        }
-
-        TabTitle.Visible = TabHeld && (ordered.Count > 0);
-
-        for (var index = 0; index < ResultsRows.Length; index++)
-        {
-            var label = ResultsRows[index];
-            var show = Session.ShowingResults && (index < ordered.Count);
-
-            if (!show)
-            {
-                label.Visible = false;
-
-                continue;
-            }
-
-            var row = ordered[index];
-            label.Text = StandingLine(row);
-            label.ForegroundColor = row.Slot == Session.OwnSlot ? Gold : Color.White;
-            label.Visible = true;
-        }
+        TabTitle.Visible = showTab && (ordered.Count > 0);
 
         ResultsTitle.Visible = Session.ShowingResults;
         WinnersLabel.Visible = Session.ShowingResults && Session.IsFinal;
@@ -688,6 +637,26 @@ public sealed class CannonFairControl : UIPanel
             rows.Add(own);
 
         return rows;
+    }
+
+    private void FillRows(UILabel[] labels, IReadOnlyList<CannonFairStandingInfo> entries, bool visible)
+    {
+        for (var index = 0; index < labels.Length; index++)
+        {
+            var label = labels[index];
+
+            if (!visible || (index >= entries.Count))
+            {
+                label.Visible = false;
+
+                continue;
+            }
+
+            var row = entries[index];
+            label.Text = StandingLine(row);
+            label.ForegroundColor = row.Slot == Session!.OwnSlot ? Gold : Color.White;
+            label.Visible = true;
+        }
     }
 
     private static string StandingLine(CannonFairStandingInfo row) => $"{row.Place}. {row.Name} {row.Score}";

@@ -41,8 +41,13 @@ public sealed partial class WorldScreen
         CannonFairTest = null;
 #endif
 
+#if DEBUG
+        if (CannonFairWindow is not null)
+            CannonFairWindow.LeaveRequested -= OnCannonFairLeaveRequested;
+#else
         if (CannonFairWindow is not null)
             CannonFairWindow.LeaveRequested -= SendCannonFairLeave;
+#endif
     }
 
     private void HandleCannonFairDisplay(CannonFairDisplayArgs args)
@@ -69,7 +74,11 @@ public sealed partial class WorldScreen
             return;
 
         CannonFairWindow = new CannonFairControl(Game.AislingRenderer, Game.CreatureRenderer) { ZIndex = 2 };
+#if DEBUG
+        CannonFairWindow.LeaveRequested += OnCannonFairLeaveRequested;
+#else
         CannonFairWindow.LeaveRequested += SendCannonFairLeave;
+#endif
         Root!.AddChild(CannonFairWindow);
     }
 
@@ -77,6 +86,25 @@ public sealed partial class WorldScreen
         => Game.Connection.SendCannonFairAction(new CannonFairActionArgs { Kind = CannonFairActionKind.Leave });
 
 #if DEBUG
+    private void OnCannonFairLeaveRequested()
+    {
+        if (CannonFairTest is not null)
+        {
+            CloseCannonFairTest();
+
+            return;
+        }
+
+        SendCannonFairLeave();
+    }
+
+    private void CloseCannonFairTest()
+    {
+        CannonFairTest?.Stop();
+        CannonFairTest = null;
+        CannonFairWindow?.CloseFromServer();
+    }
+
     private void OpenCannonFairTest()
     {
         if (Root is null)

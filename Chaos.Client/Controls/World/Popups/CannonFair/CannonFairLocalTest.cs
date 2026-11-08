@@ -19,6 +19,12 @@ public sealed class CannonFairLocalTest(CannonFairSession session)
         BeginAiming();
     }
 
+    public void Stop()
+    {
+        Finished = null;
+        session.Clear();
+    }
+
     public void OnLockIn(float angle, float power) => _ = Fire(angle, power);
 
     public void Update()
