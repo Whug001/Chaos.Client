@@ -43,7 +43,7 @@
     </ItemGroup>
 
     <ItemGroup Condition="'$(Configuration)' != 'Debug'">
-        <Compile Remove="Controls\World\Popups\CannonFair\**"/>
+        <Compile Remove="Controls\World\Popups\CannonFair\CannonFairLocalTest.cs"/>
     </ItemGroup>
 
     <!-- The game ships for 64-bit Windows only: skip the x86/arm64 libvlc copies (see VlcWindowsX86Enabled/

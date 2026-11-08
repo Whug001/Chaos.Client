@@ -936,8 +936,8 @@ public sealed partial class WorldScreen : IScreen
         WireTurkeyShoot();
 #if DEBUG
         WireBrassRing();
-        WireCannonFair();
 #endif
+        WireCannonFair();
         WireCrafting();
         WireCommissionBoard();
         WireTcg();
@@ -1202,8 +1202,8 @@ public sealed partial class WorldScreen : IScreen
         UnwireTurkeyShoot();
 #if DEBUG
         UnwireBrassRing();
-        UnwireCannonFair();
 #endif
+        UnwireCannonFair();
         UnwireCrafting();
         UnwireCommissionBoard();
         UnwireTcg();
