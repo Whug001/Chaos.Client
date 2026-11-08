@@ -16,4 +16,8 @@
         <ProjectReference Include="..\..\Chaos.Client\Chaos.Client.csproj"/>
     </ItemGroup>
 
+    <ItemGroup Condition="'$(Configuration)' != 'Debug'">
+        <Compile Remove="CannonFair\**"/>
+    </ItemGroup>
+
 </Project>

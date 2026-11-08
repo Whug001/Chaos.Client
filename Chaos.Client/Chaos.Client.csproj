@@ -37,6 +37,14 @@
         <ProjectReference Include="$(UnoraServerPath)\Chaos.Pathfinding\Chaos.Pathfinding.csproj"/>
     </ItemGroup>
 
+    <ItemGroup Condition="'$(Configuration)' == 'Debug'">
+        <ProjectReference Include="$(UnoraServerPath)\Chaos.CannonFair\Chaos.CannonFair.csproj"/>
+    </ItemGroup>
+
+    <ItemGroup Condition="'$(Configuration)' != 'Debug'">
+        <Compile Remove="Controls\World\Popups\CannonFair\**"/>
+    </ItemGroup>
+
     <!-- The game ships for 64-bit Windows only: skip the x86/arm64 libvlc copies (see VlcWindowsX86Enabled/
          VlcWindowsArm64Enabled in VideoLAN.LibVLC.Windows/build/VideoLAN.LibVLC.Windows.targets). -->
     <PropertyGroup>
