@@ -102,7 +102,7 @@ public sealed class BrassRingControl : UIPanel
     public event Action<BrassRingCheer>? CheerRequested;
     public event Action? StopWatchingRequested;
 
-    internal Func<Scancode, bool> IsKeyHeld { get; set; } = InputBuffer.IsScancodeHeld;
+    internal Func<Keycode, bool> IsKeyHeld { get; set; } = InputBuffer.IsKeycodeHeld;
     internal Func<bool> IsWindowActive { get; set; } = () => true;
 
     public BrassRingControl(AislingRenderer renderer, SoundSystem sounds)
@@ -335,7 +335,7 @@ public sealed class BrassRingControl : UIPanel
             ReleaseBlock();
         else if (!IsWindowActive())
             ReleaseBlock();
-        else if (!IsKeyHeld(Scancode.S))
+        else if (!IsKeyHeld(Keycode.S))
             ReleaseBlock();
     }
 

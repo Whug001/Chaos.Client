@@ -330,7 +330,13 @@ public sealed class BrassRingControlTests
     public void A_held_block_stays_while_the_key_is_down()
     {
         var (_, ring) = LiveRing();
-        ring.IsKeyHeld = _ => true;
+        Keycode? heldArg = null;
+        ring.IsKeyHeld = key =>
+        {
+            heldArg = key;
+
+            return true;
+        };
         ring.IsWindowActive = () => true;
         var sent = new List<BrassRingMove>();
         ring.MoveRequested += sent.Add;
@@ -339,6 +345,7 @@ public sealed class BrassRingControlTests
         ring.Update(0.05f);
 
         sent.Should().ContainSingle().Which.Should().Be(BrassRingMove.BlockStart);
+        heldArg.Should().Be((Keycode?)Keycode.S);
     }
     [Test]
     public void A_stuck_block_releases_when_another_control_covers_the_ring()

@@ -33,6 +33,21 @@ public sealed class InputInjectionTests
     }
 
     [Test]
+    public void InjectedKeycode_IsHeldByLetter_RegardlessOfPhysicalPosition()
+    {
+        //a layout where the S letter sits on the physical X key: the block key is
+        //held by letter, while nothing is held on the physical S position.
+        InputBuffer.Inject(BufferedInputEvent.ForKeyDown(Scancode.X, Keycode.S, KeyModifiers.None, false));
+
+        InputBuffer.IsKeycodeHeld(Keycode.S).Should().BeTrue();
+        InputBuffer.IsScancodeHeld(Scancode.S).Should().BeFalse();
+
+        InputBuffer.Inject(BufferedInputEvent.ForKeyUp(Scancode.X, Keycode.S, KeyModifiers.None));
+
+        InputBuffer.IsKeycodeHeld(Keycode.S).Should().BeFalse();
+    }
+
+    [Test]
     public void InjectedLeftPress_SetsHeldFlag_AndReleaseClearsIt()
     {
         InputBuffer.Inject(new BufferedInputEvent(BufferedInputKind.MouseButton, default, default, '\0',

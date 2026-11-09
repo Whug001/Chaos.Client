@@ -134,6 +134,14 @@ public static class InputBuffer
     public static bool IsScancodeHeld(Scancode scancode) => PressedKeycodeByScancode.ContainsKey(scancode);
 
     /// <summary>
+    ///     Returns true if any currently-held physical key produced this keycode when it was
+    ///     pressed. Reads the press-time keycodes so label-following checks agree with the
+    ///     keycode-based press/release dispatch even on layouts where the letter is not on
+    ///     its usual physical position.
+    /// </summary>
+    public static bool IsKeycodeHeld(Keycode keycode) => PressedKeycodeByScancode.ContainsValue(keycode);
+
+    /// <summary>
     ///     Returns true if the physical key had a rising edge (was pressed) during this
     ///     frame. OS key-repeat events are filtered out — only the initial press fires.
     /// </summary>
