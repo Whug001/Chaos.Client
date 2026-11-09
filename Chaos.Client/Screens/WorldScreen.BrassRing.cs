@@ -38,6 +38,7 @@ public sealed partial class WorldScreen
                 return;
 
             BrassRingWindow = new BrassRingControl(Game.AislingRenderer, Game.SoundSystem) { ZIndex = 2 };
+            BrassRingWindow.IsWindowActive = () => Game.IsActive;
             BrassRingWindow.MoveRequested += SendBrassRingMove;
             BrassRingWindow.ForfeitRequested += SendBrassRingForfeit;
             BrassRingWindow.CheerRequested += SendBrassRingCheer;

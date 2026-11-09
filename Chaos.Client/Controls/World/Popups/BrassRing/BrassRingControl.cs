@@ -60,7 +60,9 @@ public sealed class BrassRingControl : UIPanel
     private const int OOH_SOUND = 9;
     private const int BOO_SOUND = 183;
     private const int REACTION_SOUND_GAP_MS = 400;
-    private const int REACTION_RISE = 60;
+    private const int REACTION_START_Y = 430;
+    private const int REACTION_END_Y = BANNER_Y - 16 + BANNER_PLATE_HEIGHT;
+    private const int REACTION_RISE = REACTION_START_Y - REACTION_END_Y;
     private static readonly (int X, int Width, string Text)[] SpectatorButtons = [(150, 60, "Cheer"), (230, 60, "Ooh"), (310, 60, "Boo"), (410, 100, "Switch side")];
 
     private readonly UILabel BannerLabel;
@@ -99,6 +101,9 @@ public sealed class BrassRingControl : UIPanel
     public event Action? ForfeitRequested;
     public event Action<BrassRingCheer>? CheerRequested;
     public event Action? StopWatchingRequested;
+
+    internal Func<Scancode, bool> IsKeyHeld { get; set; } = InputBuffer.IsScancodeHeld;
+    internal Func<bool> IsWindowActive { get; set; } = () => true;
 
     public BrassRingControl(AislingRenderer renderer, SoundSystem sounds)
     {
@@ -267,6 +272,7 @@ public sealed class BrassRingControl : UIPanel
             BannerLabel.Text = BannerBeforeConfirm;
         }
 
+        ReleaseStuckBlock();
         //popups that open mid-fight would steal the fighter's keys while hidden under the ring,
         //so the ring keeps the top of the stack until the result closes it and they surface after
         if ((ResultsMs < 0) && (InputDispatcher.Instance?.TopControl != this))
@@ -319,6 +325,25 @@ public sealed class BrassRingControl : UIPanel
         BlockHeld = false;
         State.Preview(move);
         MoveRequested?.Invoke(move);
+    }
+
+    internal void ReleaseStuckBlock()
+    {
+        if (!BlockHeld || State.IsSpectator || (ResultsMs >= 0))
+            return;
+        if ((InputDispatcher.Instance?.TopControl is { } top) && (top != this))
+            ReleaseBlock();
+        else if (!IsWindowActive())
+            ReleaseBlock();
+        else if (!IsKeyHeld(Scancode.S))
+            ReleaseBlock();
+    }
+
+    private void ReleaseBlock()
+    {
+        BlockHeld = false;
+        State.Preview(BrassRingMove.BlockEnd);
+        MoveRequested?.Invoke(BrassRingMove.BlockEnd);
     }
 
     public override void OnMouseDown(MouseDownEvent e)
@@ -674,7 +699,7 @@ public sealed class BrassRingControl : UIPanel
                 _ => "Boo!"
             };
             label.X = reaction.X;
-            label.Y = 430 - (int)(REACTION_RISE * (1 - (reaction.RemainingMs / (float)BrassRingState.REACTION_MS)));
+            label.Y = REACTION_START_Y - (int)(REACTION_RISE * (1 - (reaction.RemainingMs / (float)BrassRingState.REACTION_MS)));
         }
     }
 

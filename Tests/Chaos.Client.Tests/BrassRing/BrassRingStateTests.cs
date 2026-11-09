@@ -111,6 +111,33 @@ public sealed class BrassRingStateTests
     }
 
     [Test]
+    public void The_server_wind_up_time_corrects_the_preview()
+    {
+        InRound();
+        State.Preview(BrassRingMove.PunchRight);
+        State.Drawn(0).PoseMs.Should().Be(WIND_UP_MS);
+
+        var tick = Tick(BrassRingPose.WindUpRight);
+        tick.Events.Add(new BrassRingEvent(BrassRingEventType.PunchStarted, 0, BrassRingSide.Right, 0, COUNTER_WIND_UP_MS));
+        State.ApplyTick(tick);
+
+        State.Drawn(0).Pose.Should().Be(BrassRingPose.WindUpRight);
+        State.Drawn(0).PoseMs.Should().Be(COUNTER_WIND_UP_MS);
+    }
+    [Test]
+    public void A_confirmed_preview_keeps_the_local_time_when_it_matches()
+    {
+        InRound();
+        State.Preview(BrassRingMove.PunchRight);
+
+        var tick = Tick(BrassRingPose.WindUpRight);
+        tick.Events.Add(new BrassRingEvent(BrassRingEventType.PunchStarted, 0, BrassRingSide.Right, 0, WIND_UP_MS));
+        State.ApplyTick(tick);
+
+        State.Drawn(0).Pose.Should().Be(BrassRingPose.WindUpRight);
+        State.Drawn(0).PoseMs.Should().Be(WIND_UP_MS);
+    }
+    [Test]
     public void No_preview_without_the_stamina()
     {
         InRound(PUNCH_STAMINA - 1);

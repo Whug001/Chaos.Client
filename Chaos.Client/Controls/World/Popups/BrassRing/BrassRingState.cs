@@ -78,6 +78,17 @@ public sealed class BrassRingState
             fighter.RoundWins = state.RoundWins;
         }
 
+        foreach (var fightEvent in args.Events)
+        {
+            if ((fightEvent.Type == BrassRingEventType.PunchStarted) && (fightEvent.Fighter == You) && (PreviewMs > 0))
+            {
+                if (PreviewFighter.Pose is BrassRingPose.WindUpLeft or BrassRingPose.WindUpRight)
+                {
+                    PreviewFighter.PoseMs = fightEvent.Ms;
+                    PoseWhenPressed = Fighters[You].Pose;
+                }
+            }
+        }
         if ((PreviewMs > 0) && (Fighters[You].Pose != PoseWhenPressed))
             PreviewMs = 0;
     }

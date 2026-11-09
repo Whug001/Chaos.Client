@@ -274,6 +274,114 @@ public sealed class BrassRingControlTests
     }
 
     [Test]
+    public void A_stuck_block_releases_when_the_key_is_up()
+    {
+        var (_, ring) = LiveRing();
+        ring.IsKeyHeld = _ => false;
+        ring.IsWindowActive = () => true;
+        var sent = new List<BrassRingMove>();
+        ring.MoveRequested += sent.Add;
+
+        ring.OnKeyDown(new KeyDownEvent { Keycode = Keycode.S });
+        sent.Should().ContainSingle().Which.Should().Be(BrassRingMove.BlockStart);
+
+        ring.Update(0.05f);
+
+        sent.Should().HaveCount(2);
+        sent[1].Should().Be(BrassRingMove.BlockEnd);
+
+        ring.Update(0.05f);
+
+        sent.Should().HaveCount(2);
+    }
+    [Test]
+    public void No_second_release_after_key_up_already_sent_one()
+    {
+        var (_, ring) = LiveRing();
+        ring.IsKeyHeld = _ => false;
+        ring.IsWindowActive = () => true;
+        var sent = new List<BrassRingMove>();
+        ring.MoveRequested += sent.Add;
+
+        ring.OnKeyDown(new KeyDownEvent { Keycode = Keycode.S });
+        ring.OnKeyUp(new KeyUpEvent { Keycode = Keycode.S });
+        sent.Should().HaveCount(2);
+
+        ring.Update(0.05f);
+
+        sent.Should().HaveCount(2);
+    }
+    [Test]
+    public void A_stuck_block_releases_when_the_window_loses_focus()
+    {
+        var (_, ring) = LiveRing();
+        ring.IsKeyHeld = _ => true;
+        ring.IsWindowActive = () => false;
+        var sent = new List<BrassRingMove>();
+        ring.MoveRequested += sent.Add;
+
+        ring.OnKeyDown(new KeyDownEvent { Keycode = Keycode.S });
+        ring.Update(0.05f);
+
+        sent.Should().HaveCount(2);
+        sent[1].Should().Be(BrassRingMove.BlockEnd);
+    }
+    [Test]
+    public void A_held_block_stays_while_the_key_is_down()
+    {
+        var (_, ring) = LiveRing();
+        ring.IsKeyHeld = _ => true;
+        ring.IsWindowActive = () => true;
+        var sent = new List<BrassRingMove>();
+        ring.MoveRequested += sent.Add;
+
+        ring.OnKeyDown(new KeyDownEvent { Keycode = Keycode.S });
+        ring.Update(0.05f);
+
+        sent.Should().ContainSingle().Which.Should().Be(BrassRingMove.BlockStart);
+    }
+    [Test]
+    public void A_stuck_block_releases_when_another_control_covers_the_ring()
+    {
+        var (dispatcher, ring) = LiveRing();
+        ring.IsKeyHeld = _ => true;
+        ring.IsWindowActive = () => true;
+        var sent = new List<BrassRingMove>();
+        ring.MoveRequested += sent.Add;
+
+        ring.OnKeyDown(new KeyDownEvent { Keycode = Keycode.S });
+        dispatcher.PushControl(new UIPanel());
+        ring.Update(0.05f);
+
+        sent.Should().HaveCount(2);
+        sent[1].Should().Be(BrassRingMove.BlockEnd);
+    }
+    [Test]
+    public void Reactions_stop_below_the_banner()
+    {
+        var (_, ring) = LiveRing();
+        ring.State.Reset(0, true);
+        ring.ApplyTick(Tick(MAX_STAMINA, new BrassRingEvent(BrassRingEventType.Cheered, Damage: (int)BrassRingCheer.Ooh)));
+
+        var first = -1;
+        var last = -1;
+        for (var i = 0; i < 20; i++)
+        {
+            ring.Update(0.05f);
+
+            if (!ring.ReactionLabels[0].Visible)
+                continue;
+
+            if (first < 0)
+                first = ring.ReactionLabels[0].Y;
+
+            last = ring.ReactionLabels[0].Y;
+            ring.ReactionLabels[0].Y.Should().BeGreaterThanOrEqualTo(397);
+        }
+
+        last.Should().BeLessThan(first);
+    }
+    [Test]
     public void A_spectator_sees_names_instead_of_victory_or_defeat()
     {
         var (_, ring) = LiveRing();
