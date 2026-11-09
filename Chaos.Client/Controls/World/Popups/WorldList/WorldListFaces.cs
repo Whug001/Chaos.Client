@@ -31,7 +31,7 @@ public static class WorldListFaces
         [Class(5, "Priest", BaseClass.Priest), Medenian(9, "Bard", AdvClass.Bard),
             Medenian(10, "Plague Doctor", AdvClass.PlagueDoctor)],
         [Class(6, "Monk", BaseClass.Monk), Medenian(11, "Adept", AdvClass.Adept), Medenian(12, "Druid", AdvClass.Druid)],
-        [Original(7, "Peasant", e => e.BaseClass is BaseClass.Peasant or BaseClass.Unbound)],
+        [Class(7, "Peasant", BaseClass.Peasant)],
         [Original(8, "Guild", e => e.IsGuilded)]
     ];
 

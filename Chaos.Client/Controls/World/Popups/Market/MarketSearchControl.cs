@@ -48,7 +48,7 @@ public sealed class MarketSearchControl : UIPanel
     private static readonly string[] EquipmentTypes =
         ["Any type", "Weapon", "Armor", "Shield", "Helmet", "Earrings", "Necklace", "Ring", "Gauntlet", "Belt", "Greaves", "Boots"];
 
-    private static readonly string[] Classes = ["Any class", "Warrior", "Rogue", "Wizard", "Priest", "Monk", "Unbound"];
+    private static readonly string[] Classes = ["Any class", "Warrior", "Rogue", "Wizard", "Priest", "Monk"];
     private static readonly string[] AdvClasses =
         ["Any", "Berserker", "Warlord", "Druid", "Adept", "Archer", "Assassin", "Plague Doctor", "Bard", "Arcanist", "Elementalist"];
 
