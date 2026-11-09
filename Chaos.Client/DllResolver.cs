@@ -12,6 +12,23 @@ internal static class DllResolver
     private static string RuntimeIdentifier => RuntimeInformation.RuntimeIdentifier;
     private static string Platform => RuntimeIdentifier.Split('-')[0];
 
+    // Distro-built .NET reports a distro RID (e.g. "arch-x64"), but the bundled natives always live under
+    // the portable RID folders. Without this, P/Invokes bind a system libSDL2 while MonoGame uses the
+    // bundled one, and the SDL_AddEventWatch input callback lands on the copy that never gets events.
+    private static string PortableRuntimeIdentifier
+    {
+        get
+        {
+            var os = OperatingSystem.IsMacOS()
+                ? "osx"
+                : OperatingSystem.IsLinux()
+                    ? "linux"
+                    : "win";
+
+            return $"{os}-{RuntimeInformation.ProcessArchitecture.ToString().ToLowerInvariant()}";
+        }
+    }
+
     private static readonly Dictionary<string, List<string>> MacLibraries = new()
     {
         {
@@ -109,6 +126,13 @@ internal static class DllResolver
                 "native",
                 libraryName);
 
+            var portable = Path.Combine(
+                AppContext.BaseDirectory,
+                "runtimes",
+                PortableRuntimeIdentifier,
+                "native",
+                libraryName);
+
             var independent = Path.Combine(
                 AppContext.BaseDirectory,
                 "runtimes",
@@ -116,7 +140,9 @@ internal static class DllResolver
                 "native",
                 libraryName);
 
-            if (NativeLibrary.TryLoad(archSpecific, out handle) || NativeLibrary.TryLoad(independent, out handle))
+            if (NativeLibrary.TryLoad(archSpecific, out handle)
+                || NativeLibrary.TryLoad(portable, out handle)
+                || NativeLibrary.TryLoad(independent, out handle))
                 return true;
         }
 

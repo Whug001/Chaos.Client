@@ -57,16 +57,29 @@ public static class DatArchives
 
     public static DataArchive Load(string key)
     {
-        // Linux filesystems are case-sensitive and DA .dat archives ship lowercase, so normalize the
+        // Linux filesystems are case-sensitive and most DA .dat archives ship lowercase, so normalize the
         // nameof()-derived keys (e.g. "Cious") to match the on-disk names. Harmless on Windows.
         key = key.WithExtension(".dat")
                  .ToLowerInvariant();
 
-        if (key.StartsWithI("npcbase"))
-            return DataArchive.FromFile(Path.Combine(DataContext.DataPath, "npc", key));
+        var directory = key.StartsWithI("npcbase")
+            ? Path.Combine(DataContext.DataPath, "npc")
+            : DataContext.DataPath;
 
-        var archive = DataArchive.FromFile(Path.Combine(DataContext.DataPath, key));
+        return DataArchive.FromFile(ResolvePath(directory, key));
+    }
 
-        return archive;
+    // Not every archive is lowercase on disk (e.g. Legend.dat), so fall back to a case-insensitive match.
+    // Returns the exact path when nothing matches so the open still reports the expected file as missing.
+    private static string ResolvePath(string directory, string fileName)
+    {
+        var path = Path.Combine(directory, fileName);
+
+        if (File.Exists(path) || !Directory.Exists(directory))
+            return path;
+
+        return Directory.EnumerateFiles(directory)
+                        .FirstOrDefault(file => string.Equals(Path.GetFileName(file), fileName, StringComparison.OrdinalIgnoreCase))
+               ?? path;
     }
 }
