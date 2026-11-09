@@ -547,6 +547,21 @@ public sealed class MapRenderer : IDisposable
         return anim.TileSequence[frameIndex];
     }
 
+    /// <summary>Pixel height of a foreground tile sprite, or 0 when it has no image.</summary>
+    public int GetForegroundHeight(int tileId)
+    {
+        if (!((short)tileId).IsRenderedTileIndex())
+            return 0;
+
+        if (CyclingManager is not null && CyclingManager.FgOverrides.TryGetValue(tileId, out var cycling))
+            return cycling.SourceRect.Height;
+
+        if (FgAtlas?.TryGetRegion(tileId) is { } region)
+            return region.SourceRect.Height;
+
+        return GetOrCreateFgTexture(tileId)?.Height ?? 0;
+    }
+
     public void UpdatePaletteCycling(int animationTick) => CyclingManager?.Update(animationTick);
 
 }
