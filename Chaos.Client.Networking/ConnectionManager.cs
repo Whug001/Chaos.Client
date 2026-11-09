@@ -605,6 +605,8 @@ public sealed class ConnectionManager : IDisposable
     public event TurkeyShootDisplayHandler? OnTurkeyShootDisplay;
     public event BrassRingDisplayHandler? OnBrassRingDisplay;
 
+    public event CannonFairDisplayHandler? OnCannonFairDisplay;
+
     /// <summary>
     ///     Fired when the server opens or closes the Pumpkin Carving window.
     /// </summary>
@@ -1480,6 +1482,8 @@ public sealed class ConnectionManager : IDisposable
     public void SendTurkeyShootAction(TurkeyShootActionArgs args) => SendIfWorld(args);
     public void SendBrassRingAction(BrassRingActionArgs args) => SendIfWorld(args);
 
+    public void SendCannonFairAction(CannonFairActionArgs args) => SendIfWorld(args);
+
     /// <summary>Sends the carving grid. <paramref name="done" /> is true when the window is closing.</summary>
     public void SendPumpkinCarvingSave(byte[] grid, bool done)
         => SendIfWorld(
@@ -2036,6 +2040,7 @@ public sealed class ConnectionManager : IDisposable
         PacketHandlers[(byte)ServerOpCode.FishingDisplay] = HandleFishingDisplay;
         PacketHandlers[(byte)ServerOpCode.TurkeyShootDisplay] = HandleTurkeyShootDisplay;
         PacketHandlers[(byte)ServerOpCode.BrassRingDisplay] = HandleBrassRingDisplay;
+        PacketHandlers[(byte)ServerOpCode.CannonFairDisplay] = HandleCannonFairDisplay;
         PacketHandlers[(byte)ServerOpCode.PumpkinCarvingDisplay] = HandlePumpkinCarvingDisplay;
         PacketHandlers[(byte)ServerOpCode.PumpkinLook] = HandlePumpkinLook;
         PacketHandlers[(byte)ServerOpCode.EntityLantern] = HandleEntityLantern;
@@ -2532,6 +2537,12 @@ public sealed class ConnectionManager : IDisposable
     {
         var args = Client.Deserialize<BrassRingDisplayArgs>(in pkt);
         OnBrassRingDisplay?.Invoke(args);
+    }
+
+    private void HandleCannonFairDisplay(ServerPacket pkt)
+    {
+        var args = Client.Deserialize<CannonFairDisplayArgs>(in pkt);
+        OnCannonFairDisplay?.Invoke(args);
     }
 
     private void HandlePumpkinCarvingDisplay(ServerPacket pkt)

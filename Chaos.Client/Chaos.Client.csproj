@@ -35,6 +35,15 @@
         <ProjectReference Include="..\Chaos.Client.Rendering\Chaos.Client.Rendering.csproj"/>
         <ProjectReference Include="..\Chaos.Client.Networking\Chaos.Client.Networking.csproj"/>
         <ProjectReference Include="$(UnoraServerPath)\Chaos.Pathfinding\Chaos.Pathfinding.csproj"/>
+        <ProjectReference Include="$(UnoraServerPath)\Chaos.CannonFair.Contracts\Chaos.CannonFair.Contracts.csproj"/>
+    </ItemGroup>
+
+    <ItemGroup Condition="'$(Configuration)' == 'Debug'">
+        <ProjectReference Include="$(UnoraServerPath)\Chaos.CannonFair\Chaos.CannonFair.csproj"/>
+    </ItemGroup>
+
+    <ItemGroup Condition="'$(Configuration)' != 'Debug'">
+        <Compile Remove="Controls\World\Popups\CannonFair\CannonFairLocalTest.cs"/>
     </ItemGroup>
 
     <!-- The game ships for 64-bit Windows only: skip the x86/arm64 libvlc copies (see VlcWindowsX86Enabled/

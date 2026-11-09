@@ -1,4 +1,4 @@
-﻿#region
+#region
 using Chaos.Client.Collections;
 using Chaos.Client.Controls.Components;
 using Chaos.Client.Data.Models;
@@ -140,6 +140,10 @@ public sealed class ChatInputControl : UIPanel
     public event IgnoreListRequestedHandler? IgnoreListRequested;
     public event FocusChangedHandler? FocusChanged;
 
+#if DEBUG
+    public static event Action? BrassRingTestRequested;
+    public static event Action? CannonFairTestRequested;
+#endif
 
     //--- layout ---
 
@@ -351,6 +355,20 @@ public sealed class ChatInputControl : UIPanel
         //caps lock is how people shout, so the tokens can't be case-sensitive.
         switch (token.ToLowerInvariant())
         {
+#if DEBUG
+            case "/brassring":
+                TextBox.Text = string.Empty;
+                carryBody = false;
+                BrassRingTestRequested?.Invoke();
+
+                return true;
+            case "/cannonfair":
+                TextBox.Text = string.Empty;
+                carryBody = false;
+                CannonFairTestRequested?.Invoke();
+
+                return true;
+#endif
             case "/g":
                 EnterChannel(ChatMode.Group, sticky);
 

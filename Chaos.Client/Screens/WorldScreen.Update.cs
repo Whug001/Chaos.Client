@@ -357,6 +357,10 @@ public sealed partial class WorldScreen
         FishingWindow.Update(elapsedMs / 1000f);
         TurkeyShootWindow?.Update(elapsedMs / 1000f);
         BrassRingWindow?.Update(elapsedMs / 1000f);
+        CannonFairWindow?.Update(elapsedMs / 1000f);
+#if DEBUG
+        CannonFairTest?.Update();
+#endif
 
         //ends an armed GiveUp confirm after 5 s
         WorldState.QuestLog.Update(elapsedMs / 1000f);

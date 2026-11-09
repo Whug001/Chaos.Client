@@ -21,7 +21,6 @@ public sealed class TextureAtlas : IDisposable
 {
     private const int BYTES_PER_PIXEL = 4;
     private const int DEFAULT_MAX_PAGE_SIZE = 2048;
-    private const int MAX_SHELF_ENTRY_SIZE = 512;
 
     private readonly Dictionary<int, AtlasRegion> BuildIntRegions = [];
     private readonly Dictionary<string, AtlasRegion> BuildRegions = new(StringComparer.OrdinalIgnoreCase);
@@ -323,53 +322,27 @@ public sealed class TextureAtlas : IDisposable
 
     private void BuildShelf()
     {
-        //sort by height descending for better shelf packing
-        PendingEntries.Sort((a, b) => b.Height.CompareTo(a.Height));
+        var sizes = new (int Width, int Height)[PendingEntries.Count];
 
-        var currentX = 0;
-        var currentY = 0;
-        var shelfHeight = 0;
-        var pageEntries = new List<(PendingEntry Entry, int X, int Y)>();
-        var maxWidthUsed = 0;
+        for (var i = 0; i < PendingEntries.Count; i++)
+            sizes[i] = (PendingEntries[i].Width, PendingEntries[i].Height);
 
-        foreach (var entry in PendingEntries)
+        //placement arithmetic (sort, gaps, page flushes) lives in TextureAtlasShelfLayout; the pixel buffer
+        //from FlushShelfPage is zeroed, so the gap stays transparent without writing to it
+        var pages = TextureAtlasShelfLayout.Pack(
+            sizes,
+            MaxPageSize,
+            TextureAtlasShelfLayout.MAX_SHELF_ENTRY_SIZE);
+
+        foreach (var page in pages)
         {
-            //skip entries too large for atlas packing
-            if ((entry.Width > MAX_SHELF_ENTRY_SIZE) || (entry.Height > MAX_SHELF_ENTRY_SIZE))
-                continue;
+            var pageEntries = new List<(PendingEntry Entry, int X, int Y)>(page.Placements.Count);
 
-            //does it fit on the current shelf?
-            if ((currentX + entry.Width) > MaxPageSize)
-            {
-                //start a new shelf
-                currentX = 0;
-                currentY += shelfHeight;
-                shelfHeight = 0;
-            }
+            foreach (var placement in page.Placements)
+                pageEntries.Add((PendingEntries[placement.EntryIndex], placement.X, placement.Y));
 
-            //does it fit on the current page?
-            if ((currentY + entry.Height) > MaxPageSize)
-            {
-                //flush current page and start a new one
-                if (pageEntries.Count > 0)
-                    FlushShelfPage(pageEntries, maxWidthUsed, currentY + shelfHeight);
-
-                pageEntries.Clear();
-                currentX = 0;
-                currentY = 0;
-                shelfHeight = 0;
-                maxWidthUsed = 0;
-            }
-
-            pageEntries.Add((entry, currentX, currentY));
-            shelfHeight = Math.Max(shelfHeight, entry.Height);
-            currentX += entry.Width;
-            maxWidthUsed = Math.Max(maxWidthUsed, currentX);
+            FlushShelfPage(pageEntries, page.Width, page.Height);
         }
-
-        //flush remaining entries
-        if (pageEntries.Count > 0)
-            FlushShelfPage(pageEntries, maxWidthUsed, currentY + shelfHeight);
     }
 
     private static void CopyPixels(

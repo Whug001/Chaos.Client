@@ -452,6 +452,8 @@ public delegate void FishingDisplayHandler(FishingDisplayArgs args);
 public delegate void TurkeyShootDisplayHandler(TurkeyShootDisplayArgs args);
 public delegate void BrassRingDisplayHandler(BrassRingDisplayArgs args);
 
+public delegate void CannonFairDisplayHandler(CannonFairDisplayArgs args);
+
 /// <summary>
 ///     Fired when a Pumpkin Carving window display packet is received.
 /// </summary>

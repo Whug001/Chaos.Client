@@ -223,6 +223,8 @@ public static class WorldState
 
     public static TumbleTowerState TumbleTower { get; } = new();
 
+    public static CannonFairSession CannonFair { get; } = new();
+
     /// <summary>
     ///     The Drowned Causeway schedule and drift. Not cleared by <see cref="Clear" />: a same-map refresh keeps it.
     ///     WorldScreen clears it on a real map change; <see cref="ResetAll" /> clears it on logout.
@@ -544,6 +546,7 @@ public static class WorldState
         StageLightingPanel.Reset();
         Mirrors.Clear();
         TumbleTower.Clear();
+        CannonFair.Clear();
         Causeway.Clear();
         GlassWay.Clear();
         KartRace.Clear();
