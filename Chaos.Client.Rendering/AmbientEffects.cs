@@ -26,6 +26,8 @@ public sealed class AmbientEffects : IDisposable
     private readonly (MapFlags Flag, IAmbientOverlay Overlay)[] Overlays =
     [
         (MapFlags.CloudShadows, new MistRenderer(MistStyle.CloudShadows)),
+        (MapFlags.DappledLight, new DappleRenderer()),
+        (MapFlags.Rain, new WetWallRenderer()),
         (MapFlags.Underwater, new MistRenderer(MistStyle.Underwater)),
         (MapFlags.Heat, new MistRenderer(MistStyle.Heat)),
         (MapFlags.Gloom, new MistRenderer(MistStyle.Gloom)),
@@ -39,7 +41,15 @@ public sealed class AmbientEffects : IDisposable
         (MapFlags.SeaSpray, new MistRenderer(MistStyle.SeaSpray)),
         (MapFlags.Sandstorm, new MistRenderer(MistStyle.Sandstorm)),
         (MapFlags.Blizzard, new MistRenderer(MistStyle.Blizzard)),
+        (MapFlags.Rainbow, new RainbowRenderer()),
+        (MapFlags.Sunbeams, new LightShaftRenderer(LightShaftRenderer.Sunbeams)),
+        (MapFlags.Moonbeams, new LightShaftRenderer(LightShaftRenderer.Moonbeams)),
+        (MapFlags.AuroraGlow, new AuroraRenderer(AuroraRenderer.Glow)),
+        (MapFlags.Aurora, new AuroraRenderer(AuroraRenderer.Curtains)),
+        (MapFlags.ShootingStars, new StreakRenderer(StreakRenderer.ShootingStars)),
+        (MapFlags.Meteors, new StreakRenderer(StreakRenderer.Meteors)),
         (MapFlags.Lightning, new LightningRenderer()),
+        (MapFlags.RisingSteam, new SteamRenderer()),
         (MapFlags.Fog, new MistRenderer(MistStyle.Fog)),
         (MapFlags.Sandstorm, new ParticleRenderer(ParticleStyle.SandGrains)),
         (MapFlags.Underwater, new ParticleRenderer(ParticleStyle.Bubbles)),
@@ -74,7 +84,7 @@ public sealed class AmbientEffects : IDisposable
     public void Apply(MapFlags flags, bool immediate)
     {
         foreach (var (flag, overlay) in Overlays)
-            overlay.SetActive(flags.HasFlag(flag), immediate);
+            overlay.SetActive(IsOn(flags, flag), immediate);
 
         //a snapped apply is a map change (or an F4 re-filter): effects that are off now are fully faded out,
         //so drop their GPU textures instead of carrying the old map's textures until Dispose. A fading apply
@@ -124,6 +134,10 @@ public sealed class AmbientEffects : IDisposable
             if (!overlay.IsActive)
                 switch (overlay)
                 {
+                    case AmbientOverlayBase procedural:
+                        procedural.ReleaseTextures();
+
+                        break;
                     case MistRenderer mist:
                         mist.ReleaseTextures();
 
@@ -133,6 +147,16 @@ public sealed class AmbientEffects : IDisposable
 
                         break;
                 }
+    }
+
+    internal static bool IsOn(MapFlags flags, MapFlags flag)
+        => flag == MapFlags.Rain ? (flags & MapFlags.Darkness) == MapFlags.Rain : flags.HasFlag(flag);
+
+    public void SetMapSurface(MapSurface? surface)
+    {
+        foreach (var (_, overlay) in Overlays)
+            if (overlay is IMapAwareOverlay aware)
+                aware.SetSurface(surface);
     }
 
     public void Dispose()

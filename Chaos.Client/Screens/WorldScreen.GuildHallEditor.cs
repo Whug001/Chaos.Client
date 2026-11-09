@@ -263,7 +263,10 @@ public sealed partial class WorldScreen
 
             //still loading: FinalizeMapLoad builds the grid from the finished tiles
             if (MapPreloaded)
+            {
                 (MapPathfinder, MapWaterTiles, MapDoorTiles) = BuildPathfinder(MapFile);
+                RefreshAmbientMapSurface();
+            }
         }
 
         if (GuildHallEditorWindow is not { Visible: true } window)

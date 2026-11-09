@@ -227,7 +227,7 @@ public sealed partial class WorldScreen
                 AmbientEffects.Draw(
                     spriteBatch,
                     WorldHud.ViewportBounds,
-                    Camera.WorldToScreen(Vector2.Zero),
+                    Camera.WorldToScreen(Vector2.Zero) + WorldHud.ViewportBounds.Location.ToVector2(),
                     GlobalSettings.Sampler,
                     ScissorRasterizerState,
                     surfaceMatrix);

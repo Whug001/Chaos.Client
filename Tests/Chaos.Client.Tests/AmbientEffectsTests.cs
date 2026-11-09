@@ -1,6 +1,8 @@
 using Chaos.Client.Rendering;
 using Chaos.DarkAges.Definitions;
 using FluentAssertions;
+using Microsoft.Xna.Framework;
+using Microsoft.Xna.Framework.Graphics;
 
 namespace Chaos.Client.Tests;
 
@@ -76,4 +78,72 @@ public class AmbientEffectsTests
     public void ExtendedFlags_CoverEveryBitAboveTheLowByte()
         => ((ulong)AmbientEffects.EXTENDED_FLAGS).Should()
                                                   .Be(0xFFFF_FFFF_FFFF_FF00UL, "SetMapEffects carries every bit above the low byte");
+
+    private sealed class CountingOverlay : AmbientOverlayBase
+    {
+        public int Steps;
+        public override BlendState BlendState => BlendState.Additive;
+        public override void Draw(SpriteBatch spriteBatch, Rectangle viewport, Vector2 worldOrigin) { }
+        public override void ReleaseTextures() { }
+        protected override void Step(float dt, Rectangle viewport, Vector2 worldOrigin) => Steps++;
+    }
+
+    [Test]
+    [Arguments(MapFlags.Rain, true)]
+    [Arguments(MapFlags.Darkness, false)]
+    [Arguments(MapFlags.None, false)]
+    [Arguments(MapFlags.Snow, false)]
+    public void IsOn_TreatsOnlyRealRainAsRain(MapFlags flags, bool expected)
+        => AmbientEffects.IsOn(flags, MapFlags.Rain).Should().Be(expected);
+
+    [Test]
+    public void IsOn_UsesHasFlagForOtherEffects()
+        => AmbientEffects.IsOn(MapFlags.Fog | MapFlags.Meteors, MapFlags.Meteors).Should().BeTrue();
+
+    [Test]
+    public void Update_WithEmptyViewport_DoesNotStep()
+    {
+        using var overlay = new CountingOverlay();
+        overlay.SetActive(true, immediate: true);
+
+        overlay.Update(new GameTime(TimeSpan.FromSeconds(1), TimeSpan.FromSeconds(0.1)), Rectangle.Empty, Vector2.Zero);
+
+        overlay.Steps.Should().Be(0);
+    }
+
+    [Test]
+    public void Update_FadesIn_ThenSteps()
+    {
+        using var overlay = new CountingOverlay();
+        overlay.SetActive(true);
+
+        overlay.Update(new GameTime(TimeSpan.FromSeconds(1), TimeSpan.FromSeconds(0.1)), new Rectangle(0, 0, 640, 310), Vector2.Zero);
+
+        overlay.IsActive.Should().BeTrue();
+        overlay.Steps.Should().Be(1);
+    }
+
+    [Test]
+    public void LightPresets_MatchTheApprovedLooks()
+    {
+        LightShaftRenderer.Sunbeams.Count.Should().Be(6);
+        LightShaftRenderer.Moonbeams.Count.Should().Be(5);
+        LightShaftRenderer.Moonbeams.Tint.Should().Be(new Color((byte)170, (byte)200, (byte)255));
+    }
+
+    [Test]
+    public void SkyTiming_MatchesTheApprovedRates()
+    {
+        StreakRenderer.Meteors.GapMin.Should().Be(3f);
+        StreakRenderer.Meteors.GapMax.Should().Be(6f);
+        StreakRenderer.ShootingStars.GapMin.Should().Be(5f);
+        StreakRenderer.ShootingStars.GapMax.Should().Be(12f);
+    }
+
+    [Test]
+    public void SkyStrips_HaveNoOverlap()
+    {
+        AuroraRenderer.Curtains.Step.Should().Be(4);
+        AuroraRenderer.Glow.Step.Should().Be(6);
+    }
 }

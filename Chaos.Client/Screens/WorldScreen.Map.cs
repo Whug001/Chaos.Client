@@ -170,6 +170,7 @@ public sealed partial class WorldScreen
                 args.Height,
                 args.CheckSum);
         MapPreloaded = false;
+        AmbientEffects.SetMapSurface(null);
         Lighting.SetMapLanterns(null);
 
         //see HandleMapChangePending — MapPathfinder's grid no longer matches MapFile's dimensions, so any right-click
@@ -304,12 +305,27 @@ public sealed partial class WorldScreen
             MapWaterTiles = waterTiles;
             MapDoorTiles = doorTiles;
             Lighting.SetMapLanterns(MapFile);
+            RefreshAmbientMapSurface();
             MapPreloaded = true;
         }
 
         MapLoading.Hide();
         FollowPlayerCamera();
         Game.GcRequested = true;
+    }
+
+    private void RefreshAmbientMapSurface()
+    {
+        var ground = DataContext.Tiles.GroundAttributes;
+
+        AmbientEffects.SetMapSurface(
+            MapSurface.Build(
+                CurrentMapId,
+                MapFile!,
+                IsTileWall,
+                id => DoorTable.IsDoorTileId((short)id),
+                id => ground.TryGetValue(id, out var attribute) && attribute.IsWalkBlocking,
+                MapRenderer.GetForegroundHeight));
     }
 
     /// <summary>
