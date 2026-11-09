@@ -145,8 +145,8 @@ public sealed partial class WorldScreen
         TurkeyShootWindow?.CloseFromServer();
 #if DEBUG
         BrassRingWindow?.Close();
-        CannonFairWindow?.Close();
 #endif
+        CannonFairWindow?.Close();
         WorldState.FittingRoom.Clear();
 
         //a new map starts with no stage lighting; a same-map refresh (above) deliberately keeps it

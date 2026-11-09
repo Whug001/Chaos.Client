@@ -552,10 +552,10 @@ public sealed partial class WorldScreen
 #if DEBUG
         if (BrassRingWindow is { Visible: true })
             return false;
+#endif
 
         if (CannonFairWindow is { Visible: true })
             return false;
-#endif
         if ((GameActions.SongNote(action) > 0) && !WorldState.Song.HasLiveCall)
             return false;
 

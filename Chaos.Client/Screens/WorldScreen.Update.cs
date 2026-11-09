@@ -356,9 +356,10 @@ public sealed partial class WorldScreen
         FishingWindow.InputBlocked = UITextBox.IsAnyFocused || ((Game.Dispatcher.TopControl is not null) && (Game.Dispatcher.TopControl != FishingWindow));
         FishingWindow.Update(elapsedMs / 1000f);
         TurkeyShootWindow?.Update(elapsedMs / 1000f);
+        CannonFairWindow?.Update(elapsedMs / 1000f);
 #if DEBUG
         BrassRingWindow?.Update(elapsedMs / 1000f);
-        CannonFairWindow?.Update(elapsedMs / 1000f);
+        CannonFairTest?.Update();
 #endif
 
         //ends an armed GiveUp confirm after 5 s
