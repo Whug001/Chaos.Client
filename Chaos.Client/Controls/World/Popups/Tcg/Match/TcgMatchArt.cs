@@ -23,6 +23,12 @@ public static class TcgMatchArt
     public const int DARK_GEM_OFFSET = 5;
     public const int HOURGLASS_FRAMES = 8;
 
+    public static string PlaymatFile(int frame) => $"tcgmat{frame:D3}.spf";
+
+    /// <summary>True when the viewer's playmat file is in this client's setoa.dat.</summary>
+    public static bool PlaymatPresent(int frame)
+        => (UiRenderer.Instance is { } ui) && (ui.GetSpfFrameCount(PlaymatFile(frame)) >= 1);
+
     /// <summary>False when this client's setoa.dat lacks the match art (old game files).</summary>
     public static bool ArtPresent()
         => UiRenderer.Instance is { } ui

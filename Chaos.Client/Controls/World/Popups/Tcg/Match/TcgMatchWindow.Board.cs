@@ -26,7 +26,12 @@ public sealed partial class TcgMatchWindow
     private void DrawBackground(SpriteBatch batch)
     {
         if (TcgMatchArt.ArtPresent() && (UiRenderer.Instance is { } ui))
+        {
             DrawTextureFitted(batch, ui.GetSpfTexture(TcgMatchArt.TABLE), At(new Rectangle(0, 0, 640, 480)), Color.White);
+
+            if ((State.Latest is { } latest) && TcgMatchArt.PlaymatPresent(latest.Playmat))
+                DrawTextureFitted(batch, ui.GetSpfTexture(TcgMatchArt.PlaymatFile(latest.Playmat)), At(TcgMatchLayout.Battlefield), Color.White);
+        }
         else
         {
             DrawRectClipped(batch, At(TcgMatchLayout.Board), BoardFallback);
