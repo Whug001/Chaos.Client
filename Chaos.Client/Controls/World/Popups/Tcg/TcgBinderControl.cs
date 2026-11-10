@@ -2,12 +2,14 @@
 using Chaos.Client.Collections;
 using Chaos.Client.Controls.Components;
 using Chaos.Client.Controls.Custom;
+using Chaos.Client.Rendering;
 using Chaos.Client.Controls.World.Popups.Dialog;
 using Chaos.Client.ViewModel;
 using Chaos.DarkAges.Definitions;
 using Chaos.Networking.Entities.Client;
 using Chaos.Networking.Entities.Server;
 using Microsoft.Xna.Framework;
+using Microsoft.Xna.Framework.Graphics;
 #endregion
 
 namespace Chaos.Client.Controls.World.Popups.Tcg;
@@ -27,6 +29,13 @@ public sealed class TcgBinderControl : FramedDialogPanelBase
     public const int PANEL_Y = 6;
 
     private const int BUTTON_HEIGHT = CustomButton.HEIGHT;
+    private const int PLAYMAT_CELL_STEP_X = 148;
+    private const int PLAYMAT_CELL_STEP_Y = 130;
+    private const int PLAYMAT_CELL_WIDTH = 141;
+    private const int PLAYMAT_CELL_HEIGHT = 124;
+    private const int PLAYMAT_COLUMNS = 3;
+    private const int PLAYMAT_COUNT = 6;
+    private const int PLAYMAT_SELECT_TOP = 312;
     private const int CELL_STEP_X = 68;
     private const int CELL_STEP_Y = 94;
     private const int COLUMNS = 4;
@@ -52,7 +61,7 @@ public sealed class TcgBinderControl : FramedDialogPanelBase
     private const int STYLE_STEP = BUTTON_HEIGHT + 2;
     private const int STYLE_TOP = 36;
 
-    private static readonly string[] TabNames = ["All", "Fire", "Water", "Wind", "Earth", "Neutral", "Decks", "Ranked"];
+    private static readonly string[] TabNames = ["All", "Fire", "Water", "Wind", "Earth", "Neutral", "Decks", "Ranked", "Mats"];
 
     private readonly CustomButton BreakButton;
     private readonly TcgChoicePanel Choice;
@@ -90,6 +99,9 @@ public sealed class TcgBinderControl : FramedDialogPanelBase
     private readonly UIPanel RankedPointsFill;
     private readonly UILabel RankedPointsLabel;
     private readonly UILabel RankedRecentLabel;
+    private readonly PlaymatCell[] PlaymatCells = new PlaymatCell[PLAYMAT_COUNT];
+    private readonly CustomButton SelectPlaymatButton;
+    private string? ChosenPlaymat;
     private readonly UILabel RankedSeasonLabel;
     private readonly UILabel RankedStepLabel;
     private readonly UILabel RankedTopTitle;
@@ -297,6 +309,26 @@ public sealed class TcgBinderControl : FramedDialogPanelBase
             AddChild(RankedTopRows[i]);
         }
 
+        for (var i = 0; i < PlaymatCells.Length; i++)
+        {
+            PlaymatCells[i] = new PlaymatCell
+            {
+                X = LEFT + ((i % PLAYMAT_COLUMNS) * PLAYMAT_CELL_STEP_X),
+                Y = GRID_TOP + ((i / PLAYMAT_COLUMNS) * PLAYMAT_CELL_STEP_Y),
+                Width = PLAYMAT_CELL_WIDTH,
+                Height = PLAYMAT_CELL_HEIGHT
+            };
+            PlaymatCells[i].Clicked += cell =>
+            {
+                ChosenPlaymat = cell.MatKey;
+                Refresh();
+            };
+            AddChild(PlaymatCells[i]);
+        }
+
+        SelectPlaymatButton = Button("Select", LEFT, PLAYMAT_SELECT_TOP, 120, OnSelectPlaymat);
+        AddChild(SelectPlaymatButton);
+
         //last, so it draws over everything and swallows clicks meant for what is behind it
         Choice = new TcgChoicePanel(PANEL_WIDTH, PANEL_HEIGHT);
         AddChild(Choice);
@@ -393,7 +425,8 @@ public sealed class TcgBinderControl : FramedDialogPanelBase
 
         var decksTab = State.Tab == TcgBinderTab.Decks;
         var rankedTab = State.Tab == TcgBinderTab.Ranked;
-        var cardsTab = !decksTab && !rankedTab;
+        var playmatsTab = State.Tab == TcgBinderTab.Playmats;
+        var cardsTab = !decksTab && !rankedTab && !playmatsTab;
 
         for (var i = 0; i < TabButtons.Length; i++)
             TabButtons[i].Selected = (TcgBinderTab)i == State.Tab;
@@ -404,10 +437,11 @@ public sealed class TcgBinderControl : FramedDialogPanelBase
         MessageLabel.Text = State.Message;
         MessageLabel.Visible = !rankedTab;
 
-        RefreshGrid(decksTab || rankedTab);
-        RefreshDetail(decksTab || rankedTab);
+        RefreshGrid(decksTab || rankedTab || playmatsTab);
+        RefreshDetail(decksTab || rankedTab || playmatsTab);
         RefreshDecks(decksTab);
         RefreshRanked(rankedTab);
+        RefreshPlaymats(playmatsTab);
     }
 
     private string? LastQueueDeck;
@@ -684,6 +718,27 @@ public sealed class TcgBinderControl : FramedDialogPanelBase
         RenameCancelButton.Visible = renaming;
     }
 
+    private void OnSelectPlaymat()
+    {
+        if (ChosenPlaymat is not null)
+            Request(TcgCollectionState.SelectPlaymatAction(ChosenPlaymat));
+    }
+
+    private void RefreshPlaymats(bool shown)
+    {
+        var mats = State.Playmats;
+
+        for (var i = 0; i < PlaymatCells.Length; i++)
+        {
+            var mat = shown && (i < mats.Count) ? mats[i] : null;
+            PlaymatCells[i].Bind(mat, ChosenPlaymat, State.SelectedPlaymat);
+        }
+
+        SelectPlaymatButton.Visible = shown;
+        SelectPlaymatButton.Enabled = (ChosenPlaymat is not null)
+                                      && mats.Any(mat => mat.Key.Equals(ChosenPlaymat, StringComparison.OrdinalIgnoreCase) && mat.Owned && !mat.Key.Equals(State.SelectedPlaymat, StringComparison.OrdinalIgnoreCase));
+    }
+
     private void RefreshRanked(bool shown)
     {
         var info = WorldState.TcgRanked.Info;
@@ -909,4 +964,78 @@ public sealed class TcgBinderControl : FramedDialogPanelBase
             e.Handled = true;
         }
     }
+
+    /// <summary>One playmat preview: the mat frame scaled into 141x84, name under it, Owned/Locked and the hint for locked mats.</summary>
+    private sealed class PlaymatCell : UIPanel
+    {
+        private static readonly Color BoardFallback = new(46, 32, 20);
+        private readonly UILabel NameText;
+        private readonly UILabel StateText;
+        private readonly UILabel HintText;
+        private TcgPlaymatView? Mat;
+        private bool Chosen;
+        private bool Selected;
+
+        public PlaymatCell()
+        {
+            IsHitTestVisible = true;
+            NameText = Label(0, 86, PLAYMAT_CELL_WIDTH, string.Empty, LegendColors.Gold, HorizontalAlignment.Center);
+            StateText = Label(0, 100, PLAYMAT_CELL_WIDTH, string.Empty, LegendColors.White, HorizontalAlignment.Center);
+            HintText = Label(0, 112, PLAYMAT_CELL_WIDTH, string.Empty, LegendColors.Silver, HorizontalAlignment.Center);
+            AddChild(NameText);
+            AddChild(StateText);
+            AddChild(HintText);
+        }
+
+        public string? MatKey => Mat?.Key;
+
+        public event Action<PlaymatCell>? Clicked;
+
+        public void Bind(TcgPlaymatView? mat, string? chosen, string selected)
+        {
+            Visible = mat is not null;
+            Mat = mat;
+            Chosen = (mat is not null) && mat.Key.Equals(chosen, StringComparison.OrdinalIgnoreCase);
+            Selected = (mat is not null) && mat.Key.Equals(selected, StringComparison.OrdinalIgnoreCase);
+
+            if (mat is null)
+                return;
+
+            NameText.Text = mat.Name;
+            StateText.Text = mat.Owned ? "Owned" : "Locked";
+            HintText.Text = mat.Owned || string.IsNullOrEmpty(mat.Hint) ? string.Empty : mat.Hint;
+        }
+
+        public override void Draw(SpriteBatch spriteBatch)
+        {
+            if ((Mat is not { } mat) || !Visible)
+                return;
+
+            var at = new Rectangle(ScreenX, ScreenY, PLAYMAT_CELL_WIDTH, 84);
+            var file = PlaymatFile(mat.Frame);
+
+            if ((UiRenderer.Instance is { } ui) && (ui.GetSpfFrameCount(file) >= 1))
+                DrawTextureFitted(spriteBatch, ui.GetSpfTexture(file), at, Color.White);
+            else
+                DrawRectClipped(spriteBatch, at, BoardFallback);
+
+            if (Selected)
+                UIElement.DrawBorder(spriteBatch, at, LegendColors.Gold);
+
+            if (Chosen)
+                UIElement.DrawBorder(spriteBatch, at, LegendColors.Lime);
+
+            base.Draw(spriteBatch);
+        }
+
+        public override void OnClick(ClickEvent e)
+        {
+            if (e.Button == MouseButton.Left)
+                Clicked?.Invoke(this);
+
+            e.Handled = true;
+        }
+    }
+
+    private static string PlaymatFile(byte frame) => $"tcgmat{frame:D3}.spf";
 }

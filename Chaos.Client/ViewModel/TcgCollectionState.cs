@@ -16,7 +16,8 @@ public enum TcgBinderTab : byte
     Earth,
     Neutral,
     Decks,
-    Ranked
+    Ranked,
+    Playmats
 }
 
 /// <summary>
@@ -38,6 +39,7 @@ public sealed class TcgCollectionState
     public IReadOnlyList<TcgCatalogCardView> Cards => Sorted;
 
     public IReadOnlyList<TcgDeckView> Decks { get; private set; } = [];
+    public IReadOnlyList<TcgPlaymatView> Playmats { get; private set; } = [];
     public TcgCardStyle DetailStyle { get; private set; }
     public int Dust { get; private set; }
 
@@ -55,6 +57,7 @@ public sealed class TcgCollectionState
     public int PageCount => PageCountOf(Filtered.Count);
     public string PageText => PageTextOf(Filtered, Page);
     public TcgCatalogCardView? Selected => Get(SelectedKey);
+    public string SelectedPlaymat { get; private set; } = string.Empty;
     public string? SelectedKey { get; private set; }
     public TcgBinderTab Tab { get; private set; }
 
@@ -76,6 +79,8 @@ public sealed class TcgCollectionState
         Sorted = ByKey.Values.ToList();
         Sorted.Sort(Compare);
         Decks = args.Decks.ToList();
+        Playmats = args.Playmats.ToList();
+        SelectedPlaymat = args.SelectedPlaymat;
         Dust = args.Dust;
         Message = args.Message;
         HasSnapshot = true;
@@ -151,6 +156,8 @@ public sealed class TcgCollectionState
         Counts.Clear();
         Sorted = [];
         Decks = [];
+        Playmats = [];
+        SelectedPlaymat = string.Empty;
         Dust = 0;
         Message = string.Empty;
         HasSnapshot = false;
@@ -244,7 +251,7 @@ public sealed class TcgCollectionState
     /// <summary>The cards a tab shows, sorted. The Decks tab shows no cards.</summary>
     public IReadOnlyList<TcgCatalogCardView> Filter(TcgBinderTab tab, bool ownedOnly)
     {
-        if (tab is TcgBinderTab.Decks or TcgBinderTab.Ranked)
+        if (tab is TcgBinderTab.Decks or TcgBinderTab.Ranked or TcgBinderTab.Playmats)
             return [];
 
         var element = ElementOf(tab);
@@ -256,6 +263,13 @@ public sealed class TcgCollectionState
     public TcgCatalogCardView? Get(string? key) => (key is not null) && ByKey.TryGetValue(key, out var card) ? card : null;
 
     public void NextPage() => Page = Math.Min(Page + 1, PageCount - 1);
+
+    public static TcgCollectionActionArgs SelectPlaymatAction(string key)
+        => new()
+        {
+            Type = TcgCollectionActionType.SelectPlaymat,
+            CardKey = key
+        };
 
     public static TcgCollectionActionArgs OpenAction() => new() { Type = TcgCollectionActionType.Open };
 
