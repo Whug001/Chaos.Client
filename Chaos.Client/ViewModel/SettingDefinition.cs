@@ -82,6 +82,7 @@ public enum SettingKey
     NpcRecordChat,
     Resolution,
     CooldownNumbers,
+    ShowAbilityLevels,
     GroupPanel,
     TransparentGroupPanel,
     DamageNumbersEnabled,
@@ -217,6 +218,13 @@ public static class SettingDefinitions
             SettingCategory.ClientLocal,
             Get: () => ClientSettings.CooldownNumbersEnabled,
             Set: v => ClientSettings.CooldownNumbersEnabled = v),
+        new(
+            SettingKey.ShowAbilityLevels,
+            "Show skill and spell levels",
+            SettingSection.Display,
+            SettingCategory.ClientLocal,
+            Get: () => ClientSettings.ShowAbilityLevels,
+            Set: v => ClientSettings.ShowAbilityLevels = v),
         new(
             SettingKey.GroupPanel,
             "Show group panels",

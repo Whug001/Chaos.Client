@@ -6,6 +6,7 @@ using Chaos.Client.Controls.Components;
 using Chaos.Client.Controls.Generic;
 using Chaos.Client.Controls.World.Hud;
 using Chaos.Client.Controls.World.Hud.Panel;
+using Chaos.Client.Controls.World.Hud.Panel.Slots;
 using Chaos.Client.Controls.World.Popups.BugReport;
 using Chaos.Client.Controls.World.Popups.Options;
 using Chaos.Client.Extensions;
@@ -1231,7 +1232,7 @@ public sealed partial class WorldScreen
                      hud.Tools.WorldSpells
                  })
         {
-            panel.OnSlotHoverEnter += slot => WorldHud.SetDescription(slot.SlotName);
+            panel.OnSlotHoverEnter += slot => WorldHud.SetDescription(slot is AbilitySlotControl ability ? ability.HoverText : slot.SlotName);
             panel.OnSlotHoverExit += () => WorldHud.SetDescription(null);
         }
 
