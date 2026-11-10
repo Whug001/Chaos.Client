@@ -7,12 +7,37 @@ namespace Chaos.Client.Controls.World.Popups.Tcg.Match;
 /// <summary>Every fixed rectangle of the 640x480 match window, and the creature slot positions.</summary>
 public static class TcgMatchLayout
 {
+    public const int TILE_X = 28;
+    public const int TILE_Y = 14;
     public const int SLOT_STEP = 64;
     public const int MAX_ROW_WIDTH = 400;
     public const int BOARD_CENTRE_X = 235;
     public const int YOUR_FEET_Y = 316;
     public const int THEIR_FEET_Y = 176;
     public const int HAND_STEP = 44;
+
+    /// <summary>The invisible midline between the rows (battlefield centre, tuned 1px left so the opponent row clears the stack).</summary>
+    public static readonly Point Midline = new(234, 212);
+
+    /// <summary>One tile lower-left to upper-right.</summary>
+    public static readonly Point RowAxis = new(TILE_X, -TILE_Y);
+
+    /// <summary>One tile toward the midline: yours toward upper-left, theirs toward lower-right.</summary>
+    public static Point FacingAxis(bool yours) => yours ? new Point(-TILE_X, -TILE_Y) : new Point(TILE_X, TILE_Y);
+
+    public static Chaos.Geometry.Abstractions.Definitions.Direction Facing(bool yours)
+        => yours ? Chaos.Geometry.Abstractions.Definitions.Direction.Left : Chaos.Geometry.Abstractions.Definitions.Direction.Right;
+
+    /// <summary>Creatures are drawn back to front in order of their feet height.</summary>
+    public static int DrawOrder(Point feet) => feet.Y;
+
+    /// <summary>The slot stepped along its facing axis onto the midline (blockers and attackers lean here).</summary>
+    public static Point MidlineFeet(Point slot, bool yours)
+    {
+        var axis = FacingAxis(yours);
+
+        return new Point(slot.X + ((3 * axis.X) / 2), slot.Y + ((3 * axis.Y) / 2));
+    }
 
     public static readonly Rectangle Board = new(0, 0, 470, 480);
     public static readonly Rectangle OpponentStrip = new(0, 0, 470, 72);
@@ -47,10 +72,27 @@ public static class TcgMatchLayout
 
     public static Point CreatureSlot(int index, int count, bool yours)
     {
-        var step = count * SLOT_STEP > MAX_ROW_WIDTH + SLOT_STEP ? MAX_ROW_WIDTH / count : SLOT_STEP;
-        var x = BOARD_CENTRE_X - ((count - 1) * step / 2) + (index * step);
+        var centre = RowCentre(yours) + RowShift(yours);
+        var stepTiles = count <= 5 ? 2 : 1;
+        var offsetTiles = (index - ((count - 1) / 2.0)) * stepTiles;
 
-        return new Point(x, yours ? YOUR_FEET_Y : THEIR_FEET_Y);
+        return new Point(centre.X + (int)Math.Round(offsetTiles * RowAxis.X), centre.Y + (int)Math.Round(offsetTiles * RowAxis.Y));
+    }
+
+    /// <summary>Row centre before the clear-the-stack shift: 1.5 tiles across the midline.</summary>
+    private static Point RowCentre(bool yours)
+    {
+        var facing = FacingAxis(yours);
+
+        return new Point(Midline.X - ((3 * facing.X) / 2), Midline.Y - ((3 * facing.Y) / 2));
+    }
+
+    /// <summary>Shift toward lower-left (-RowAxis) so tall boxes stay inside the battlefield and clear of the stack row.</summary>
+    private static Point RowShift(bool yours)
+    {
+        var tiles = yours ? 3.0 : 1.5;
+
+        return new Point((int)Math.Round(tiles * -RowAxis.X), (int)Math.Round(tiles * -RowAxis.Y));
     }
 
     public static Point HandCard(int index, int count)

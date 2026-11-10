@@ -13,7 +13,6 @@ namespace Chaos.Client.Controls.World.Popups.Tcg.Match;
 /// <summary>Attack selection, drag-to-block, damage order clicks and numbering.</summary>
 public sealed partial class TcgMatchWindow
 {
-    private const int RIVER_LIFT = 24;
     private const int BLOCK_FRONT_Y = 44;
     private const int BLOCK_SPREAD_X = 40;
 
@@ -97,7 +96,7 @@ public sealed partial class TcgMatchWindow
         if (yours)
         {
             if ((input.Mode == TcgInputMode.Attacking) && input.Attackers.Contains(creatureId))
-                return new Point(feet.X, feet.Y - RIVER_LIFT);
+                return TcgMatchLayout.MidlineFeet(feet, true);
 
             if (input.Mode == TcgInputMode.Blocking)
             {
@@ -113,14 +112,14 @@ public sealed partial class TcgMatchWindow
                 }
 
                 if (input.SelectedBlocker == creatureId)
-                    return new Point(feet.X, feet.Y - RIVER_LIFT);
+                    return TcgMatchLayout.MidlineFeet(feet, true);
 
                 return feet;
             }
         } else if (input.Mode == TcgInputMode.Blocking)
         {
             if (board.Attackers.Contains(creatureId))
-                return new Point(feet.X, feet.Y + RIVER_LIFT);
+                return TcgMatchLayout.MidlineFeet(feet, false);
 
             return feet;
         }
@@ -131,7 +130,7 @@ public sealed partial class TcgMatchWindow
         if (BlocksConfirmed(board))
         {
             if (board.Attackers.Contains(creatureId))
-                return yours ? new Point(feet.X, feet.Y - RIVER_LIFT) : new Point(feet.X, feet.Y + RIVER_LIFT);
+                return TcgMatchLayout.MidlineFeet(feet, yours);
 
             var confirmed = board.Blocks.FirstOrDefault(block => block.BlockerId == creatureId);
 
@@ -231,7 +230,7 @@ public sealed partial class TcgMatchWindow
             var yours = (TcgSeat)seat == board.YourSeat;
             var feet = TcgMatchLayout.CreatureSlot(index, creatures.Count, yours);
 
-            return yours ? new Point(feet.X, feet.Y - RIVER_LIFT) : new Point(feet.X, feet.Y + RIVER_LIFT);
+            return TcgMatchLayout.MidlineFeet(feet, yours);
         }
 
         return null;

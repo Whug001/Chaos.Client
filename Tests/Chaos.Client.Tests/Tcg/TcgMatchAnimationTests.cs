@@ -53,15 +53,15 @@ public sealed class TcgMatchAnimationTests
     [Test]
     public void Attack_run_walks_then_strikes()
     {
-        var start = new Point(235, 316);
-        var river = new Point(235, 212);
-        var target = new Point(235, 176);
+        var start = TcgMatchLayout.CreatureSlot(0, 1, true);
+        var target = TcgMatchLayout.CreatureSlot(0, 1, false);
+        var midline = TcgMatchLayout.MidlineFeet(start, true);
 
-        TcgMatchWindow.AttackedFeet(start, river, target, 0).Should().Be(start);
-        TcgMatchWindow.AttackedFeet(start, river, target, 0.2f).Should().Be(new Point(235, 264));
-        TcgMatchWindow.AttackedFeet(start, river, target, 0.4f).Should().Be(river);
-        TcgMatchWindow.AttackedFeet(start, river, target, 0.7f).Should().Be(target);
-        TcgMatchWindow.AttackedFeet(start, river, target, 1).Should().Be(target);
+        TcgMatchWindow.AttackedFeet(start, target, true, 0).Should().Be(start);
+        TcgMatchWindow.AttackedFeet(start, target, true, 0.2f).Should().Be(new Point(start.X + ((midline.X - start.X) / 2), start.Y + ((midline.Y - start.Y) / 2)));
+        TcgMatchWindow.AttackedFeet(start, target, true, 0.4f).Should().Be(midline);
+        TcgMatchWindow.AttackedFeet(start, target, true, 0.7f).Should().Be(target);
+        TcgMatchWindow.AttackedFeet(start, target, true, 1).Should().Be(target);
 
         TcgMatchWindow.AttackPose(0.69f).Should().Be(TcgBoardCreature.Pose.Walk);
         TcgMatchWindow.AttackPose(0.7f).Should().Be(TcgBoardCreature.Pose.Attack);

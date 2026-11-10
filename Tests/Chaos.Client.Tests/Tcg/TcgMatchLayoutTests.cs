@@ -8,24 +8,131 @@ namespace Chaos.Client.Tests;
 
 public sealed class TcgMatchLayoutTests
 {
-    [Test]
-    public void Centres_a_single_creature_on_the_battlefield()
-        => TcgMatchLayout.CreatureSlot(0, 1, true).Should().Be(new Point(235, 316));
+    private static Rectangle Box(Point feet) => new(feet.X - 24, feet.Y - 48, 48, 48);
 
     [Test]
-    public void Spaces_creatures_sixty_four_apart()
+    public void Slots_stay_inside_the_battlefield()
     {
-        TcgMatchLayout.CreatureSlot(0, 2, false).Should().Be(new Point(203, 176));
-        TcgMatchLayout.CreatureSlot(1, 2, false).Should().Be(new Point(267, 176));
+        for (var count = 1; count <= 10; count++)
+        {
+            foreach (var yours in new[] { true, false })
+            {
+                for (var i = 0; i < count; i++)
+                {
+                    var box = Box(TcgMatchLayout.CreatureSlot(i, count, yours));
+
+                    TcgMatchLayout.Battlefield.Contains(box).Should().BeTrue($"count {count} yours {yours} i {i} box {box}");
+                }
+            }
+        }
     }
 
     [Test]
-    public void Shrinks_the_step_for_eight_or_more()
+    public void Ten_a_side_stays_inside_and_clear_of_the_stack()
+    {
+        foreach (var yours in new[] { true, false })
+        {
+            for (var i = 0; i < 10; i++)
+            {
+                var box = Box(TcgMatchLayout.CreatureSlot(i, 10, yours));
+
+                TcgMatchLayout.Battlefield.Contains(box).Should().BeTrue($"yours {yours} i {i} box {box}");
+                box.Intersects(TcgMatchLayout.StackRow).Should().BeFalse($"yours {yours} i {i} box {box} vs stack");
+            }
+        }
+    }
+
+    [Test]
+    public void Five_use_a_two_tile_step_six_use_one()
+    {
+        var twoFirst = TcgMatchLayout.CreatureSlot(0, 5, true);
+        var twoSecond = TcgMatchLayout.CreatureSlot(1, 5, true);
+
+        (twoSecond.X - twoFirst.X).Should().Be(2 * TcgMatchLayout.RowAxis.X);
+        (twoSecond.Y - twoFirst.Y).Should().Be(2 * TcgMatchLayout.RowAxis.Y);
+
+        var oneFirst = TcgMatchLayout.CreatureSlot(0, 6, true);
+        var oneSecond = TcgMatchLayout.CreatureSlot(1, 6, true);
+
+        (oneSecond.X - oneFirst.X).Should().Be(TcgMatchLayout.RowAxis.X);
+        (oneSecond.Y - oneFirst.Y).Should().Be(TcgMatchLayout.RowAxis.Y);
+    }
+
+    [Test]
+    public void Rows_are_three_tiles_apart()
+    {
+        var yours = TcgMatchLayout.CreatureSlot(0, 1, true);
+        var theirs = TcgMatchLayout.CreatureSlot(0, 1, false);
+        var facing = TcgMatchLayout.FacingAxis(false);
+
+        //resolve yours - theirs = a*RowAxis + b*facing; b is the separation in tiles
+        var dx = yours.X - theirs.X;
+        var dy = yours.Y - theirs.Y;
+        var row = TcgMatchLayout.RowAxis;
+        var det = (row.X * facing.Y) - (row.Y * facing.X);
+        var a = (double)(dx * facing.Y - dy * facing.X) / det;
+        var b = (double)(row.X * dy - row.Y * dx) / det;
+
+        b.Should().BeApproximately(3.0, 0.001);
+        a.Should().BeApproximately(-1.5, 0.001);
+    }
+
+    [Test]
+    public void Your_creatures_face_left_theirs_right()
+    {
+        TcgMatchLayout.Facing(true).Should().Be(Chaos.Geometry.Abstractions.Definitions.Direction.Left);
+        TcgMatchLayout.Facing(false).Should().Be(Chaos.Geometry.Abstractions.Definitions.Direction.Right);
+    }
+
+    [Test]
+    public void Board_draws_in_feet_order()
+    {
+        var slots = new List<Point>();
+
+        for (var i = 0; i < 3; i++)
+        {
+            slots.Add(TcgMatchLayout.CreatureSlot(i, 3, false));
+            slots.Add(TcgMatchLayout.CreatureSlot(i, 3, true));
+        }
+
+        slots.Select(f => TcgMatchLayout.DrawOrder(f)).Should().Equal(slots.Select(f => f.Y));
+        slots.OrderBy(f => TcgMatchLayout.DrawOrder(f)).Should().BeEquivalentTo(slots.OrderBy(f => f.Y));
+    }
+
+    [Test]
+    public void Attack_reaches_the_midline_then_the_target()
+    {
+        var start = TcgMatchLayout.CreatureSlot(0, 2, true);
+        var target = TcgMatchLayout.CreatureSlot(1, 2, false);
+        var mid = TcgMatchLayout.MidlineFeet(start, true);
+
+        TcgMatchWindow.AttackedFeet(start, target, true, 0).Should().Be(start);
+        TcgMatchWindow.AttackedFeet(start, target, true, 0.4f).Should().Be(mid);
+        TcgMatchWindow.AttackedFeet(start, target, true, 0.7f).Should().Be(target);
+        TcgMatchWindow.AttackedFeet(start, target, true, 1).Should().Be(target);
+    }
+
+    [Test]
+    public void Centres_a_single_creature_on_the_battlefield()
+        => TcgMatchLayout.CreatureSlot(0, 1, true).Should().Be(new Point(192, 275));
+
+    [Test]
+    public void Spaces_creatures_two_tiles_apart()
+    {
+        var first = TcgMatchLayout.CreatureSlot(0, 2, false);
+        var second = TcgMatchLayout.CreatureSlot(1, 2, false);
+
+        (second.X - first.X).Should().Be(2 * TcgMatchLayout.RowAxis.X);
+        (second.Y - first.Y).Should().Be(2 * TcgMatchLayout.RowAxis.Y);
+    }
+
+    [Test]
+    public void Shrinks_the_step_for_six_or_more()
     {
         var first = TcgMatchLayout.CreatureSlot(0, 8, true);
         var second = TcgMatchLayout.CreatureSlot(1, 8, true);
 
-        (second.X - first.X).Should().Be(50);
+        (second.X - first.X).Should().Be(TcgMatchLayout.RowAxis.X);
     }
 
     [Test]

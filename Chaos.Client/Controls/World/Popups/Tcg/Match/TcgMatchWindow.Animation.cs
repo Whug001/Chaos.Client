@@ -13,7 +13,6 @@ namespace Chaos.Client.Controls.World.Popups.Tcg.Match;
 /// <summary>Short event animations, played in order while the pre-update board stays on screen.</summary>
 public sealed partial class TcgMatchWindow
 {
-    private const int RIVER_Y = 212;
 
     private readonly HashSet<int> AnimatedIds = [];
     private readonly HashSet<int> DestroyedIds = [];
@@ -86,14 +85,16 @@ public sealed partial class TcgMatchWindow
 
     public static TcgBoardCreature.Pose AttackPose(float p) => p >= 0.7f ? TcgBoardCreature.Pose.Attack : TcgBoardCreature.Pose.Walk;
 
-    /// <summary>Attack run: start to the river, then to the target, holding there while striking.</summary>
-    public static Point AttackedFeet(Point start, Point river, Point target, float p)
+    /// <summary>Attack run: start to the midline, then to the target, holding there while striking.</summary>
+    public static Point AttackedFeet(Point start, Point target, bool yours, float p)
     {
+        var mid = TcgMatchLayout.MidlineFeet(start, yours);
+
         if (p < 0.4f)
-            return LerpPoint(start, river, p / 0.4f);
+            return LerpPoint(start, mid, p / 0.4f);
 
         if (p < 0.7f)
-            return LerpPoint(river, target, (p - 0.4f) / 0.3f);
+            return LerpPoint(mid, target, (p - 0.4f) / 0.3f);
 
         return target;
     }
@@ -247,9 +248,8 @@ public sealed partial class TcgMatchWindow
         if (!TryFindCreature(attackerId, out var card, out var start, out var facing))
             return;
 
-        var river = new Point(start.X, ScreenY + RIVER_Y);
         var target = AttackTarget(attackerId, start);
-        var feet = AttackedFeet(start, river, target, p);
+        var feet = AttackedFeet(start, target, facing == Chaos.Geometry.Abstractions.Definitions.Direction.Left, p);
 
         Creature.Draw(batch, card, feet, facing, AttackPose(p), clockMs, Color.White);
     }
@@ -261,8 +261,8 @@ public sealed partial class TcgMatchWindow
         if ((blockerId != 0) && TryFindCreature(blockerId, out _, out var blockerFeet, out _))
             return blockerFeet;
 
-        //no blocker: the far strip. An attacker above the river strikes down, one below strikes up.
-        var stripY = start.Y < ScreenY + RIVER_Y
+        //no blocker: the far strip. An attacker above the midline strikes down, one below strikes up.
+        var stripY = start.Y < ScreenY + TcgMatchLayout.Midline.Y
             ? TcgMatchLayout.YourStrip.Y + (TcgMatchLayout.YourStrip.Height / 2)
             : TcgMatchLayout.OpponentStrip.Height / 2;
 
@@ -341,7 +341,7 @@ public sealed partial class TcgMatchWindow
         var width = TextRenderer.MeasureWidth(text, scale);
         var height = TextRenderer.CHAR_HEIGHT * scale;
         var x = ScreenX + ((TcgMatchLayout.Board.Width - width) / 2);
-        var y = ScreenY + RIVER_Y - (height / 2);
+        var y = ScreenY + TcgMatchLayout.Midline.Y - (height / 2);
 
         float alpha;
 
@@ -426,7 +426,7 @@ public sealed partial class TcgMatchWindow
     {
         card = null!;
         feet = default;
-        facing = Direction.Down;
+        facing = Direction.Right;
 
         if (id == 0)
             return false;
@@ -444,7 +444,7 @@ public sealed partial class TcgMatchWindow
 
             card = found;
             feet = new Point(ScreenX + start.Feet.X, ScreenY + start.Feet.Y);
-            facing = start.Yours ? Direction.Up : Direction.Down;
+            facing = TcgMatchLayout.Facing(start.Yours);
 
             return true;
         }

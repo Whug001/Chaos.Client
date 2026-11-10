@@ -60,8 +60,7 @@ public sealed partial class TcgMatchWindow
         } else if (ShowsConfirmedBlocks(board, Input))
             DrawConfirmedBlockArrows(batch, board);
 
-        DrawCreatureRow(batch, board, them.Battlefield, false, clockMs);
-        DrawCreatureRow(batch, board, you.Battlefield, true, clockMs);
+        DrawCreaturesInFeetOrder(batch, board, them.Battlefield, you.Battlefield, clockMs);
 
         if (Queue.PlayingBoard is { } playing && (playing.Players.Count >= 2))
             DrawFresh(batch, playing, clockMs);
@@ -221,53 +220,68 @@ public sealed partial class TcgMatchWindow
         }
     }
 
-    private void DrawCreatureRow(SpriteBatch batch, TcgDisplayArgs board, List<TcgCreatureView> creatures, bool yours, int clockMs)
+    private void DrawCreaturesInFeetOrder(SpriteBatch batch, TcgDisplayArgs board, List<TcgCreatureView> theirs, List<TcgCreatureView> yours, int clockMs)
     {
-        var facing = yours ? Direction.Up : Direction.Down;
+        var entries = new List<(TcgCreatureView View, bool Yours, int Index, int Count, int Order)>();
 
-        for (var i = 0; i < creatures.Count; i++)
+        for (var i = 0; i < theirs.Count; i++)
         {
-            var view = creatures[i];
-
-            if (AnimatedIds.Contains(view.Id) || DestroyedIds.Contains(view.Id) || FreshIds.Contains(view.Id))
-                continue;
-
-            var slot = DrawFeet(board, Input, view.Id, yours, i, creatures.Count);
-            var feet = new Point(ScreenX + slot.X, ScreenY + slot.Y);
-            var tint = view.Tapped ? TappedTint : Color.White;
-
-            if (CreatureOutlined(view))
-                DrawAttackerOutline(batch, slot);
-
-            var choice = TcgCreatureBorders.ForCreature(board, Input, view, Catalog.Get);
-
-            if (choice.Border != TcgCreatureBorder.None)
-                DrawSelectionBorder(batch, slot, choice.Border, choice.Mode);
-
-            if (yours && ReadyGlow(board, Input, view, HoverCreatureId, Catalog.Get) is var glow && (glow != TcgReadyGlow.None))
-                DrawReadyGlow(batch, feet, glow == TcgReadyGlow.Attack ? LegendColors.Gold : BlockGlow, clockMs);
-
-            if (Catalog.Get(view.Key) is { } card)
-                Creature.Draw(batch, card, feet, facing, TcgBoardCreature.Pose.Idle, clockMs, tint);
-            else
-            {
-                var box = new Rectangle(feet.X - 16, feet.Y - 32, 32, 32);
-                DrawRectClipped(batch, box, BoxBack);
-                DrawTextClipped(batch, new Vector2(box.X + 12, box.Y + 10), "?", tint, false);
-            }
-
-            var plate = $"{view.Attack}/{view.Health - view.Damage}";
-            var plateWidth = TextRenderer.MeasureWidth(plate) + 6;
-            var plateRect = new Rectangle(feet.X - (plateWidth / 2), feet.Y + 2, plateWidth, TextRenderer.CHAR_HEIGHT);
-            DrawRectClipped(batch, plateRect, PlateBack);
-            DrawTextClipped(batch, new Vector2(plateRect.X + 3, plateRect.Y), plate, tint, false);
-
-            if (view.SummoningSick)
-                DrawSick(batch, feet, clockMs);
-
-            if (CreatureBadge(board, view) is { } badge)
-                DrawOrderBadge(batch, slot, badge);
+            var slot = DrawFeet(board, Input, theirs[i].Id, false, i, theirs.Count);
+            entries.Add((theirs[i], false, i, theirs.Count, TcgMatchLayout.DrawOrder(slot)));
         }
+
+        for (var i = 0; i < yours.Count; i++)
+        {
+            var slot = DrawFeet(board, Input, yours[i].Id, true, i, yours.Count);
+            entries.Add((yours[i], true, i, yours.Count, TcgMatchLayout.DrawOrder(slot)));
+        }
+
+        foreach (var entry in entries.OrderBy(e => e.Order))
+            DrawCreature(batch, board, entry.View, entry.Yours, entry.Index, entry.Count, clockMs);
+    }
+
+    private void DrawCreature(SpriteBatch batch, TcgDisplayArgs board, TcgCreatureView view, bool yours, int index, int count, int clockMs)
+    {
+        var facing = TcgMatchLayout.Facing(yours);
+
+        if (AnimatedIds.Contains(view.Id) || DestroyedIds.Contains(view.Id) || FreshIds.Contains(view.Id))
+            return;
+
+        var slot = DrawFeet(board, Input, view.Id, yours, index, count);
+        var feet = new Point(ScreenX + slot.X, ScreenY + slot.Y);
+        var tint = view.Tapped ? TappedTint : Color.White;
+
+        if (CreatureOutlined(view))
+            DrawAttackerOutline(batch, slot);
+
+        var choice = TcgCreatureBorders.ForCreature(board, Input, view, Catalog.Get);
+
+        if (choice.Border != TcgCreatureBorder.None)
+            DrawSelectionBorder(batch, slot, choice.Border, choice.Mode);
+
+        if (yours && ReadyGlow(board, Input, view, HoverCreatureId, Catalog.Get) is var glow && (glow != TcgReadyGlow.None))
+            DrawReadyGlow(batch, feet, glow == TcgReadyGlow.Attack ? LegendColors.Gold : BlockGlow, clockMs);
+
+        if (Catalog.Get(view.Key) is { } card)
+            Creature.Draw(batch, card, feet, facing, TcgBoardCreature.Pose.Idle, clockMs, tint);
+        else
+        {
+            var box = new Rectangle(feet.X - 16, feet.Y - 32, 32, 32);
+            DrawRectClipped(batch, box, BoxBack);
+            DrawTextClipped(batch, new Vector2(box.X + 12, box.Y + 10), "?", tint, false);
+        }
+
+        var plate = $"{view.Attack}/{view.Health - view.Damage}";
+        var plateWidth = TextRenderer.MeasureWidth(plate) + 6;
+        var plateRect = new Rectangle(feet.X - (plateWidth / 2), feet.Y + 2, plateWidth, TextRenderer.CHAR_HEIGHT);
+        DrawRectClipped(batch, plateRect, PlateBack);
+        DrawTextClipped(batch, new Vector2(plateRect.X + 3, plateRect.Y), plate, tint, false);
+
+        if (view.SummoningSick)
+            DrawSick(batch, feet, clockMs);
+
+        if (CreatureBadge(board, view) is { } badge)
+            DrawOrderBadge(batch, slot, badge);
     }
 
     /// <summary>Creatures already entered or done attacking in this Update, drawn at their new-board seats.</summary>
@@ -295,7 +309,7 @@ public sealed partial class TcgMatchWindow
                 var tint = view.Tapped ? TappedTint : Color.White;
 
                 if (Catalog.Get(view.Key) is { } card)
-                    Creature.Draw(batch, card, feet, yours ? Direction.Up : Direction.Down, TcgBoardCreature.Pose.Idle, clockMs, tint);
+                    Creature.Draw(batch, card, feet, TcgMatchLayout.Facing(yours), TcgBoardCreature.Pose.Idle, clockMs, tint);
 
                 var plate = $"{view.Attack}/{view.Health - view.Damage}";
                 var plateWidth = TextRenderer.MeasureWidth(plate) + 6;
