@@ -1,4 +1,5 @@
 #region
+using Chaos.Client.Systems;
 #endregion
 
 namespace Chaos.Client.Controls.World.Hud.Panel.Slots;
@@ -23,6 +24,48 @@ public abstract class AbilitySlotControl : PanelSlot
     ///     Fired on right-click. Parameter is the 1-based slot number.
     /// </summary>
     public event AbilitySlotRightClickHandler? OnRightClick;
+
+    /// <summary>
+    ///     The text shown on hover. Hides the " (Lev:X/X)" suffix for full levels unless the player opted to show them;
+    ///     partial or unparseable levels always show in full.
+    /// </summary>
+    public string? HoverText => FormatHoverText(SlotName, AbilityName, AbilityLevel, ClientSettings.ShowAbilityLevels);
+
+    /// <summary>
+    ///     Pure hover-text rule, split out so it can be tested without UI. Returns null for null/empty, the full name when
+    ///     <paramref name="showLevels" /> is on, when the name carries no "(Lev:" suffix, or when the level is not full or
+    ///     does not parse as "X/Y" integers; otherwise just the ability name.
+    /// </summary>
+    public static string? FormatHoverText(string? fullName, string? abilityName, string? abilityLevel, bool showLevels)
+    {
+        if (string.IsNullOrEmpty(fullName))
+            return null;
+
+        if (showLevels)
+            return fullName;
+
+        if (!fullName.Contains("(Lev:", StringComparison.Ordinal))
+            return fullName;
+
+        if (string.IsNullOrEmpty(abilityName) || string.IsNullOrEmpty(abilityLevel))
+            return fullName;
+
+        var slashIndex = abilityLevel.IndexOf('/');
+
+        if (slashIndex <= 0)
+            return fullName;
+
+        if (!int.TryParse(abilityLevel[..slashIndex].Trim(), out var current))
+            return fullName;
+
+        if (!int.TryParse(abilityLevel[(slashIndex + 1)..].Trim(), out var maximum))
+            return fullName;
+
+        if (current != maximum)
+            return fullName;
+
+        return abilityName;
+    }
 
     /// <summary>
     ///     Sets the slot name and parses out ability name and level from the "Name (Lev:X/Y)" format.

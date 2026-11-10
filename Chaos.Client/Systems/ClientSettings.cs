@@ -83,6 +83,10 @@ public static class ClientSettings
     // --- Numeric cooldown readout on skill/spell slots (client-local; gated in PanelSlot) ---
     public static bool CooldownNumbersEnabled { get; set; } = true;
 
+    // --- Ability level suffix on skill/spell slots (client-local; read by AbilitySlotControl's hover text) ---
+    // Off by default: every ability sits at level 100, so the suffix is noise until the player opts in.
+    public static bool ShowAbilityLevels { get; set; }
+
     // --- Group member panels down the side of the viewport (client-local; gated in GroupPanelStack) ---
     public static bool GroupPanelEnabled { get; set; } = true;
 
@@ -324,6 +328,11 @@ public static class ClientSettings
 
                     case "CooldownNumbersEnabled":
                         CooldownNumbersEnabled = value == "1";
+
+                        break;
+
+                    case "ShowAbilityLevels":
+                        ShowAbilityLevels = value == "1";
 
                         break;
 
@@ -603,6 +612,7 @@ public static class ClientSettings
             writer.WriteLine($"ShowHealNumbersOnNpcs : {(ShowHealNumbersOnNpcs ? 1 : 0)}");
             writer.WriteLine($"DamageNumberSize : {(int)DamageNumberSize}");
             writer.WriteLine($"CooldownNumbersEnabled : {(CooldownNumbersEnabled ? 1 : 0)}");
+            writer.WriteLine($"ShowAbilityLevels : {(ShowAbilityLevels ? 1 : 0)}");
             writer.WriteLine($"WindowWidth : {WindowWidth}");
             writer.WriteLine($"WindowHeight : {WindowHeight}");
             writer.WriteLine($"GroupPanelEnabled : {(GroupPanelEnabled ? 1 : 0)}");

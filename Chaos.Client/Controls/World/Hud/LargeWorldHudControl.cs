@@ -468,7 +468,9 @@ public sealed class LargeWorldHudControl : PrefabPanel, IWorldHud
 
     private void RefreshSlotTooltip()
     {
-        if (TooltipSlot is not { SlotName: { Length: > 0 } text })
+        var text = TooltipSlot is AbilitySlotControl ability ? ability.HoverText : TooltipSlot?.SlotName;
+
+        if (text is not { Length: > 0 })
         {
             TooltipLabel.Visible = false;
 
