@@ -47,10 +47,10 @@ public sealed class TcgMatchConfirmedBlocksTests
         arrows.Should().ContainSingle().Which.Blocked.Should().BeTrue();
 
         var attackerFeet = TcgMatchWindow.DrawFeet(board, input, 1, true, 0, 1);
-        attackerFeet.Should().Be(new Point(235, 316 - 24));
+        attackerFeet.Should().Be(TcgMatchLayout.MidlineFeet(TcgMatchLayout.CreatureSlot(0, 1, true), true));
 
         var blockerFeet = TcgMatchWindow.DrawFeet(board, input, 8, false, 0, 1);
-        blockerFeet.Should().Be(new Point(235, 316 - 24 - 44));
+        blockerFeet.Should().Be(TcgMatchWindow.BlockerFeet(attackerFeet, 0, 1, false));
 
         arrows[0].From.Should().Be(new Point(attackerFeet.X, attackerFeet.Y - 24));
         arrows[0].To.Should().Be(new Point(blockerFeet.X, blockerFeet.Y - 24));
@@ -67,9 +67,10 @@ public sealed class TcgMatchConfirmedBlocksTests
         var arrowsA = TcgMatchWindow.ConfirmedBlockArrows(fromA, IdleInput(), Lookup);
 
         arrowsA.Should().ContainSingle().Which.Blocked.Should().BeTrue();
-        arrowsA[0].To.Should().Be(new Point(235, 176 + 24 + 44 - 24));
+        var blockerA = TcgMatchWindow.DrawFeet(fromA, IdleInput(), 1, true, 0, 1);
+        arrowsA[0].To.Should().Be(new Point(blockerA.X, blockerA.Y - 24));
 
-        var hoverA = TcgMatchWindow.HoverAt(fromA, IdleInput(), true, 235, 176 + 24 + 44 - 10);
+        var hoverA = TcgMatchWindow.HoverAt(fromA, IdleInput(), true, blockerA.X, blockerA.Y - 10);
         hoverA!.Value.CreatureId.Should().Be(1);
 
         var fromB = Board(mine: [Creature(9, "bear")], theirs: [Creature(3, "bear")]);
@@ -81,9 +82,10 @@ public sealed class TcgMatchConfirmedBlocksTests
         var arrowsB = TcgMatchWindow.ConfirmedBlockArrows(fromB, IdleInput(), Lookup);
 
         arrowsB.Should().ContainSingle().Which.Blocked.Should().BeTrue();
-        arrowsB[0].To.Should().Be(new Point(235, 176 + 24 + 44 - 24));
+        var blockerB = TcgMatchWindow.DrawFeet(fromB, IdleInput(), 3, true, 0, 1);
+        arrowsB[0].To.Should().Be(new Point(blockerB.X, blockerB.Y - 24));
 
-        var hoverB = TcgMatchWindow.HoverAt(fromB, IdleInput(), true, 235, 176 + 24 + 44 - 10);
+        var hoverB = TcgMatchWindow.HoverAt(fromB, IdleInput(), true, blockerB.X, blockerB.Y - 10);
         hoverB!.Value.CreatureId.Should().Be(3);
     }
 
@@ -116,9 +118,10 @@ public sealed class TcgMatchConfirmedBlocksTests
         arrows.Should().ContainSingle();
         arrows[0].Blocked.Should().BeFalse();
         arrows[0].To.Should().Be(TcgMatchLayout.YourSeal.Center);
-        arrows[0].From.Should().Be(new Point(235, 176 + 24 - 24));
+        var attackerFeet = TcgMatchWindow.DrawFeet(board, input, 8, false, 0, 1);
+        arrows[0].From.Should().Be(new Point(attackerFeet.X, attackerFeet.Y - 24));
 
-        TcgMatchWindow.DrawFeet(board, input, 8, false, 0, 1).Should().Be(new Point(235, 176 + 24));
+        TcgMatchWindow.DrawFeet(board, input, 8, false, 0, 1).Should().Be(TcgMatchLayout.MidlineFeet(TcgMatchLayout.CreatureSlot(0, 1, false), false));
         TcgMatchWindow.DrawFeet(board, input, 1, true, 0, 1).Should().Be(TcgMatchLayout.CreatureSlot(0, 1, true));
     }
 
@@ -133,13 +136,13 @@ public sealed class TcgMatchConfirmedBlocksTests
         blocker.Should().NotBeNull();
         blocker.Value.Yours.Should().BeFalse();
         blocker.Value.Feet.Should().Be(TcgMatchWindow.DrawFeet(board, input, 8, false, 0, 1));
-        blocker.Value.Feet.Should().Be(new Point(235, 316 - 24 - 44));
+        blocker.Value.Feet.Should().Be(TcgMatchWindow.BlockerFeet(TcgMatchLayout.MidlineFeet(TcgMatchLayout.CreatureSlot(0, 1, true), true), 0, 1, false));
 
         var attacker = TcgMatchWindow.AnimationStart(board, input, 1);
 
         attacker.Should().NotBeNull();
         attacker.Value.Yours.Should().BeTrue();
-        attacker.Value.Feet.Should().Be(new Point(235, 316 - 24));
+        attacker.Value.Feet.Should().Be(TcgMatchLayout.MidlineFeet(TcgMatchLayout.CreatureSlot(0, 1, true), true));
 
         TcgMatchWindow.AnimationStart(board, input, 99).Should().BeNull();
     }
@@ -159,7 +162,8 @@ public sealed class TcgMatchConfirmedBlocksTests
 
         var blocked = arrows.Single(arrow => arrow.Blocked);
         arrows.Where(arrow => arrow.Blocked).Should().ContainSingle();
-        blocked.To.Should().Be(new Point(235 - 32, 176 + 24 + 44 - 24));
+        var blockedFeet = TcgMatchWindow.DrawFeet(board, input, 1, true, 0, 1);
+        blocked.To.Should().Be(new Point(blockedFeet.X, blockedFeet.Y - 24));
 
         var unblocked = arrows.Single(arrow => !arrow.Blocked);
         arrows.Where(arrow => !arrow.Blocked).Should().ContainSingle();

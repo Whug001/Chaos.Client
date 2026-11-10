@@ -77,7 +77,7 @@ public sealed class TcgMatchCombatTests
     }
 
     [Test]
-    public void Chosen_attackers_step_toward_the_river()
+    public void Chosen_attackers_step_toward_the_midline()
     {
         var board = Board(mine: [Creature(1, "bear")]);
         var input = new TcgMatchInput(Lookup);
@@ -88,8 +88,7 @@ public sealed class TcgMatchCombatTests
         var plain = TcgMatchLayout.CreatureSlot(0, 1, true);
         var shifted = TcgMatchWindow.DrawFeet(board, input, 1, true, 0, 1);
 
-        shifted.X.Should().Be(plain.X);
-        shifted.Y.Should().Be(plain.Y - 24);
+        shifted.Should().Be(TcgMatchLayout.MidlineFeet(plain, true));
     }
 
     [Test]
@@ -103,13 +102,13 @@ public sealed class TcgMatchCombatTests
         input.AssignBlock(board, 1, 8).Should().BeTrue();
 
         var theirSlot = TcgMatchLayout.CreatureSlot(0, 1, false);
-        TcgMatchWindow.DrawFeet(board, input, 8, false, 0, 1).Should().Be(new Point(theirSlot.X, theirSlot.Y + 24));
+        var theirMid = TcgMatchLayout.MidlineFeet(theirSlot, false);
+        TcgMatchWindow.DrawFeet(board, input, 8, false, 0, 1).Should().Be(theirMid);
 
         var blocker = TcgMatchWindow.DrawFeet(board, input, 1, true, 0, 1);
-        blocker.X.Should().Be(theirSlot.X);
-        blocker.Y.Should().Be(theirSlot.Y + 24 + 44);
+        blocker.Should().Be(TcgMatchWindow.BlockerFeet(theirMid, 0, 1, true));
 
-        TcgMatchWindow.AttackerIdAt(board, input, theirSlot.X, theirSlot.Y + 14).Should().Be(8);
+        TcgMatchWindow.AttackerIdAt(board, input, theirMid.X, theirMid.Y - 10).Should().Be(8);
         TcgMatchWindow.OwnCreatureIdAt(board, input, blocker.X, blocker.Y - 10).Should().Be(1);
     }
 

@@ -253,6 +253,46 @@ public sealed class TcgCollectionStateTests
     }
 
     [Test]
+    public void Apply_keeps_playmats_and_selection()
+    {
+        var state = new TcgCollectionState();
+        state.Apply(
+            new TcgCollectionDisplayArgs
+            {
+                Kind = TcgCollectionDisplayKind.Snapshot,
+                Cards = [],
+                Playmats =
+                [
+                    new TcgPlaymatView("mileth-fields", "Mileth Fields", 0, true, null),
+                    new TcgPlaymatView("morwenna", "Morwenna's Hollow", 4, false, "Own any copy of Morwenna")
+                ],
+                SelectedPlaymat = "mileth-fields"
+            });
+
+        state.Playmats.Should().HaveCount(2);
+        state.Playmats[0].Key.Should().Be("mileth-fields");
+        state.Playmats[1].Hint.Should().Be("Own any copy of Morwenna");
+        state.SelectedPlaymat.Should().Be("mileth-fields");
+    }
+
+    [Test]
+    public void Select_playmat_action_carries_the_key()
+    {
+        TcgCollectionState.SelectPlaymatAction("abel-shore").Should().BeEquivalentTo(new TcgCollectionActionArgs { Type = TcgCollectionActionType.SelectPlaymat, CardKey = "abel-shore" });
+    }
+
+    [Test]
+    public void Playmats_tab_is_selectable()
+    {
+        var state = State(Card("imp", TcgElement.Fire, 1));
+
+        state.SetTab(TcgBinderTab.Playmats);
+
+        state.Tab.Should().Be(TcgBinderTab.Playmats);
+        state.Filtered.Should().BeEmpty();
+    }
+
+    [Test]
     public void Requests_carry_their_card_and_deck()
     {
         TcgCollectionState.OpenAction().Type.Should().Be(TcgCollectionActionType.Open);
