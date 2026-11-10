@@ -241,7 +241,7 @@ public sealed class BeautyShop
 
     public const int HAIRSTYLE_PAGE_SIZE = 16;
     public const int FACE_PAGE_SIZE = 40;
-    public const int BODY_COLOR_PAGE_SIZE = 10;
+    public const int BODY_COLOR_PAGE_SIZE = 15;
 
     public int HairstylePage { get; private set; }
     public int FacePage { get; private set; }

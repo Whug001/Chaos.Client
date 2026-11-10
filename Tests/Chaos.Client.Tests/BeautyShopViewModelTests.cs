@@ -485,7 +485,7 @@ public class BeautyShopViewModelTests
         vm.FacePageCount.Should().Be(1);
         vm.VisibleFaces.Should().HaveCount(35);
         vm.BodyColorPageCount.Should().Be(1);
-        vm.VisibleBodyColors.Should().HaveCount(10);
+        vm.VisibleBodyColors.Should().HaveCount(15);
 
         await Task.CompletedTask;
     }
