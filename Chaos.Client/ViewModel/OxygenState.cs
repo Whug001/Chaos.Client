@@ -1,3 +1,5 @@
+using Chaos.Networking.Entities.Server;
+
 namespace Chaos.Client.ViewModel;
 
 /// <summary>
@@ -27,10 +29,16 @@ public sealed class OxygenState
     public bool HasValue { get; private set; }
 
     /// <summary>
+    ///     Which meter it is: oxygen underwater, or clean air in the Veltain Mines. Only changes how the bar is
+    ///     coloured and labelled; the reading means the same thing either way.
+    /// </summary>
+    public OxygenMeterStyle Style { get; private set; }
+
+    /// <summary>
     ///     Stores a server-reported reading. Anything inside the meter's range shows the bar, zero included; anything
     ///     above it is the server saying there is no meter left to show, and takes the bar down.
     /// </summary>
-    public void Set(byte oxygen)
+    public void Set(byte oxygen, OxygenMeterStyle style = OxygenMeterStyle.Oxygen)
     {
         if (oxygen > MAX_OXYGEN)
         {
@@ -40,12 +48,14 @@ public sealed class OxygenState
         }
 
         Amount = oxygen;
+        Style = style;
         HasValue = true;
     }
 
     public void Reset()
     {
         Amount = 0;
+        Style = OxygenMeterStyle.Oxygen;
         HasValue = false;
     }
 

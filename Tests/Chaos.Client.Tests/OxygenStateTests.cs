@@ -1,4 +1,5 @@
 using Chaos.Client.ViewModel;
+using Chaos.Networking.Entities.Server;
 using FluentAssertions;
 
 namespace Chaos.Client.Tests;
@@ -65,6 +66,22 @@ public class OxygenStateTests
 
         oxygen.HasValue.Should().BeFalse();
         oxygen.Amount.Should().Be(0);
+    }
+
+    [Test]
+    public void TheMinesMeterIsRememberedAsBadAirAndResetGoesBackToOxygen()
+    {
+        var oxygen = new OxygenState();
+
+        oxygen.Set(40, OxygenMeterStyle.BadAir);
+
+        oxygen.Style.Should().Be(OxygenMeterStyle.BadAir);
+        oxygen.Amount.Should().Be(40);
+
+        oxygen.Set(byte.MaxValue, OxygenMeterStyle.BadAir);
+
+        oxygen.HasValue.Should().BeFalse();
+        oxygen.Style.Should().Be(OxygenMeterStyle.Oxygen);
     }
 
     /// <summary>

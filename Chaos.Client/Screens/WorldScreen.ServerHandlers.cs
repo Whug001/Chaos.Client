@@ -1423,7 +1423,7 @@ public sealed partial class WorldScreen
     ///     class strip, since both can be carried at once. Zero is displayed as an empty bar rather than hiding it --
     ///     that bar is the drowning warning. Leaving the zone is what clears it, in <c>HandleMapInfo</c>.
     /// </summary>
-    private void HandleSetOxygenState(SetOxygenStateArgs args) => WorldState.Oxygen.Set(args.Oxygen);
+    private void HandleSetOxygenState(SetOxygenStateArgs args) => WorldState.Oxygen.Set(args.Oxygen, args.Style);
 
     /// <summary>
     ///     The map's ambient-effect flags — the bits above the byte map info carries. Arrives right after every map

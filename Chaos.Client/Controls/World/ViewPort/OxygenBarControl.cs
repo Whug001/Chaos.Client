@@ -1,6 +1,7 @@
 #region
 using Chaos.Client.Collections;
 using Chaos.Client.Controls.Components;
+using Chaos.Networking.Entities.Server;
 using Microsoft.Xna.Framework;
 using Microsoft.Xna.Framework.Graphics;
 #endregion
@@ -8,8 +9,8 @@ using Microsoft.Xna.Framework.Graphics;
 namespace Chaos.Client.Controls.World.ViewPort;
 
 /// <summary>
-///     How much air the player has left, 0-100, shown only while they are in the water. A bar with
-///     "Oxygen 73/100" written inside it.
+///     How much air the player has left, 0-100, shown only while they are in the water or the Veltain Mines. A bar with
+///     "Oxygen 73/100" written inside it, or a gray one reading "Air 73/100" in the mines.
 /// </summary>
 /// <remarks>
 ///     Sits in the status strip column on the left, above the hp and mp orbs, as the top row of the stack that
@@ -71,6 +72,9 @@ public sealed class OxygenBarControl : UIElement
     //water blue, and nowhere near any of the four class-resource colours (green, red, gold, violet)
     private static readonly Color FillColor = new(64, 148, 232, 230);
 
+    //the Veltain Mines' clean air: a smoky gray, so it is never mistaken for the water's oxygen
+    private static readonly Color BadAirFillColor = new(150, 150, 156, 230);
+
     private static readonly Color TextColor = Color.White;
     private static readonly Color ShadowColor = Color.Black;
 
@@ -78,6 +82,7 @@ public sealed class OxygenBarControl : UIElement
     private float DisplayedAmount;
     private string OxygenText = string.Empty;
     private int ShownAmount = -1;
+    private OxygenMeterStyle ShownStyle;
 
     public OxygenBarControl()
     {
@@ -154,16 +159,18 @@ public sealed class OxygenBarControl : UIElement
                     ScreenY + 1,
                     Math.Min(fillWidth, innerWidth),
                     TOTAL_HEIGHT - 2),
-                FillColor);
+                WorldState.Oxygen.Style == OxygenMeterStyle.BadAir ? BadAirFillColor : FillColor);
 
         DrawBorder(spriteBatch, bounds, FrameColor);
 
         //the label reads the server's number, not the eased one: the bar may still be sliding down to it, but the
         //figure a player reads should be the figure they have
-        if (ShownAmount != WorldState.Oxygen.Amount)
+        if ((ShownAmount != WorldState.Oxygen.Amount) || (ShownStyle != WorldState.Oxygen.Style))
         {
             ShownAmount = WorldState.Oxygen.Amount;
-            OxygenText = $"Oxygen {ShownAmount}/{MAX_OXYGEN}";
+            ShownStyle = WorldState.Oxygen.Style;
+            var label = ShownStyle == OxygenMeterStyle.BadAir ? "Air" : "Oxygen";
+            OxygenText = $"{label} {ShownAmount}/{MAX_OXYGEN}";
         }
         var textWidth = TextRenderer.MeasureWidth(OxygenText);
 
