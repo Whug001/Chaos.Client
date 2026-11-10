@@ -8,6 +8,7 @@ using Chaos.DarkAges.Definitions;
 using DALib.Definitions;
 using DALib.Drawing;
 using DALib.Drawing.Virtualized;
+using DALib.Extensions;
 using Microsoft.Xna.Framework;
 using Microsoft.Xna.Framework.Graphics;
 using SkiaSharp;
@@ -1094,6 +1095,20 @@ public sealed class AislingRenderer : IDisposable
     /// </summary>
     internal static bool UsesHeadFadeRows(char typeLetter) => typeLetter is 'h' or 'e' or 'f';
 
+    /// <summary>
+    ///     Whether a layer is drawn see-through by brightness. A palette number of 1000 or more in the weapon tables
+    ///     (palw, palp) means "the palette minus 1000, luminance-blended", the same rule effects use. Other worn layers
+    ///     are still drawn solid whatever their table says.
+    /// </summary>
+    internal static bool BlendsByLuminance(char typeLetter, int paletteNumber)
+        => typeLetter is 'w' or 'p' && (paletteNumber >= 1000);
+
+    /// <summary>
+    ///     A copy of the palette where each color's brightest channel sets its opacity (DALib's alpha table): 250 and up
+    ///     is solid, below 75 is invisible.
+    /// </summary>
+    internal static Palette WithLuminanceAlpha(Palette palette) => new(palette.Select(color => color.WithLutAlpha()));
+
     private LayerInfo? RenderEquipLayer(
         char typeLetter,
         int spriteId,
@@ -1154,6 +1169,12 @@ public sealed class AislingRenderer : IDisposable
         if (palette is null)
             return null;
 
+        //a weapon with a blend line in its palette table is see-through by brightness (glass, light)
+        var blended = BlendsByLuminance(typeLetter, lookup.Table.GetPaletteNumber(spriteId, paletteOverride));
+
+        if (blended)
+            palette = WithLuminanceAlpha(palette);
+
         var image = OmbreDyes.TryGet(dyeColor, out var ombre)
             ? RenderOmbreLayer(
                 typeLetter,
@@ -1167,7 +1188,7 @@ public sealed class AislingRenderer : IDisposable
                 frameIndex,
                 anim,
                 idleFallbackFrame)
-            : Graphics.RenderImage(frame, palette);
+            : Graphics.RenderImage(frame, palette, blended ? SKAlphaType.Unpremul : SKAlphaType.Premul);
 
         // ReSharper disable once ConditionIsAlwaysTrueOrFalseAccordingToNullableAPIContract
         if (image is null)
