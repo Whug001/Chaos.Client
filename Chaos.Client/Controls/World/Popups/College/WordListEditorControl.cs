@@ -230,7 +230,7 @@ public sealed class WordListEditorControl : GuildCloakDialogBase
         AddChild(HintBox);
         EditPage.Add(HintBox);
 
-        EditPage.Add(AddButton("Add", 50, EDIT_X, EDIT_BUTTONS_TOP, () => Edit(Document.Add)));
+        EditPage.Add(AddButton("Add", 50, EDIT_X, EDIT_BUTTONS_TOP, AddWord));
         EditPage.Add(AddButton("Up", 40, EDIT_X + 56, EDIT_BUTTONS_TOP, () => Edit(Document.MoveUp)));
         EditPage.Add(AddButton("Down", 50, EDIT_X + 102, EDIT_BUTTONS_TOP, () => Edit(Document.MoveDown)));
         EditPage.Add(AddButton("Remove", 70, EDIT_X + 158, EDIT_BUTTONS_TOP, () => Edit(Document.Remove)));
@@ -699,6 +699,21 @@ public sealed class WordListEditorControl : GuildCloakDialogBase
         Pull();
         Document.Select(index);
         Push();
+    }
+
+    private void AddWord()
+    {
+        var added = false;
+        Edit(() => added = Document.Add());
+
+        if (added)
+            FocusWordBox();
+    }
+
+    private void FocusWordBox()
+    {
+        HintBox.IsFocused = false;
+        WordBox.IsFocused = true;
     }
 
     private void Edit(Func<bool> change)
