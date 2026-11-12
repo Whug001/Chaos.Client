@@ -277,6 +277,11 @@ public static class WorldState
     public static BeautyShop BeautyShop { get; } = new();
 
     /// <summary>
+    ///     Authoritative dye shop state (items, colours, prices and the player's selection).
+    /// </summary>
+    public static DyeShop DyeShop { get; } = new();
+
+    /// <summary>
     ///     Illustria's Closet: the catalog and the tried-on outfit. Not cleared by <see cref="Clear" />.
     /// </summary>
     public static FittingRoom FittingRoom { get; } = new();
@@ -577,6 +582,7 @@ public static class WorldState
         TcgRanked.Clear();
         PokerTable.Clear();
         BeautyShop.Clear();
+        DyeShop.Clear();
         Poll.Clear();
     }
 
