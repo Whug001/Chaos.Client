@@ -196,7 +196,7 @@ public sealed class MountWindowControl : GuildCloakDialogBase
         ChooseButton.Enabled = State.CanChoose;
         Grid.SetItems(State.PageItems, State.Selected, State.PageCount, ThumbFor);
         PageLabel.Text = $"{State.Page + 1}/{State.PageCount}";
-        Swatches.SetColors(State.Colors, State.Color, HairPage.SwatchColorFor);
+        Swatches.SetColors(State.Colors, State.Color, DyeSwatches.SwatchColorFor);
         ColorLabel.Text = ColorText(State.Color);
         NameLabel.Text = State.Selected?.Name ?? string.Empty;
         Preview.SetFigure(State.Selected is { } m ? MountedLook.Build(BaseLook, m, State.Color) : null);

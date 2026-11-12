@@ -77,43 +77,12 @@ public sealed class HairPage : MirrorPageView
 
         var color = vm.HoveredHairColor ?? vm.HairColor;
         ColorCaption.Text = $"Hair color   {OmbreDyes.NameOf(color)} - {CostText(color == vm.CurrentHairColor, vm.CostOfHairColor(color))}";
-        Colors.SetColors(vm.HairColors.Where(c => !OmbreDyes.IsOmbre(c)).ToList(), vm.HairColor, SwatchColorFor);
+        Colors.SetColors(vm.HairColors.Where(c => !OmbreDyes.IsOmbre(c)).ToList(), vm.HairColor, DyeSwatches.SwatchColorFor);
 
-        var ombres = VisibleOmbres(vm.HairColors);
+        var ombres = DyeSwatches.VisibleOmbres(vm.HairColors);
         OmbreCaption.Visible = Ombres.Visible = ombres.Count > 0;
         OmbreCaption.Y = Colors.Y + Colors.Height + SECTION_GAP;
         Ombres.Y = OmbreCaption.Y + TextRenderer.CHAR_HEIGHT + 2;
-        Ombres.SetColors(ombres, vm.HairColor, SwatchColorFor, TipSwatchColorFor);
+        Ombres.SetColors(ombres, vm.HairColor, DyeSwatches.SwatchColorFor, DyeSwatches.TipSwatchColorFor);
     }
-
-    /// <summary>
-    ///     Ombre dyes the client can actually paint: catalog ombres gated on Legend.dat's dye table holding the
-    ///     root ramp (72) and the Lod tip ramps (200+). Old tables render ombres as plain hair, so the block stays
-    ///     hidden and they cannot be picked.
-    /// </summary>
-    internal static List<DisplayColor> VisibleOmbres(IReadOnlyList<DisplayColor> hairColors)
-        => VisibleOmbres(hairColors, static i => DataContext.AislingDrawData.DyeColorTable.Contains(i));
-
-    internal static List<DisplayColor> VisibleOmbres(IReadOnlyList<DisplayColor> hairColors, Func<int, bool> dyeContains)
-        => dyeContains(72) && dyeContains(200) ? hairColors.Where(OmbreDyes.IsOmbre).ToList() : [];
-
-    internal static Color SwatchColorFor(DisplayColor color)
-    {
-        if (color == DisplayColor.Default)
-            return LegendColors.DeepLavender;
-
-        var table = DataContext.AislingDrawData.DyeColorTable;
-
-        if (!table.Contains((int)color))
-            return LegendColors.Gray;
-
-        var colors = table[(int)color].Colors;
-        var mid = colors[Math.Min(2, colors.Length - 1)];
-
-        return new Color(mid.Red, mid.Green, mid.Blue);
-    }
-
-    /// <summary>The bottom half of an ombre swatch: the tip ramp's middle color. Null for plain colors.</summary>
-    internal static Color? TipSwatchColorFor(DisplayColor color)
-        => OmbreDyes.TryGet(color, out var ombre) ? SwatchColorFor((DisplayColor)ombre.Tip) : null;
 }

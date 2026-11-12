@@ -31,6 +31,12 @@ public static class TownImportPreviewLook
                 OvercoatColor = item.Color
             },
             TownImportLayer.OvercoatAsArmor => FittingRoomOutfit.AsArmor(look, new FittingRoomPiece(item, item.Color)),
+            TownImportLayer.Armor => FittingRoomOutfit.AsArmor(look, new FittingRoomPiece(item, item.Color)),
+            TownImportLayer.Helmet => look with
+            {
+                HeadSprite = item.DisplaySprite,
+                HeadColor = item.Color
+            },
             TownImportLayer.OverHair => FittingRoomOutfit.PlaceAccessory(
                 look,
                 FittingRoomOutfit.FirstEmptySlot(look),

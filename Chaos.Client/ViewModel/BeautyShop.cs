@@ -1,4 +1,5 @@
 #region
+using Chaos.Client.Controls.World.Popups.Beauty;
 using Chaos.Client.Controls.World.Popups.Beauty.Pages;
 using Chaos.Client.Data;
 using Chaos.DarkAges.Definitions;
@@ -312,7 +313,7 @@ public sealed class BeautyShop
         if (Hairstyles.Count > 0)
             HairStyle = Hairstyles[rng.Next(Hairstyles.Count)].Sprite;
 
-        var dyes = HairColors.Where(c => !OmbreDyes.IsOmbre(c)).Concat(HairPage.VisibleOmbres(HairColors, dyeContains)).ToList();
+        var dyes = HairColors.Where(c => !OmbreDyes.IsOmbre(c)).Concat(DyeSwatches.VisibleOmbres(HairColors, dyeContains)).ToList();
 
         if (dyes.Count > 0)
             HairColor = dyes[rng.Next(dyes.Count)];

@@ -366,7 +366,7 @@ public sealed class FittingRoomControl : FramedDialogPanelBase
         Swatches.Visible = colors.Count > 1;
 
         if (Swatches.Visible)
-            Swatches.SetColors(colors, vm.ColorOf(Picked), HairPage.SwatchColorFor);
+            Swatches.SetColors(colors, vm.ColorOf(Picked), DyeSwatches.SwatchColorFor);
     }
 
     private void RefreshStage() => Stage.SetLook(WorldState.FittingRoom.Effective);
