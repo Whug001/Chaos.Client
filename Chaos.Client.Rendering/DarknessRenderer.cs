@@ -65,7 +65,7 @@ public sealed class DarknessRenderer : IDisposable
     /// <summary>
     ///     True when loaded light metadata explicitly assigns a light type to the current map. Gates all darkness
     ///     application: light level packets and the dark-map fallback only take effect when this is true. Maps without
-    ///     an explicit metadata entry render without any darkness overlay regardless of the server-sent Darkness flag.
+    ///     an explicit metadata entry keep the state <see cref="OnMapChanged" /> set: full black on a dark map, clear otherwise.
     /// </summary>
     private bool HasMetadataForCurrentMap => LightData?.MapLightTypes.ContainsKey(CurrentMapId) is true;
 
@@ -287,6 +287,12 @@ public sealed class DarknessRenderer : IDisposable
     {
         IsDarkMap = isDarkMap;
         CurrentMapId = mapId;
+
+        //read the Light metafile already on disk instead of waiting for metadata sync-complete: if that event never
+        //fires (a request the server throttled, a file that never arrived) the LightLevel packet is ignored and every
+        //dark map stays solid black outside lanterns for the whole session. ReloadMetadata still refreshes it after sync
+        LightData ??= DataContext.MetaFiles.GetLightMetadata();
+
         CurrentLightType = LightData?.MapLightTypes.TryGetValue(mapId, out var lightType) is true ? lightType : "default";
 
         //level is per-map state; the new map starts without a cached level until the server resends one
