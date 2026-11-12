@@ -1814,6 +1814,39 @@ public sealed partial class WorldScreen
         }
     }
 
+    /// <summary>
+    ///     Dispatches a dye shop display packet: apply to <see cref="WorldState.DyeShop" /> first, then repaint
+    ///     <see cref="DyeShop" /> from it. An Open after a dye refreshes the open panel in place. Close hides the panel
+    ///     through <see cref="DyeShopControl.Hide" />, which never sends a Close back.
+    /// </summary>
+    private void HandleDyeShopDisplay(DyeShopDisplayArgs args)
+    {
+        switch (args.Type)
+        {
+            case DyeShopDisplayType.Open:
+                WorldState.DyeShop.ApplyOpen(args);
+
+                if (!DyeShop.Visible)
+                    DyeShop.Show();
+
+                DyeShop.Refresh();
+
+                break;
+
+            case DyeShopDisplayType.Rejected:
+                WorldState.DyeShop.ApplyRejected(args.Reason);
+                DyeShop.Refresh();
+
+                break;
+
+            case DyeShopDisplayType.Close:
+                DyeShop.Hide();
+                WorldState.DyeShop.Clear();
+
+                break;
+        }
+    }
+
 
     /// <summary>
     ///     Terminus's "Report a bug". The NPC dialog is closed now, during Update, so the frame drawn this tick has no

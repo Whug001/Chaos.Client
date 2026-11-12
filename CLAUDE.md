@@ -60,7 +60,7 @@ Chaos.Client.slnx (.NET 10.0, C# 14)
 - `PrefabPanel` (prefab)/`UIPanel` (manual); build only needed controls via `CreateButton`/`CreateImage`/`CreateLabel`/`CreateTextBox`/`CreateProgressBar` (no auto-populate).
 - Popups `Show()`/`Hide()` under WorldScreen Root.
 - HUD `IWorldHud`: `WorldHudControl`/`LargeWorldHudControl`; tabs share center-bottom via `ShowTab(HudTab)`, one visible.
-- `Controls/World/`: `Hud/`,`Hud/Panel/`,`Hud/Panel/Slots/`,`Popups/`(`Popups/Boards/`,`Popups/Dialog/`,`Popups/Exchange/`,`Popups/Options/`,`Popups/Profile/`,`Popups/WorldList/`,`Popups/Tcg/`,`Popups/Crafting/`,`Popups/Bank/`,`Popups/Market/`,`Popups/Fishing/`,`Popups/Poker/`,`Popups/Slots/`,`Popups/Wheel/`,`Popups/RingToss/`,`Popups/MountRace/`),`ViewPort/`; shared `Controls/Components/`; restyled `Controls/Custom/`; login `Controls/LobbyLogin/`; generic `Controls/Generic/`.
+- `Controls/World/`: `Hud/`,`Hud/Panel/`,`Hud/Panel/Slots/`,`Popups/`(`Popups/Boards/`,`Popups/Dialog/`,`Popups/Exchange/`,`Popups/Options/`,`Popups/Profile/`,`Popups/WorldList/`,`Popups/Tcg/`,`Popups/Crafting/`,`Popups/Bank/`,`Popups/Dye/`,`Popups/Market/`,`Popups/Fishing/`,`Popups/Poker/`,`Popups/Slots/`,`Popups/Wheel/`,`Popups/RingToss/`,`Popups/MountRace/`),`ViewPort/`; shared `Controls/Components/`; restyled `Controls/Custom/`; login `Controls/LobbyLogin/`; generic `Controls/Generic/`.
 - Hotkeys are player-rebindable through F12, with chord dispatch and a separate armed-only Targeting scope; Escape/F11/F12/Alt+Enter stay fixed.
 - HUD letters, emote chords, slot keys and hotkey help follow fixed maps and flows.
 - Grids `PanelBase`->`PanelSlot` (slot-number overlays,cooldown rendering); exchange/dialog/equipment/profile panels server-driven.

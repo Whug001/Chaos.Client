@@ -139,6 +139,8 @@ public sealed partial class WorldScreen
 
         //the fitting room belongs to its mirror tile; the window sends nothing, so it just goes
         FittingRoom.Hide();
+        //the vat's session is the server's to end; hiding here sends no Close, like the server's own Close
+        DyeShop.Hide();
         MountWindow?.Hide();
         EffectWindow?.Hide();
         //leaving Undine already drops the hunter on the server, so no Leave is sent
@@ -146,6 +148,7 @@ public sealed partial class WorldScreen
         BrassRingWindow?.Close();
         CannonFairWindow?.Close();
         WorldState.FittingRoom.Clear();
+        WorldState.DyeShop.Clear();
 
         //a new map starts with no stage lighting; a same-map refresh (above) deliberately keeps it
         ResetStageLighting();

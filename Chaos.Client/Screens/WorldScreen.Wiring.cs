@@ -334,6 +334,17 @@ public sealed partial class WorldScreen
     private void WireFittingRoom() => Game.Connection.OnFittingRoomDisplay += HandleFittingRoomDisplay;
     #endregion
 
+    #region Dye Shop Wiring
+    private void WireDyeShop()
+    {
+        Game.Connection.OnDyeShopDisplay += HandleDyeShopDisplay;
+        DyeShop.ApplyRequested += (slot, uniqueId, color) => Game.Connection.SendDyeShopApply(slot, uniqueId, color);
+
+        //raised only by the player's own close; the server's Close hides the panel without echoing one back
+        DyeShop.Closed += () => Game.Connection.SendDyeShopClose();
+    }
+    #endregion
+
     #region Bug Report Wiring
     private static readonly string ClientBuild
         = typeof(ChaosGame).Assembly.GetCustomAttribute<AssemblyInformationalVersionAttribute>()?.InformationalVersion ?? "unknown";
