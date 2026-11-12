@@ -642,6 +642,11 @@ public sealed class ConnectionManager : IDisposable
     /// </summary>
     public event BeautyShopDisplayHandler? OnBeautyShopDisplay;
 
+    /// <summary>
+    ///     Fired when a dye shop display packet is received from the server.
+    /// </summary>
+    public event DyeShopDisplayHandler? OnDyeShopDisplay;
+
     public event FittingRoomDisplayHandler? OnFittingRoomDisplay;
 
     public event BugReportOpenHandler? OnBugReportOpen;
@@ -1564,6 +1569,24 @@ public sealed class ConnectionManager : IDisposable
     /// </summary>
     public void SendBeautyShopClose() => SendIfWorld(new BeautyShopInteractionArgs { Type = BeautyShopInteractionType.Close });
 
+    /// <summary>
+    ///     Asks the dye shop to dye the item in the given slot. Values only -- the server prices and validates everything.
+    /// </summary>
+    public void SendDyeShopApply(byte slot, ulong uniqueId, DisplayColor color)
+        => SendIfWorld(
+            new DyeShopInteractionArgs
+            {
+                Type = DyeShopInteractionType.Apply,
+                Slot = slot,
+                UniqueId = uniqueId,
+                Color = color
+            });
+
+    /// <summary>
+    ///     Tells the server the dye shop was closed without applying.
+    /// </summary>
+    public void SendDyeShopClose() => SendIfWorld(new DyeShopInteractionArgs { Type = DyeShopInteractionType.Close });
+
 
     /// <summary>Sends a filled-in bug report. When its picture length is above zero, the picture follows in parts.</summary>
     public void SendBugReportSubmit(BugReportInteractionArgs submit) => SendIfWorld(submit);
@@ -2048,6 +2071,7 @@ public sealed class ConnectionManager : IDisposable
         PacketHandlers[(byte)ServerOpCode.HotkeyHelpOpen] = HandleHotkeyHelpOpen;
         PacketHandlers[(byte)ServerOpCode.PokerTableDisplay] = HandlePokerTableDisplay;
         PacketHandlers[(byte)ServerOpCode.BeautyShopDisplay] = HandleBeautyShopDisplay;
+        PacketHandlers[(byte)ServerOpCode.DyeShopDisplay] = HandleDyeShopDisplay;
         PacketHandlers[(byte)ServerOpCode.FittingRoomDisplay] = HandleFittingRoomDisplay;
         PacketHandlers[(byte)ServerOpCode.BugReportOpen] = HandleBugReportOpen;
         PacketHandlers[(byte)ServerOpCode.StageLightingState] = HandleStageLightingState;
@@ -2585,6 +2609,12 @@ public sealed class ConnectionManager : IDisposable
     {
         var args = Client.Deserialize<BeautyShopDisplayArgs>(in pkt);
         OnBeautyShopDisplay?.Invoke(args);
+    }
+
+    private void HandleDyeShopDisplay(ServerPacket pkt)
+    {
+        var args = Client.Deserialize<DyeShopDisplayArgs>(in pkt);
+        OnDyeShopDisplay?.Invoke(args);
     }
 
     private void HandleFittingRoomDisplay(ServerPacket pkt)

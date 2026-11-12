@@ -488,6 +488,11 @@ public delegate void PokerTableDisplayHandler(PokerTableDisplayArgs args);
 public delegate void BeautyShopDisplayHandler(BeautyShopDisplayArgs args);
 
 /// <summary>
+///     Fired when a dye shop display packet is received.
+/// </summary>
+public delegate void DyeShopDisplayHandler(DyeShopDisplayArgs args);
+
+/// <summary>
 ///     Fired when a fitting room display packet is received.
 /// </summary>
 public delegate void FittingRoomDisplayHandler(FittingRoomDisplayArgs args);
