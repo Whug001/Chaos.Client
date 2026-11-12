@@ -77,8 +77,54 @@ public class DyeShopViewModelTests
         shop.SelectedItem.Should().BeSameAs(refreshed.Items[0]);
         shop.SelectedColor.Should().BeNull();
         shop.HoveredColor.Should().BeNull();
-        shop.LastRejectReason.Should().BeNull();
+        shop.LastRejectReason.Should().Be(DyeShopRejectReason.ItemGone);
         shop.AwaitingReply.Should().BeFalse();
+
+        await Task.CompletedTask;
+    }
+
+    [Test]
+    public async Task Open_keeps_an_item_gone_reason()
+    {
+        var shop = Ready();
+        shop.ApplyRejected(DyeShopRejectReason.ItemGone);
+
+        shop.ApplyOpen(Open());
+
+        shop.LastRejectReason.Should().Be(DyeShopRejectReason.ItemGone);
+
+        await Task.CompletedTask;
+    }
+
+    [Test]
+    public async Task Open_clears_any_other_reject_reason()
+    {
+        var shop = Ready();
+        shop.ApplyRejected(DyeShopRejectReason.NotEnoughGold);
+
+        shop.ApplyOpen(Open());
+
+        shop.LastRejectReason.Should().BeNull();
+
+        await Task.CompletedTask;
+    }
+
+    [Test]
+    public async Task Selecting_clears_a_kept_item_gone_reason()
+    {
+        var shop = Ready();
+        shop.ApplyRejected(DyeShopRejectReason.ItemGone);
+        shop.ApplyOpen(Open());
+
+        shop.SelectItem(shop.Items[0]);
+
+        shop.LastRejectReason.Should().BeNull();
+
+        shop.ApplyRejected(DyeShopRejectReason.ItemGone);
+        shop.ApplyOpen(Open());
+        shop.SelectColor(DisplayColor.Apple);
+
+        shop.LastRejectReason.Should().BeNull();
 
         await Task.CompletedTask;
     }

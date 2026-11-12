@@ -84,7 +84,11 @@ public sealed class DyeShop
         SelectedItem = keptId is null ? null : Items.FirstOrDefault(i => i.UniqueId == keptId);
         SelectedColor = null;
         HoveredColor = null;
-        LastRejectReason = null;
+
+        //the server follows Rejected(ItemGone) with a fresh Open; keep the reason so the message is seen
+        if (LastRejectReason != DyeShopRejectReason.ItemGone)
+            LastRejectReason = null;
+
         AwaitingReply = false;
         Page = Math.Clamp(Page, 0, PageCount - 1);
         IsOpen = true;
