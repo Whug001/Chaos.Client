@@ -268,3 +268,13 @@ These override the sections above where the two differ.
    name is shared today. A flag member whose value is 0 is rejected, because it would always test as set.
 10. **The quest log survives map changes.** The client keeps the list across map changes and F5 refreshes, and clears
    it only on logout. The server re-sends only on a change, so clearing it on a map change would leave the window empty.
+11. **Seasonal quests and give-up extras (added 2026-11-11, after the quest log audit).** Four optional fields:
+   - `season` (entry): an `EventType` name such as `"Valentine"`; `None` and unknown names are load errors. On its
+     own it changes nothing; it marks the entry as seasonal and is what `offSeasonOnly` tests.
+   - `hideWhenFlag` (entry): `"EnumName.Member"` of a `[Flags]` enum member. While the player has the flag set, the
+     entry is not listed, whatever its stage. For quests whose finished state is a flag rather than a stage.
+   - `giveUp.removeItems`: item template keys, checked at load. Give up takes every copy out of the inventory (not
+     the bank). It counts as clearing something, so a `giveUp` with only `removeItems` is valid.
+   - `giveUp.offSeasonOnly`: needs `season`. While that event is running (`EventPeriod.GetActiveEvents`), the entry
+     is sent with give-up off and a give-up request is refused. For event quests whose reward could be replayed by
+     resetting during the event.
