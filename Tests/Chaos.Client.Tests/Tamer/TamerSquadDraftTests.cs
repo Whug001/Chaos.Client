@@ -421,6 +421,32 @@ public sealed class TamerSquadDraftTests
     }
 
     [Test]
+    public void Set_bonuses_pick_the_highest_family_tier_at_three()
+    {
+        var bonuses = new List<TamerBonusView> { FamilyBonus("beast2", "Beast", 2), FamilyBonus("beast3", "Beast", 3) };
+        var state = State(
+            [Monster(Id(1), "ember"), Monster(Id(2), "tide"), Monster(Id(3), "leaf")],
+            [Species("ember", TamerWireElement.Fire, "Beast"), Species("tide", TamerWireElement.Water, "Beast"), Species("leaf", TamerWireElement.Wind, "Beast")],
+            bonuses: bonuses);
+        var draft = new TamerSquadDraft([new(Id(1), 0, 0), new(Id(2), 1, 0), new(Id(3), 2, 0)]);
+
+        draft.SetBonuses(state).Select(b => b.Key).Should().Equal("beast3");
+    }
+
+    [Test]
+    public void Set_bonuses_show_every_tied_bonus_for_one_family()
+    {
+        var bonuses = new List<TamerBonusView> { FamilyBonus("beast2a", "Beast", 2), FamilyBonus("beast2b", "Beast", 2) };
+        var state = State(
+            [Monster(Id(1), "ember"), Monster(Id(2), "tide")],
+            [Species("ember", TamerWireElement.Fire, "Beast"), Species("tide", TamerWireElement.Water, "Beast")],
+            bonuses: bonuses);
+        var draft = new TamerSquadDraft([new(Id(1), 0, 0), new(Id(2), 1, 0)]);
+
+        draft.SetBonuses(state).Select(b => b.Key).Should().BeEquivalentTo("beast2a", "beast2b");
+    }
+
+    [Test]
     public void Set_bonuses_skip_protected_members()
     {
         var bonuses = new List<TamerBonusView> { ElementBonus("fire2", TamerWireElement.Fire, 2) };
