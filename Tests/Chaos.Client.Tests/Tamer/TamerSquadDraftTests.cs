@@ -419,4 +419,30 @@ public sealed class TamerSquadDraftTests
         empty.SetBonuses(state).Should().BeEmpty();
         empty.Bench(state).Should().HaveCount(1);
     }
+
+    [Test]
+    public void Set_bonuses_skip_protected_members()
+    {
+        var bonuses = new List<TamerBonusView> { ElementBonus("fire2", TamerWireElement.Fire, 2) };
+        var state = State(
+            [Monster(Id(1), "ember"), Monster(Id(2), "flame", isProtected: true)],
+            [Species("ember", TamerWireElement.Fire, "Beast"), Species("flame", TamerWireElement.Fire, "Flame")],
+            bonuses: bonuses);
+        var draft = new TamerSquadDraft([new(Id(1), 0, 0), new(Id(2), 1, 0)]);
+
+        draft.SetBonuses(state).Should().BeEmpty();
+    }
+
+    [Test]
+    public void Set_bonuses_count_only_unprotected_members()
+    {
+        var bonuses = new List<TamerBonusView> { ElementBonus("fire2", TamerWireElement.Fire, 2) };
+        var state = State(
+            [Monster(Id(1), "ember"), Monster(Id(2), "flame"), Monster(Id(3), "blaze", isProtected: true)],
+            [Species("ember", TamerWireElement.Fire, "Beast"), Species("flame", TamerWireElement.Fire, "Flame"), Species("blaze", TamerWireElement.Fire, "Blaze")],
+            bonuses: bonuses);
+        var draft = new TamerSquadDraft([new(Id(1), 0, 0), new(Id(2), 1, 0), new(Id(3), 2, 0)]);
+
+        draft.SetBonuses(state).Select(b => b.Key).Should().Equal("fire2");
+    }
 }

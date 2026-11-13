@@ -185,7 +185,7 @@ public sealed class TamerSquadDraft
 
         var units = MemberList
             .Select(member => state.Monsters.FirstOrDefault(monster => monster.Id == member.MonsterId))
-            .Where(monster => (monster is not null) && (state.SpeciesOf(monster) is not null))
+            .Where(monster => (monster is not null) && !monster!.Protected && (state.SpeciesOf(monster) is not null))
             .Select(monster => state.SpeciesOf(monster)!)
             .ToList();
 
