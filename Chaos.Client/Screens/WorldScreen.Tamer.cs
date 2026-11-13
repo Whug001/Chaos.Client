@@ -35,7 +35,7 @@ public sealed partial class WorldScreen
         if (TamerStableWindow is not null)
             return true;
 
-        var window = new TamerStableControl { ZIndex = 2 };
+        var window = new TamerStableControl(Game.CreatureRenderer) { ZIndex = 2 };
 
         window.ActionRequested += SendTamerAction;
 

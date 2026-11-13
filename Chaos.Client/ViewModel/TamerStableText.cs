@@ -1,5 +1,6 @@
 #region
 using System.Text.RegularExpressions;
+using Chaos.Client.Rendering;
 using Chaos.DarkAges.Definitions;
 #endregion
 
@@ -41,6 +42,7 @@ public static class TamerStableText
     public const string No = "No";
     public const string EssenceLabel = "Essence";
     public const string FeedLabel = "Feed";
+    public const string InvalidName = "Name must be 1-12 letters, single spaces between words.";
 
     private static readonly Regex NamePattern = new("^[A-Za-z]+(?: [A-Za-z]+)*\\z", RegexOptions.Compiled);
 
@@ -137,4 +139,58 @@ public static class TamerStableText
             TamerWireElement.Earth => "Brown",
             _ => "Gray"
         };
+
+    /// <summary>
+    ///     Wraps <paramref name="text" /> to <paramref name="maxWidth" /> pixels and caps it at <paramref name="maxLines" />
+    ///     lines, ending the last line with ".." when text was cut, so a fixed-size label never overflows. Colour codes
+    ///     are measured as text, matching labels that draw with colour codes off. Empty when the text is null or there
+    ///     is no room.
+    /// </summary>
+    public static string FitLines(string? text, int maxWidth, int maxLines)
+    {
+        if (string.IsNullOrEmpty(text) || (maxWidth <= 0) || (maxLines <= 0))
+            return string.Empty;
+
+        //the wrapping <see cref="TextRenderer.WrapLines" /> skips colour codes in the measure, but the labels this feeds
+        //draw with codes off, so wrap here with codes measured as text to stay inside the label's width
+        var lines = new List<string>();
+
+        foreach (var paragraph in text.Split('\n'))
+        {
+            var remaining = paragraph;
+
+            while (remaining.Length > 0)
+            {
+                var lineEnd = TextRenderer.FindLineBreak(remaining, maxWidth, colorCodesEnabled: false);
+
+                lines.Add(remaining[..lineEnd].TrimEnd());
+                remaining = remaining[lineEnd..].TrimStart();
+            }
+
+            if (paragraph.Length == 0)
+                lines.Add(string.Empty);
+        }
+
+        if (lines.Count <= maxLines)
+            return string.Join("\n", lines);
+
+        var kept = lines.GetRange(0, maxLines);
+        kept[^1] = FitSingleLine(kept[^1], maxWidth);
+
+        return string.Join("\n", kept);
+    }
+
+    /// <summary>Trims one line until it fits <paramref name="maxWidth" /> with the ".." dots appended.</summary>
+    private static string FitSingleLine(string line, int maxWidth)
+    {
+        var dots = "..";
+
+        while ((TextRenderer.MeasureWidth(line) + TextRenderer.MeasureWidth(dots) > maxWidth) && (line.Length > 0))
+            line = line[..^1];
+
+        while ((line.Length > 0) && char.IsHighSurrogate(line[^1]))
+            line = line[..^1];
+
+        return line + dots;
+    }
 }

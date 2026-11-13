@@ -173,4 +173,62 @@ public sealed class TamerStableTextTests
         TamerStableText.RarityName((TamerWireRarity)99).Should().Be("Unknown");
         TamerStableText.RoleName((TamerWireRole)99).Should().Be("Unknown");
     }
+
+    [Test]
+    public void Invalid_name_message_names_the_rule()
+    {
+        TamerStableText.InvalidName.Should().Be("Name must be 1-12 letters, single spaces between words.");
+    }
+
+    [Test]
+    public void Short_text_is_returned_unchanged_by_fit_lines()
+    {
+        TamerStableText.FitLines("Hello world", 368, 4).Should().Be("Hello world");
+        TamerStableText.FitLines("Line one\nLine two", 368, 4).Should().Be("Line one\nLine two");
+    }
+
+    [Test]
+    public void A_two_hundred_character_description_wraps_into_four_lines()
+    {
+        var description = new string('a', 200);
+
+        var fitted = TamerStableText.FitLines(description, 368, 4);
+        var lines = fitted.Split('\n');
+
+        lines.Should().HaveCount(4);
+        lines.Should().OnlyContain(line => line.Length * 6 <= 368);
+        string.Concat(lines).Should().HaveLength(200);
+    }
+
+    [Test]
+    public void Long_text_is_cut_to_the_line_count_with_dots()
+    {
+        var text = new string('a', 300);
+
+        var fitted = TamerStableText.FitLines(text, 368, 4);
+        var lines = fitted.Split('\n');
+
+        lines.Should().HaveCount(4);
+        lines[^1].Should().EndWith("..");
+        lines.Should().OnlyContain(line => line.Length * 6 <= 368);
+    }
+
+    [Test]
+    public void A_single_line_fit_cuts_with_dots()
+    {
+        var fitted = TamerStableText.FitLines(new string('a', 100), 368, 1);
+
+        fitted.Should().NotContain("\n");
+        fitted.Should().EndWith("..");
+        (fitted.Length * 6).Should().BeLessThanOrEqualTo(368);
+    }
+
+    [Test]
+    public void Fit_lines_of_nothing_or_no_room_is_empty()
+    {
+        TamerStableText.FitLines(null, 368, 4).Should().Be(string.Empty);
+        TamerStableText.FitLines(string.Empty, 368, 4).Should().Be(string.Empty);
+        TamerStableText.FitLines("Text", 0, 4).Should().Be(string.Empty);
+        TamerStableText.FitLines("Text", 368, 0).Should().Be(string.Empty);
+    }
 }
