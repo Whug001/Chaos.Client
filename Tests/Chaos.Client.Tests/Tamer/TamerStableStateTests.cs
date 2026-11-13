@@ -682,42 +682,125 @@ public sealed class TamerStableStateTests
     [Test]
     public void Rename_release_and_ability_actions_carry_their_monster()
     {
-        TamerStableState.RenameAction(Id(1), "  Ember Imp  ")!.Name.Should().Be("Ember Imp");
-        TamerStableState.RenameAction(Id(1), "Ember Imp")!.Type.Should().Be(TamerActionType.Rename);
-        TamerStableState.RenameAction(Id(1), "Ember")!.MonsterId.Should().Be(Id(1));
-        TamerStableState.ReleaseAction(Id(1))!.Type.Should().Be(TamerActionType.Release);
-        TamerStableState.ReleaseAction(Id(1))!.MonsterId.Should().Be(Id(1));
-        TamerStableState.SetAbilityAction(Id(1), "a2")!.Type.Should().Be(TamerActionType.SetAbility);
-        TamerStableState.SetAbilityAction(Id(1), "a2")!.AbilityKey.Should().Be("a2");
+        var state = Ready([Starter(Id(1))]);
+
+        state.RenameAction(Id(1), "  Ember Imp  ")!.Name.Should().Be("Ember Imp");
+        state.RenameAction(Id(1), "Ember Imp")!.Type.Should().Be(TamerActionType.Rename);
+        state.RenameAction(Id(1), "Ember")!.MonsterId.Should().Be(Id(1));
+        state.ReleaseAction(Id(1))!.Type.Should().Be(TamerActionType.Release);
+        state.ReleaseAction(Id(1))!.MonsterId.Should().Be(Id(1));
+        state.SetAbilityAction(Id(1), "a1")!.Type.Should().Be(TamerActionType.SetAbility);
+        state.SetAbilityAction(Id(1), "a1")!.AbilityKey.Should().Be("a1");
     }
 
     [Test]
     public void Rename_with_a_bad_name_or_empty_id_is_blocked()
     {
-        TamerStableState.RenameAction(Id(1), string.Empty).Should().BeNull();
-        TamerStableState.RenameAction(Id(1), "Ember  Imp").Should().BeNull();
-        TamerStableState.RenameAction(Id(1), "Abcdefghijklm").Should().BeNull();
-        TamerStableState.RenameAction(Id(1), "Ember2").Should().BeNull();
-        TamerStableState.RenameAction(Guid.Empty, "Ember").Should().BeNull();
-        TamerStableState.ReleaseAction(Guid.Empty).Should().BeNull();
-        TamerStableState.SetAbilityAction(Id(1), string.Empty).Should().BeNull();
-        TamerStableState.SetAbilityAction(Id(1), "   ").Should().BeNull();
-        TamerStableState.SetAbilityAction(Guid.Empty, "a1").Should().BeNull();
+        var state = Ready([Starter(Id(1))]);
+
+        state.RenameAction(Id(1), string.Empty).Should().BeNull();
+        state.RenameAction(Id(1), "Ember  Imp").Should().BeNull();
+        state.RenameAction(Id(1), "Abcdefghijklm").Should().BeNull();
+        state.RenameAction(Id(1), "Ember2").Should().BeNull();
+        state.RenameAction(Guid.Empty, "Ember").Should().BeNull();
+        state.ReleaseAction(Guid.Empty).Should().BeNull();
+        state.SetAbilityAction(Id(1), string.Empty).Should().BeNull();
+        state.SetAbilityAction(Id(1), "   ").Should().BeNull();
+        state.SetAbilityAction(Guid.Empty, "a1").Should().BeNull();
     }
 
     [Test]
     public void Feed_actions_carry_source_and_amount_and_block_zero()
     {
-        var action = TamerStableState.FeedAction(Id(1), TamerWireFeedSource.Feed, 3);
+        var state = new TamerStableState();
+        state.ApplyCatalog(Catalog());
+        state.ApplySnapshot(Snapshot(monsters: [Starter(Id(1))], essence: 100, feedHeld: 10));
+
+        var action = state.FeedAction(Id(1), TamerWireFeedSource.Feed, 3);
 
         action!.Type.Should().Be(TamerActionType.Feed);
         action.MonsterId.Should().Be(Id(1));
         action.FeedSource.Should().Be(TamerWireFeedSource.Feed);
         action.FeedAmount.Should().Be(3);
-        TamerStableState.FeedAction(Id(1), TamerWireFeedSource.Essence, 0).Should().BeNull();
-        TamerStableState.FeedAction(Id(1), TamerWireFeedSource.Essence, -1).Should().BeNull();
-        TamerStableState.FeedAction(Guid.Empty, TamerWireFeedSource.Essence, 1).Should().BeNull();
-        TamerStableState.FeedAction(Id(1), (TamerWireFeedSource)99, 1).Should().BeNull();
+        state.FeedAction(Id(1), TamerWireFeedSource.Essence, 0).Should().BeNull();
+        state.FeedAction(Id(1), TamerWireFeedSource.Essence, -1).Should().BeNull();
+        state.FeedAction(Guid.Empty, TamerWireFeedSource.Essence, 1).Should().BeNull();
+        state.FeedAction(Id(1), (TamerWireFeedSource)99, 1).Should().BeNull();
+    }
+
+    [Test]
+    public void A_stale_view_after_release_is_refused_by_guards_and_builders()
+    {
+        var state = Ready([Starter(Id(1))]);
+        var stale = state.Monsters.Single();
+
+        state.ApplySnapshot(Snapshot(monsters: []));
+
+        state.CanRename(stale, out _).Should().BeFalse();
+        state.CanRelease(stale, out _).Should().BeFalse();
+        state.CanFeed(stale, out _).Should().BeFalse();
+        state.AbilityRows(stale).Should().BeEmpty();
+        state.RenameAction(Id(1), "Ember").Should().BeNull();
+        state.ReleaseAction(Id(1)).Should().BeNull();
+        state.SetAbilityAction(Id(1), "a1").Should().BeNull();
+        state.FeedAction(Id(1), TamerWireFeedSource.Essence, 1).Should().BeNull();
+    }
+
+    [Test]
+    public void A_stale_view_after_reaching_the_peak_is_refused_for_feed()
+    {
+        var state = Ready([Starter(Id(1), level: 4)]);
+        var stale = state.Monsters.Single();
+        stale.Level.Should().Be((byte)4);
+
+        state.ApplySnapshot(Snapshot(monsters: [Monster(Id(1), "ember", "Ember", 20, 0, 0)]));
+
+        state.CanFeed(stale, out var problem).Should().BeFalse();
+        problem.Should().Be("That creature is already at its peak.");
+        state.CanFeed(stale, TamerWireFeedSource.Essence, 1, out _).Should().BeFalse();
+        state.FeedAction(Id(1), TamerWireFeedSource.Essence, 1).Should().BeNull();
+        state.CanRename(stale, out _).Should().BeTrue();
+        state.CanRelease(stale, out _).Should().BeTrue();
+        state.RenameAction(Id(1), "Ember").Should().NotBeNull();
+        state.ReleaseAction(Id(1)).Should().NotBeNull();
+    }
+
+    [Test]
+    public void A_stale_view_after_becoming_protected_is_refused_by_guards_and_builders()
+    {
+        var state = Ready([Starter(Id(1))]);
+        var stale = state.Monsters.Single();
+        stale.Protected.Should().BeFalse();
+
+        state.ApplySnapshot(Snapshot(monsters: [Monster(Id(1), "ember", "Ember", 1, 0, 100, isProtected: true)]));
+
+        state.CanRename(stale, out _).Should().BeFalse();
+        state.CanRelease(stale, out _).Should().BeFalse();
+        state.CanFeed(stale, out _).Should().BeFalse();
+        state.RenameAction(Id(1), "Ember").Should().BeNull();
+        state.ReleaseAction(Id(1)).Should().BeNull();
+        state.SetAbilityAction(Id(1), "a1").Should().BeNull();
+        state.FeedAction(Id(1), TamerWireFeedSource.Essence, 1).Should().BeNull();
+    }
+
+    [Test]
+    public void Ability_rows_follow_the_current_record_not_the_stale_view()
+    {
+        var species = Species(
+            "ember",
+            abilities:
+            [
+                new("a1", "First", 1, "First text."),
+                new("a2", "Second", 3, "Second text.")
+            ]);
+        var state = Ready([Monster(Id(1), "ember", "Ember", 1, 0, 100, abilityKey: "a1")], species: [species]);
+        var stale = state.Monsters.Single();
+
+        state.ApplySnapshot(Snapshot(monsters: [Monster(Id(1), "ember", "Ember", 4, 50, 350, abilityKey: "a1")]));
+
+        var rows = state.AbilityRows(stale);
+        rows.Should().HaveCount(2);
+        rows[1].State.Should().Be(TamerAbilityRowState.CanChoose);
     }
 
     [Test]

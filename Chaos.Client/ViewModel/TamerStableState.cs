@@ -265,16 +265,18 @@ public sealed class TamerStableState
         return total <= 0 ? 0 : (double)Math.Max(0, monster.Experience) / total;
     }
 
-    /// <summary>True when the Rename button can stay on: not null, not protected, species present.</summary>
+    /// <summary>True when the Rename button can stay on: not null, still in the latest snapshot, not protected, species present.</summary>
     public bool CanRename(TamerMonsterView? monster, out string? problem)
     {
-        if (monster is null)
+        var current = CurrentMonster(monster);
+
+        if (current is null)
         {
             problem = "That creature is no longer in your stable.";
             return false;
         }
 
-        if (monster.Protected || (SpeciesOf(monster) is null))
+        if (current.Protected || (SpeciesOf(current) is null))
         {
             problem = "That creature's species is unknown.";
             return false;
@@ -287,13 +289,15 @@ public sealed class TamerStableState
     /// <summary>True when the Release button can stay on.</summary>
     public bool CanRelease(TamerMonsterView? monster, out string? problem)
     {
-        if (monster is null)
+        var current = CurrentMonster(monster);
+
+        if (current is null)
         {
             problem = "That creature is no longer in your stable.";
             return false;
         }
 
-        if (monster.Protected || (SpeciesOf(monster) is null))
+        if (current.Protected || (SpeciesOf(current) is null))
         {
             problem = "That creature's species is unknown.";
             return false;
@@ -303,22 +307,24 @@ public sealed class TamerStableState
         return true;
     }
 
-    /// <summary>True when the Feed button can stay on: not null, not protected, not at peak.</summary>
+    /// <summary>True when the Feed button can stay on: not null, still in the latest snapshot, not protected, not at peak.</summary>
     public bool CanFeed(TamerMonsterView? monster, out string? problem)
     {
-        if (monster is null)
+        var current = CurrentMonster(monster);
+
+        if (current is null)
         {
             problem = "That creature is no longer in your stable.";
             return false;
         }
 
-        if (monster.Protected || (SpeciesOf(monster) is null))
+        if (current.Protected || (SpeciesOf(current) is null))
         {
             problem = "That creature's species is unknown.";
             return false;
         }
 
-        if (monster.Level >= TamerStableText.MAX_LEVEL)
+        if (current.Level >= TamerStableText.MAX_LEVEL)
         {
             problem = "That creature is already at its peak.";
             return false;
@@ -359,17 +365,18 @@ public sealed class TamerStableState
     /// <summary>The species' abilities in file order, each marked chosen, choosable or locked for the monster.</summary>
     public IReadOnlyList<TamerAbilityRow> AbilityRows(TamerMonsterView? monster)
     {
-        var species = SpeciesOf(monster);
+        var current = CurrentMonster(monster);
+        var species = SpeciesOf(current);
 
-        if ((monster is null) || (species is null))
+        if ((current is null) || (species is null))
             return [];
 
         var rows = new List<TamerAbilityRow>(species.Abilities.Count);
-        var level = Math.Clamp((int)monster.Level, 1, TamerStableText.MAX_LEVEL);
+        var level = Math.Clamp((int)current.Level, 1, TamerStableText.MAX_LEVEL);
 
         foreach (var ability in species.Abilities)
         {
-            var chosen = ability.Key.Equals(monster.AbilityKey, StringComparison.OrdinalIgnoreCase);
+            var chosen = ability.Key.Equals(current.AbilityKey, StringComparison.OrdinalIgnoreCase);
             var available = level >= ability.UnlockLevel;
 
             rows.Add(
@@ -386,10 +393,12 @@ public sealed class TamerStableState
     /// <summary>The most units worth sending from <paramref name="source" />: useful, capped by what is held; 0 when none.</summary>
     public int FeedLimit(TamerMonsterView? monster, TamerWireFeedSource source)
     {
-        if ((monster is null) || (monster.Protected) || (SpeciesOf(monster) is null))
+        var current = CurrentMonster(monster);
+
+        if ((current is null) || (current.Protected) || (SpeciesOf(current) is null))
             return 0;
 
-        if (monster.Level >= TamerStableText.MAX_LEVEL)
+        if (current.Level >= TamerStableText.MAX_LEVEL)
             return 0;
 
         var rate = RateOf(source);
@@ -397,19 +406,21 @@ public sealed class TamerStableState
         if (rate <= 0)
             return 0;
 
-        var useful = UsefulUnits(monster, rate);
+        var useful = UsefulUnits(current, rate);
         return useful <= 0 ? 0 : Math.Min(useful, HeldOf(source));
     }
 
     /// <summary>The level reached after feeding <paramref name="amount" /> units, per the server's carry-over.</summary>
     public int FeedPreview(TamerMonsterView? monster, TamerWireFeedSource source, int amount)
     {
-        if (monster is null)
+        var current = CurrentMonster(monster);
+
+        if (current is null)
             return 0;
 
-        var level = Math.Clamp((int)monster.Level, 1, TamerStableText.MAX_LEVEL);
+        var level = Math.Clamp((int)current.Level, 1, TamerStableText.MAX_LEVEL);
 
-        if ((monster.Protected) || (SpeciesOf(monster) is null) || (level >= TamerStableText.MAX_LEVEL) || (amount < 1))
+        if ((current.Protected) || (SpeciesOf(current) is null) || (level >= TamerStableText.MAX_LEVEL) || (amount < 1))
             return level;
 
         var rate = RateOf(source);
@@ -417,44 +428,51 @@ public sealed class TamerStableState
         if (rate <= 0)
             return level;
 
-        var perLevel = ExperiencePerLevelOf(monster);
+        var perLevel = ExperiencePerLevelOf(current);
 
         if (perLevel <= 0)
             return level;
 
-        var experience = Math.Max(0, monster.Experience) + ((long)amount * rate);
-        var current = level;
+        var experience = Math.Max(0, current.Experience) + ((long)amount * rate);
+        var at = level;
 
-        while (current < TamerStableText.MAX_LEVEL)
+        while (at < TamerStableText.MAX_LEVEL)
         {
-            var needed = (long)perLevel * current;
+            var needed = (long)perLevel * at;
 
             if (experience < needed)
                 break;
 
             experience -= needed;
-            current++;
+            at++;
         }
 
-        return current;
+        return at;
     }
 
     public string FeedPreviewText(TamerMonsterView? monster, TamerWireFeedSource source, int amount)
     {
-        if (monster is null)
+        var current = CurrentMonster(monster);
+
+        if (current is null)
             return string.Empty;
 
-        return TamerStableText.FeedPreviewLine(monster.Level, FeedPreview(monster, source, amount));
+        return TamerStableText.FeedPreviewLine(current.Level, FeedPreview(current, source, amount));
     }
 
     public static TamerActionArgs OpenAction() => new() { Type = TamerActionType.Open };
 
     public static TamerActionArgs CloseAction() => new() { Type = TamerActionType.Close };
 
-    /// <summary>Null unless the trimmed name passes the house-pet rule and the id is set.</summary>
-    public static TamerActionArgs? RenameAction(Guid monsterId, string name)
+    /// <summary>Null unless the monster is still in the latest snapshot, not protected, and the trimmed name passes the house-pet rule.</summary>
+    public TamerActionArgs? RenameAction(Guid monsterId, string name)
     {
         if (monsterId == Guid.Empty)
+            return null;
+
+        var current = FindMonster(monsterId);
+
+        if ((current is null) || !CanRename(current, out _))
             return null;
 
         var cleaned = name is null ? string.Empty : name.Trim();
@@ -465,12 +483,29 @@ public sealed class TamerStableState
         return new TamerActionArgs { Type = TamerActionType.Rename, MonsterId = monsterId, Name = cleaned };
     }
 
-    public static TamerActionArgs? ReleaseAction(Guid monsterId)
-        => monsterId == Guid.Empty ? null : new TamerActionArgs { Type = TamerActionType.Release, MonsterId = monsterId };
-
-    public static TamerActionArgs? SetAbilityAction(Guid monsterId, string abilityKey)
+    /// <summary>Null unless the monster is still in the latest snapshot and not protected.</summary>
+    public TamerActionArgs? ReleaseAction(Guid monsterId)
     {
         if (monsterId == Guid.Empty)
+            return null;
+
+        var current = FindMonster(monsterId);
+
+        if ((current is null) || !CanRelease(current, out _))
+            return null;
+
+        return new TamerActionArgs { Type = TamerActionType.Release, MonsterId = monsterId };
+    }
+
+    /// <summary>Null unless the monster is still in the latest snapshot, not protected, and the key is set.</summary>
+    public TamerActionArgs? SetAbilityAction(Guid monsterId, string abilityKey)
+    {
+        if (monsterId == Guid.Empty)
+            return null;
+
+        var current = FindMonster(monsterId);
+
+        if ((current is null) || (current.Protected) || (SpeciesOf(current) is null))
             return null;
 
         var key = abilityKey is null ? string.Empty : abilityKey.Trim();
@@ -481,10 +516,15 @@ public sealed class TamerStableState
         return new TamerActionArgs { Type = TamerActionType.SetAbility, MonsterId = monsterId, AbilityKey = key };
     }
 
-    /// <summary>Null unless the source is known and the amount is at least 1.</summary>
-    public static TamerActionArgs? FeedAction(Guid monsterId, TamerWireFeedSource source, int amount)
+    /// <summary>Null unless the source is known, the amount is at least 1, and the monster is still feedable in the latest snapshot.</summary>
+    public TamerActionArgs? FeedAction(Guid monsterId, TamerWireFeedSource source, int amount)
     {
         if ((monsterId == Guid.Empty) || !Enum.IsDefined(source) || (amount < 1))
+            return null;
+
+        var current = FindMonster(monsterId);
+
+        if ((current is null) || !CanFeed(current, source, amount, out _))
             return null;
 
         return new TamerActionArgs { Type = TamerActionType.Feed, MonsterId = monsterId, FeedSource = source, FeedAmount = amount };
@@ -586,6 +626,12 @@ public sealed class TamerStableState
                 ? rows[index].Where(member => member is not null).ToList()
                 : [];
     }
+
+    private TamerMonsterView? FindMonster(Guid monsterId)
+        => monsterId == Guid.Empty ? null : RawMonsters.FirstOrDefault(monster => monster.Id == monsterId);
+
+    private TamerMonsterView? CurrentMonster(TamerMonsterView? monster)
+        => monster is null ? null : FindMonster(monster.Id);
 
     private void RebuildSorted()
     {

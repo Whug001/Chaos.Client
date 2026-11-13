@@ -30,6 +30,7 @@ public sealed class TamerRenamePrompt : UIPanel
     private readonly CustomTextBox NameBox;
     private readonly UILabel ErrorLabel;
     private Guid MonsterId;
+    private TamerStableState? LastState;
 
     public TamerRenamePrompt(int width, int height)
     {
@@ -133,6 +134,8 @@ public sealed class TamerRenamePrompt : UIPanel
     {
         ArgumentNullException.ThrowIfNull(state);
 
+        LastState = state;
+
         if (!Visible)
             return;
 
@@ -146,7 +149,7 @@ public sealed class TamerRenamePrompt : UIPanel
         if (!Visible)
             return;
 
-        var action = TamerStableState.RenameAction(MonsterId, NameBox.Text);
+        var action = LastState?.RenameAction(MonsterId, NameBox.Text);
 
         if (action is null)
         {

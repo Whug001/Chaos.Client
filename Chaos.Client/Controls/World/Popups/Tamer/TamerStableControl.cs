@@ -403,7 +403,7 @@ public sealed class TamerStableControl : FramedDialogPanelBase
                 if (answer != 0)
                     return;
 
-                if (TamerStableState.ReleaseAction(id) is { } action)
+                if (state.ReleaseAction(id) is { } action)
                     ActionRequested?.Invoke(action);
             });
     }
@@ -415,7 +415,7 @@ public sealed class TamerStableControl : FramedDialogPanelBase
         if (!Visible || (state.Selected is not { } monster))
             return;
 
-        if (TamerStableState.SetAbilityAction(monster.Id, abilityKey) is { } action)
+        if (state.SetAbilityAction(monster.Id, abilityKey) is { } action)
             ActionRequested?.Invoke(action);
     }
 }

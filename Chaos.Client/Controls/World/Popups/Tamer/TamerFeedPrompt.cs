@@ -227,7 +227,7 @@ public sealed class TamerFeedPrompt : UIPanel
             return;
         }
 
-        var action = TamerStableState.FeedAction(MonsterId, Source, AmountSpinner.Value);
+        var action = LastState.FeedAction(MonsterId, Source, AmountSpinner.Value);
 
         if (action is null)
         {
