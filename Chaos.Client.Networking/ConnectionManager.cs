@@ -724,6 +724,9 @@ public sealed class ConnectionManager : IDisposable
     /// <summary>Fired when the server sends a card challenge, an offer, or the challenge windows closing.</summary>
     public event TcgDisplayHandler? OnTcgDisplay;
 
+    /// <summary>Fired when the server sends the stable window a catalog, a snapshot, or close.</summary>
+    public event TamerDisplayHandler? OnTamerDisplay;
+
     /// <summary>Fired when the server sends one season of the Endless Tower leaderboard.</summary>
     public event TowerLeaderboardHandler? OnTowerLeaderboard;
 
@@ -1649,6 +1652,9 @@ public sealed class ConnectionManager : IDisposable
     /// <summary>A card match or challenge request. The server checks every rule again.</summary>
     public void SendTcgAction(TcgActionArgs args) => SendIfWorld(args);
 
+    /// <summary>A stable window request. The server checks the player, every id, key, count and number again.</summary>
+    public void SendTamerAction(TamerActionArgs args) => SendIfWorld(args);
+
     /// <summary>Sends a Mileth College window action. The server checks every rule again.</summary>
     public void SendCollegeAction(CollegeActionArgs args) => SendIfWorld(args);
 
@@ -2101,6 +2107,7 @@ public sealed class ConnectionManager : IDisposable
         PacketHandlers[(byte)ServerOpCode.TcgCollectionDisplay] = HandleTcgCollectionDisplay;
         PacketHandlers[(byte)ServerOpCode.TcgRankedDisplay] = HandleTcgRankedDisplay;
         PacketHandlers[(byte)ServerOpCode.TcgDisplay] = HandleTcgDisplay;
+        PacketHandlers[(byte)ServerOpCode.TamerDisplay] = HandleTamerDisplay;
         PacketHandlers[(byte)ServerOpCode.TowerLeaderboard] = HandleTowerLeaderboard;
         PacketHandlers[(byte)ServerOpCode.CollegeDisplay] = HandleCollegeDisplay;
         PacketHandlers[(byte)ServerOpCode.TownContestDisplay] = HandleTownContestDisplay;
@@ -2791,6 +2798,12 @@ public sealed class ConnectionManager : IDisposable
     {
         var args = Client.Deserialize<TcgDisplayArgs>(in pkt);
         OnTcgDisplay?.Invoke(args);
+    }
+
+    private void HandleTamerDisplay(ServerPacket pkt)
+    {
+        var args = Client.Deserialize<TamerDisplayArgs>(in pkt);
+        OnTamerDisplay?.Invoke(args);
     }
 
     private void HandleTownContestDisplay(ServerPacket pkt)
