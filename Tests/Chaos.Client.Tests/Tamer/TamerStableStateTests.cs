@@ -804,6 +804,31 @@ public sealed class TamerStableStateTests
     }
 
     [Test]
+    public void A_protected_monster_with_a_known_species_offers_no_ability_choice()
+    {
+        var species = Species(
+            "ember",
+            abilities:
+            [
+                new("a1", "First", 1, "First text."),
+                new("a2", "Second", 3, "Second text.")
+            ]);
+        var state = Ready([Monster(Id(1), "ember", "Ember", 4, 50, 350, traitKey: "missing", abilityKey: "a1", isProtected: true)], species: [species]);
+        var held = state.Monsters.Single();
+
+        held.Protected.Should().BeTrue();
+        state.SpeciesOf(held).Should().NotBeNull();
+
+        var rows = state.AbilityRows(held);
+        rows.Should().HaveCount(2);
+        rows.Should().NotContain(row => row.State == TamerAbilityRowState.CanChoose);
+        rows[0].State.Should().Be(TamerAbilityRowState.Chosen);
+        rows[1].State.Should().Be(TamerAbilityRowState.Locked);
+        state.SetAbilityAction(Id(1), "a2").Should().BeNull();
+        state.SetAbilityAction(Id(1), "a1").Should().BeNull();
+    }
+
+    [Test]
     public void Squad_actions_carry_squad_and_members_and_block_bad_shapes()
     {
         var members = new List<TamerDisplaySquadMember> { new(Id(1), 0, 0), new(Id(2), 6, 2) };

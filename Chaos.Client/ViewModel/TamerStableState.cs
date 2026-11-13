@@ -377,7 +377,7 @@ public sealed class TamerStableState
         foreach (var ability in species.Abilities)
         {
             var chosen = ability.Key.Equals(current.AbilityKey, StringComparison.OrdinalIgnoreCase);
-            var available = level >= ability.UnlockLevel;
+            var available = (!current.Protected) && (level >= ability.UnlockLevel);
 
             rows.Add(
                 new TamerAbilityRow(
