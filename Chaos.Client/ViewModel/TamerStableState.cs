@@ -247,7 +247,7 @@ public sealed class TamerStableState
         if (monster.Level >= TamerStableText.MAX_LEVEL)
             return TamerStableText.PeakLevel;
 
-        var total = (long)monster.Experience + Math.Max(0, monster.ExperienceToNext);
+        var total = (long)Math.Max(0, monster.Experience) + monster.ExperienceToNext;
 
         return $"{Math.Max(0, monster.Experience)} / {total}";
     }
@@ -260,9 +260,9 @@ public sealed class TamerStableState
         if (monster.Level >= TamerStableText.MAX_LEVEL)
             return 1;
 
-        var total = (long)monster.Experience + Math.Max(0, monster.ExperienceToNext);
+        var total = (long)Math.Max(0, monster.Experience) + monster.ExperienceToNext;
 
-        return total <= 0 ? 0 : (double)Math.Max(0, monster.Experience) / total;
+        return total <= 0 ? 0 : Math.Clamp((double)Math.Max(0, monster.Experience) / total, 0, 1);
     }
 
     /// <summary>True when the Rename button can stay on: not null, still in the latest snapshot, not protected, species present.</summary>
@@ -689,7 +689,9 @@ public sealed class TamerStableState
         if (level >= TamerStableText.MAX_LEVEL)
             return 100;
 
-        var total = (long)monster.Experience + Math.Max(0, monster.ExperienceToNext);
+        //the server sends ExperienceToNext as ExperiencePerLevel * level minus experience, even when that is
+        //negative for a record whose saved experience is over its threshold, so the sum recovers the threshold
+        var total = (long)Math.Max(0, monster.Experience) + monster.ExperienceToNext;
 
         return total <= 0 ? 100 : (int)(total / level);
     }
@@ -706,15 +708,13 @@ public sealed class TamerStableState
         if (perLevel <= 0)
             return 0;
 
-        long needed = 0;
-        var experience = Math.Max(0, monster.Experience);
-        var toNext = (long)perLevel * level;
+        //the server's ExperienceToMax: every threshold from the current level to 19, minus what is already earned
+        long total = 0;
 
-        if (experience < toNext)
-            needed += toNext - experience;
+        for (var l = level; l < TamerStableText.MAX_LEVEL; l++)
+            total += (long)perLevel * l;
 
-        for (var l = level + 1; l < TamerStableText.MAX_LEVEL; l++)
-            needed += (long)perLevel * l;
+        var needed = Math.Max(0, total - Math.Max(0, monster.Experience));
 
         if (needed <= 0)
             return 0;

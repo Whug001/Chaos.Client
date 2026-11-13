@@ -829,6 +829,42 @@ public sealed class TamerStableStateTests
     }
 
     [Test]
+    public void Odd_saved_experience_uses_the_server_threshold()
+    {
+        var monster = Monster(Id(1), "ember", "Ember", 4, 450, -50);
+        var state = new TamerStableState();
+        state.ApplyCatalog(Catalog(perEssence: 20, perFeed: 100));
+        state.ApplySnapshot(Snapshot(monsters: [monster], essence: 100000, feedHeld: 500));
+        var held = state.Monsters.Single();
+
+        held.Experience.Should().Be(450);
+        held.ExperienceToNext.Should().Be(-50);
+        state.ExperienceText(held).Should().Be("450 / 400");
+        state.ExperienceFraction(held).Should().Be(1);
+        state.FeedLimit(held, TamerWireFeedSource.Essence).Should().Be(898);
+        state.FeedLimit(held, TamerWireFeedSource.Feed).Should().Be(180);
+        state.FeedPreview(held, TamerWireFeedSource.Essence, 1).Should().Be(5);
+        state.FeedPreview(held, TamerWireFeedSource.Essence, 100).Should().Be(8);
+        state.FeedPreviewText(held, TamerWireFeedSource.Essence, 1).Should().Be("Level 4 \u2192 5");
+    }
+
+    [Test]
+    public void Feed_limit_subtracts_excess_over_the_current_threshold()
+    {
+        var monster = Monster(Id(1), "ember", "Ember", 4, 450, -50);
+        var state = new TamerStableState();
+        state.ApplyCatalog(Catalog(perEssence: 20, perFeed: 100));
+        state.ApplySnapshot(Snapshot(monsters: [monster], essence: 100000, feedHeld: 500));
+        var held = state.Monsters.Single();
+
+        state.CanFeed(held, TamerWireFeedSource.Essence, 898, out _).Should().BeTrue();
+        state.CanFeed(held, TamerWireFeedSource.Essence, 899, out _).Should().BeFalse();
+        state.CanFeed(held, TamerWireFeedSource.Feed, 180, out _).Should().BeTrue();
+        state.CanFeed(held, TamerWireFeedSource.Feed, 181, out _).Should().BeFalse();
+        state.FeedPreview(held, TamerWireFeedSource.Feed, 180).Should().Be(20);
+    }
+
+    [Test]
     public void Squad_actions_carry_squad_and_members_and_block_bad_shapes()
     {
         var members = new List<TamerDisplaySquadMember> { new(Id(1), 0, 0), new(Id(2), 6, 2) };
