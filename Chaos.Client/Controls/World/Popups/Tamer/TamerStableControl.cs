@@ -18,9 +18,9 @@ namespace Chaos.Client.Controls.World.Popups.Tamer;
 /// <summary>
 ///     The stable window: a framed 620 by 440 panel with the Creatures and Squads tabs, the essence, feed and count on
 ///     the top line, and the last refusal message over the Close button at the bottom. The Creatures tab holds the
-///     scrolling monster list and the selected monster's detail; the Squads tab is an empty panel for Task 4's squad
-///     editor. Opens on the first snapshot after the catalog, refreshes while visible, and hides without echoing Close
-///     on a server close. Borrows the <c>_nsett</c> prefab for its OK button only, as the card binder does.
+///     scrolling monster list and the selected monster's detail; the Squads tab holds the squad editor. Opens on the
+///     first snapshot after the catalog, refreshes while visible, and hides without echoing Close on a server close.
+///     Borrows the <c>_nsett</c> prefab for its OK button only, as the card binder does.
 /// </summary>
 public sealed class TamerStableControl : FramedDialogPanelBase
 {
@@ -29,9 +29,9 @@ public sealed class TamerStableControl : FramedDialogPanelBase
     public const int PANEL_X = 10;
     public const int PANEL_Y = 6;
 
-    private const int CONTENT_HEIGHT = 312;
-    private const int CONTENT_TOP = 52;
-    private const int CONTENT_WIDTH = PANEL_WIDTH - (2 * LEFT);
+    public const int CONTENT_HEIGHT = 312;
+    public const int CONTENT_TOP = 52;
+    public const int CONTENT_WIDTH = PANEL_WIDTH - (2 * LEFT);
     private const int COUNT_LEFT = 495;
     private const int COUNT_WIDTH = 105;
     private const int DETAIL_LEFT = 210;
@@ -69,7 +69,7 @@ public sealed class TamerStableControl : FramedDialogPanelBase
     private readonly UILabel CountLabel;
     private readonly UILabel StatusLabel;
     private readonly UIPanel CreaturesPanel;
-    private readonly UIPanel SquadsPanel;
+    private readonly TamerSquadPanel SquadsPanel;
     private readonly VirtualizedRowList<TamerMonsterView> RowList;
     private readonly CustomButton SortButton;
     private readonly UILabel EmptyLabel;
@@ -164,10 +164,16 @@ public sealed class TamerStableControl : FramedDialogPanelBase
         DetailPanel.AbilityChosen += OnAbilityChosen;
         CreaturesPanel.AddChild(DetailPanel);
 
-        //Task 4 adds the squad editor (TamerSquadPanel) as a child of this panel, shown when the Squads tab is
-        //selected; Refresh already toggles it like the Creatures content.
-        SquadsPanel = TabPanel();
-        SquadsPanel.Visible = false;
+        SquadsPanel = new TamerSquadPanel(creatures)
+        {
+            Name = "TamerTab",
+            X = LEFT,
+            Y = CONTENT_TOP,
+            Width = CONTENT_WIDTH,
+            Height = CONTENT_HEIGHT,
+            Visible = false
+        };
+        SquadsPanel.ActionRequested += action => ActionRequested?.Invoke(action);
         AddChild(SquadsPanel);
 
         MessageLabel = Label(MESSAGE_LEFT, MESSAGE_TOP, MESSAGE_WIDTH, string.Empty, LegendColors.Orange);
@@ -259,6 +265,7 @@ public sealed class TamerStableControl : FramedDialogPanelBase
         {
             CreaturesPanel.Visible = false;
             SquadsPanel.Visible = true;
+            SquadsPanel.Refresh(state);
 
             return;
         }
@@ -281,7 +288,7 @@ public sealed class TamerStableControl : FramedDialogPanelBase
     public void CloseFromServer()
     {
         ClosedByServer = true;
-        Hide();
+        HideNow();
         ClosedByServer = false;
     }
 
@@ -290,7 +297,32 @@ public sealed class TamerStableControl : FramedDialogPanelBase
         if (!Visible)
             return;
 
+        if (ShowingSquads && SquadsPanel.HasUnsavedChanges)
+        {
+            Choice.Ask(
+                TamerStableText.DiscardQuestion,
+                [TamerStableText.Yes, TamerStableText.No],
+                answer =>
+                {
+                    if (answer != 0)
+                        return;
+
+                    SquadsPanel.DiscardChanges();
+                    HideNow();
+                });
+            return;
+        }
+
+        HideNow();
+    }
+
+    private void HideNow()
+    {
+        if (!Visible)
+            return;
+
         Choice.Dismiss();
+        SquadsPanel.DismissQuestion();
         RenamePrompt.Hide();
         FeedPrompt.Hide();
         base.Hide();
@@ -311,6 +343,10 @@ public sealed class TamerStableControl : FramedDialogPanelBase
                 RenamePrompt.Hide();
             else if (FeedPrompt.Visible)
                 FeedPrompt.Hide();
+            else if (ShowingSquads && SquadsPanel.HasOpenQuestion)
+                SquadsPanel.CancelQuestion();
+            else if (ShowingSquads && SquadsPanel.HasPick)
+                SquadsPanel.CancelPick();
             else
                 Hide();
 
@@ -343,6 +379,23 @@ public sealed class TamerStableControl : FramedDialogPanelBase
 
     private void SelectTab(bool squads)
     {
+        if (ShowingSquads && !squads && SquadsPanel.HasUnsavedChanges)
+        {
+            Choice.Ask(
+                TamerStableText.DiscardQuestion,
+                [TamerStableText.Yes, TamerStableText.No],
+                answer =>
+                {
+                    if (answer != 0)
+                        return;
+
+                    SquadsPanel.DiscardChanges();
+                    ShowingSquads = false;
+                    Refresh();
+                });
+            return;
+        }
+
         ShowingSquads = squads;
         Refresh();
     }
