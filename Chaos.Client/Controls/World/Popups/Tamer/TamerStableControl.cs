@@ -37,10 +37,10 @@ public sealed class TamerStableControl : FramedDialogPanelBase
     private const int DETAIL_LEFT = 210;
     private const int DETAIL_TOP = 0;
     private const int EMPTY_HEIGHT = TextRenderer.CHAR_HEIGHT * 2;
-    private const int ESSENCE_LEFT = 250;
-    private const int ESSENCE_WIDTH = 165;
-    private const int FEED_LEFT = 420;
-    private const int FEED_WIDTH = 70;
+    private const int ESSENCE_LEFT = 230;
+    private const int ESSENCE_WIDTH = 175;
+    private const int FEED_LEFT = 410;
+    private const int FEED_WIDTH = 80;
     private const int FOOTER_TOP = PANEL_HEIGHT - BORDER_BOTTOM_HEIGHT - CustomButton.HEIGHT - 4;
     private const int INFO_TOP = TAB_TOP + 5;
     private const int LEFT = 20;
