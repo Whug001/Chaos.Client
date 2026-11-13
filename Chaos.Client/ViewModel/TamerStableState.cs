@@ -49,6 +49,10 @@ public sealed class TamerStableState
 
     public bool HasCatalog { get; private set; }
     public bool HasSnapshot { get; private set; }
+
+    /// <summary>A catalog just arrived and the next snapshot may open the window. Set by <see cref="ApplyCatalog" />,
+    ///     consumed by the next snapshot, cleared by a close.</summary>
+    public bool CatalogJustArrived { get; private set; }
     public IReadOnlyList<TamerSpeciesView> Species => SpeciesList;
     public IReadOnlyList<TamerTraitView> Traits => TraitList;
     public IReadOnlyList<TamerBonusView> Bonuses => BonusList;
@@ -138,6 +142,7 @@ public sealed class TamerStableState
         RawMonsters.Clear();
         SortedMonsters.Clear();
         SelectedId = null;
+        CatalogJustArrived = false;
         HasCatalog = false;
         HasSnapshot = false;
         StableCapacity = 0;
@@ -151,6 +156,17 @@ public sealed class TamerStableState
         LastMessage = string.Empty;
         Sort = TamerStableSort.Newest;
     }
+
+    /// <summary>Whether the next snapshot may open the window. Consumes the flag: true once, then false until the next catalog.</summary>
+    public bool ConsumeCatalogJustArrived()
+    {
+        var pending = CatalogJustArrived;
+        CatalogJustArrived = false;
+        return pending;
+    }
+
+    /// <summary>Clears the pending open, for a close or the player closing the window.</summary>
+    public void ClearCatalogJustArrived() => CatalogJustArrived = false;
 
     public void CycleSort() => SetSort((TamerStableSort)(((int)Sort + 1) % 3));
 
@@ -556,6 +572,7 @@ public sealed class TamerStableState
         ExperiencePerEssence = perEssence;
         ExperiencePerFeed = perFeed;
         HasCatalog = true;
+        CatalogJustArrived = true;
     }
 
     private static IReadOnlyList<IReadOnlyList<TamerDisplaySquadMember>> NormalizeSquads(List<List<TamerDisplaySquadMember>>? squads)

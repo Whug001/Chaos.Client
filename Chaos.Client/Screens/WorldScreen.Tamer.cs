@@ -27,7 +27,10 @@ public sealed partial class WorldScreen
         Game.Connection.OnTamerDisplay -= HandleTamerDisplay;
 
         if (TamerStableWindow is not null)
+        {
             TamerStableWindow.ActionRequested -= SendTamerAction;
+            TamerStableWindow.Closed -= OnTamerStableClosed;
+        }
     }
 
     private bool EnsureTamerWindow()
@@ -38,6 +41,7 @@ public sealed partial class WorldScreen
         var window = new TamerStableControl(Game.CreatureRenderer) { ZIndex = 2 };
 
         window.ActionRequested += SendTamerAction;
+        window.Closed += OnTamerStableClosed;
 
         Root!.AddChild(window);
 
@@ -63,18 +67,23 @@ public sealed partial class WorldScreen
             case TamerDisplayKind.Snapshot:
                 WorldState.TamerStable.ApplySnapshot(args);
 
-                if (!EnsureTamerWindow())
-                    return;
+                var shouldOpen = WorldState.TamerStable.ConsumeCatalogJustArrived();
 
-                if (TamerStableWindow!.Visible)
+                if (TamerStableWindow?.Visible ?? false)
                     TamerStableWindow.Refresh();
-                else
-                    TamerStableWindow.Open();
+                else if (shouldOpen)
+                {
+                    if (!EnsureTamerWindow())
+                        return;
+
+                    TamerStableWindow!.Open();
+                }
 
                 break;
             case TamerDisplayKind.Close:
                 var wasOpen = TamerStableWindow?.Visible ?? false;
 
+                WorldState.TamerStable.ClearCatalogJustArrived();
                 TamerStableWindow?.CloseFromServer();
 
                 if (wasOpen && !string.IsNullOrEmpty(args.CloseReason))
@@ -84,5 +93,13 @@ public sealed partial class WorldScreen
         }
     }
 
-    private void SendTamerAction(TamerActionArgs args) => Game.Connection.SendTamerAction(args);
+    private void OnTamerStableClosed() => WorldState.TamerStable.ClearCatalogJustArrived();
+
+    private void SendTamerAction(TamerActionArgs args)
+    {
+        if ((args is not null) && (args.Type == TamerActionType.Close))
+            WorldState.TamerStable.ClearCatalogJustArrived();
+
+        Game.Connection.SendTamerAction(args);
+    }
 }

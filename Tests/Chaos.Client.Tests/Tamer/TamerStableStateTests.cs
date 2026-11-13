@@ -600,6 +600,79 @@ public sealed class TamerStableStateTests
     }
 
     [Test]
+    public void A_snapshot_with_no_catalog_does_not_open()
+    {
+        var state = new TamerStableState();
+
+        state.ApplySnapshot(Snapshot(monsters: [Starter(Id(1))]));
+
+        state.CatalogJustArrived.Should().BeFalse();
+        state.ConsumeCatalogJustArrived().Should().BeFalse();
+        state.CatalogJustArrived.Should().BeFalse();
+    }
+
+    [Test]
+    public void Catalog_then_snapshot_opens_once_and_then_only_refreshes()
+    {
+        var state = new TamerStableState();
+
+        state.ApplyCatalog(Catalog());
+        state.CatalogJustArrived.Should().BeTrue();
+
+        state.ApplySnapshot(Snapshot(monsters: [Starter(Id(1))]));
+
+        state.ConsumeCatalogJustArrived().Should().BeTrue();
+        state.CatalogJustArrived.Should().BeFalse();
+
+        state.ApplySnapshot(Snapshot(monsters: [Starter(Id(1))]));
+
+        state.ConsumeCatalogJustArrived().Should().BeFalse();
+    }
+
+    [Test]
+    public void A_late_snapshot_after_the_player_closed_does_not_reopen()
+    {
+        var state = new TamerStableState();
+
+        state.ApplyCatalog(Catalog());
+        state.ApplySnapshot(Snapshot(monsters: [Starter(Id(1))]));
+        state.ConsumeCatalogJustArrived().Should().BeTrue();
+
+        state.ClearCatalogJustArrived();
+
+        state.ApplySnapshot(Snapshot(monsters: [Starter(Id(1))]));
+
+        state.ConsumeCatalogJustArrived().Should().BeFalse();
+    }
+
+    [Test]
+    public void Clearing_the_pending_open_for_a_close_stops_the_next_snapshot_opening()
+    {
+        var state = new TamerStableState();
+
+        state.ApplyCatalog(Catalog());
+        state.CatalogJustArrived.Should().BeTrue();
+        state.ClearCatalogJustArrived();
+
+        state.ApplySnapshot(Snapshot(monsters: [Starter(Id(1))]));
+
+        state.ConsumeCatalogJustArrived().Should().BeFalse();
+    }
+
+    [Test]
+    public void Clear_resets_the_pending_open()
+    {
+        var state = new TamerStableState();
+        state.ApplyCatalog(Catalog());
+        state.CatalogJustArrived.Should().BeTrue();
+
+        state.Clear();
+
+        state.CatalogJustArrived.Should().BeFalse();
+        state.ConsumeCatalogJustArrived().Should().BeFalse();
+    }
+
+    [Test]
     public void Open_and_close_actions_carry_no_payload()
     {
         TamerStableState.OpenAction().Type.Should().Be(TamerActionType.Open);
