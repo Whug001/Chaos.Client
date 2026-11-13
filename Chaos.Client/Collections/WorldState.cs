@@ -199,6 +199,9 @@ public static class WorldState
     /// <summary>The ranked queue's mode plus the last ranked info snapshot. Cleared on logout.</summary>
     public static TcgRankedState TcgRanked { get; } = new();
 
+    /// <summary>The stable window's catalog, snapshot and selection. Server-owned: survives map changes, cleared on logout.</summary>
+    public static TamerStableState TamerStable { get; } = new();
+
     /// <summary>
     ///     Authoritative poker table state (table properties, seat roster, board, pot, whose turn it is, legal
     ///     actions).
@@ -580,6 +583,7 @@ public static class WorldState
         CommissionBoard.Clear();
         TcgCollection.Clear();
         TcgRanked.Clear();
+        TamerStable.Clear();
         PokerTable.Clear();
         BeautyShop.Clear();
         DyeShop.Clear();
