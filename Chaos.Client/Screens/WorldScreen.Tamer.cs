@@ -14,7 +14,8 @@ namespace Chaos.Client.Screens;
 ///     so the window opens on the first snapshot after a catalog and otherwise only refreshes while visible.
 ///     The battle window: built on first use, fed by TamerBattleDisplay parts through the assembly; a ready fight
 ///     opens it with a new playback, a broken fight shows the orange bar, and it stays open across map changes
-///     but closes on logout (ResetAll clears the assembly and playback).
+///     but closes on logout (ResetAll clears the assembly and playback). It draws above the stable window and is
+///     kept above it on the control stack, so with both open the keys go to the battle window.
 /// </summary>
 public sealed partial class WorldScreen
 {
@@ -89,6 +90,7 @@ public sealed partial class WorldScreen
                         return;
 
                     TamerStableWindow!.Open();
+                    KeepTamerBattleOnTop();
                 }
 
                 break;
@@ -105,6 +107,16 @@ public sealed partial class WorldScreen
         }
     }
 
+    /// <summary>
+    ///     Showing the stable window puts it on top of the control stack, but an open battle window draws above it.
+    ///     Putting the battle window back on top makes the keys follow what is drawn: Escape closes the battle first.
+    /// </summary>
+    private void KeepTamerBattleOnTop()
+    {
+        if (TamerBattleWindow is { Visible: true } battle)
+            InputDispatcher.Instance?.PushControl(battle);
+    }
+
     private void OnTamerStableClosed() => WorldState.TamerStable.ClearCatalogJustArrived();
 
     private bool EnsureTamerBattleWindow()
@@ -112,7 +124,8 @@ public sealed partial class WorldScreen
         if (TamerBattleWindow is not null)
             return true;
 
-        var window = new TamerBattleControl(Game.CreatureRenderer) { ZIndex = 2 };
+        //above the stable window, which has the same rectangle and the screen's ZIndex 2 (as the card windows use 2, 3, 4)
+        var window = new TamerBattleControl(Game.CreatureRenderer) { ZIndex = 3 };
 
         window.Closed += OnTamerBattleClosed;
 
