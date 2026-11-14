@@ -1,5 +1,6 @@
 #region
 using Chaos.Client.Controls.Components;
+using Chaos.Client.ViewModel;
 using Microsoft.Xna.Framework;
 using Microsoft.Xna.Framework.Graphics;
 #endregion
@@ -8,21 +9,21 @@ namespace Chaos.Client.Controls.World.Popups;
 
 /// <summary>
 ///     A popup menu that appears when Ctrl+clicking a non-self aisling. Uses popupbox.epf as background. Top row shows the
-///     player's name, bottom 4 rows are clickable options: info, group request, whisper, card challenge.
+///     player's name, bottom 5 rows are clickable options: info, group request, whisper, card challenge, tamer bout. The row
+///     arithmetic is <see cref="ContextMenuRows" />.
 /// </summary>
 public sealed class AislingContextMenu : UIPanel
 {
     private const string EPF_FILE = "popupbox.epf";
     private const int BOX_X = 4;
-    private const int BOX_WIDTH = 74;
-    private const int BOX_HEIGHT = 14;
-    private const int BOX_START_Y = 6;
-    private const int OPTIONS_OFFSET_Y = 2;
+    private const int BOX_WIDTH = ContextMenuRows.ROW_WIDTH;
+    private const int BOX_HEIGHT = ContextMenuRows.ROW_HEIGHT;
+    private const int BOX_START_Y = ContextMenuRows.NAME_TOP;
 
     private static readonly Color BOX_FILL = new Color(68, 68, 68) * (140 / 255f);
     private static readonly Color BOX_HOVER = new Color(187, 187, 187) * (160 / 255f);
 
-    private const int OPTION_COUNT = 4;
+    private const int OPTION_COUNT = 5;
 
     private static Texture2D? TallFrame;
 
@@ -31,7 +32,8 @@ public sealed class AislingContextMenu : UIPanel
         "info",
         "group request",
         "whisper",
-        "card challenge"
+        "card challenge",
+        ContextMenuRows.TamerBout
     ];
 
     private readonly UIImage FrameImage;
@@ -92,7 +94,7 @@ public sealed class AislingContextMenu : UIPanel
             {
                 Name = $"Option{i}",
                 X = BOX_X,
-                Y = BOX_START_Y + OPTIONS_OFFSET_Y + (i + 1) * BOX_HEIGHT,
+                Y = ContextMenuRows.RowTop(i),
                 Width = BOX_WIDTH,
                 Height = BOX_HEIGHT,
                 Text = OPTION_LABELS[i],
@@ -105,7 +107,7 @@ public sealed class AislingContextMenu : UIPanel
         }
     }
 
-    //popupbox.epf only fits 3 rows; repeat its middle band once to fit a 4th
+    //popupbox.epf only fits 3 rows; repeat its middle band once for each row past the third
     private static Texture2D BuildTallFrame(Texture2D source)
     {
         var width = source.Width;
@@ -113,16 +115,18 @@ public sealed class AislingContextMenu : UIPanel
         var pixels = new Color[width * height];
         source.GetData(pixels);
 
-        var tall = new Color[width * (height + BOX_HEIGHT)];
+        var extraBands = ContextMenuRows.ExtraBands(OPTION_COUNT);
+        var tallHeight = ContextMenuRows.FrameHeight(height, OPTION_COUNT);
+        var tall = new Color[width * tallHeight];
 
-        for (var y = 0; y < height + BOX_HEIGHT; y++)
+        for (var y = 0; y < tallHeight; y++)
         {
-            //rows 0-63 stay put; everything from row 50 down moves 14 px lower
-            var from = y < 64 ? y : y - BOX_HEIGHT;
+            //rows 0-63 stay put; rows 50-63 repeat once per added band; the rest moves lower
+            var from = Math.Clamp(ContextMenuRows.SourceRow(y, extraBands), 0, height - 1);
             Array.Copy(pixels, from * width, tall, y * width, width);
         }
 
-        var texture = new Texture2D(source.GraphicsDevice, width, height + BOX_HEIGHT);
+        var texture = new Texture2D(source.GraphicsDevice, width, tallHeight);
         texture.SetData(tall);
 
         return texture;
@@ -176,7 +180,8 @@ public sealed class AislingContextMenu : UIPanel
         Action onInfo,
         Action onGroupRequest,
         Action onWhisper,
-        Action onChallenge)
+        Action onChallenge,
+        Action onTamerBout)
     {
         var bg = GetFrameTexture();
 
@@ -189,6 +194,7 @@ public sealed class AislingContextMenu : UIPanel
         OptionCallbacks[1] = onGroupRequest;
         OptionCallbacks[2] = onWhisper;
         OptionCallbacks[3] = onChallenge;
+        OptionCallbacks[4] = onTamerBout;
 
         X = screenX;
         Y = screenY;
@@ -218,18 +224,12 @@ public sealed class AislingContextMenu : UIPanel
     {
         var localX = e.ScreenX - ScreenX;
         var localY = e.ScreenY - ScreenY;
-        var optionsStartY = BOX_START_Y + OPTIONS_OFFSET_Y + BOX_HEIGHT;
 
-        if (localX is >= BOX_X and < BOX_X + BOX_WIDTH && (localY >= optionsStartY))
-        {
-            var index = (localY - optionsStartY) / BOX_HEIGHT;
-            HoveredIndex = index is >= 0 and < OPTION_COUNT ? index : -1;
-        } else
-            HoveredIndex = -1;
+        HoveredIndex = localX is >= BOX_X and < BOX_X + BOX_WIDTH ? ContextMenuRows.RowAt(localY, OPTION_COUNT) : -1;
 
         if (HoveredIndex >= 0)
         {
-            HoverOverlay.Y = BOX_START_Y + OPTIONS_OFFSET_Y + (HoveredIndex + 1) * BOX_HEIGHT;
+            HoverOverlay.Y = ContextMenuRows.RowTop(HoveredIndex);
             HoverOverlay.Visible = true;
         } else
             HoverOverlay.Visible = false;

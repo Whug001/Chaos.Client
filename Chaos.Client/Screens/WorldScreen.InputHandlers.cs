@@ -1886,7 +1886,13 @@ public sealed partial class WorldScreen
                 () => Game.Connection.ClickEntity(id),
                 () => Game.Connection.SendGroupInvite(ClientGroupSwitch.TryInvite, name),
                 () => WorldHud.ChatInput.FocusWhisper(name),
-                () => Game.Connection.SendTcgAction(TcgChallengeState.StartAction(name)));
+                () => Game.Connection.SendTcgAction(TcgChallengeState.StartAction(name)),
+                () =>
+                {
+                    //a friendly tamer bout; the server takes this one action with the stable window closed
+                    if (TamerRankedState.FriendlyAction(name) is { } bout)
+                        Game.Connection.SendTamerAction(bout);
+                });
         }
     }
 
