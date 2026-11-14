@@ -262,9 +262,10 @@ public sealed class TamerBattleControl : FramedDialogPanelBase
         SkipButton.Enabled = !playback.Finished;
         ReplayButton.Enabled = playback.Finished;
 
-        BannerPanel.Visible = playback.Finished;
+        //the banner covers the board, so it waits for the tail after the end tick: the last hit and fade are seen first
+        BannerPanel.Visible = playback.TailFinished;
 
-        if (playback.Finished)
+        if (playback.TailFinished)
         {
             ResultTitleLabel.Text = TamerStableText.FitLines(playback.ResultTitle, BANNER_WIDTH - 18, 1);
             ResultReasonLabel.Text = TamerStableText.FitLines(playback.ResultReason, BANNER_WIDTH - 18, 1);

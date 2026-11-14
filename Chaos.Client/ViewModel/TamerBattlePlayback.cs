@@ -149,6 +149,12 @@ public sealed class TamerBattlePlayback
 
     public bool Finished => ClockTicks >= (Fight.EndTick - 1e-9);
 
+    /// <summary>
+    ///     The fight is over and the animation tail after the end tick has run out too, so the last hit and fade have
+    ///     been seen. False at the end tick itself; true at once after <see cref="Skip" />.
+    /// </summary>
+    public bool TailFinished => Finished && (animationClock >= (Fight.EndTick + ANIMATION_TAIL_TICKS - 1e-9));
+
     public IReadOnlyList<TamerBattleUnitState> Units => UnitList;
 
     public IReadOnlyList<TamerBattleFloater> Floaters => FloaterList;

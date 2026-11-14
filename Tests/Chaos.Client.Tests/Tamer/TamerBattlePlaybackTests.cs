@@ -1107,4 +1107,46 @@ public sealed class TamerBattlePlaybackTests
         "120 Step 2 0 0 4 1 -1",
         "120 Step 6 0 0 3 1 -1"
     ];
+
+    [Test]
+    public void The_tail_is_not_finished_at_the_end_tick_and_is_after_the_tail()
+    {
+        var playback = new TamerBattlePlayback(Fight(Duo(), [
+            Ev(0, TamerBattleEventType.Spawn, 1, 0, 100, 3, 3, -1, "wolf"),
+            Ev(0, TamerBattleEventType.Spawn, 6, 0, 100, 3, 2, -1, "wolf")
+        ], endTick: 50));
+
+        playback.TailFinished.Should().BeFalse();
+
+        AdvanceTo(playback, 50);
+
+        playback.Finished.Should().BeTrue();
+        playback.TailFinished.Should().BeFalse();
+
+        AdvanceTo(playback, TamerBattlePlayback.ANIMATION_TAIL_TICKS - 1);
+
+        playback.TailFinished.Should().BeFalse();
+
+        AdvanceTo(playback, 1);
+
+        playback.TailFinished.Should().BeTrue();
+    }
+
+    [Test]
+    public void The_tail_is_finished_at_once_after_Skip_and_not_after_Replay()
+    {
+        var playback = new TamerBattlePlayback(Fight(Duo(), [
+            Ev(0, TamerBattleEventType.Spawn, 1, 0, 100, 3, 3, -1, "wolf"),
+            Ev(0, TamerBattleEventType.Spawn, 6, 0, 100, 3, 2, -1, "wolf")
+        ], endTick: 50));
+
+        playback.Skip();
+
+        playback.Finished.Should().BeTrue();
+        playback.TailFinished.Should().BeTrue();
+
+        playback.Replay();
+
+        playback.TailFinished.Should().BeFalse();
+    }
 }
