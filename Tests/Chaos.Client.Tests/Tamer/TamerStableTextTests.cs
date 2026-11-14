@@ -233,6 +233,53 @@ public sealed class TamerStableTextTests
     }
 
     [Test]
+    public void The_species_line_is_the_species_name_and_rarity()
+    {
+        TamerStableText.SpeciesLine("Ember Imp", TamerWireRarity.Rare, TamerStableText.DETAIL_HEADER_TEXT_WIDTH).Should().Be("Ember Imp - Rare");
+        TamerStableText.SpeciesLine("", TamerWireRarity.Rare, TamerStableText.DETAIL_HEADER_TEXT_WIDTH).Should().Be("Rare");
+        TamerStableText.SpeciesLine(null, TamerWireRarity.Rare, TamerStableText.DETAIL_HEADER_TEXT_WIDTH).Should().Be("Rare");
+    }
+
+    [Test]
+    public void The_kind_line_is_element_family_and_role()
+    {
+        TamerStableText.KindLine(TamerWireElement.Fire, "Imp", TamerWireRole.Striker, TamerStableText.DETAIL_HEADER_TEXT_WIDTH)
+                       .Should()
+                       .Be("Fire - Imp - Striker");
+
+        TamerStableText.KindLine(TamerWireElement.Fire, "", TamerWireRole.Striker, TamerStableText.DETAIL_HEADER_TEXT_WIDTH)
+                       .Should()
+                       .Be("Fire - Striker");
+    }
+
+    [Test]
+    public void The_longest_realistic_species_and_kind_lines_fit_the_detail_header_uncut()
+    {
+        var width = TamerStableText.DETAIL_HEADER_TEXT_WIDTH;
+        var speciesLine = TamerStableText.SpeciesLine("Proving Blackcat", TamerWireRarity.Uncommon, width);
+        var kindLine = TamerStableText.KindLine(TamerWireElement.Earth, "Gargoyles1", TamerWireRole.Support, width);
+
+        speciesLine.Should().Be("Proving Blackcat - Uncommon");
+        kindLine.Should().Be("Earth - Gargoyles1 - Support");
+        (speciesLine.Length * 6).Should().BeLessThanOrEqualTo(width);
+        (kindLine.Length * 6).Should().BeLessThanOrEqualTo(width);
+    }
+
+    [Test]
+    public void Species_and_kind_lines_too_long_for_the_label_end_in_dots_inside_it()
+    {
+        var speciesLine = TamerStableText.SpeciesLine(new string('a', 60), TamerWireRarity.Uncommon, 248);
+        var kindLine = TamerStableText.KindLine(TamerWireElement.Earth, new string('b', 60), TamerWireRole.Support, 248);
+
+        speciesLine.Should().EndWith("..");
+        kindLine.Should().EndWith("..");
+        (speciesLine.Length * 6).Should().BeLessThanOrEqualTo(248);
+        (kindLine.Length * 6).Should().BeLessThanOrEqualTo(248);
+        speciesLine.Should().NotContain("\n");
+        kindLine.Should().NotContain("\n");
+    }
+
+    [Test]
     public void Every_string_the_stable_window_draws_is_printable_ascii()
     {
         var texts = new List<string>(TamerDrawableText.Constants(typeof(TamerStableText)))
@@ -246,7 +293,10 @@ public sealed class TamerStableTextTests
             TamerStableText.DetailLevel(20),
             TamerStableText.UnlocksAtLevel(15),
             TamerStableText.FeedPreviewLine(4, 6),
-            TamerStableText.FitLines(new string('a', 400), 120, 2)
+            TamerStableText.FitLines(new string('a', 400), 120, 2),
+            TamerStableText.SpeciesLine("Proving Blackcat", TamerWireRarity.Uncommon, 248),
+            TamerStableText.SpeciesLine(new string('a', 60), TamerWireRarity.Uncommon, 248),
+            TamerStableText.KindLine(TamerWireElement.Earth, "Gargoyles", TamerWireRole.Support, 248)
         };
 
         foreach (var sort in new[] { TamerStableSort.Newest, TamerStableSort.Level, TamerStableSort.Name, (TamerStableSort)99 })

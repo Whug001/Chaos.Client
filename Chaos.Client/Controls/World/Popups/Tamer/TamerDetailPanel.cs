@@ -26,18 +26,29 @@ public sealed class TamerDetailPanel : UIPanel
     private const int BUTTON_TOP = 276;
     private const int BUTTON_WIDTH = 90;
     private const int HEADER_LEFT = 120;
-    private const int HEADER_WIDTH = 250;
-    private const int STATS_TOP = 80;
+    private const int HEADER_WIDTH = TamerStableText.DETAIL_HEADER_TEXT_WIDTH + 2;
+    private const int KIND_TOP = 28;
+    private const int LEVEL_TOP = 42;
+    private const int NAME_TOP = 0;
+    private const int SPECIES_TOP = 14;
+
+    //two wrapped lines plus the label's 1px padding top and bottom, so the second line is not clipped
+    private const int STATS_HEIGHT = (TextRenderer.CHAR_HEIGHT * 2) + 2;
+    private const int STATS_TOP = 82;
     private const int TRAIT_NAME_TOP = 116;
     private const int TRAIT_TEXT_TOP = 132;
-    private const int TRAIT_TEXT_HEIGHT = 48;
+    private const int TRAIT_TEXT_LINES = 4;
+
+    //four wrapped lines plus the label's 1px padding top and bottom; ends at 182, above the first ability row
+    private const int TRAIT_TEXT_HEIGHT = (TextRenderer.CHAR_HEIGHT * TRAIT_TEXT_LINES) + 2;
     private const int XP_BAR_HEIGHT = 10;
-    private const int XP_BAR_TOP = 48;
-    private const int XP_TEXT_TOP = 62;
+    private const int XP_BAR_TOP = 56;
+    private const int XP_TEXT_TOP = 68;
 
     private readonly TamerCreaturePortrait Portrait;
     private readonly UILabel NameLabel;
-    private readonly UILabel MetaLabel;
+    private readonly UILabel SpeciesLabel;
+    private readonly UILabel KindLabel;
     private readonly UILabel LevelLabel;
     private readonly UIProgressBar XpBar;
     private readonly UILabel XpTextLabel;
@@ -58,9 +69,12 @@ public sealed class TamerDetailPanel : UIPanel
         Portrait = new TamerCreaturePortrait(creatures) { X = 0, Y = 0 };
         AddChild(Portrait);
 
-        NameLabel = Label(HEADER_LEFT, 0, HEADER_WIDTH, LegendColors.Gold);
-        MetaLabel = Label(HEADER_LEFT, 16, HEADER_WIDTH, LegendColors.White);
-        LevelLabel = Label(HEADER_LEFT, 32, HEADER_WIDTH, LegendColors.White);
+        //the header sits beside the portrait and ends above its bottom edge: name, species and rarity, element
+        //family and role, level, the experience bar and its numbers, then the two stat lines
+        NameLabel = Label(HEADER_LEFT, NAME_TOP, HEADER_WIDTH, LegendColors.Gold);
+        SpeciesLabel = Label(HEADER_LEFT, SPECIES_TOP, HEADER_WIDTH, LegendColors.White);
+        KindLabel = Label(HEADER_LEFT, KIND_TOP, HEADER_WIDTH, LegendColors.Silver);
+        LevelLabel = Label(HEADER_LEFT, LEVEL_TOP, HEADER_WIDTH, LegendColors.White);
         XpBar = new UIProgressBar
         {
             X = HEADER_LEFT,
@@ -78,14 +92,15 @@ public sealed class TamerDetailPanel : UIPanel
             X = HEADER_LEFT,
             Y = STATS_TOP,
             Width = HEADER_WIDTH,
-            Height = TextRenderer.CHAR_HEIGHT * 2,
+            Height = STATS_HEIGHT,
             ForegroundColor = LegendColors.Silver,
             WordWrap = true,
             ColorCodesEnabled = false,
             IsHitTestVisible = false
         };
         AddChild(NameLabel);
-        AddChild(MetaLabel);
+        AddChild(SpeciesLabel);
+        AddChild(KindLabel);
         AddChild(LevelLabel);
         AddChild(XpBar);
         AddChild(XpTextLabel);
@@ -143,7 +158,8 @@ public sealed class TamerDetailPanel : UIPanel
         if (monster is null)
         {
             NameLabel.Text = string.Empty;
-            MetaLabel.Text = string.Empty;
+            SpeciesLabel.Text = string.Empty;
+            KindLabel.Text = string.Empty;
             LevelLabel.Text = string.Empty;
             XpBar.Percent = 0f;
             XpTextLabel.Text = string.Empty;
@@ -167,13 +183,19 @@ public sealed class TamerDetailPanel : UIPanel
         if (known)
         {
             NameLabel.ForegroundColor = LegendColors.Gold;
-            NameLabel.Text = TamerStableText.FitLines(monster.Name, HEADER_WIDTH - 2, 1);
-            MetaLabel.Text = TamerStableText.FitLines(MetaLine(state, species!), HEADER_WIDTH - 2, 1);
+            NameLabel.Text = TamerStableText.FitLines(monster.Name, TamerStableText.DETAIL_HEADER_TEXT_WIDTH, 1);
+            SpeciesLabel.Text = TamerStableText.SpeciesLine(species!.Name, species.Rarity, TamerStableText.DETAIL_HEADER_TEXT_WIDTH);
+            KindLabel.Text = TamerStableText.KindLine(
+                species.Element,
+                species.Family,
+                species.Role,
+                TamerStableText.DETAIL_HEADER_TEXT_WIDTH);
         } else
         {
             NameLabel.ForegroundColor = LegendColors.Gray;
             NameLabel.Text = TamerStableText.UnknownCreature;
-            MetaLabel.Text = TamerStableText.UnknownCreature;
+            SpeciesLabel.Text = TamerStableText.UnknownCreature;
+            KindLabel.Text = string.Empty;
         }
 
         LevelLabel.Text = TamerStableText.DetailLevel(monster.Level);
@@ -197,7 +219,7 @@ public sealed class TamerDetailPanel : UIPanel
             TraitNameLabel.Visible = true;
             TraitTextLabel.Visible = true;
             TraitNameLabel.Text = TamerStableText.FitLines(trait.Name, WIDTH - 2, 1);
-            TraitTextLabel.Text = TamerStableText.FitLines(trait.Text, WIDTH - 2, TRAIT_TEXT_HEIGHT / TextRenderer.CHAR_HEIGHT);
+            TraitTextLabel.Text = TamerStableText.FitLines(trait.Text, WIDTH - 2, TRAIT_TEXT_LINES);
         }
 
         var rows = state.AbilityRows(monster);
@@ -219,23 +241,6 @@ public sealed class TamerDetailPanel : UIPanel
         RenameButton.Enabled = state.CanRename(monster, out _);
         FeedButton.Enabled = state.CanFeed(monster, out _);
         ReleaseButton.Enabled = state.CanRelease(monster, out _);
-    }
-
-    private static string MetaLine(TamerStableState state, TamerSpeciesView species)
-    {
-        ArgumentNullException.ThrowIfNull(state);
-        ArgumentNullException.ThrowIfNull(species);
-
-        var parts = new[]
-        {
-            species.Name,
-            TamerStableText.RarityName(species.Rarity),
-            TamerStableText.ElementName(species.Element),
-            species.Family,
-            TamerStableText.RoleName(species.Role)
-        };
-
-        return string.Join(" \u00b7 ", parts.Where(part => !string.IsNullOrEmpty(part)));
     }
 
     private CustomButton Button(string caption, int x, int y, ClickedHandler onClick)

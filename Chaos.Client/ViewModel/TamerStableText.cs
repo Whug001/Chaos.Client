@@ -15,6 +15,9 @@ public static class TamerStableText
     public const int MAX_LEVEL = 20;
     public const int MAX_NAME_LENGTH = 12;
 
+    /// <summary>The text width of the detail panel's header labels: 250 wide less the label's 1px padding each side.</summary>
+    public const int DETAIL_HEADER_TEXT_WIDTH = 248;
+
     public const string WindowTitle = "Stable";
     public const string CreaturesTab = "Creatures";
     public const string SquadsTab = "Squads";
@@ -80,6 +83,23 @@ public static class TamerStableText
 
     public static string FeedPreviewLine(int fromLevel, int toLevel)
         => $"Level {fromLevel} -> {toLevel}";
+
+    /// <summary>
+    ///     The detail header's first species line, "Species - Rarity", cut with ".." only when it is wider than
+    ///     <paramref name="maxWidth" /> pixels.
+    /// </summary>
+    public static string SpeciesLine(string? speciesName, TamerWireRarity rarity, int maxWidth)
+        => FitLines(JoinParts(speciesName, RarityName(rarity)), maxWidth, 1);
+
+    /// <summary>
+    ///     The detail header's second species line, "Element - Family - Role", cut with ".." only when it is wider than
+    ///     <paramref name="maxWidth" /> pixels.
+    /// </summary>
+    public static string KindLine(TamerWireElement element, string? family, TamerWireRole role, int maxWidth)
+        => FitLines(JoinParts(ElementName(element), family, RoleName(role)), maxWidth, 1);
+
+    private static string JoinParts(params string?[] parts)
+        => string.Join(" - ", parts.Where(part => !string.IsNullOrWhiteSpace(part)).Select(part => part!.Trim()));
 
     public static string SortName(TamerStableSort sort)
         => sort switch
