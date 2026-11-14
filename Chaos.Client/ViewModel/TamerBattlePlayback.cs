@@ -305,13 +305,8 @@ public sealed class TamerBattlePlayback
 
             var maxHealth = Math.Max(0, monster.MaxHealth);
 
-            //the start's cells are the squad's own 7 by 3 numbering, not board coordinates; they are a
-            //fallback only, taken through the engine's formation mapping (attacker: col, 3 + row;
-            //defender: 6 - col, 2 - row). every board position comes from the Spawn events.
-            var (fallbackColumn, fallbackRow) = monster.Side == TamerBattleSide.Attacker
-                ? ((int)monster.StartColumn, 3 + (int)monster.StartRow)
-                : (6 - (int)monster.StartColumn, 2 - (int)monster.StartRow);
-
+            //the start's cells are engine board cells; they are a fallback only.
+            //every board position comes from the Spawn events.
             var mutable = new MutableUnit
             {
                 Id = monster.UnitId,
@@ -322,8 +317,8 @@ public sealed class TamerBattlePlayback
                 Element = monster.Element,
                 MaxHealth = maxHealth,
                 Range = monster.Range,
-                EngineColumn = Math.Clamp(fallbackColumn, 0, BOARD_WIDTH - 1),
-                EngineRow = Math.Clamp(fallbackRow, 0, BOARD_DEPTH - 1),
+                EngineColumn = Math.Clamp((int)monster.StartColumn, 0, BOARD_WIDTH - 1),
+                EngineRow = Math.Clamp((int)monster.StartRow, 0, BOARD_DEPTH - 1),
                 Health = maxHealth,
                 Shield = 0,
                 Energy = 0,

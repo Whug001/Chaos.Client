@@ -87,9 +87,9 @@ public sealed class TamerBattlePlaybackTests
 
         var fallbackPlayback = new TamerBattlePlayback(fallback);
         Unit(fallbackPlayback, 1).EngineColumn.Should().Be(0);
-        Unit(fallbackPlayback, 1).EngineRow.Should().Be(3);
-        Unit(fallbackPlayback, 6).EngineColumn.Should().Be(6);
-        Unit(fallbackPlayback, 6).EngineRow.Should().Be(2);
+        Unit(fallbackPlayback, 1).EngineRow.Should().Be(0);
+        Unit(fallbackPlayback, 6).EngineColumn.Should().Be(0);
+        Unit(fallbackPlayback, 6).EngineRow.Should().Be(0);
     }
 
     [Test]
