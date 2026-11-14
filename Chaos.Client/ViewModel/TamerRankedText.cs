@@ -22,8 +22,15 @@ public static class TamerRankedText
     public const int RATING_WIDTH = LEFT_WIDTH - POINTS_WIDTH - 4;
     public const int SET_FROM_WIDTH = 96;
     public const int SQUAD_BUTTON_WIDTH = 26;
-    public const int OPPONENTS_WIDTH = 90;
-    public const int ATTACKS_WIDTH = 200;
+    public const int OPPONENTS_WIDTH = 60;
+
+    /// <summary>The daily first win line, between "Opponents" and the attacks left.</summary>
+    public const int DAILY_WIN_WIDTH = 94;
+
+    public const int ATTACKS_WIDTH = 150;
+
+    /// <summary>The window's bottom message line, where the server's refusal shows.</summary>
+    public const int MESSAGE_WIDTH = TamerStableLayout.MESSAGE_WIDTH;
 
     /// <summary>The Refresh and Attack buttons.</summary>
     public const int ACTION_BUTTON_WIDTH = 70;
@@ -65,6 +72,9 @@ public static class TamerRankedText
     public const string Lost = "lost";
     public const string TagRevenge = "revenge";
     public const string TagNoRank = "no rank";
+    public const string TagRevenged = "revenged";
+    public const string DailyWinOpen = "Daily win: open";
+    public const string DailyWinPaid = "Daily win: paid";
     public const string RefreshQuestion = "Refresh the opponents? You can do this once a day.";
 
     //why a button is off; the tab only greys the button, the words are for the state's callers and its tests
@@ -75,6 +85,7 @@ public static class TamerRankedText
     public const string NeedFive = "A defence needs a squad of exactly five.";
     public const string NoEntryChosen = "Choose a fight in the log first.";
     public const string NoRevengeThere = "That fight cannot be revenged.";
+    public const string AlreadyRevenged = "You have already taken that revenge.";
 
     private const int MINUTES_PER_HOUR = 60;
     private const int MINUTES_PER_DAY = 1440;
@@ -125,6 +136,9 @@ public static class TamerRankedText
 
     public static string AttacksLine(int left, int perDay) => $"Attacks left: {left} of {perDay}";
 
+    /// <summary>Whether today's first win reward is still to be had.</summary>
+    public static string DailyWinLine(bool open) => open ? DailyWinOpen : DailyWinPaid;
+
     /// <summary>A Set from squad button's caption for the 0-based squad.</summary>
     public static string SquadButton(byte squad) => $"{squad + 1}";
 
@@ -145,7 +159,8 @@ public static class TamerRankedText
 
     /// <summary>
     ///     One defence log row in fixed columns: age, attacker, "won" or "lost", the viewer's point change, and a tag for
-    ///     a revenge attack or a fight that changed no rank. The font is fixed width, so the columns line up.
+    ///     a revenge attack, a fight that changed no rank, or a revenge the viewer has taken. The font is fixed width,
+    ///     so the columns line up.
     /// </summary>
     public static string LogRow(TamerRankedLogView? entry)
     {
@@ -161,16 +176,24 @@ public static class TamerRankedText
         return row.TrimEnd();
     }
 
-    /// <summary>"revenge", "no rank", both, or nothing.</summary>
+    /// <summary>
+    ///     "revenge" for a revenge attack, "no rank" for a fight that changed none, "revenged" once the viewer has taken
+    ///     their revenge on it; more than one is joined with commas, none is empty.
+    /// </summary>
     public static string LogTag(TamerRankedLogFlags flags)
     {
-        var revenge = flags.HasFlag(TamerRankedLogFlags.Revenge);
-        var noRank = flags.HasFlag(TamerRankedLogFlags.NoRankChange);
+        var tags = new List<string>(3);
 
-        if (revenge && noRank)
-            return $"{TagRevenge}, {TagNoRank}";
+        if (flags.HasFlag(TamerRankedLogFlags.Revenge))
+            tags.Add(TagRevenge);
 
-        return revenge ? TagRevenge : noRank ? TagNoRank : string.Empty;
+        if (flags.HasFlag(TamerRankedLogFlags.NoRankChange))
+            tags.Add(TagNoRank);
+
+        if (flags.HasFlag(TamerRankedLogFlags.RevengeUsed))
+            tags.Add(TagRevenged);
+
+        return string.Join(", ", tags);
     }
 
     /// <summary>One top 10 row: the place, the name, and the tier and step.</summary>

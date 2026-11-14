@@ -78,7 +78,8 @@ public sealed class TamerRankedLayoutTests
     {
         var controls = TamerRankedLayout.Controls();
 
-        controls.Should().HaveCount(7 + 5 + 1 + 3 + 1 + 10 + 3 + (3 * 8) + 5);
+        controls.Should().HaveCount(7 + 5 + 1 + 3 + 1 + 10 + 4 + (3 * 8) + 5);
+        controls.Should().Contain(TamerRankedLayout.DailyWin);
         ShouldNotOverlap(controls);
     }
 
@@ -148,8 +149,11 @@ public sealed class TamerRankedLayoutTests
         TamerRankedLayout.TopTitle.Y.Should().Be(156);
         TamerRankedLayout.TopRow(0).Y.Should().Be(170);
         TamerRankedLayout.TopRow(9).Bottom.Should().BeLessThanOrEqualTo(310);
-        TamerRankedLayout.Opponents.Should().Be(new TamerBox("Opponents", 196, 5, 90, 12));
-        TamerRankedLayout.Attacks.Should().Be(new TamerBox("Attacks left", 300, 5, 200, 12));
+
+        //the header line was split three ways to make room for the daily win line; the spec had 90 and 300/200
+        TamerRankedLayout.Opponents.Should().Be(new TamerBox("Opponents", 196, 5, 60, 12));
+        TamerRankedLayout.DailyWin.Should().Be(new TamerBox("Daily win", 258, 5, 94, 12));
+        TamerRankedLayout.Attacks.Should().Be(new TamerBox("Attacks left", 356, 5, 150, 12));
         TamerRankedLayout.Refresh.Should().Be(new TamerBox("Refresh button", 510, 0, 70, 22));
         TamerRankedLayout.OfferRow(0).Should().Be(new TamerBox("Offer row 1", 196, 26, 384, 44));
         TamerRankedLayout.OfferPortrait(0).Offset(196, 26).Should().Be(new TamerBox("portrait 1", 282, 28, 40, 40));

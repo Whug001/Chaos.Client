@@ -60,6 +60,11 @@ public static class TamerStableLayout
     public const int COUNT_LEFT = 495;
     public const int COUNT_WIDTH = 105;
 
+    /// <summary>The bottom message line, left of the Close button: the server's last refusal.</summary>
+    public const int MESSAGE_LEFT = LEFT;
+
+    public const int MESSAGE_WIDTH = 460;
+
     /// <summary>The whole window.</summary>
     public static TamerBox Panel => new("Window", 0, 0, PANEL_WIDTH, PANEL_HEIGHT);
 

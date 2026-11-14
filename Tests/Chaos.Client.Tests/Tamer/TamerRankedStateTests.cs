@@ -401,13 +401,38 @@ public sealed class TamerRankedStateTests
     }
 
     [Test]
+    public void Flag_64_is_read_from_the_log_entry()
+    {
+        var state = Applied(Ranked(log: [Entry(1, flags: (TamerRankedLogFlags)(1 | 8 | 64)), Entry(2, flags: CanRevengeFlags)]));
+
+        state.SelectedRevengeUsed.Should().BeTrue();
+        state.CanRevenge(Stable(), out var reason).Should().BeFalse();
+        reason.Should().Be(TamerRankedText.AlreadyRevenged);
+        state.CanWatch.Should().BeTrue();
+
+        state.Select(Id(2));
+        state.SelectedRevengeUsed.Should().BeFalse();
+        state.CanRevenge(Stable(), out _).Should().BeTrue();
+    }
+
+    [Test]
+    public void A_used_revenge_is_off_even_if_the_available_flag_is_still_set()
+    {
+        var state = Applied(Ranked(log: [Entry(1, flags: CanRevengeFlags | TamerRankedLogFlags.RevengeUsed)]));
+
+        state.CanRevenge(Stable(), out var reason).Should().BeFalse();
+        reason.Should().Be(TamerRankedText.AlreadyRevenged);
+    }
+
+    [Test]
     public void Unknown_flag_bits_change_nothing()
     {
-        var state = Applied(Ranked(log: [Entry(1, flags: (TamerRankedLogFlags)(64 | 128))]));
+        var state = Applied(Ranked(log: [Entry(1, flags: (TamerRankedLogFlags)128)]));
 
         state.CanWatch.Should().BeFalse();
         state.CanRevenge(Stable(), out _).Should().BeFalse();
         state.SelectedFoughtToday.Should().BeFalse();
+        state.SelectedRevengeUsed.Should().BeFalse();
     }
 
     [Test]

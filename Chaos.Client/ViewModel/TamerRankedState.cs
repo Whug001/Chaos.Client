@@ -76,6 +76,9 @@ public sealed class TamerRankedState
     /// <summary>The viewer and the selected entry's attacker have already fought today (log flag 32).</summary>
     public bool SelectedFoughtToday => SelectedEntry is { } entry && entry.Flags.HasFlag(TamerRankedLogFlags.FoughtToday);
 
+    /// <summary>The viewer has already taken their revenge on the selected entry (log flag 64).</summary>
+    public bool SelectedRevengeUsed => SelectedEntry is { } entry && entry.Flags.HasFlag(TamerRankedLogFlags.RevengeUsed);
+
     /// <summary>One refresh is left today, and there is a defence to be offered opponents for.</summary>
     public bool CanRefresh => HasDefence && (RefreshLeft > 0);
 
@@ -191,6 +194,8 @@ public sealed class TamerRankedState
     {
         if (SelectedEntry is not { } entry)
             reason = TamerRankedText.NoEntryChosen;
+        else if (entry.Flags.HasFlag(TamerRankedLogFlags.RevengeUsed))
+            reason = TamerRankedText.AlreadyRevenged;
         else if (!entry.Flags.HasFlag(TamerRankedLogFlags.RevengeAvailable))
             reason = TamerRankedText.NoRevengeThere;
         else if (!HasActiveSquad(stable))

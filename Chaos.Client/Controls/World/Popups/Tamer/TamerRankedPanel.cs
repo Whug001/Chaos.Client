@@ -33,6 +33,7 @@ public sealed class TamerRankedPanel : UIPanel
     private readonly CustomButton[] SquadButtons = new CustomButton[TamerRankedLayout.SQUAD_BUTTON_COUNT];
     private readonly UILabel[] TopLabels = new UILabel[TamerRankedLayout.TOP_ROW_COUNT];
     private readonly UILabel AttacksLabel;
+    private readonly UILabel DailyWinLabel;
     private readonly CustomButton RefreshButton;
     private readonly TamerRankedOfferRow[] OfferRows = new TamerRankedOfferRow[TamerRankedLayout.OFFER_COUNT];
     private readonly UILabel NoteLabel;
@@ -129,6 +130,7 @@ public sealed class TamerRankedPanel : UIPanel
 
         //the right column
         View(Label(TamerRankedLayout.Opponents, LegendColors.Gold, text: TamerRankedText.Opponents));
+        DailyWinLabel = View(Label(TamerRankedLayout.DailyWin, LegendColors.Gold));
         AttacksLabel = View(Label(TamerRankedLayout.Attacks, LegendColors.Silver, HorizontalAlignment.Right));
 
         var refresh = TamerRankedLayout.Refresh;
@@ -255,6 +257,11 @@ public sealed class TamerRankedPanel : UIPanel
         }
 
         AttacksLabel.Text = TamerRankedText.AttacksLine(ranked.AttacksLeft, ranked.AttacksPerDay);
+
+        //today's first win reward only means something once the player is on the ladder
+        DailyWinLabel.Visible = ranked.HasDefence;
+        DailyWinLabel.Text = TamerRankedText.DailyWinLine(ranked.DailyWinOpen);
+        DailyWinLabel.ForegroundColor = ranked.DailyWinOpen ? LegendColors.Gold : LegendColors.Gray;
         RefreshButton.Enabled = ranked.CanRefresh;
 
         //no defence yet shows the way in and no offers, whatever the server sent

@@ -50,7 +50,9 @@ public static class TamerRankedLayout
     public const int RIGHT_WIDTH = TamerRankedText.RIGHT_WIDTH;
     public const int HEADER_TEXT_TOP = 5;
     public const int OPPONENTS_WIDTH = TamerRankedText.OPPONENTS_WIDTH;
-    public const int ATTACKS_LEFT = 300;
+    public const int DAILY_WIN_LEFT = 258;
+    public const int DAILY_WIN_WIDTH = TamerRankedText.DAILY_WIN_WIDTH;
+    public const int ATTACKS_LEFT = 356;
     public const int ATTACKS_WIDTH = TamerRankedText.ATTACKS_WIDTH;
     public const int ACTION_BUTTON_WIDTH = TamerRankedText.ACTION_BUTTON_WIDTH;
     public const int REFRESH_LEFT = 510;
@@ -113,6 +115,7 @@ public static class TamerRankedLayout
     public static TamerBox SetFrom => new("Set from squad", LEFT_X, SET_FROM_TOP, SET_FROM_WIDTH, TEXT_HEIGHT);
     public static TamerBox TopTitle => new("Top 10", LEFT_X, TOP_TITLE_TOP, LEFT_WIDTH, TEXT_HEIGHT);
     public static TamerBox Opponents => new("Opponents", RIGHT_X, HEADER_TEXT_TOP, OPPONENTS_WIDTH, TEXT_HEIGHT);
+    public static TamerBox DailyWin => new("Daily win", DAILY_WIN_LEFT, HEADER_TEXT_TOP, DAILY_WIN_WIDTH, TEXT_HEIGHT);
     public static TamerBox Attacks => new("Attacks left", ATTACKS_LEFT, HEADER_TEXT_TOP, ATTACKS_WIDTH, TEXT_HEIGHT);
     public static TamerBox Refresh => new("Refresh button", REFRESH_LEFT, REFRESH_TOP, ACTION_BUTTON_WIDTH, BUTTON_HEIGHT);
     public static TamerBox Note => new("No defence / no opponents line", RIGHT_X, NOTE_TOP, RIGHT_WIDTH, TEXT_HEIGHT);
@@ -177,6 +180,7 @@ public static class TamerRankedLayout
             boxes.Add(TopRow(i));
 
         boxes.Add(Opponents);
+        boxes.Add(DailyWin);
         boxes.Add(Attacks);
         boxes.Add(Refresh);
 

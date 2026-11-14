@@ -47,6 +47,7 @@ public sealed class TamerRankedTextTests
         TamerRankedText.Lost.Should().Be("lost");
         TamerRankedText.TagRevenge.Should().Be("revenge");
         TamerRankedText.TagNoRank.Should().Be("no rank");
+        TamerRankedText.TagRevenged.Should().Be("revenged");
         TamerRankedText.RefreshQuestion.Should().Be("Refresh the opponents? You can do this once a day.");
     }
 
@@ -165,20 +166,25 @@ public sealed class TamerRankedTextTests
     public void A_log_row_for_every_flag_mix()
     {
         //replay kept (8), revenge available (4) and fought today (32) drive the buttons and the question, never the row
-        foreach (var raw in Enumerable.Range(0, 64))
+        foreach (var raw in Enumerable.Range(0, 128))
         {
             var flags = (TamerRankedLogFlags)raw;
             var row = TamerRankedText.LogRow(Entry(flags));
 
             var expected = "2h   Aoife        " + (flags.HasFlag(TamerRankedLogFlags.AttackerWon) ? "won  " : "lost ") + "-7";
 
-            var tag = (flags.HasFlag(TamerRankedLogFlags.Revenge), flags.HasFlag(TamerRankedLogFlags.NoRankChange)) switch
-            {
-                (true, true)  => "revenge, no rank",
-                (true, false) => "revenge",
-                (false, true) => "no rank",
-                _             => string.Empty
-            };
+            var tags = new List<string>();
+
+            if ((raw & 2) != 0)
+                tags.Add("revenge");
+
+            if ((raw & 16) != 0)
+                tags.Add("no rank");
+
+            if ((raw & 64) != 0)
+                tags.Add("revenged");
+
+            var tag = string.Join(", ", tags);
 
             if (tag.Length > 0)
                 expected += "   " + tag;
@@ -190,7 +196,79 @@ public sealed class TamerRankedTextTests
     [Test]
     public void Unknown_flag_bits_do_not_change_a_log_row()
     {
-        TamerRankedText.LogRow(Entry((TamerRankedLogFlags)(1 | 64 | 128))).Should().Be(TamerRankedText.LogRow(Entry(TamerRankedLogFlags.AttackerWon)));
+        TamerRankedText.LogRow(Entry((TamerRankedLogFlags)(1 | 128))).Should().Be(TamerRankedText.LogRow(Entry(TamerRankedLogFlags.AttackerWon)));
+    }
+
+    [Test]
+    public void A_revenged_fall_is_tagged_revenged()
+    {
+        TamerRankedText.LogRow(Entry(TamerRankedLogFlags.AttackerWon | TamerRankedLogFlags.RevengeUsed)).Should().Be("2h   Aoife        won  -7   revenged");
+        TamerRankedText.LogTag(TamerRankedLogFlags.RevengeUsed).Should().Be("revenged");
+        TamerRankedText.LogTag(TamerRankedLogFlags.Revenge).Should().Be("revenge");
+        TamerRankedText.LogTag(TamerRankedLogFlags.AttackerWon | TamerRankedLogFlags.RevengeAvailable).Should().BeEmpty();
+    }
+
+    [Test]
+    public void The_daily_win_line_says_open_or_paid()
+    {
+        TamerRankedText.DailyWinLine(true).Should().Be("Daily win: open");
+        TamerRankedText.DailyWinLine(false).Should().Be("Daily win: paid");
+        ShouldFit(TamerRankedText.DailyWinLine(true), TamerRankedText.DAILY_WIN_WIDTH);
+        ShouldFit(TamerRankedText.DailyWinLine(false), TamerRankedText.DAILY_WIN_WIDTH);
+    }
+
+    [Test]
+    public void Every_refusal_the_server_can_send_fits_the_bottom_message_line()
+    {
+        //copied from the server at commit 9b8329707; the tests may not reference its service classes
+        string[] refusals =
+        [
+            //TamerStableHandler: DEAD_TEXT, LEDGER_GONE_TEXT, NO_LEDGER_TEXT, and RefusalText(BadName) for an over-long string
+            "You can't use your stable while dead.",
+            "You need your Stable Ledger for that.",
+            "You need a Stable Ledger to do that.",
+            "A name is 1 to 12 letters, with single spaces.",
+
+            //TamerStable.UNLOADED_TEXT, sent by TamerLadderHandler.Run for a frozen stable
+            "Your stable could not be loaded. Please tell a GM before binding anything.",
+
+            //TamerLadderStore.Explain and its constants
+            "The ladder could not be loaded. Please tell a GM.",
+            "That name cannot be used.",
+            "A ranked defence needs a squad of exactly five.",
+            "You saved a defence a moment ago. Try again shortly.",
+            "Save a squad of five as your defence to enter the ladder.",
+            "You have used today's refresh.",
+            "Nobody by that name is on the ladder.",
+            "Fake opponents are switched off on this server.",
+            "You have no ranked attacks left today.",
+            "That opponent is no longer offered. Look again.",
+            "That opponent cannot be fought right now.",
+            "That defence has changed. Look again.",
+            "You two have already fought today.",
+            "That attack is no longer in your log.",
+            "There is no revenge to take on that attack.",
+            "The ladder changed. Try again.",
+            "This replay is no longer kept.",
+
+            //TamerFightService.Explain: the lines with no player name in them (the named ones only answer Friendly,
+            //which is always an orange bar line and never reaches this label)
+            "I cannot fight today.",
+            "We have fought today. Come back tomorrow.",
+            "Your active squad is empty.",
+            "Catch your breath first.",
+            "You cannot test a squad against your own.",
+            "That squad does not exist.",
+            "This replay is out of date and cannot be shown."
+        ];
+
+        refusals.Should().OnlyContain(text => TamerDrawableText.IsPrintableAscii(text));
+
+        foreach (var refusal in refusals)
+            ShouldFit(refusal, TamerRankedText.MESSAGE_WIDTH);
+
+        //the longest of them leaves two characters to spare
+        refusals.Max(text => text.Length).Should().Be(74);
     }
 
     [Test]
@@ -265,7 +343,7 @@ public sealed class TamerRankedTextTests
         ShouldFit(TamerRankedText.TopRow(10, new TamerRankedTopView(LongName, 14, 100)), TamerRankedText.LEFT_WIDTH);
 
         ShouldFit(
-            TamerRankedText.LogRow(Entry(TamerRankedLogFlags.Revenge | TamerRankedLogFlags.NoRankChange, sbyte.MinValue, ushort.MaxValue, LongName)),
+            TamerRankedText.LogRow(Entry((TamerRankedLogFlags)255, sbyte.MinValue, ushort.MaxValue, LongName)),
             TamerRankedText.LOG_ROW_WIDTH);
     }
 
@@ -303,6 +381,8 @@ public sealed class TamerRankedTextTests
             TamerRankedText.RatingLine(-12),
             TamerRankedText.BestLine(9),
             TamerRankedText.AttacksLine(3, 5),
+            TamerRankedText.DailyWinLine(true),
+            TamerRankedText.DailyWinLine(false),
             TamerRankedText.SetDefenceQuestion(1),
             TamerRankedText.AttackQuestion("Bot-Dummy", 3),
             TamerRankedText.RevengeQuestion("Cian", false),

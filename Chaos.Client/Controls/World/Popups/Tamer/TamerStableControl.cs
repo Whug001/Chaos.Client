@@ -53,9 +53,9 @@ public sealed class TamerStableControl : FramedDialogPanelBase
     private const int LIST_LEFT = 0;
     private const int LIST_TOP = 0;
     private const int LIST_WIDTH = 200;
-    private const int MESSAGE_LEFT = 20;
+    private const int MESSAGE_LEFT = TamerStableLayout.MESSAGE_LEFT;
     private const int MESSAGE_TOP = FOOTER_TOP + ((CustomButton.HEIGHT - TextRenderer.CHAR_HEIGHT) / 2);
-    private const int MESSAGE_WIDTH = 460;
+    private const int MESSAGE_WIDTH = TamerStableLayout.MESSAGE_WIDTH;
     private const int OK_BOTTOM_MARGIN = 3;
     private const int OK_RIGHT_MARGIN = 20;
     private const int OPENING_TOP = 214;
