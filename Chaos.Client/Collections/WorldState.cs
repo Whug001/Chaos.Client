@@ -202,6 +202,9 @@ public static class WorldState
     /// <summary>The stable window's catalog, snapshot and selection. Server-owned: survives map changes, cleared on logout.</summary>
     public static TamerStableState TamerStable { get; } = new();
 
+    /// <summary>The stable window's Ranked tab: the last Ranked display and the log selection. Cleared on logout.</summary>
+    public static TamerRankedState TamerRanked { get; } = new();
+
     /// <summary>The battle window's part assembly. Server-owned: survives map changes, cleared on logout.</summary>
     public static TamerBattleAssembly TamerBattleAssembly { get; } = new();
 
@@ -593,6 +596,7 @@ public static class WorldState
         TcgCollection.Clear();
         TcgRanked.Clear();
         TamerStable.Clear();
+        TamerRanked.Clear();
         TamerBattleAssembly.Clear();
         TamerBattle = null;
         PokerTable.Clear();
