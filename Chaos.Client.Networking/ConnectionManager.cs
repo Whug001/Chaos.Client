@@ -727,6 +727,9 @@ public sealed class ConnectionManager : IDisposable
     /// <summary>Fired when the server sends the stable window a catalog, a snapshot, or close.</summary>
     public event TamerDisplayHandler? OnTamerDisplay;
 
+    /// <summary>Fired when the server sends one battle part: a start, events, or end.</summary>
+    public event TamerBattleDisplayHandler? OnTamerBattleDisplay;
+
     /// <summary>Fired when the server sends one season of the Endless Tower leaderboard.</summary>
     public event TowerLeaderboardHandler? OnTowerLeaderboard;
 
@@ -2108,6 +2111,7 @@ public sealed class ConnectionManager : IDisposable
         PacketHandlers[(byte)ServerOpCode.TcgRankedDisplay] = HandleTcgRankedDisplay;
         PacketHandlers[(byte)ServerOpCode.TcgDisplay] = HandleTcgDisplay;
         PacketHandlers[(byte)ServerOpCode.TamerDisplay] = HandleTamerDisplay;
+        PacketHandlers[(byte)ServerOpCode.TamerBattleDisplay] = HandleTamerBattleDisplay;
         PacketHandlers[(byte)ServerOpCode.TowerLeaderboard] = HandleTowerLeaderboard;
         PacketHandlers[(byte)ServerOpCode.CollegeDisplay] = HandleCollegeDisplay;
         PacketHandlers[(byte)ServerOpCode.TownContestDisplay] = HandleTownContestDisplay;
@@ -2804,6 +2808,12 @@ public sealed class ConnectionManager : IDisposable
     {
         var args = Client.Deserialize<TamerDisplayArgs>(in pkt);
         OnTamerDisplay?.Invoke(args);
+    }
+
+    private void HandleTamerBattleDisplay(ServerPacket pkt)
+    {
+        var args = Client.Deserialize<TamerBattleDisplayArgs>(in pkt);
+        OnTamerBattleDisplay?.Invoke(args);
     }
 
     private void HandleTownContestDisplay(ServerPacket pkt)
