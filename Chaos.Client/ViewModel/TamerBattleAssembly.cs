@@ -41,6 +41,9 @@ public sealed record TamerBattleFight(
 ///     The server sends all parts at once in order over TCP; out-of-order Events parts are buffered by part number
 ///     and duplicated parts are ignored. A Start for a new fight number discards any unfinished fight. An Events part
 ///     or an End with no active Start, or an End with parts missing, is broken: the fight is dropped.
+///     On Ready the parts are released and the completed fight number is remembered; late or duplicate parts for that
+///     number return Waiting. A broken fight is reported once: its number is remembered and its remaining parts
+///     return Waiting.
 ///     Pure: no textures.
 /// </summary>
 public sealed class TamerBattleAssembly
@@ -55,6 +58,7 @@ public sealed class TamerBattleAssembly
     private TamerBattleDisplayArgs? Start;
     private readonly Dictionary<byte, List<TamerBattleEventView>> Parts = [];
     private TamerBattleDisplayArgs? End;
+    private readonly HashSet<ushort> IgnoredFights = [];
 
     public bool HasActive => CurrentFight is not null;
 
@@ -83,16 +87,29 @@ public sealed class TamerBattleAssembly
         Start = null;
         Parts.Clear();
         End = null;
+        IgnoredFights.Clear();
+    }
+
+    private void ClearActive()
+    {
+        CurrentFight = null;
+        Start = null;
+        Parts.Clear();
+        End = null;
     }
 
     private TamerBattleAcceptResult AcceptStart(TamerBattleDisplayArgs args)
     {
+        if (IgnoredFights.Contains(args.FightNumber))
+            return Waiting();
+
         var monsters = args.Monsters ?? [];
         var names = args.Names ?? [];
 
         if ((monsters.Count > MAX_MONSTERS) || (names.Count > MAX_NAMES))
         {
-            Clear();
+            ClearActive();
+            IgnoredFights.Add(args.FightNumber);
             return Broken();
         }
 
@@ -115,14 +132,24 @@ public sealed class TamerBattleAssembly
 
     private TamerBattleAcceptResult AcceptEvents(TamerBattleDisplayArgs args)
     {
+        if (IgnoredFights.Contains(args.FightNumber))
+            return Waiting();
+
         if (CurrentFight is null || args.FightNumber != CurrentFight)
+        {
+            if (CurrentFight is null)
+                IgnoredFights.Add(args.FightNumber);
+
             return Broken();
+        }
 
         var events = args.Events ?? [];
 
         if ((args.PartNumber >= MAX_PARTS) || (events.Count > MAX_EVENTS))
         {
-            Clear();
+            var dropped = CurrentFight.Value;
+            ClearActive();
+            IgnoredFights.Add(dropped);
             return Broken();
         }
 
@@ -134,14 +161,24 @@ public sealed class TamerBattleAssembly
 
     private TamerBattleAcceptResult AcceptEnd(TamerBattleDisplayArgs args)
     {
+        if (IgnoredFights.Contains(args.FightNumber))
+            return Waiting();
+
         if (CurrentFight is null || args.FightNumber != CurrentFight)
+        {
+            if (CurrentFight is null)
+                IgnoredFights.Add(args.FightNumber);
+
             return Broken();
+        }
 
         var lines = args.ResultLines ?? [];
 
         if ((args.EventParts > MAX_PARTS) || (lines.Count > MAX_RESULT_LINES))
         {
-            Clear();
+            var dropped = CurrentFight.Value;
+            ClearActive();
+            IgnoredFights.Add(dropped);
             return Broken();
         }
 
@@ -149,7 +186,9 @@ public sealed class TamerBattleAssembly
 
         if (!IsComplete())
         {
-            Clear();
+            var dropped = CurrentFight.Value;
+            ClearActive();
+            IgnoredFights.Add(dropped);
             return Broken();
         }
 
@@ -208,6 +247,9 @@ public sealed class TamerBattleAssembly
             end.Reason,
             end.EndTick,
             (end.ResultLines ?? []).ToList());
+
+        IgnoredFights.Add(fight.FightNumber);
+        ClearActive();
 
         return new TamerBattleAcceptResult(TamerBattleAcceptance.Ready, fight);
     }

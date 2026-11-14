@@ -267,4 +267,50 @@ public sealed class TamerBattleAssemblyTests
         assembly.HasActive.Should().BeFalse();
         assembly.Accept(End(7, 1)).Status.Should().Be(TamerBattleAcceptance.Broken);
     }
+
+    [Test]
+    public void Late_parts_for_a_completed_fight_are_ignored()
+    {
+        var assembly = new TamerBattleAssembly();
+        assembly.Accept(Start(7));
+        assembly.Accept(Events(7, 0, [Ev(10, 1, 6)]));
+        var ready = assembly.Accept(End(7, 1));
+
+        ready.Status.Should().Be(TamerBattleAcceptance.Ready);
+        assembly.HasActive.Should().BeFalse();
+
+        assembly.Accept(Events(7, 0, [Ev(10, 1, 6)])).Status.Should().Be(TamerBattleAcceptance.Waiting);
+        assembly.Accept(End(7, 1)).Status.Should().Be(TamerBattleAcceptance.Waiting);
+        assembly.Accept(Start(7)).Status.Should().Be(TamerBattleAcceptance.Waiting);
+        assembly.HasActive.Should().BeFalse();
+
+        assembly.Accept(Start(8));
+        assembly.Accept(Events(8, 0, [Ev(10, 1, 6)]));
+        var next = assembly.Accept(End(8, 1));
+        next.Status.Should().Be(TamerBattleAcceptance.Ready);
+        next.Fight!.FightNumber.Should().Be(8);
+    }
+
+    [Test]
+    public void A_broken_fight_is_reported_once_and_its_remaining_parts_are_ignored()
+    {
+        var assembly = new TamerBattleAssembly();
+        assembly.Accept(Start(7));
+        assembly.Accept(Events(7, 0, [Ev(10, 1, 6)]));
+
+        var broken = assembly.Accept(End(7, 2));
+
+        broken.Status.Should().Be(TamerBattleAcceptance.Broken);
+        assembly.HasActive.Should().BeFalse();
+
+        assembly.Accept(Events(7, 1, [Ev(20, 1, 6)])).Status.Should().Be(TamerBattleAcceptance.Waiting);
+        assembly.Accept(End(7, 1)).Status.Should().Be(TamerBattleAcceptance.Waiting);
+        assembly.HasActive.Should().BeFalse();
+
+        assembly.Accept(Start(8));
+        assembly.Accept(Events(8, 0, [Ev(10, 1, 6)]));
+        var next = assembly.Accept(End(8, 1));
+        next.Status.Should().Be(TamerBattleAcceptance.Ready);
+        next.Fight!.FightNumber.Should().Be(8);
+    }
 }
