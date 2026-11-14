@@ -9,10 +9,11 @@ namespace Chaos.Client.Controls.World.Popups.Tamer;
 
 /// <summary>
 ///     The battle board: a 7 by 6 flat board, halves tinted differently with a line between rows 2 and 3. Draws only
-///     what <see cref="TamerBattlePlayback" /> answers: each unit's sprite scaled to fit its cell and facing its
-///     target, a health bar with a white shield edge over each, ranged dots, ability names, floating numbers, gold
-///     flashes and leaps along an arc. A missing sprite draws a plain element-coloured marker with the unit's
-///     initial; the frame is fetched from <see cref="CreatureRenderer" /> every draw and never kept or disposed.
+///     what <see cref="TamerBattlePlayback" /> answers: each unit's sprite at one size for its cell, standing on the
+///     cell's bottom-centre and facing its target, a health bar with a white shield edge over each, ranged dots,
+///     ability names, floating numbers, gold flashes and leaps along an arc. A missing sprite draws a plain
+///     element-coloured marker with the unit's initial; the frame is fetched from <see cref="CreatureRenderer" />
+///     every draw and never kept or disposed.
 /// </summary>
 public sealed class TamerBoardView : UIElement
 {
@@ -122,20 +123,21 @@ public sealed class TamerBoardView : UIElement
                 new Rectangle(cellX, cellY, CELL, CELL),
                 Fade(LegendColors.Gold, opacity));
 
-        var (texture, flip) = TamerCreaturePortrait.GetBattleFrame(
+        var (frame, flip) = TamerCreaturePortrait.GetBattleFrame(
             Creatures,
             unit.Sprite,
             unit.Facing,
             unit.Action,
             unit.ActionProgress);
 
-        if ((texture is not null) && (texture.Width > 0) && (texture.Height > 0))
+        //one scale per sprite for the cell, from the bounds over its idle, walk and attack frames, and every frame
+        //drawn by its anchor with the feet on the cell's bottom-centre: the unit keeps its size and does not shift
+        var layout = frame is null ? default : TamerCreaturePortrait.GetBattleLayout(Creatures, unit.Sprite, CELL, CELL);
+
+        if (frame is { } spriteFrame && spriteFrame.Texture is { Width: > 0, Height: > 0 } texture && !layout.IsEmpty)
         {
-            var fit = Math.Min(CELL / (float)texture.Width, CELL / (float)texture.Height);
-            var scale = fit >= 1f ? Math.Max(1f, Math.Floor(fit)) : fit;
-            var width = Math.Max(1, (int)(texture.Width * scale));
-            var height = Math.Max(1, (int)(texture.Height * scale));
-            var dest = new Rectangle(centreX - (width / 2), centreY - (height / 2), width, height);
+            var placed = layout.Place(TamerCreaturePortrait.BoxOf(in spriteFrame, flip));
+            var dest = new Rectangle(cellX + placed.X, cellY + placed.Y, placed.Width, placed.Height);
 
             DrawTextureFitted(
                 spriteBatch,
