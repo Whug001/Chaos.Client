@@ -202,6 +202,15 @@ public static class WorldState
     /// <summary>The stable window's catalog, snapshot and selection. Server-owned: survives map changes, cleared on logout.</summary>
     public static TamerStableState TamerStable { get; } = new();
 
+    /// <summary>The battle window's part assembly. Server-owned: survives map changes, cleared on logout.</summary>
+    public static TamerBattleAssembly TamerBattleAssembly { get; } = new();
+
+    /// <summary>
+    ///     The battle window's current playback, or null when no fight has been shown. Server-owned: a new fight
+    ///     replaces it, it survives map changes, and it is cleared on logout.
+    /// </summary>
+    public static TamerBattlePlayback? TamerBattle { get; set; }
+
     /// <summary>
     ///     Authoritative poker table state (table properties, seat roster, board, pot, whose turn it is, legal
     ///     actions).
@@ -584,6 +593,8 @@ public static class WorldState
         TcgCollection.Clear();
         TcgRanked.Clear();
         TamerStable.Clear();
+        TamerBattleAssembly.Clear();
+        TamerBattle = null;
         PokerTable.Clear();
         BeautyShop.Clear();
         DyeShop.Clear();
