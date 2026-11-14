@@ -691,6 +691,80 @@ public sealed class TamerBattlePlaybackTests
         Check(playback, 10, 0, 2, 2, 30, false, 0);
     }
 
+    [Test]
+    public void Down_on_the_end_tick_fades_fully_over_the_animation_tail()
+    {
+        var playback = new TamerBattlePlayback(Fight(Duo(), [
+            Ev(0, TamerBattleEventType.Spawn, 1, 0, 100, 3, 3, -1, "wolf"),
+            Ev(100, TamerBattleEventType.Down, 1, 0)
+        ], endTick: 100));
+
+        AdvanceTo(playback, 100);
+        var atEnd = Unit(playback, 1);
+        atEnd.Alive.Should().BeFalse();
+        atEnd.Action.Should().Be(TamerBattleAction.Fading);
+        atEnd.ActionProgress.Should().Be(0);
+
+        AdvanceTo(playback, 2);
+        Unit(playback, 1).ActionProgress.Should().BeApproximately(0.4, 0.001);
+
+        AdvanceTo(playback, 8);
+        var settled = Unit(playback, 1);
+        settled.Alive.Should().BeFalse();
+        settled.Action.Should().Be(TamerBattleAction.Idle);
+        settled.ActionProgress.Should().Be(1);
+        playback.ClockTicks.Should().BeApproximately(100, 0.001);
+    }
+
+    [Test]
+    public void After_Skip_there_are_no_floaters_projectiles_or_animations()
+    {
+        var ranged = new List<TamerBattleMonsterView> { Monster(1, range: 2), Monster(6, TamerBattleSide.Defender, range: 1) };
+        var playback = new TamerBattlePlayback(Fight(ranged, [
+            Ev(0, TamerBattleEventType.Spawn, 1, 0, 100, 3, 3, -1, "wolf"),
+            Ev(0, TamerBattleEventType.Spawn, 6, 0, 100, 3, 0, -1, "wolf"),
+            Ev(20, TamerBattleEventType.Attack, 1, 6, 0, -1, -1, 10),
+            Ev(20, TamerBattleEventType.Damage, 1, 6, 30, -1, -1, 5),
+            Ev(100, TamerBattleEventType.Attack, 1, 6, 0, -1, -1, 20),
+            Ev(100, TamerBattleEventType.Damage, 1, 6, 10, -1, -1, 5),
+            Ev(100, TamerBattleEventType.Ability, 1, 6, 0, -1, -1, 0, "rake"),
+            Ev(100, TamerBattleEventType.Down, 6, 0)
+        ], endTick: 100));
+
+        AdvanceTo(playback, 30);
+        playback.Skip();
+
+        playback.ClockTicks.Should().BeApproximately(100, 0.001);
+        playback.Floaters.Should().BeEmpty();
+        playback.Projectiles.Should().BeEmpty();
+        playback.Units.Should().OnlyContain(u => u.Action == TamerBattleAction.Idle);
+        playback.Units.Should().OnlyContain(u => u.AbilityName == null);
+    }
+
+    [Test]
+    public void A_timed_fight_with_events_on_the_end_tick_settles()
+    {
+        var ranged = new List<TamerBattleMonsterView> { Monster(1, range: 2), Monster(6, TamerBattleSide.Defender, range: 1) };
+        var playback = new TamerBattlePlayback(Fight(ranged, [
+            Ev(0, TamerBattleEventType.Spawn, 1, 0, 100, 3, 3, -1, "wolf"),
+            Ev(0, TamerBattleEventType.Spawn, 6, 0, 100, 3, 0, -1, "wolf"),
+            Ev(600, TamerBattleEventType.Down, 1, 0),
+            Ev(600, TamerBattleEventType.Damage, 6, 6, 10, -1, -1, 5),
+            Ev(600, TamerBattleEventType.Attack, 6, 1, 0, -1, -1, 10)
+        ], endTick: 600));
+
+        AdvanceTo(playback, 600);
+        playback.ClockTicks.Should().BeApproximately(600, 0.001);
+        Unit(playback, 1).Action.Should().Be(TamerBattleAction.Fading);
+        playback.Floaters.Should().ContainSingle();
+
+        AdvanceTo(playback, 10);
+        playback.ClockTicks.Should().BeApproximately(600, 0.001);
+        playback.Floaters.Should().BeEmpty();
+        playback.Projectiles.Should().BeEmpty();
+        playback.Units.Should().OnlyContain(u => u.Action == TamerBattleAction.Idle);
+    }
+
     private static void Check(TamerBattlePlayback playback, byte id, int health, int column, int row, int energy, bool alive, int shield)
     {
         var unit = Unit(playback, id);

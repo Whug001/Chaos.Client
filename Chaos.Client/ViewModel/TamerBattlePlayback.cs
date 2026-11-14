@@ -93,6 +93,7 @@ public sealed class TamerBattlePlayback
     public const int TICKS_PER_SECOND = 10;
     public const int RISING_START_TICK = 450;
     public const int RISING_PER_SECOND = 10;
+    public const int ANIMATION_TAIL_TICKS = 10;
 
     private const int WALK_MAX_TICKS = 4;
     private const int LEAP_TICKS = 2;
@@ -109,11 +110,13 @@ public sealed class TamerBattlePlayback
     private List<TamerBattleFloater> FloaterList = [];
     private List<TamerBattleProjectile> ProjectileList = [];
     private List<string> LogList = [];
+    private double animationClock;
 
     public TamerBattlePlayback(TamerBattleFight fight)
     {
         Fight = fight ?? throw new ArgumentNullException(nameof(fight));
         ClockTicks = 0;
+        animationClock = 0;
         Speed = 1;
 
         var names = fight.Names ?? [];
@@ -132,6 +135,9 @@ public sealed class TamerBattlePlayback
     public TamerBattleFight Fight { get; }
 
     public double ClockTicks { get; private set; }
+
+    /// <summary>The animation clock: runs for a short tail past <see cref="ClockTicks" /> so animations starting on the end tick can finish. Event application stays clamped to <see cref="ClockTicks" />.</summary>
+    public double AnimationTicks => animationClock;
 
     public bool Paused { get; set; }
 
@@ -155,17 +161,20 @@ public sealed class TamerBattlePlayback
 
     public IReadOnlyList<string> ResultLines => Fight.ResultLines ?? [];
 
-    /// <summary>Advances the clock by real elapsed time multiplied by speed. No-op while paused, finished or zero.</summary>
+    /// <summary>Advances the clock by real elapsed time multiplied by speed. The displayed clock clamps to the end tick, while the animation clock keeps running for a short tail so animations starting on the end tick can finish. No-op while paused or zero.</summary>
     public void Advance(TimeSpan realElapsed)
     {
         if (Paused || (realElapsed <= TimeSpan.Zero))
             return;
 
-        if (Finished)
+        var tailEnd = Fight.EndTick + ANIMATION_TAIL_TICKS;
+
+        if ((ClockTicks >= (Fight.EndTick - 1e-9)) && (animationClock >= (tailEnd - 1e-9)))
             return;
 
         var deltaTicks = (realElapsed.TotalSeconds * TICKS_PER_SECOND * Speed);
         ClockTicks = Math.Min(Fight.EndTick, ClockTicks + deltaTicks);
+        animationClock = Math.Min(tailEnd, animationClock + deltaTicks);
 
         Rebuild();
     }
@@ -177,10 +186,11 @@ public sealed class TamerBattlePlayback
         return Speed;
     }
 
-    /// <summary>Jumps to the final state at once.</summary>
+    /// <summary>Jumps to the final state at once, including the end of the animation tail.</summary>
     public void Skip()
     {
         ClockTicks = Fight.EndTick;
+        animationClock = Fight.EndTick + ANIMATION_TAIL_TICKS;
         Rebuild();
     }
 
@@ -188,6 +198,7 @@ public sealed class TamerBattlePlayback
     public void Replay()
     {
         ClockTicks = 0;
+        animationClock = 0;
         Paused = false;
         Rebuild();
     }
@@ -283,6 +294,7 @@ public sealed class TamerBattlePlayback
     private void Rebuild()
     {
         var clock = ClockTicks;
+        var anim = animationClock;
         var units = new Dictionary<byte, MutableUnit>();
         var orderedIds = new List<byte>();
 
@@ -627,7 +639,7 @@ public sealed class TamerBattlePlayback
             var unit = units[id];
             var (viewColumn, viewRow) = ViewCell(unit.EngineColumn, unit.EngineRow);
 
-            var elapsed = clock - unit.ActionStart;
+            var elapsed = anim - unit.ActionStart;
             var progress = unit.Action switch
             {
                 TamerBattleAction.Idle => 1.0,
@@ -660,7 +672,7 @@ public sealed class TamerBattlePlayback
                 drawY = viewRow;
             }
 
-            var flash = unit.FlashTick is { } flashStart && ((clock - flashStart) >= 0) && ((clock - flashStart) < FLASH_TICKS)
+            var flash = unit.FlashTick is { } flashStart && ((anim - flashStart) >= 0) && ((anim - flashStart) < FLASH_TICKS)
                 ? TamerBattleFlash.Gold
                 : TamerBattleFlash.None;
 
@@ -669,7 +681,7 @@ public sealed class TamerBattlePlayback
 
             if (unit.AbilityTick is { } abilityStart && !string.IsNullOrEmpty(unit.AbilityLabel))
             {
-                var abilityElapsed = clock - abilityStart;
+                var abilityElapsed = anim - abilityStart;
 
                 if ((abilityElapsed >= 0) && (abilityElapsed < ABILITY_TICKS))
                 {
@@ -711,13 +723,13 @@ public sealed class TamerBattlePlayback
         UnitList = unitStates;
 
         FloaterList = floaters
-            .Where(f => ((clock - f.Tick) >= 0) && ((clock - f.Tick) < FLOATER_TICKS))
-            .Select(f => new TamerBattleFloater(f.Amount, f.Kind, f.ViewColumn, f.ViewRow, (clock - f.Tick) / (double)TICKS_PER_SECOND))
+            .Where(f => ((anim - f.Tick) >= 0) && ((anim - f.Tick) < FLOATER_TICKS))
+            .Select(f => new TamerBattleFloater(f.Amount, f.Kind, f.ViewColumn, f.ViewRow, (anim - f.Tick) / (double)TICKS_PER_SECOND))
             .ToList();
 
         ProjectileList = projectiles
-            .Where(p => ((clock - p.Tick) >= 0) && ((clock - p.Tick) < PROJECTILE_TICKS))
-            .Select(p => new TamerBattleProjectile(p.FromX, p.FromY, p.ToX, p.ToY, (clock - p.Tick) / (double)PROJECTILE_TICKS))
+            .Where(p => ((anim - p.Tick) >= 0) && ((anim - p.Tick) < PROJECTILE_TICKS))
+            .Select(p => new TamerBattleProjectile(p.FromX, p.FromY, p.ToX, p.ToY, (anim - p.Tick) / (double)PROJECTILE_TICKS))
             .ToList();
 
         LogList = logs.Count <= 4 ? new List<string>(logs) : logs.GetRange(logs.Count - 4, 4);
