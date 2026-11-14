@@ -122,7 +122,7 @@ public static class TamerBattleText
 
     public static string TraitLine(string unitName, string traitName) => $"{unitName}: {traitName}";
 
-    public static string SetBonusLine(string unitName, string bonusName) => $"{unitName} gains {bonusName}";
+    public static string SetBonusLine(string squadName, string bonusName) => $"{squadName}: {bonusName}";
 
     public static string DownLine(string unitName) => $"{unitName} falls";
 

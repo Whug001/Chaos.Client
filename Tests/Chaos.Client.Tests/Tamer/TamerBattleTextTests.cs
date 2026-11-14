@@ -64,7 +64,7 @@ public sealed class TamerBattleTextTests
     }
 
     [Test]
-    public void Status_tags_are_short_and_stats_carry_an_arrow()
+    public void Status_tags_are_short_and_stats_carry_a_sign()
     {
         TamerBattleText.StatusTag("Stun").Should().Be("Stun");
         TamerBattleText.StatusTag("Burn").Should().Be("Burn");
@@ -97,7 +97,7 @@ public sealed class TamerBattleTextTests
     {
         TamerBattleText.AbilityLine("Alpha", "Rake").Should().Be("Alpha uses Rake");
         TamerBattleText.TraitLine("Alpha", "Thorns").Should().Be("Alpha: Thorns");
-        TamerBattleText.SetBonusLine("Alpha", "Fire bond").Should().Be("Alpha gains Fire bond");
+        TamerBattleText.SetBonusLine("Alpha", "Fire bond").Should().Be("Alpha: Fire bond");
         TamerBattleText.DownLine("Alpha").Should().Be("Alpha falls");
     }
 

@@ -298,7 +298,7 @@ public sealed class TamerBattlePlaybackTests
         AdvanceTo(playback, 5);
         Unit(playback, 1).Flash.Should().Be(TamerBattleFlash.Gold);
         playback.LogLines.Should().Contain("Alpha: Thorns");
-        playback.LogLines.Should().Contain("Alpha gains Fire bond");
+        playback.LogLines.Should().Contain("Attacker: Fire bond");
     }
 
     [Test]
@@ -478,46 +478,120 @@ public sealed class TamerBattlePlaybackTests
     }
 
     [Test]
-    public void State_always_equals_a_fresh_playback_at_the_same_clock()
+    [Arguments(11.0)] //mid-walk and mid-attack
+    [Arguments(21.0)] //mid-leap
+    [Arguments(31.5)] //a ranged attack's dot in flight, a number floating
+    [Arguments(45.0)] //settled, with a status on
+    public void State_always_equals_a_fresh_playback_at_the_same_clock(double clock)
     {
+        List<TamerBattleMonsterView> Monsters()
+            => [Monster(1, range: 3), Monster(6, TamerBattleSide.Defender)];
+
         List<TamerBattleEventView> Events()
             => [
                 Ev(0, TamerBattleEventType.Spawn, 1, 0, 100, 3, 3, -1, "wolf"),
                 Ev(0, TamerBattleEventType.Spawn, 6, 0, 100, 3, 0, -1, "wolf"),
-                Ev(10, TamerBattleEventType.Step, 1, 0, 0, 3, 2, -1),
+                Ev(10, TamerBattleEventType.Step, 6, 0, 0, 3, 1, -1),
                 Ev(10, TamerBattleEventType.Attack, 1, 6, 0, -1, -1, 20),
                 Ev(10, TamerBattleEventType.Damage, 1, 6, 25, -1, -1, 10),
-                Ev(30, TamerBattleEventType.StatusOn, 0, 1, 10, -1, -1, -1, "Stun")
+                Ev(20, TamerBattleEventType.Leap, 6, 0, 0, 2, 2, -1),
+                Ev(30, TamerBattleEventType.Attack, 1, 6, 0, -1, -1, 40),
+                Ev(30, TamerBattleEventType.Damage, 1, 6, 25, -1, -1, 20),
+                Ev(30, TamerBattleEventType.Trait, 6, 1, 0, -1, -1, -1, "thorns"),
+                Ev(40, TamerBattleEventType.StatusOn, 0, 1, 10, -1, -1, -1, "Stun")
             ];
 
-        var busy = new TamerBattlePlayback(Fight(Duo(), Events(), endTick: 600));
-        AdvanceTo(busy, 12);
+        //The busy playback reaches the clock by a crooked path: a speed change mid-animation, a skip, a replay.
+        //Speed cycles 1x, 2x, 4x, 1x, so three cycles leave it at 1x again.
+        var busy = new TamerBattlePlayback(Fight(Monsters(), Events(), endTick: 600));
+        AdvanceTo(busy, 10.5);
         busy.CycleSpeed();
-        AdvanceTo(busy, 20);
+        AdvanceTo(busy, 5.25);
+        busy.Paused = true;
+        AdvanceTo(busy, 50);
+        busy.Paused = false;
         busy.Skip();
         busy.Replay();
         busy.CycleSpeed();
         busy.CycleSpeed();
-        AdvanceTo(busy, 35);
+        busy.Speed.Should().Be(1);
+        AdvanceTo(busy, clock / 2);
+        AdvanceTo(busy, clock / 2);
 
-        var fresh = new TamerBattlePlayback(Fight(Duo(), Events(), endTick: 600));
-        AdvanceTo(fresh, 35);
+        var fresh = new TamerBattlePlayback(Fight(Monsters(), Events(), endTick: 600));
+        AdvanceTo(fresh, clock);
 
-        busy.ClockTicks.Should().BeApproximately(fresh.ClockTicks, 0.001);
+        busy.ClockTicks.Should().BeApproximately(fresh.ClockTicks, 0.0001);
 
-        foreach (var id in new byte[] { 1, 6 })
-        {
-            var a = Unit(busy, id);
-            var b = Unit(fresh, id);
-            a.Health.Should().Be(b.Health);
-            a.EngineColumn.Should().Be(b.EngineColumn);
-            a.EngineRow.Should().Be(b.EngineRow);
-            a.Energy.Should().Be(b.Energy);
-            a.StatusKeys.Should().Equal(b.StatusKeys);
-        }
-
+        busy.Units.Should().BeEquivalentTo(fresh.Units, o => o
+            .Using<double>(c => c.Subject.Should().BeApproximately(c.Expectation, 0.0001)).WhenTypeIs<double>()
+            .WithStrictOrdering());
+        busy.Floaters.Should().BeEquivalentTo(fresh.Floaters, o => o
+            .Using<double>(c => c.Subject.Should().BeApproximately(c.Expectation, 0.0001)).WhenTypeIs<double>()
+            .WithStrictOrdering());
+        busy.Projectiles.Should().BeEquivalentTo(fresh.Projectiles, o => o
+            .Using<double>(c => c.Subject.Should().BeApproximately(c.Expectation, 0.0001)).WhenTypeIs<double>()
+            .WithStrictOrdering());
         busy.LogLines.Should().Equal(fresh.LogLines);
         busy.RisingPercent.Should().Be(fresh.RisingPercent);
+    }
+
+    [Test]
+    public void The_crooked_path_test_really_catches_things_in_motion()
+    {
+        //Guards the test above: at its chosen clocks something is walking, leaping, flying and floating.
+        TamerBattlePlayback At(double clock)
+        {
+            var playback = new TamerBattlePlayback(Fight(
+                [Monster(1, range: 3), Monster(6, TamerBattleSide.Defender)],
+                [
+                    Ev(0, TamerBattleEventType.Spawn, 1, 0, 100, 3, 3, -1, "wolf"),
+                    Ev(0, TamerBattleEventType.Spawn, 6, 0, 100, 3, 0, -1, "wolf"),
+                    Ev(10, TamerBattleEventType.Step, 6, 0, 0, 3, 1, -1),
+                    Ev(10, TamerBattleEventType.Attack, 1, 6, 0, -1, -1, 20),
+                    Ev(10, TamerBattleEventType.Damage, 1, 6, 25, -1, -1, 10),
+                    Ev(20, TamerBattleEventType.Leap, 6, 0, 0, 2, 2, -1),
+                    Ev(30, TamerBattleEventType.Attack, 1, 6, 0, -1, -1, 40),
+                    Ev(30, TamerBattleEventType.Damage, 1, 6, 25, -1, -1, 20)
+                ],
+                endTick: 600));
+            AdvanceTo(playback, clock);
+
+            return playback;
+        }
+
+        Unit(At(11), 6).Action.Should().Be(TamerBattleAction.Walk);
+        Unit(At(11), 1).Action.Should().Be(TamerBattleAction.Attack);
+        Unit(At(21), 6).Action.Should().Be(TamerBattleAction.Leap);
+        At(31.5).Projectiles.Should().NotBeEmpty();
+        At(31.5).Floaters.Should().NotBeEmpty();
+    }
+
+    [Test]
+    public void A_set_bonus_on_five_monsters_is_logged_once_for_the_side()
+    {
+        var monsters = new List<TamerBattleMonsterView>();
+        var events = new List<TamerBattleEventView>();
+
+        for (byte id = 1; id <= 5; id++)
+        {
+            monsters.Add(Monster(id, col: (byte)id));
+            events.Add(Ev(0, TamerBattleEventType.Spawn, id, 0, 100, (sbyte)id, 3, -1, "wolf"));
+        }
+
+        monsters.Add(Monster(6, TamerBattleSide.Defender));
+        events.Add(Ev(0, TamerBattleEventType.Spawn, 6, 0, 100, 3, 0, -1, "wolf"));
+
+        for (byte id = 1; id <= 5; id++)
+            events.Add(Ev(0, TamerBattleEventType.SetBonus, id, 0, 0, -1, -1, -1, "fire_2"));
+
+        events.Add(Ev(0, TamerBattleEventType.SetBonus, 6, 0, 0, -1, -1, -1, "fire_2"));
+
+        var playback = new TamerBattlePlayback(Fight(monsters, events));
+        AdvanceTo(playback, 1);
+
+        playback.LogLines.Should().Equal("Attacker: Fire bond", "Defender: Fire bond");
+        playback.Units.Where(u => u.Side == TamerBattleSide.Attacker).Should().OnlyContain(u => u.Flash == TamerBattleFlash.Gold);
     }
 
     [Test]
@@ -574,7 +648,7 @@ public sealed class TamerBattlePlaybackTests
 
         playback.LogLines.Should().HaveCount(4);
         playback.LogLines[0].Should().Be("Alpha: Thorns");
-        playback.LogLines[1].Should().Be("Alpha gains Fire bond");
+        playback.LogLines[1].Should().Be("Attacker: Fire bond");
         playback.LogLines[2].Should().Be("Alpha falls");
         playback.LogLines[3].Should().Be("Beta: Thorns");
     }

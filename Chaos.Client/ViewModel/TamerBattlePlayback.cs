@@ -352,6 +352,7 @@ public sealed class TamerBattlePlayback
         var floaters = new List<FloaterCandidate>();
         var projectiles = new List<ProjectileCandidate>();
         var logs = new List<string>();
+        var loggedBonuses = new HashSet<(TamerBattleSide Side, string Key)>();
 
         var events = Fight.Events ?? [];
 
@@ -614,7 +615,14 @@ public sealed class TamerBattlePlayback
                         break;
 
                     unit.FlashTick = ev.Tick;
-                    logs.Add(TamerBattleText.SetBonusLine(unit.Name, TamerBattleText.DisplayName(ev.Key, NameMap)));
+
+                    //The engine emits one SetBonus per affected unit; the log says it once per side and bonus.
+                    if (loggedBonuses.Add((unit.Side, ev.Key)))
+                    {
+                        var squadName = unit.Side == TamerBattleSide.Attacker ? Fight.AttackerName : Fight.DefenderName;
+                        logs.Add(TamerBattleText.SetBonusLine(squadName, TamerBattleText.DisplayName(ev.Key, NameMap)));
+                    }
+
                     break;
                 }
                 case TamerBattleEventType.Down:
