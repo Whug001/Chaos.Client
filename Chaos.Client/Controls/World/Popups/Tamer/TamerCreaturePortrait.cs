@@ -1,6 +1,7 @@
 #region
 using Chaos.Client.Controls.Components;
 using Chaos.Client.Systems;
+using Chaos.Client.ViewModel;
 using Chaos.Geometry.Abstractions.Definitions;
 using Microsoft.Xna.Framework;
 using Microsoft.Xna.Framework.Graphics;
@@ -12,7 +13,9 @@ namespace Chaos.Client.Controls.World.Popups.Tamer;
 ///     A creature drawn by sprite id in a recessed box, standing and facing down-left with its idle cycle, the way
 ///     <see cref="Tcg.TcgCardFace" /> draws its picture: the pose is resolved once per sprite from
 ///     <see cref="CreatureRenderer" /> and the frame comes from its cache every draw, so nothing is kept across frames
-///     and a sprite the cache has cleared just draws the empty box. Sub-project 4 reuses this in the arena scene.
+///     and a sprite the cache has cleared just draws the empty box.
+///     <see cref="GetBattleFrame" /> is the same per-draw fetch for the battle board: walk and attack cycles and
+///     facing, driven by the playback's action and progress instead of a wall clock.
 /// </summary>
 public sealed class TamerCreaturePortrait : UIElement
 {
@@ -144,5 +147,76 @@ public sealed class TamerCreaturePortrait : UIElement
             AnimCount = walkCount;
             AnimFlip = walkFlip;
         }
+    }
+
+    /// <summary>
+    ///     The battle board's frame for one unit: walk and attack cycles and facing, driven by the playback's
+    ///     action and 0-to-1 progress. Fetched from <see cref="CreatureRenderer" /> on every call; the texture is
+    ///     the renderer's cached one and must never be kept or disposed by the caller. The idle frame is the
+    ///     fallback where a cycle is missing. A missing sprite or frame returns null, and the board draws a
+    ///     coloured marker with the unit's initial instead so the fight stays readable.
+    /// </summary>
+    public static (Texture2D? Texture, bool Flip) GetBattleFrame(
+        CreatureRenderer creatures,
+        ushort spriteId,
+        Direction facing,
+        TamerBattleAction action,
+        double progress)
+    {
+        ArgumentNullException.ThrowIfNull(creatures);
+
+        if (spriteId == 0)
+            return (null, false);
+
+        if (creatures.GetAnimInfo(spriteId) is not { } info)
+            return (null, false);
+
+        var (idleFrame, idleFlip) = AnimationSystem.GetCreatureIdleFrame(in info, facing);
+        var frameIndex = idleFrame;
+        var flip = idleFlip;
+
+        switch (action)
+        {
+            case TamerBattleAction.Walk:
+            case TamerBattleAction.Leap:
+            {
+                var (start, count, walkFlip) = AnimationSystem.GetCreatureWalkCycle(in info, facing);
+
+                if (count > 0)
+                {
+                    frameIndex = start + Math.Clamp((int)(Math.Clamp(progress, 0, 1) * count), 0, count - 1);
+                    flip = walkFlip;
+                }
+
+                break;
+            }
+            case TamerBattleAction.Attack:
+            {
+                var (start, count, attackFlip) = AnimationSystem.GetCreatureAttackCycle(in info, facing);
+
+                if (count > 0)
+                {
+                    frameIndex = start + Math.Clamp((int)(Math.Clamp(progress, 0, 1) * count), 0, count - 1);
+                    flip = attackFlip;
+                }
+
+                break;
+            }
+            default:
+                break;
+        }
+
+        var frame = creatures.GetFrame(spriteId, frameIndex);
+
+        if (frame is null && frameIndex != idleFrame)
+        {
+            frame = creatures.GetFrame(spriteId, idleFrame);
+            flip = idleFlip;
+        }
+
+        if (frame is not { } value)
+            return (null, false);
+
+        return (value.Texture, flip);
     }
 }

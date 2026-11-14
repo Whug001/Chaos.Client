@@ -112,7 +112,7 @@ public sealed partial class WorldScreen
         if (TamerBattleWindow is not null)
             return true;
 
-        var window = new TamerBattleControl { ZIndex = 2 };
+        var window = new TamerBattleControl(Game.CreatureRenderer) { ZIndex = 2 };
 
         window.Closed += OnTamerBattleClosed;
 
