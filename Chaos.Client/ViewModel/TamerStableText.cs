@@ -21,6 +21,7 @@ public static class TamerStableText
     public const string WindowTitle = "Stable";
     public const string CreaturesTab = "Creatures";
     public const string SquadsTab = "Squads";
+    public const string RankedTab = "Ranked";
     public const string Opening = "Opening the ledger...";
     public const string EmptyStable = "No creatures yet. Weaken a wild creature and throw a binding orb.";
     public const string UnknownCreature = "Unknown creature";

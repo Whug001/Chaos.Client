@@ -12,6 +12,7 @@ namespace Chaos.Client.Screens;
 /// <summary>
 ///     The stable window: built on first use, fed by TamerDisplay. A snapshot always follows a catalog on open,
 ///     so the window opens on the first snapshot after a catalog and otherwise only refreshes while visible.
+///     A Ranked display goes to <c>WorldState.TamerRanked</c> and refreshes a visible window; it never opens one.
 ///     The battle window: built on first use, fed by TamerBattleDisplay parts through the assembly; a ready fight
 ///     opens it with a new playback, a broken fight shows the orange bar, and it stays open across map changes
 ///     but closes on logout (ResetAll clears the assembly and playback). It draws above the stable window and is
@@ -102,6 +103,14 @@ public sealed partial class WorldScreen
 
                 if (wasOpen && !string.IsNullOrEmpty(args.CloseReason))
                     WorldState.Chat.AddOrangeBarMessage(args.CloseReason);
+
+                break;
+            case TamerDisplayKind.Ranked:
+                //kept for the Ranked tab whether or not it is showing; a ranked display never opens a closed window
+                WorldState.TamerRanked.Apply(args);
+
+                if (TamerStableWindow?.Visible ?? false)
+                    TamerStableWindow.Refresh();
 
                 break;
         }

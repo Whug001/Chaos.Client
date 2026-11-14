@@ -16,37 +16,39 @@ using Microsoft.Xna.Framework;
 namespace Chaos.Client.Controls.World.Popups.Tamer;
 
 /// <summary>
-///     The stable window: a framed 620 by 440 panel with the Creatures and Squads tabs, the essence, feed and count on
-///     the top line, and the last refusal message over the Close button at the bottom. The Creatures tab holds the
-///     scrolling monster list and the selected monster's detail; the Squads tab holds the squad editor. Opens on the
-///     first snapshot after the catalog, refreshes while visible, and hides without echoing Close on a server close.
+///     The stable window: a framed 620 by 440 panel with the Creatures, Squads and Ranked tabs, the essence, feed and
+///     count on the top line (placed by <see cref="TamerStableLayout" />), and the last refusal message over the Close
+///     button at the bottom. The Creatures tab holds the scrolling monster list and the selected monster's detail; the
+///     Squads tab holds the squad editor; the Ranked tab holds the ladder and asks for it each time it is opened.
+///     Opens on the first snapshot after the catalog, refreshes while visible, and hides without echoing Close on a
+///     server close.
 ///     Borrows the <c>_nsett</c> prefab for its OK button only, as the card binder does.
 /// </summary>
 public sealed class TamerStableControl : FramedDialogPanelBase
 {
-    public const int PANEL_HEIGHT = 440;
-    public const int PANEL_WIDTH = 620;
+    public const int PANEL_HEIGHT = TamerStableLayout.PANEL_HEIGHT;
+    public const int PANEL_WIDTH = TamerStableLayout.PANEL_WIDTH;
     public const int PANEL_X = 10;
     public const int PANEL_Y = 6;
 
-    public const int CONTENT_HEIGHT = 312;
-    public const int CONTENT_TOP = 52;
-    public const int CONTENT_WIDTH = PANEL_WIDTH - (2 * LEFT);
-    private const int COUNT_LEFT = 495;
-    private const int COUNT_WIDTH = 105;
+    public const int CONTENT_HEIGHT = TamerStableLayout.CONTENT_HEIGHT;
+    public const int CONTENT_TOP = TamerStableLayout.CONTENT_TOP;
+    public const int CONTENT_WIDTH = TamerStableLayout.CONTENT_WIDTH;
+    private const int COUNT_LEFT = TamerStableLayout.COUNT_LEFT;
+    private const int COUNT_WIDTH = TamerStableLayout.COUNT_WIDTH;
     private const int DETAIL_LEFT = 210;
     private const int DETAIL_TOP = 0;
 
     //the hint wraps to two lines of 33 characters in the list's 198 pixels; room for a third, plus the label's
     //1px padding top and bottom, so a reworded hint is not cut
     private const int EMPTY_HEIGHT = (TextRenderer.CHAR_HEIGHT * 3) + 2;
-    private const int ESSENCE_LEFT = 230;
-    private const int ESSENCE_WIDTH = 175;
-    private const int FEED_LEFT = 410;
-    private const int FEED_WIDTH = 80;
+    private const int ESSENCE_LEFT = TamerStableLayout.ESSENCE_LEFT;
+    private const int ESSENCE_WIDTH = TamerStableLayout.ESSENCE_WIDTH;
+    private const int FEED_LEFT = TamerStableLayout.FEED_LEFT;
+    private const int FEED_WIDTH = TamerStableLayout.FEED_WIDTH;
     private const int FOOTER_TOP = PANEL_HEIGHT - BORDER_BOTTOM_HEIGHT - CustomButton.HEIGHT - 4;
-    private const int INFO_TOP = TAB_TOP + 5;
-    private const int LEFT = 20;
+    private const int INFO_TOP = TamerStableLayout.INFO_TOP;
+    private const int LEFT = TamerStableLayout.LEFT;
     private const int LIST_HEIGHT = 284;
     private const int LIST_LEFT = 0;
     private const int LIST_TOP = 0;
@@ -60,19 +62,20 @@ public sealed class TamerStableControl : FramedDialogPanelBase
     private const int ROW_HEIGHT = TamerMonsterRow.HEIGHT;
     private const int ROW_WIDTH = LIST_WIDTH - ScrollBarControl.DEFAULT_WIDTH;
     private const int SORT_TOP = 290;
-    private const int TAB_STEP = 96;
-    private const int TAB_TOP = 24;
-    private const int TAB_WIDTH = 90;
+    private const int TAB_TOP = TamerStableLayout.TAB_TOP;
+    private const int TAB_WIDTH = TamerStableLayout.TAB_WIDTH;
     private const int TITLE_TOP = 8;
 
     private readonly CustomButton CreaturesTabButton;
     private readonly CustomButton SquadsTabButton;
+    private readonly CustomButton RankedTabButton;
     private readonly UILabel EssenceLabel;
     private readonly UILabel FeedLabel;
     private readonly UILabel CountLabel;
     private readonly UILabel StatusLabel;
     private readonly UIPanel CreaturesPanel;
     private readonly TamerSquadPanel SquadsPanel;
+    private readonly TamerRankedPanel RankedPanel;
     private readonly VirtualizedRowList<TamerMonsterView> RowList;
     private readonly CustomButton SortButton;
     private readonly UILabel EmptyLabel;
@@ -82,7 +85,7 @@ public sealed class TamerStableControl : FramedDialogPanelBase
     private readonly TamerRenamePrompt RenamePrompt;
     private readonly TamerFeedPrompt FeedPrompt;
     private bool ClosedByServer;
-    private bool ShowingSquads;
+    private TamerStableTab Tab = TamerStableTab.Creatures;
 
     /// <summary>A stable window request (Close from the Close button or Escape, and every prompt send).</summary>
     public event Action<TamerActionArgs>? ActionRequested;
@@ -107,13 +110,17 @@ public sealed class TamerStableControl : FramedDialogPanelBase
 
         AddChild(Label(0, TITLE_TOP, PANEL_WIDTH, TamerStableText.WindowTitle, LegendColors.Gold, HorizontalAlignment.Center));
 
-        CreaturesTabButton = new CustomButton(TamerStableText.CreaturesTab, TAB_WIDTH) { X = LEFT, Y = TAB_TOP };
-        CreaturesTabButton.Clicked += () => SelectTab(false);
+        CreaturesTabButton = new CustomButton(TamerStableText.CreaturesTab, TAB_WIDTH) { X = TamerStableLayout.CREATURES_TAB_LEFT, Y = TAB_TOP };
+        CreaturesTabButton.Clicked += () => SelectTab(TamerStableTab.Creatures);
         AddChild(CreaturesTabButton);
 
-        SquadsTabButton = new CustomButton(TamerStableText.SquadsTab, TAB_WIDTH) { X = LEFT + TAB_STEP, Y = TAB_TOP };
-        SquadsTabButton.Clicked += () => SelectTab(true);
+        SquadsTabButton = new CustomButton(TamerStableText.SquadsTab, TAB_WIDTH) { X = TamerStableLayout.SQUADS_TAB_LEFT, Y = TAB_TOP };
+        SquadsTabButton.Clicked += () => SelectTab(TamerStableTab.Squads);
         AddChild(SquadsTabButton);
+
+        RankedTabButton = new CustomButton(TamerStableText.RankedTab, TAB_WIDTH) { X = TamerStableLayout.RANKED_TAB_LEFT, Y = TAB_TOP };
+        RankedTabButton.Clicked += () => SelectTab(TamerStableTab.Ranked);
+        AddChild(RankedTabButton);
 
         EssenceLabel = Label(ESSENCE_LEFT, INFO_TOP, ESSENCE_WIDTH, string.Empty, LegendColors.Gold, HorizontalAlignment.Right);
         FeedLabel = Label(FEED_LEFT, INFO_TOP, FEED_WIDTH, string.Empty, LegendColors.Gold, HorizontalAlignment.Right);
@@ -182,6 +189,16 @@ public sealed class TamerStableControl : FramedDialogPanelBase
         SquadsPanel.DiscardQuestionRequested += OnSquadDiscardQuestion;
         AddChild(SquadsPanel);
 
+        RankedPanel = new TamerRankedPanel(creatures)
+        {
+            X = LEFT,
+            Y = CONTENT_TOP,
+            Visible = false
+        };
+        RankedPanel.ActionRequested += action => ActionRequested?.Invoke(action);
+        RankedPanel.QuestionRequested += OnRankedQuestion;
+        AddChild(RankedPanel);
+
         MessageLabel = Label(MESSAGE_LEFT, MESSAGE_TOP, MESSAGE_WIDTH, string.Empty, LegendColors.Orange);
         AddChild(MessageLabel);
 
@@ -217,7 +234,7 @@ public sealed class TamerStableControl : FramedDialogPanelBase
 
     public void Open()
     {
-        ShowingSquads = false;
+        Tab = TamerStableTab.Creatures;
         Show();
         Refresh();
 
@@ -228,7 +245,7 @@ public sealed class TamerStableControl : FramedDialogPanelBase
             RowList.ScrollToIndex(index);
     }
 
-    /// <summary>Shows the latest state. Called after every catalog and snapshot while the window is open.</summary>
+    /// <summary>Shows the latest state. Called after every catalog, snapshot and ranked display while the window is open.</summary>
     public void Refresh()
     {
         if (!Visible)
@@ -242,11 +259,13 @@ public sealed class TamerStableControl : FramedDialogPanelBase
             StatusLabel.Text = TamerStableText.Opening;
             CreaturesTabButton.Visible = false;
             SquadsTabButton.Visible = false;
+            RankedTabButton.Visible = false;
             EssenceLabel.Visible = false;
             FeedLabel.Visible = false;
             CountLabel.Visible = false;
             CreaturesPanel.Visible = false;
             SquadsPanel.Visible = false;
+            RankedPanel.Visible = false;
             MessageLabel.Visible = false;
 
             return;
@@ -255,29 +274,39 @@ public sealed class TamerStableControl : FramedDialogPanelBase
         StatusLabel.Visible = false;
         CreaturesTabButton.Visible = true;
         SquadsTabButton.Visible = true;
+        RankedTabButton.Visible = true;
         EssenceLabel.Visible = true;
         FeedLabel.Visible = true;
         CountLabel.Visible = true;
         MessageLabel.Visible = true;
-        MessageLabel.Text = state.LastMessage;
 
-        CreaturesTabButton.Selected = !ShowingSquads;
-        SquadsTabButton.Selected = ShowingSquads;
+        //a ranked refusal travels in the Ranked display, every other one in the snapshot
+        MessageLabel.Text = Tab == TamerStableTab.Ranked ? WorldState.TamerRanked.LastMessage : state.LastMessage;
+
+        CreaturesTabButton.Selected = Tab == TamerStableTab.Creatures;
+        SquadsTabButton.Selected = Tab == TamerStableTab.Squads;
+        RankedTabButton.Selected = Tab == TamerStableTab.Ranked;
         EssenceLabel.Text = TamerStableText.EssenceLine(state.Essence);
         FeedLabel.Text = TamerStableText.FeedLine(state.FeedItemsHeld);
         CountLabel.Text = TamerStableText.CountLine(state.Monsters.Count, state.StableCapacity);
 
-        if (ShowingSquads)
+        CreaturesPanel.Visible = Tab == TamerStableTab.Creatures;
+        SquadsPanel.Visible = Tab == TamerStableTab.Squads;
+        RankedPanel.Visible = Tab == TamerStableTab.Ranked;
+
+        if (Tab == TamerStableTab.Squads)
         {
-            CreaturesPanel.Visible = false;
-            SquadsPanel.Visible = true;
             SquadsPanel.Refresh(state);
 
             return;
         }
 
-        CreaturesPanel.Visible = true;
-        SquadsPanel.Visible = false;
+        if (Tab == TamerStableTab.Ranked)
+        {
+            RankedPanel.Refresh(WorldState.TamerRanked, state);
+
+            return;
+        }
 
         RowList.ReplaceItems(state.Monsters);
         SortButton.Caption = TamerStableText.SortLabel(state.Sort);
@@ -303,7 +332,7 @@ public sealed class TamerStableControl : FramedDialogPanelBase
         if (!Visible)
             return;
 
-        if (ShowingSquads && SquadsPanel.HasUnsavedChanges)
+        if ((Tab == TamerStableTab.Squads) && SquadsPanel.HasUnsavedChanges)
         {
             Choice.Ask(
                 TamerStableText.DiscardQuestion,
@@ -348,7 +377,7 @@ public sealed class TamerStableControl : FramedDialogPanelBase
                 RenamePrompt.Hide();
             else if (FeedPrompt.Visible)
                 FeedPrompt.Hide();
-            else if (ShowingSquads && SquadsPanel.HasPick)
+            else if ((Tab == TamerStableTab.Squads) && SquadsPanel.HasPick)
                 SquadsPanel.CancelPick();
             else
                 Hide();
@@ -380,9 +409,9 @@ public sealed class TamerStableControl : FramedDialogPanelBase
         return -1;
     }
 
-    private void SelectTab(bool squads)
+    private void SelectTab(TamerStableTab tab)
     {
-        if (ShowingSquads && !squads && SquadsPanel.HasUnsavedChanges)
+        if ((Tab == TamerStableTab.Squads) && (tab != TamerStableTab.Squads) && SquadsPanel.HasUnsavedChanges)
         {
             Choice.Ask(
                 TamerStableText.DiscardQuestion,
@@ -393,20 +422,47 @@ public sealed class TamerStableControl : FramedDialogPanelBase
                         return;
 
                     SquadsPanel.DiscardChanges();
-                    ShowingSquads = false;
-                    Refresh();
+                    ShowTab(tab);
                 });
             return;
         }
 
-        ShowingSquads = squads;
+        ShowTab(tab);
+    }
+
+    //opening the Ranked tab asks for the ladder; what is already held is drawn until the answer comes
+    private void ShowTab(TamerStableTab tab)
+    {
+        var opensRanked = (tab == TamerStableTab.Ranked) && (Tab != TamerStableTab.Ranked);
+
+        Tab = tab;
         Refresh();
+
+        if (opensRanked && Visible)
+            ActionRequested?.Invoke(TamerRankedState.InfoAction());
+    }
+
+    //a ranked request that needs a Yes first goes on the window's choice panel, so the tabs and Close are covered
+    private void OnRankedQuestion(string question, Action onYes)
+    {
+        if (!Visible || (Tab != TamerStableTab.Ranked))
+            return;
+
+        Choice.Ask(
+            question,
+            [TamerStableText.Yes, TamerStableText.No],
+            answer =>
+            {
+                //the window may have closed or switched tab while the question was up
+                if ((answer == 0) && Visible && (Tab == TamerStableTab.Ranked))
+                    onYes();
+            });
     }
 
     //the squad tab's own question goes on the window's choice panel, so the tabs and Close are covered while it is up
     private void OnSquadDiscardQuestion(Action discard)
     {
-        if (!Visible || !ShowingSquads)
+        if (!Visible || (Tab != TamerStableTab.Squads))
             return;
 
         Choice.Ask(
