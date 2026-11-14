@@ -12,7 +12,7 @@ public sealed class TamerStableTextTests
         TamerStableText.WindowTitle.Should().Be("Stable");
         TamerStableText.CreaturesTab.Should().Be("Creatures");
         TamerStableText.SquadsTab.Should().Be("Squads");
-        TamerStableText.Opening.Should().Be("Opening the ledger\u2026");
+        TamerStableText.Opening.Should().Be("Opening the ledger...");
         TamerStableText.EmptyStable.Should().Be("No creatures yet. Weaken a wild creature and throw a binding orb.");
         TamerStableText.UnknownCreature.Should().Be("Unknown creature");
         TamerStableText.PeakLevel.Should().Be("Peak level");
@@ -125,8 +125,8 @@ public sealed class TamerStableTextTests
         TamerStableText.DetailLevel(4).Should().Be("Level 4");
         TamerStableText.DetailLevel(20).Should().Be("Level 20");
         TamerStableText.UnlocksAtLevel(5).Should().Be("Unlocks at level 5");
-        TamerStableText.FeedPreviewLine(4, 6).Should().Be("Level 4 \u2192 6");
-        TamerStableText.FeedPreviewLine(4, 4).Should().Be("Level 4 \u2192 4");
+        TamerStableText.FeedPreviewLine(4, 6).Should().Be("Level 4 -> 6");
+        TamerStableText.FeedPreviewLine(4, 4).Should().Be("Level 4 -> 4");
     }
 
     [Test]
@@ -231,4 +231,59 @@ public sealed class TamerStableTextTests
         TamerStableText.FitLines("Text", 0, 4).Should().Be(string.Empty);
         TamerStableText.FitLines("Text", 368, 0).Should().Be(string.Empty);
     }
+
+    [Test]
+    public void Every_string_the_stable_window_draws_is_printable_ascii()
+    {
+        var texts = new List<string>(TamerDrawableText.Constants(typeof(TamerStableText)))
+        {
+            TamerStableText.ReleaseQuestion("Ember Imp", 1234567),
+            TamerStableText.CountLine(12, 30),
+            TamerStableText.EssenceLine(1234567),
+            TamerStableText.FeedLine(42),
+            TamerStableText.SlotsLine(3, 5),
+            TamerStableText.ListLevel(20),
+            TamerStableText.DetailLevel(20),
+            TamerStableText.UnlocksAtLevel(15),
+            TamerStableText.FeedPreviewLine(4, 6),
+            TamerStableText.FitLines(new string('a', 400), 120, 2)
+        };
+
+        foreach (var sort in new[] { TamerStableSort.Newest, TamerStableSort.Level, TamerStableSort.Name, (TamerStableSort)99 })
+        {
+            texts.Add(TamerStableText.SortName(sort));
+            texts.Add(TamerStableText.SortLabel(sort));
+        }
+
+        foreach (var source in new[] { TamerWireFeedSource.Essence, TamerWireFeedSource.Feed, (TamerWireFeedSource)99 })
+            texts.Add(TamerStableText.SourceName(source));
+
+        foreach (var element in new[] { TamerWireElement.Fire, TamerWireElement.Water, TamerWireElement.Wind, TamerWireElement.Earth, (TamerWireElement)99 })
+        {
+            texts.Add(TamerStableText.ElementName(element));
+            texts.Add(TamerStableText.ElementColorName(element));
+        }
+
+        foreach (var rarity in new[] { TamerWireRarity.Common, TamerWireRarity.Uncommon, TamerWireRarity.Rare, TamerWireRarity.Boss, (TamerWireRarity)99 })
+            texts.Add(TamerStableText.RarityName(rarity));
+
+        foreach (var role in new[] { TamerWireRole.Bruiser, TamerWireRole.Striker, TamerWireRole.Support, (TamerWireRole)99 })
+            texts.Add(TamerStableText.RoleName(role));
+
+        texts.Should().NotBeEmpty();
+        texts.Should().OnlyContain(text => TamerDrawableText.IsPrintableAscii(text));
+    }
+}
+
+/// <summary>Shared by the tamer text tests: the bitmap font draws only printable ASCII (and Hangul).</summary>
+internal static class TamerDrawableText
+{
+    /// <summary>Every public string constant of <paramref name="type" />.</summary>
+    public static IEnumerable<string> Constants(Type type)
+        => type.GetFields(System.Reflection.BindingFlags.Public | System.Reflection.BindingFlags.Static)
+               .Where(field => field.IsLiteral && (field.FieldType == typeof(string)))
+               .Select(field => (string)field.GetRawConstantValue()!);
+
+    /// <summary>True when every character is 0x20 to 0x7E, or a line break the fitting helper adds.</summary>
+    public static bool IsPrintableAscii(string text) => text.All(c => c is (>= ' ' and <= '~') or '\n');
 }

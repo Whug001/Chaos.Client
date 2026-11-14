@@ -112,4 +112,48 @@ public sealed class TamerBattleTextTests
         TamerBattleText.ElementName(TamerWireElement.Wind).Should().Be("Wind");
         TamerBattleText.ElementName(TamerWireElement.Earth).Should().Be("Earth");
     }
+
+    [Test]
+    public void Every_string_the_battle_window_draws_is_printable_ascii()
+    {
+        var names = new List<TamerBattleNameEntry>();
+        var map = new Dictionary<string, string>(StringComparer.OrdinalIgnoreCase);
+
+        var texts = new List<string>(TamerDrawableText.Constants(typeof(TamerBattleText)))
+        {
+            TamerBattleText.ClockText(123),
+            TamerBattleText.VersusText("Ember Squad", "Tide Squad"),
+            TamerBattleText.VersusText("", ""),
+            TamerBattleText.RisingText(100),
+            TamerBattleText.RisingText(150),
+            TamerBattleText.SpeedText(2),
+            TamerBattleText.LevelText(20),
+            TamerBattleText.HealthText(120, 340),
+            TamerBattleText.DisplayName("ember_imp", names),
+            TamerBattleText.DisplayName("ember_imp", map),
+            TamerBattleText.AbilityLine("Ember Imp", "Flame Lash"),
+            TamerBattleText.TraitLine("Ember Imp", "Kindled"),
+            TamerBattleText.SetBonusLine("Ember Squad", "Fire Three"),
+            TamerBattleText.DownLine("Ember Imp")
+        };
+
+        foreach (var viewer in new[] { TamerBattleViewerSide.None, TamerBattleViewerSide.Attacker, TamerBattleViewerSide.Defender })
+            foreach (var winner in new[] { TamerBattleSide.Attacker, TamerBattleSide.Defender })
+            {
+                texts.Add(TamerBattleText.ResultTitle(viewer, winner, "Ember Squad", "Tide Squad"));
+                texts.Add(TamerBattleText.ResultTitle(viewer, winner, "", ""));
+            }
+
+        foreach (var reason in Enum.GetValues<TamerBattleEndReason>())
+            texts.Add(TamerBattleText.ResultReason(reason));
+
+        foreach (var key in new[] { "Shield", "Stun", "Burn", "Taunt", "AttackUp", "AttackDown", "ArmorUp", "ArmorDown", "SpeedUp", "SpeedDown", "Other", null })
+            texts.Add(TamerBattleText.StatusTag(key));
+
+        foreach (var element in new[] { TamerWireElement.Fire, TamerWireElement.Water, TamerWireElement.Wind, TamerWireElement.Earth, (TamerWireElement)99 })
+            texts.Add(TamerBattleText.ElementName(element));
+
+        texts.Should().NotBeEmpty();
+        texts.Should().OnlyContain(text => TamerDrawableText.IsPrintableAscii(text));
+    }
 }

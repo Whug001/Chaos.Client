@@ -18,7 +18,7 @@ public static class TamerStableText
     public const string WindowTitle = "Stable";
     public const string CreaturesTab = "Creatures";
     public const string SquadsTab = "Squads";
-    public const string Opening = "Opening the ledger\u2026";
+    public const string Opening = "Opening the ledger...";
     public const string EmptyStable = "No creatures yet. Weaken a wild creature and throw a binding orb.";
     public const string UnknownCreature = "Unknown creature";
     public const string PeakLevel = "Peak level";
@@ -79,7 +79,7 @@ public static class TamerStableText
         => $"Unlocks at level {level}";
 
     public static string FeedPreviewLine(int fromLevel, int toLevel)
-        => $"Level {fromLevel} \u2192 {toLevel}";
+        => $"Level {fromLevel} -> {toLevel}";
 
     public static string SortName(TamerStableSort sort)
         => sort switch

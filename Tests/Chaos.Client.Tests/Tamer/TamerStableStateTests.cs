@@ -440,7 +440,7 @@ public sealed class TamerStableStateTests
         state.FeedPreview(held, TamerWireFeedSource.Essence, 1).Should().Be(4);
         state.FeedPreview(held, TamerWireFeedSource.Essence, 43).Should().Be(6);
         state.FeedPreview(held, TamerWireFeedSource.Feed, 1).Should().Be(4);
-        state.FeedPreviewText(held, TamerWireFeedSource.Essence, 43).Should().Be("Level 4 \u2192 6");
+        state.FeedPreviewText(held, TamerWireFeedSource.Essence, 43).Should().Be("Level 4 -> 6");
     }
 
     [Test]
@@ -845,7 +845,7 @@ public sealed class TamerStableStateTests
         state.FeedLimit(held, TamerWireFeedSource.Feed).Should().Be(180);
         state.FeedPreview(held, TamerWireFeedSource.Essence, 1).Should().Be(5);
         state.FeedPreview(held, TamerWireFeedSource.Essence, 100).Should().Be(8);
-        state.FeedPreviewText(held, TamerWireFeedSource.Essence, 1).Should().Be("Level 4 \u2192 5");
+        state.FeedPreviewText(held, TamerWireFeedSource.Essence, 1).Should().Be("Level 4 -> 5");
     }
 
     [Test]

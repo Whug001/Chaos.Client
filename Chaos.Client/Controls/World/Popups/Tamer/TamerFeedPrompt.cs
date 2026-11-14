@@ -11,7 +11,7 @@ namespace Chaos.Client.Controls.World.Popups.Tamer;
 
 /// <summary>
 ///     The feed prompt: a dimmed sheet with a centred box holding the Essence and Feed source buttons, the amount
-///     spinner (1 to the most that is useful or held) and the "Level A → B" line. Confirm sends when the state allows
+///     spinner (1 to the most that is useful or held) and the "Level A -> B" line. Confirm sends when the state allows
 ///     it. A snapshot while the prompt is open re-clamps the amount and closes the prompt if the monster is gone.
 /// </summary>
 public sealed class TamerFeedPrompt : UIPanel
