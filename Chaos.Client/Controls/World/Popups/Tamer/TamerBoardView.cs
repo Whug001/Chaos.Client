@@ -107,7 +107,7 @@ public sealed class TamerBoardView : UIElement
     private void DrawUnit(SpriteBatch spriteBatch, Rectangle bounds, TamerBattleUnitState unit)
     {
         var fading = (unit.Action == TamerBattleAction.Fading) && !unit.Alive;
-        var alpha = fading ? (byte)Math.Clamp(255 * (1 - unit.ActionProgress), 0, 255) : (byte)255;
+        var opacity = fading ? (float)Math.Clamp(1 - unit.ActionProgress, 0, 1) : 1f;
         var lift = unit.Action == TamerBattleAction.Leap
             ? (int)(MathF.Sin((float)Math.Clamp(unit.ActionProgress, 0, 1) * MathF.PI) * LEAP_LIFT)
             : 0;
@@ -120,7 +120,7 @@ public sealed class TamerBoardView : UIElement
             DrawBorder(
                 spriteBatch,
                 new Rectangle(cellX, cellY, CELL, CELL),
-                Fade(LegendColors.Gold, alpha));
+                Fade(LegendColors.Gold, opacity));
 
         var (texture, flip) = TamerCreaturePortrait.GetBattleFrame(
             Creatures,
@@ -141,14 +141,14 @@ public sealed class TamerBoardView : UIElement
                 spriteBatch,
                 texture,
                 dest,
-                new Color((byte)255, (byte)255, (byte)255, alpha),
+                Color.White * opacity,
                 flip ? SpriteEffects.FlipHorizontally : SpriteEffects.None);
         } else
         {
             var marker = new Rectangle(centreX - (MARKER_SIZE / 2), centreY - (MARKER_SIZE / 2), MARKER_SIZE, MARKER_SIZE);
-            var colour = Fade(TamerMonsterRow.ElementColor(unit.Element), alpha);
+            var colour = Fade(TamerMonsterRow.ElementColor(unit.Element), opacity);
             DrawRectClipped(spriteBatch, marker, colour);
-            DrawBorder(spriteBatch, marker, Fade(LegendColors.White, alpha));
+            DrawBorder(spriteBatch, marker, Fade(LegendColors.White, opacity));
 
             var initial = string.IsNullOrEmpty(unit.Name) ? "?" : unit.Name[0].ToString();
             var textWidth = TextRenderer.MeasureWidth(initial);
@@ -156,21 +156,21 @@ public sealed class TamerBoardView : UIElement
                 spriteBatch,
                 new Vector2(marker.X + ((MARKER_SIZE - textWidth) / 2), marker.Y + ((MARKER_SIZE - TextRenderer.CHAR_HEIGHT) / 2)),
                 initial,
-                Fade(LegendColors.White, alpha),
+                Fade(LegendColors.White, opacity),
                 false);
         }
 
-        DrawBar(spriteBatch, cellX, cellY, unit, alpha);
+        DrawBar(spriteBatch, cellX, cellY, unit, opacity);
     }
 
-    private void DrawBar(SpriteBatch spriteBatch, int cellX, int cellY, TamerBattleUnitState unit, byte alpha)
+    private void DrawBar(SpriteBatch spriteBatch, int cellX, int cellY, TamerBattleUnitState unit, float opacity)
     {
         var barX = cellX + ((CELL - BAR_WIDTH) / 2);
         var barY = cellY + 2;
         var outer = new Rectangle(barX, barY, BAR_WIDTH, BAR_HEIGHT);
-        var border = unit.Shield > 0 ? Fade(LegendColors.White, alpha) : Fade(LegendColors.DimGray, alpha);
+        var border = unit.Shield > 0 ? Fade(LegendColors.White, opacity) : Fade(LegendColors.DimGray, opacity);
 
-        DrawRectClipped(spriteBatch, outer, Fade(new Color(10, 8, 5), alpha));
+        DrawRectClipped(spriteBatch, outer, Fade(new Color(10, 8, 5), opacity));
         DrawBorder(spriteBatch, outer, border);
 
         if ((unit.MaxHealth > 0) && (unit.Health > 0))
@@ -182,7 +182,7 @@ public sealed class TamerBoardView : UIElement
                 DrawRectClipped(
                     spriteBatch,
                     new Rectangle(barX + 1, barY + 1, fillWidth, BAR_HEIGHT - 2),
-                    Fade(HealthColor(fraction), alpha));
+                    Fade(HealthColor(fraction), opacity));
         }
     }
 
@@ -248,9 +248,5 @@ public sealed class TamerBoardView : UIElement
             _ => LegendColors.Red
         };
 
-    private static Color Fade(Color colour, byte alpha) => new(
-        colour.R,
-        colour.G,
-        colour.B,
-        (byte)(colour.A * alpha / 255));
+    private static Color Fade(Color colour, float opacity) => colour * opacity;
 }
