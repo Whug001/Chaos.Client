@@ -197,7 +197,10 @@ public sealed class TamerSquadPanel : UIPanel
             ShownSquad = state.ActiveSquad > 2 ? (byte)0 : state.ActiveSquad;
             Draft = new TamerSquadDraft(SquadOf(state, ShownSquad));
         } else
+        {
             Draft.Reconcile(state);
+            Draft.Rebase(SquadOf(state, ShownSquad));
+        }
 
         Paint(state);
     }

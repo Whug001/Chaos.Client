@@ -164,6 +164,31 @@ public sealed class TamerSquadDraft
         Picked = null;
     }
 
+    /// <summary>
+    ///     Makes the server's squad the baseline. When the draft already equals the server squad or is unchanged
+    ///     from its old baseline, the members become the server squad too; when the player has edits that differ
+    ///     from both, the edits are kept and only the baseline moves. A refused save (server squad unchanged)
+    ///     therefore keeps the edits and stays changed.
+    /// </summary>
+    public void Rebase(IReadOnlyList<TamerDisplaySquadMember> serverSquad)
+    {
+        var server = (serverSquad ?? [])
+            .Where(member => member is not null)
+            .ToList();
+
+        var draftEqualsServer = SameMembers(MemberList, server);
+        var unchanged = SameMembers(MemberList, OriginalList);
+
+        OriginalList.Clear();
+        OriginalList.AddRange(server);
+
+        if (draftEqualsServer || unchanged)
+        {
+            MemberList.Clear();
+            MemberList.AddRange(server);
+        }
+    }
+
     /// <summary>Drops from the draft only monsters that no longer exist in the snapshot.</summary>
     public void Reconcile(TamerStableState state)
     {

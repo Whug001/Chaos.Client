@@ -460,6 +460,98 @@ public sealed class TamerSquadDraftTests
     }
 
     [Test]
+    public void Rebase_after_an_accepted_save_makes_the_draft_unchanged_and_revert_keeps_the_saved_formation()
+    {
+        var draft = new TamerSquadDraft([new(Id(1), 0, 0)]);
+
+        draft.Pick(Id(2));
+        draft.PlaceAt(1, 0);
+        draft.IsChanged.Should().BeTrue();
+
+        var saved = new List<TamerDisplaySquadMember> { new(Id(1), 0, 0), new(Id(2), 1, 0) };
+
+        draft.Rebase(saved);
+
+        draft.IsChanged.Should().BeFalse();
+        draft.Members.Should().BeEquivalentTo(saved);
+
+        draft.Revert();
+
+        draft.Members.Should().BeEquivalentTo(saved);
+        draft.IsChanged.Should().BeFalse();
+    }
+
+    [Test]
+    public void Rebase_keeps_edits_made_after_sending_while_the_baseline_becomes_the_server_squad()
+    {
+        var draft = new TamerSquadDraft([new(Id(1), 0, 0)]);
+
+        draft.Pick(Id(2));
+        draft.PlaceAt(1, 0);
+
+        draft.Pick(Id(3));
+        draft.PlaceAt(2, 0);
+        draft.IsChanged.Should().BeTrue();
+
+        var server = new List<TamerDisplaySquadMember> { new(Id(1), 0, 0), new(Id(2), 1, 0) };
+
+        draft.Rebase(server);
+
+        draft.Members.Should().HaveCount(3);
+        draft.Members.Select(m => m.MonsterId).Should().Contain(Id(1));
+        draft.Members.Select(m => m.MonsterId).Should().Contain(Id(2));
+        draft.Members.Select(m => m.MonsterId).Should().Contain(Id(3));
+        draft.IsChanged.Should().BeTrue();
+
+        draft.Revert();
+
+        draft.Members.Should().BeEquivalentTo(server);
+        draft.IsChanged.Should().BeFalse();
+    }
+
+    [Test]
+    public void Rebase_keeps_edits_after_a_refused_save_and_stays_changed()
+    {
+        var draft = new TamerSquadDraft([new(Id(1), 0, 0)]);
+
+        draft.Pick(Id(2));
+        draft.PlaceAt(1, 0);
+        draft.IsChanged.Should().BeTrue();
+
+        var server = new List<TamerDisplaySquadMember> { new(Id(1), 0, 0) };
+
+        draft.Rebase(server);
+
+        draft.Members.Should().HaveCount(2);
+        draft.Members.Select(m => m.MonsterId).Should().Contain(Id(1));
+        draft.Members.Select(m => m.MonsterId).Should().Contain(Id(2));
+        draft.IsChanged.Should().BeTrue();
+
+        draft.Revert();
+
+        draft.Members.Should().BeEquivalentTo(server);
+    }
+
+    [Test]
+    public void Rebase_makes_an_unchanged_draft_follow_the_server_squad()
+    {
+        var draft = new TamerSquadDraft([new(Id(1), 0, 0)]);
+
+        draft.IsChanged.Should().BeFalse();
+
+        var server = new List<TamerDisplaySquadMember> { new(Id(1), 2, 2), new(Id(2), 1, 0) };
+
+        draft.Rebase(server);
+
+        draft.Members.Should().BeEquivalentTo(server);
+        draft.IsChanged.Should().BeFalse();
+
+        draft.Revert();
+
+        draft.Members.Should().BeEquivalentTo(server);
+    }
+
+    [Test]
     public void Set_bonuses_count_only_unprotected_members()
     {
         var bonuses = new List<TamerBonusView> { ElementBonus("fire2", TamerWireElement.Fire, 2) };
