@@ -110,15 +110,22 @@ public sealed class TamerRenamePrompt : UIPanel
     /// <summary>A valid rename. The prompt has already closed.</summary>
     public event Action<TamerActionArgs>? Confirmed;
 
-    /// <summary>Opens the prompt prefilled with the monster's current name.</summary>
+    /// <summary>
+    ///     Opens the prompt prefilled with the monster's current name, the whole name selected so typing replaces it.
+    /// </summary>
     public void Open(Guid monsterId, string currentName)
     {
         MonsterId = monsterId;
         NameBox.Text = currentName ?? string.Empty;
-        NameBox.CursorPosition = NameBox.Text.Length;
         ErrorLabel.Text = string.Empty;
         Visible = true;
         NameBox.IsFocused = true;
+
+        //every time it opens, whatever cursor and selection the last use left: the cursor at the end with no
+        //selection first (SelectAll does nothing for an empty name), then the anchor at 0 and the cursor at the end
+        NameBox.CursorPosition = NameBox.Text.Length;
+        NameBox.ClearSelection();
+        NameBox.SelectAll();
     }
 
     /// <summary>Closes the prompt, cancelling or after a valid send. Blurs the text box.</summary>

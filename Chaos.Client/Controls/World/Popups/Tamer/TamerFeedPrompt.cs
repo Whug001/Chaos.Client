@@ -138,11 +138,17 @@ public sealed class TamerFeedPrompt : UIPanel
     /// <summary>A feed the state allows. The prompt has already closed.</summary>
     public event Action<TamerActionArgs>? Confirmed;
 
-    /// <summary>Opens the prompt on a monster; the amount limit and preview follow on <see cref="Refresh" />.</summary>
+    /// <summary>
+    ///     Opens the prompt on a monster with an amount of 1; the amount limit and preview follow on <see cref="Refresh" />.
+    /// </summary>
     public void Open(Guid monsterId)
     {
         MonsterId = monsterId;
         Source = TamerWireFeedSource.Essence;
+
+        //back to an amount of 1 every time it opens (SetRange resets the value to its minimum without raising
+        //ValueChanged); Refresh then widens the range to what is useful and held
+        AmountSpinner.SetRange(1, 1);
         Visible = true;
     }
 
