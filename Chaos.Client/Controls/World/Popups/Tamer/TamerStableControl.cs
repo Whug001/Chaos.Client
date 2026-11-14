@@ -36,7 +36,10 @@ public sealed class TamerStableControl : FramedDialogPanelBase
     private const int COUNT_WIDTH = 105;
     private const int DETAIL_LEFT = 210;
     private const int DETAIL_TOP = 0;
-    private const int EMPTY_HEIGHT = TextRenderer.CHAR_HEIGHT * 2;
+
+    //the hint wraps to two lines of 33 characters in the list's 198 pixels; room for a third, plus the label's
+    //1px padding top and bottom, so a reworded hint is not cut
+    private const int EMPTY_HEIGHT = (TextRenderer.CHAR_HEIGHT * 3) + 2;
     private const int ESSENCE_LEFT = 230;
     private const int ESSENCE_WIDTH = 175;
     private const int FEED_LEFT = 410;
@@ -148,12 +151,14 @@ public sealed class TamerStableControl : FramedDialogPanelBase
             Y = ((LIST_HEIGHT - EMPTY_HEIGHT) / 2),
             Width = LIST_WIDTH,
             Height = EMPTY_HEIGHT,
-            Text = TamerStableText.EmptyStable,
             ForegroundColor = LegendColors.Gray,
             HorizontalAlignment = HorizontalAlignment.Center,
-            WordWrap = true,
             ColorCodesEnabled = false,
-            IsHitTestVisible = false
+            IsHitTestVisible = false,
+
+            //before Text: the label wraps when its text is set and afterwards only when its width changes
+            WordWrap = true,
+            Text = TamerStableText.EmptyStable
         };
         CreaturesPanel.AddChild(EmptyLabel);
 
