@@ -322,6 +322,38 @@ public sealed class TamerBattlePlaybackTests
     }
 
     [Test]
+    public void Rising_damage_starts_from_the_RisingDamage_event_tick()
+    {
+        var fight = Fight(Duo(), [
+            Ev(0, TamerBattleEventType.Spawn, 1, 0, 100, 3, 3, -1, "wolf"),
+            Ev(200, TamerBattleEventType.RisingDamage, 0, 0, 100)
+        ], endTick: 600);
+
+        var playback = new TamerBattlePlayback(fight);
+        AdvanceTo(playback, 199);
+        playback.RisingPercent.Should().Be(100);
+        AdvanceTo(playback, 1);
+        playback.RisingPercent.Should().Be(100);
+        AdvanceTo(playback, 10);
+        playback.RisingPercent.Should().Be(110);
+        AdvanceTo(playback, 90);
+        playback.RisingPercent.Should().Be(200);
+    }
+
+    [Test]
+    public void No_RisingDamage_event_means_no_rising()
+    {
+        var fight = Fight(Duo(), [
+            Ev(0, TamerBattleEventType.Spawn, 1, 0, 100, 3, 3, -1, "wolf")
+        ], endTick: 600);
+
+        var playback = new TamerBattlePlayback(fight);
+        AdvanceTo(playback, 600);
+        playback.RisingPercent.Should().Be(100);
+        TamerBattleText.RisingText(playback.RisingPercent).Should().BeEmpty();
+    }
+
+    [Test]
     public void The_board_turns_180_for_a_defender_and_the_facing_turns_with_it()
     {
         var defenderFight = Fight(Duo(), [

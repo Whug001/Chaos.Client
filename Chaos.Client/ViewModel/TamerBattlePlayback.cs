@@ -106,6 +106,8 @@ public sealed class TamerBattlePlayback
 
     private readonly Dictionary<string, string> NameMap = new(StringComparer.OrdinalIgnoreCase);
     private readonly int[] StepDurations;
+    private readonly int? risingStartTick;
+    private readonly int risingPerSecond;
     private List<TamerBattleUnitState> UnitList = [];
     private List<TamerBattleFloater> FloaterList = [];
     private List<TamerBattleProjectile> ProjectileList = [];
@@ -128,6 +130,8 @@ public sealed class TamerBattlePlayback
 
         var events = fight.Events ?? [];
         StepDurations = ComputeStepDurations(events);
+        risingStartTick = FindRisingStart(events);
+        risingPerSecond = RISING_PER_SECOND;
 
         Rebuild();
     }
@@ -211,13 +215,29 @@ public sealed class TamerBattlePlayback
             : (column, row);
     }
 
-    private static int ComputeRising(double clockTicks)
+    private int ComputeRising(double clockTicks)
     {
-        if (clockTicks < RISING_START_TICK)
+        if (risingStartTick is not { } start)
             return 100;
 
-        var steps = (int)Math.Floor((clockTicks - RISING_START_TICK) / 10.0);
-        return 100 + (RISING_PER_SECOND * steps);
+        if (clockTicks < start)
+            return 100;
+
+        var steps = (int)Math.Floor((clockTicks - start) / 10.0);
+        return 100 + (risingPerSecond * steps);
+    }
+
+    private static int? FindRisingStart(IReadOnlyList<TamerBattleEventView> events)
+    {
+        //The engine emits one RisingDamage at the start tick with Amount equal to the percent at that tick
+        //(100), not the per-second rise, so the start comes from Tick and the rate stays the default.
+        foreach (var ev in events)
+        {
+            if ((ev is not null) && (ev.Type == TamerBattleEventType.RisingDamage))
+                return ev.Tick;
+        }
+
+        return null;
     }
 
     private static int[] ComputeStepDurations(IReadOnlyList<TamerBattleEventView> events)
