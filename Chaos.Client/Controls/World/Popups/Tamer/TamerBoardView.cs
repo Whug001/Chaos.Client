@@ -62,7 +62,7 @@ public sealed class TamerBoardView : UIElement
         DrawRectClipped(spriteBatch, new Rectangle(bounds.X, bounds.Y, bounds.Width, 3 * CELL), TopHalf);
         DrawRectClipped(spriteBatch, new Rectangle(bounds.X, bounds.Y + (3 * CELL), bounds.Width, 3 * CELL), BottomHalf);
         DrawGrid(spriteBatch, bounds);
-        DrawBorder(spriteBatch, bounds, LegendColors.DimGray);
+        DrawBorderClipped(spriteBatch, bounds, LegendColors.DimGray);
 
         if (playback is null)
             return;
@@ -117,7 +117,7 @@ public sealed class TamerBoardView : UIElement
         var centreY = cellY + (CELL / 2);
 
         if (unit.Flash == TamerBattleFlash.Gold)
-            DrawBorder(
+            DrawBorderClipped(
                 spriteBatch,
                 new Rectangle(cellX, cellY, CELL, CELL),
                 Fade(LegendColors.Gold, opacity));
@@ -148,7 +148,7 @@ public sealed class TamerBoardView : UIElement
             var marker = new Rectangle(centreX - (MARKER_SIZE / 2), centreY - (MARKER_SIZE / 2), MARKER_SIZE, MARKER_SIZE);
             var colour = Fade(TamerMonsterRow.ElementColor(unit.Element), opacity);
             DrawRectClipped(spriteBatch, marker, colour);
-            DrawBorder(spriteBatch, marker, Fade(LegendColors.White, opacity));
+            DrawBorderClipped(spriteBatch, marker, Fade(LegendColors.White, opacity));
 
             var initial = string.IsNullOrEmpty(unit.Name) ? "?" : unit.Name[0].ToString();
             var textWidth = TextRenderer.MeasureWidth(initial);
@@ -171,7 +171,7 @@ public sealed class TamerBoardView : UIElement
         var border = unit.Shield > 0 ? Fade(LegendColors.White, opacity) : Fade(LegendColors.DimGray, opacity);
 
         DrawRectClipped(spriteBatch, outer, Fade(new Color(10, 8, 5), opacity));
-        DrawBorder(spriteBatch, outer, border);
+        DrawBorderClipped(spriteBatch, outer, border);
 
         if ((unit.MaxHealth > 0) && (unit.Health > 0))
         {
@@ -249,4 +249,12 @@ public sealed class TamerBoardView : UIElement
         };
 
     private static Color Fade(Color colour, float opacity) => colour * opacity;
+
+    private void DrawBorderClipped(SpriteBatch spriteBatch, Rectangle bounds, Color color)
+    {
+        DrawRectClipped(spriteBatch, new Rectangle(bounds.X, bounds.Y, bounds.Width, 1), color);
+        DrawRectClipped(spriteBatch, new Rectangle(bounds.X, bounds.Y + bounds.Height - 1, bounds.Width, 1), color);
+        DrawRectClipped(spriteBatch, new Rectangle(bounds.X, bounds.Y, 1, bounds.Height), color);
+        DrawRectClipped(spriteBatch, new Rectangle(bounds.X + bounds.Width - 1, bounds.Y, 1, bounds.Height), color);
+    }
 }
