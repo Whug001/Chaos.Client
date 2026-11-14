@@ -134,6 +134,7 @@ public sealed class TamerSquadPanel : UIPanel
                 Width = BONUS_LIST_WIDTH,
                 Height = BONUS_ROW_HEIGHT,
                 ForegroundColor = LegendColors.White,
+                WordWrap = true,
                 ColorCodesEnabled = false,
                 IsHitTestVisible = false
             };

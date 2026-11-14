@@ -80,6 +80,7 @@ public sealed class TamerDetailPanel : UIPanel
             Width = HEADER_WIDTH,
             Height = TextRenderer.CHAR_HEIGHT * 2,
             ForegroundColor = LegendColors.Silver,
+            WordWrap = true,
             ColorCodesEnabled = false,
             IsHitTestVisible = false
         };
@@ -98,6 +99,7 @@ public sealed class TamerDetailPanel : UIPanel
             Width = WIDTH,
             Height = TRAIT_TEXT_HEIGHT,
             ForegroundColor = LegendColors.Silver,
+            WordWrap = true,
             ColorCodesEnabled = false,
             IsHitTestVisible = false
         };
