@@ -268,6 +268,7 @@ public sealed class TamerDetailPanel : UIPanel
         private const int NAME_WIDTH = 230;
         private const int STATE_LEFT = 250;
         private const int STATE_WIDTH = 120;
+        private const int TEXT_WIDTH = STATE_LEFT;
 
         private readonly UILabel NameLabel;
         private readonly UILabel TextLabel;
@@ -281,7 +282,7 @@ public sealed class TamerDetailPanel : UIPanel
             Height = ABILITY_ROW_HEIGHT;
 
             NameLabel = Label(0, 0, NAME_WIDTH, LegendColors.Gold);
-            TextLabel = Label(0, ABILITY_TEXT_TOP, TamerDetailPanel.WIDTH, LegendColors.Silver);
+            TextLabel = Label(0, ABILITY_TEXT_TOP, TEXT_WIDTH, LegendColors.Silver);
             StateLabel = new UILabel
             {
                 X = STATE_LEFT,
@@ -316,7 +317,7 @@ public sealed class TamerDetailPanel : UIPanel
 
             AbilityKey = row.Ability.Key;
             NameLabel.Text = TamerStableText.FitLines(row.Ability.Name, NAME_WIDTH - 2, 1);
-            TextLabel.Text = TamerStableText.FitLines(row.Ability.Text, TamerDetailPanel.WIDTH - 2, 1);
+            TextLabel.Text = TamerStableText.FitLines(row.Ability.Text, TEXT_WIDTH - 2, 1);
 
             var choosable = row.State == TamerAbilityRowState.CanChoose;
 
