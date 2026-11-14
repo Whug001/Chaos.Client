@@ -184,11 +184,14 @@ public sealed class TamerFormationGrid : UIPanel
                 return;
 
             DrawRectClipped(spriteBatch, new Rectangle(ScreenX, ScreenY, Width, Height), CellFill);
-            DrawBorder(spriteBatch, new Rectangle(ScreenX, ScreenY, Width, Height), Picked ? LegendColors.Gold : LegendColors.DimGray);
 
             foreach (var child in Children)
                 if (child.Visible)
                     child.Draw(spriteBatch);
+
+            //after the children: the portrait fills the top of the cell with its own box and border, and would paint
+            //over the gold picked-up outline
+            DrawBorder(spriteBatch, new Rectangle(ScreenX, ScreenY, Width, Height), Picked ? LegendColors.Gold : LegendColors.DimGray);
         }
 
         public override void OnClick(ClickEvent e)

@@ -25,8 +25,11 @@ public sealed class TamerBattleRosterRow : UIPanel
     private const int HEALTH_LEFT = 2;
     private const int HEALTH_TOP = 16;
     private const int HEALTH_WIDTH = 136;
+
+    //the shadowed number is 13 tall and the label pads 1px top and bottom: the glyphs stay at 14, over the bar
+    private const int HEALTH_TEXT_HEIGHT = TextRenderer.CHAR_HEIGHT + 2;
     private const int HEALTH_TEXT_LEFT = 2;
-    private const int HEALTH_TEXT_TOP = 14;
+    private const int HEALTH_TEXT_TOP = 13;
     private const int HEALTH_TEXT_WIDTH = 136;
     private const int LEVEL_LEFT = 102;
     private const int LEVEL_TOP = 2;
@@ -102,9 +105,13 @@ public sealed class TamerBattleRosterRow : UIPanel
             X = HEALTH_TEXT_LEFT,
             Y = HEALTH_TEXT_TOP,
             Width = HEALTH_TEXT_WIDTH,
-            Height = TextRenderer.CHAR_HEIGHT,
+            Height = HEALTH_TEXT_HEIGHT,
             HorizontalAlignment = HorizontalAlignment.Center,
             ForegroundColor = LegendColors.White,
+
+            //a black shadow both sides, as the HUD's health and mana numbers have: white on the bright green fill
+            //is unreadable without it
+            ShadowStyle = ShadowStyle.BothSides,
             ColorCodesEnabled = false,
             IsHitTestVisible = false
         };

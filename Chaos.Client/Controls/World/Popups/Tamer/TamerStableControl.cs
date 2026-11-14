@@ -179,6 +179,7 @@ public sealed class TamerStableControl : FramedDialogPanelBase
             Visible = false
         };
         SquadsPanel.ActionRequested += action => ActionRequested?.Invoke(action);
+        SquadsPanel.DiscardQuestionRequested += OnSquadDiscardQuestion;
         AddChild(SquadsPanel);
 
         MessageLabel = Label(MESSAGE_LEFT, MESSAGE_TOP, MESSAGE_WIDTH, string.Empty, LegendColors.Orange);
@@ -327,7 +328,6 @@ public sealed class TamerStableControl : FramedDialogPanelBase
             return;
 
         Choice.Dismiss();
-        SquadsPanel.DismissQuestion();
         RenamePrompt.Hide();
         FeedPrompt.Hide();
         base.Hide();
@@ -348,8 +348,6 @@ public sealed class TamerStableControl : FramedDialogPanelBase
                 RenamePrompt.Hide();
             else if (FeedPrompt.Visible)
                 FeedPrompt.Hide();
-            else if (ShowingSquads && SquadsPanel.HasOpenQuestion)
-                SquadsPanel.CancelQuestion();
             else if (ShowingSquads && SquadsPanel.HasPick)
                 SquadsPanel.CancelPick();
             else
@@ -403,6 +401,22 @@ public sealed class TamerStableControl : FramedDialogPanelBase
 
         ShowingSquads = squads;
         Refresh();
+    }
+
+    //the squad tab's own question goes on the window's choice panel, so the tabs and Close are covered while it is up
+    private void OnSquadDiscardQuestion(Action discard)
+    {
+        if (!Visible || !ShowingSquads)
+            return;
+
+        Choice.Ask(
+            TamerStableText.DiscardQuestion,
+            [TamerStableText.Yes, TamerStableText.No],
+            answer =>
+            {
+                if (answer == 0)
+                    discard();
+            });
     }
 
     private void OnRowClicked(TamerMonsterRow row)

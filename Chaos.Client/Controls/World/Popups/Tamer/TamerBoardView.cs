@@ -236,7 +236,11 @@ public sealed class TamerBoardView : UIElement
         var textWidth = TextRenderer.MeasureWidth(name);
         var centreX = bounds.X + ((unit.DrawX + 0.5) * CELL);
         var top = (int)(bounds.Y + (unit.DrawY * CELL)) + 10;
-        var box = new Rectangle((int)(centreX - ((textWidth + 4) / 2)), top, textWidth + 4, TextRenderer.CHAR_HEIGHT);
+        var boxWidth = textWidth + 4;
+
+        //kept inside the board: a name over a unit in the first or last column would be cut at the board's edge
+        var left = Math.Clamp((int)(centreX - (boxWidth / 2)), bounds.X, Math.Max(bounds.X, bounds.Right - boxWidth));
+        var box = new Rectangle(left, top, boxWidth, TextRenderer.CHAR_HEIGHT);
 
         DrawRectClipped(spriteBatch, box, new Color((byte)0, (byte)0, (byte)0, (byte)180));
         DrawTextClipped(spriteBatch, new Vector2(box.X + 2, top), name, LegendColors.White, false);

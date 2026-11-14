@@ -4,7 +4,6 @@ using Chaos.Client.Controls.Components;
 using Chaos.Client.Controls.Custom;
 using Chaos.Client.Controls.Generic;
 using Chaos.Client.Controls.Scrolling;
-using Chaos.Client.Controls.World.Popups.Tcg;
 using Chaos.Client.ViewModel;
 using Chaos.DarkAges.Definitions;
 using Chaos.Networking.Entities.Client;
@@ -60,9 +59,7 @@ public sealed class TamerSquadPanel : UIPanel
     private readonly CustomButton SaveButton;
     private readonly CustomButton RevertButton;
     private readonly CustomButton RemoveButton;
-    private readonly TcgChoicePanel DiscardChoice;
     private TamerSquadDraft? Draft;
-    private Action? PendingAfterDiscard;
 
     public TamerSquadPanel(CreatureRenderer creatures)
     {
@@ -165,9 +162,6 @@ public sealed class TamerSquadPanel : UIPanel
         RemoveButton = new CustomButton(TamerStableText.Remove, BUTTON_WIDTH) { X = REMOVE_LEFT, Y = SAVE_TOP };
         RemoveButton.Clicked += OnRemoveClicked;
         AddChild(RemoveButton);
-
-        DiscardChoice = new TcgChoicePanel(WIDTH, HEIGHT);
-        AddChild(DiscardChoice);
     }
 
     /// <summary>A squad request (SaveSquad, SetActiveSquad).</summary>
@@ -176,8 +170,11 @@ public sealed class TamerSquadPanel : UIPanel
     /// <summary>The squad being shown (0-based).</summary>
     public byte ShownSquad { get; private set; }
 
-    /// <summary>True while a discard question is open over this tab.</summary>
-    public bool HasOpenQuestion => DiscardChoice.Visible;
+    /// <summary>
+    ///     Switching squads would drop unsaved changes. The window asks the discard question on its own choice panel,
+    ///     which covers the whole window (tabs and Close included), and calls the action on Yes.
+    /// </summary>
+    public event Action<Action>? DiscardQuestionRequested;
 
     /// <summary>True when the draft has unsaved changes.</summary>
     public bool HasUnsavedChanges => Draft?.IsChanged ?? false;
@@ -219,16 +216,6 @@ public sealed class TamerSquadPanel : UIPanel
         Draft?.Revert();
         Refresh(WorldState.TamerStable);
     }
-
-    /// <summary>Hides a discard question without answering (the window closes).</summary>
-    public void DismissQuestion()
-    {
-        PendingAfterDiscard = null;
-        DiscardChoice.Dismiss();
-    }
-
-    /// <summary>Answers a discard question as cancelled (Escape).</summary>
-    public void CancelQuestion() => DiscardChoice.Cancel();
 
     private static IReadOnlyList<TamerDisplaySquadMember> SquadOf(TamerStableState state, byte squad)
         => (state.Squads.Count > squad) ? state.Squads[squad] : [];
@@ -287,22 +274,17 @@ public sealed class TamerSquadPanel : UIPanel
 
         if (HasUnsavedChanges)
         {
-            PendingAfterDiscard = () =>
-            {
-                ShownSquad = squad;
-                Draft = new TamerSquadDraft(SquadOf(WorldState.TamerStable, squad));
-                Refresh(WorldState.TamerStable);
-            };
-            DiscardChoice.Ask(
-                TamerStableText.DiscardQuestion,
-                [TamerStableText.Yes, TamerStableText.No],
-                answer =>
+            //with nobody to ask, the unsaved changes are kept and the squad stays
+            DiscardQuestionRequested?.Invoke(
+                () =>
                 {
-                    var pending = PendingAfterDiscard;
-                    PendingAfterDiscard = null;
+                    //the window may have closed or switched tab while the question was up
+                    if (!Visible || (squad == ShownSquad))
+                        return;
 
-                    if ((answer == 0) && (pending is not null))
-                        pending();
+                    ShownSquad = squad;
+                    Draft = new TamerSquadDraft(SquadOf(WorldState.TamerStable, squad));
+                    Refresh(WorldState.TamerStable);
                 });
             return;
         }
