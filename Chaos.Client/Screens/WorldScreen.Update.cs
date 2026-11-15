@@ -18,8 +18,16 @@ namespace Chaos.Client.Screens;
 
 public sealed partial class WorldScreen
 {
+    /// <summary>
+    ///     Game time as of the latest update tick. Packets are handled just before the screen updates, so a handler
+    ///     that needs "now" on the same clock as <see cref="Update" /> reads this.
+    /// </summary>
+    private TimeSpan LastUpdateGameTime;
+
     public void Update(GameTime gameTime)
     {
+        LastUpdateGameTime = gameTime.TotalGameTime;
+
         if (PendingLoginSwitch)
         {
             PendingLoginSwitch = false;
@@ -272,6 +280,10 @@ public sealed partial class WorldScreen
         PlaceClassToolPanels();
         College?.Transfers.Update();
         College?.SketchDraw.Tick(gameTime.ElapsedGameTime);
+
+        //the bind meter's outcome hold runs down on the update tick too, so BOUND / BROKE FREE comes down on time
+        //however the draws are paced
+        WorldState.Bind.Update(gameTime.TotalGameTime);
 
         //bard song call countdown — driven from the update tick (not draw) so a live call expires in real
         //time even when draws are skipped or catch-up ticks run update multiple times per draw.

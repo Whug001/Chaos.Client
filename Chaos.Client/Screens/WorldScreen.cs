@@ -1160,6 +1160,7 @@ public sealed partial class WorldScreen : IScreen
         Game.Connection.OnSetValorState -= HandleSetValorState;
         Game.Connection.OnSetMaliceState -= HandleSetMaliceState;
         Game.Connection.OnSetOxygenState -= HandleSetOxygenState;
+        Game.Connection.OnSetBindState -= HandleSetBindState;
         Game.Connection.OnSetMapEffects -= HandleSetMapEffects;
         Game.Connection.OnSetGroupState -= HandleSetGroupState;
         Game.Connection.OnSetGroupPositions -= HandleSetGroupPositions;
@@ -1258,6 +1259,7 @@ public sealed partial class WorldScreen : IScreen
         SongBar?.Dispose();
         ClassResourceBar?.Dispose();
         OxygenBar?.Dispose();
+        BindMeter?.Dispose();
         Game.AislingRenderer.ClearCompositeCache();
         Game.AislingRenderer.ClearGroupTintCache();
         Game.AislingRenderer.GuildCloaks.Clear();

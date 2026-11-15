@@ -248,6 +248,12 @@ public delegate void SetMaliceStateHandler(SetMaliceStateArgs args);
 public delegate void SetOxygenStateHandler(SetOxygenStateArgs args);
 
 /// <summary>
+///     Raised when the server updates the monster tamer's orb bind meter: a catch-chance preview while an orb is
+///     readied, each step of a throw, or the meter going away.
+/// </summary>
+public delegate void SetBindStateHandler(SetBindStateArgs args);
+
+/// <summary>
 ///     Raised right after every map info with the map's ambient-effect flags -- the <c>MapFlags</c> bits above the
 ///     single byte map info has room for (blood moon, sandstorm, fireflies, ...).
 /// </summary>

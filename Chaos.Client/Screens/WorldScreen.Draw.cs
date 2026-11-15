@@ -34,6 +34,7 @@ public sealed partial class WorldScreen
     //can be carrying a class resource and a song at the same time, so all three have to be readable at once.
     //Only alive in a water zone.
     private OxygenBarControl? OxygenBar;
+    private BindMeterControl? BindMeter;
 
     private static readonly Dictionary<uint, string> EmptyWorkMarks = [];
     private static readonly Dictionary<uint, CollegeDebateMarkInfo> EmptyDebateMarks = [];
@@ -1286,15 +1287,30 @@ public sealed partial class WorldScreen
         OxygenBar ??= new OxygenBarControl();
         OxygenBar.Update(gameTime);
 
-        if (!OxygenBar.Visible)
-            return;
-
         var oxygenBaseline = SongBar.Visible ? SongBar.Y : songBaseline;
 
-        OxygenBar.SetBounds(anchor.X, oxygenBaseline - OxygenBarControl.TOTAL_HEIGHT - STRIP_GAP, anchor.Width);
+        if (OxygenBar.Visible)
+        {
+            OxygenBar.SetBounds(anchor.X, oxygenBaseline - OxygenBarControl.TOTAL_HEIGHT - STRIP_GAP, anchor.Width);
+
+            if (!overlayOpen)
+                OxygenBar.Draw(spriteBatch);
+        }
+
+        //the orb bind meter sits on top of the whole stack, one row above the oxygen bar when that is up, so the
+        //two never overlap on a tamer throwing underwater
+        BindMeter ??= new BindMeterControl();
+        BindMeter.Update(gameTime);
+
+        if (!BindMeter.Visible)
+            return;
+
+        var bindBaseline = OxygenBar.Visible ? OxygenBar.Y : oxygenBaseline;
+
+        BindMeter.SetBounds(anchor.X, bindBaseline - BindMeterControl.TOTAL_HEIGHT - STRIP_GAP, anchor.Width);
 
         if (!overlayOpen)
-            OxygenBar.Draw(spriteBatch);
+            BindMeter.Draw(spriteBatch);
     }
 
     /// <summary>Pixels left between a status strip and whatever sits below it.</summary>

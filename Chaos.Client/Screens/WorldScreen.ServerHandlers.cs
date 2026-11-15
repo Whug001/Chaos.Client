@@ -1426,6 +1426,13 @@ public sealed partial class WorldScreen
     private void HandleSetOxygenState(SetOxygenStateArgs args) => WorldState.Oxygen.Set(args.Oxygen, args.Style);
 
     /// <summary>
+    ///     The orb bind meter. Stamped with the game time of the last update tick -- packets are drained just before
+    ///     the screen updates, so that is at most a frame old -- and the outcome hold is then run down in
+    ///     <c>Update</c> against the same clock.
+    /// </summary>
+    private void HandleSetBindState(SetBindStateArgs args) => WorldState.Bind.Apply(args, LastUpdateGameTime);
+
+    /// <summary>
     ///     The map's ambient-effect flags — the bits above the byte map info carries. Arrives right after every map
     ///     info. Snaps the effects in after a full map change, fades them on a same-map refresh (e.g. a live
     ///     <c>/mapFlag</c> toggle).

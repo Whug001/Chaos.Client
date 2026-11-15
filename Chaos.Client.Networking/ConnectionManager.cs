@@ -538,6 +538,8 @@ public sealed class ConnectionManager : IDisposable
 
     public event SetOxygenStateHandler? OnSetOxygenState;
 
+    public event SetBindStateHandler? OnSetBindState;
+
     public event SetMapEffectsHandler? OnSetMapEffects;
 
     public event SetSpellTargetFilterHandler? OnSetSpellTargetFilter;
@@ -2054,6 +2056,7 @@ public sealed class ConnectionManager : IDisposable
         PacketHandlers[(byte)ServerOpCode.SetValorState] = HandleSetValorState;
         PacketHandlers[(byte)ServerOpCode.SetMaliceState] = HandleSetMaliceState;
         PacketHandlers[(byte)ServerOpCode.SetOxygenState] = HandleSetOxygenState;
+        PacketHandlers[(byte)ServerOpCode.SetBindState] = HandleSetBindState;
         PacketHandlers[(byte)ServerOpCode.SetMapEffects] = HandleSetMapEffects;
         PacketHandlers[(byte)ServerOpCode.SetSpellTargetFilter] = HandleSetSpellTargetFilter;
         PacketHandlers[(byte)ServerOpCode.SetGroupState] = HandleSetGroupState;
@@ -2464,6 +2467,12 @@ public sealed class ConnectionManager : IDisposable
     {
         var args = Client.Deserialize<SetOxygenStateArgs>(in pkt);
         OnSetOxygenState?.Invoke(args);
+    }
+
+    private void HandleSetBindState(ServerPacket pkt)
+    {
+        var args = Client.Deserialize<SetBindStateArgs>(in pkt);
+        OnSetBindState?.Invoke(args);
     }
 
     private void HandleSetMapEffects(ServerPacket pkt)

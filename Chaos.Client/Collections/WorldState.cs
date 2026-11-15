@@ -324,6 +324,12 @@ public static class WorldState
     public static OxygenState Oxygen { get; } = new();
 
     /// <summary>
+    ///     The monster tamer's orb bind meter: the catch-chance preview while an orb is readied, and the shake steps
+    ///     of a throw.
+    /// </summary>
+    public static BindState Bind { get; } = new();
+
+    /// <summary>
     ///     Authoritative server-controlled user option toggles.
     /// </summary>
     public static UserOptions UserOptions { get; } = new();
@@ -573,6 +579,7 @@ public static class WorldState
         GuildHallEditor.Close();
         ClassResource.Reset();
         Oxygen.Reset();
+        Bind.Reset();
         Equipment.Clear();
         Attributes.Clear();
         Chat.Clear();
