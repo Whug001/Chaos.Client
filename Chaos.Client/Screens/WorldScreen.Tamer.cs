@@ -16,7 +16,9 @@ namespace Chaos.Client.Screens;
 ///     The battle window: built on first use, fed by TamerBattleDisplay parts through the assembly; a ready fight
 ///     opens it with a new playback, a broken fight shows the orange bar, and it stays open across map changes
 ///     but closes on logout (ResetAll clears the assembly and playback). It draws above the stable window and is
-///     kept above it on the control stack, so with both open the keys go to the battle window.
+///     kept above it on the control stack, so with both open the keys go to the battle window. While the battle
+///     window is up the stable window sends nothing but Close, and opening it drops any mouse capture the stable
+///     window holds, so a press made before it opened clicks nothing on release.
 /// </summary>
 public sealed partial class WorldScreen
 {
@@ -163,6 +165,10 @@ public sealed partial class WorldScreen
                         return;
 
                     TamerBattleWindow!.Open(WorldState.TamerBattle);
+
+                    //a button pressed on the stable window before the battle covered it must not click on release
+                    if (TamerStableWindow is not null)
+                        InputDispatcher.Instance?.ReleaseCaptureWithin(TamerStableWindow);
                 }
 
                 break;
@@ -180,9 +186,13 @@ public sealed partial class WorldScreen
         //closing the battle window tells the server nothing; the playback stays until a new fight replaces it
     }
 
+    //every stable window request, from any tab, goes through here; under the battle window only Close goes
     private void SendTamerAction(TamerActionArgs args)
     {
-        if ((args is not null) && (args.Type == TamerActionType.Close))
+        if (!TamerStableSendGuard.Allows(args, TamerBattleWindow?.Visible ?? false))
+            return;
+
+        if (args.Type == TamerActionType.Close)
             WorldState.TamerStable.ClearCatalogJustArrived();
 
         Game.Connection.SendTamerAction(args);

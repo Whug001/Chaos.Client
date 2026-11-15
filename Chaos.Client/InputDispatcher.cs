@@ -210,6 +210,21 @@ public sealed class InputDispatcher
     public int ControlStackCount => ControlStack.Count;
 
     /// <summary>
+    ///     Drops the mouse capture (and any drag it started) when the captured element is <paramref name="panel" /> or
+    ///     inside it. For a window that has just been covered by another: the release that follows then goes to what
+    ///     is under the cursor, and no click is made on the covered control. A capture elsewhere is left alone.
+    /// </summary>
+    public void ReleaseCaptureWithin(UIPanel panel)
+    {
+        if ((CapturedElement is null) || ((CapturedElement != panel) && !IsDescendantOf(panel, CapturedElement)))
+            return;
+
+        CapturedElement = null;
+        DragActive = false;
+        DragPayload = null;
+    }
+
+    /// <summary>
     ///     Resets all dispatcher state. Called by ScreenManager.Switch to prevent stale
     ///     elements from persisting across screen transitions.
     /// </summary>
