@@ -1,5 +1,6 @@
 #region
 using Chaos.Client.Controls.Components;
+using Chaos.Client.Rendering;
 using Chaos.Client.ViewModel;
 using Microsoft.Xna.Framework;
 using Microsoft.Xna.Framework.Graphics;
@@ -8,7 +9,9 @@ using Microsoft.Xna.Framework.Graphics;
 namespace Chaos.Client.Controls.World.Popups.Tamer;
 
 /// <summary>
-///     The battle board: a 7 by 6 flat board, halves tinted differently with a line between rows 2 and 3. Draws only
+///     The battle board: a 7 by 6 board. The skin's picture (<see cref="SkinKey" />, a 280 by 240 SPF in setoa.dat, see
+///     <see cref="TamerBoardSkins" />) is drawn 1:1 when this client has it; otherwise the flat look: halves tinted
+///     differently, grid lines and a gold line between rows 2 and 3. Draws only
 ///     what <see cref="TamerBattlePlayback" /> answers: each unit's sprite at one size for its cell, standing on the
 ///     cell's bottom-centre and facing its target, a health bar (green for the near side, red for the far side) with a white shield edge over each, ranged dots,
 ///     ability names, floating numbers, gold flashes and leaps along an arc. A missing sprite draws a plain
@@ -51,6 +54,9 @@ public sealed class TamerBoardView : UIElement
         IsHitTestVisible = false;
     }
 
+    /// <summary>The board skin drawn under the units. An unknown key draws the default skin.</summary>
+    public string SkinKey { get; set; } = TamerBoardSkins.DEFAULT_KEY;
+
     /// <summary>The playback the board draws. Null before the first fight arrives.</summary>
     public TamerBattlePlayback? Playback { get; set; }
 
@@ -68,10 +74,10 @@ public sealed class TamerBoardView : UIElement
 
         var bounds = new Rectangle(ScreenX, ScreenY, Width, Height);
 
-        DrawRectClipped(spriteBatch, new Rectangle(bounds.X, bounds.Y, bounds.Width, 3 * CELL), TopHalf);
-        DrawRectClipped(spriteBatch, new Rectangle(bounds.X, bounds.Y + (3 * CELL), bounds.Width, 3 * CELL), BottomHalf);
-        DrawGrid(spriteBatch, bounds);
-        DrawBorderClipped(spriteBatch, bounds, LegendColors.DimGray);
+        if (SkinTexture() is { } skin)
+            DrawTextureFitted(spriteBatch, skin, bounds, Color.White);
+        else
+            DrawFlat(spriteBatch, bounds);
 
         if (playback is null)
             return;
@@ -93,6 +99,33 @@ public sealed class TamerBoardView : UIElement
         foreach (var unit in playback.Units)
             if (unit.AbilityName is not null)
                 DrawAbility(spriteBatch, bounds, unit);
+    }
+
+    /// <summary>
+    ///     The skin's picture, or null when this client's setoa.dat lacks it (or it is not the board's size): the board
+    ///     then draws flat. The renderer caches the texture; it is fetched every draw and never kept or disposed here.
+    /// </summary>
+    private Texture2D? SkinTexture()
+    {
+        if (UiRenderer.Instance is not { } ui)
+            return null;
+
+        var file = TamerBoardSkins.FileFor(SkinKey);
+
+        if (ui.GetSpfFrameCount(file) < 1)
+            return null;
+
+        var texture = ui.GetSpfTexture(file);
+
+        return TamerBoardSkins.Fits(texture.Width, texture.Height, BOARD_WIDTH, BOARD_HEIGHT) ? texture : null;
+    }
+
+    private void DrawFlat(SpriteBatch spriteBatch, Rectangle bounds)
+    {
+        DrawRectClipped(spriteBatch, new Rectangle(bounds.X, bounds.Y, bounds.Width, 3 * CELL), TopHalf);
+        DrawRectClipped(spriteBatch, new Rectangle(bounds.X, bounds.Y + (3 * CELL), bounds.Width, 3 * CELL), BottomHalf);
+        DrawGrid(spriteBatch, bounds);
+        DrawBorderClipped(spriteBatch, bounds, LegendColors.DimGray);
     }
 
     private void DrawGrid(SpriteBatch spriteBatch, Rectangle bounds)
