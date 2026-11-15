@@ -47,6 +47,21 @@ public class DyeShopFigureTests
     }
 
     [Test]
+    public async Task Figure_keeps_the_players_skin_colour_and_face()
+    {
+        //a pale skin showed the default tan because the figure never carried the player's skin colour
+        var look = DyeShopFigure.Compose(Gender.Female, 7, DisplayColor.Apple, Item(TownImportLayer.Armor), DisplayColor.Blue, bodyColor: 5, faceSprite: 3);
+        var bare = DyeShopFigure.Bare(Gender.Female, 7, DisplayColor.Apple, bodyColor: 5, faceSprite: 3);
+
+        look.BodyColor.Should().Be(5);
+        look.FaceSprite.Should().Be(3);
+        bare.BodyColor.Should().Be(5);
+        bare.FaceSprite.Should().Be(3);
+
+        await Task.CompletedTask;
+    }
+
+    [Test]
     public async Task Overcoat_is_drawn_in_the_preview_colour()
     {
         var look = DyeShopFigure.Compose(Gender.Male, 7, DisplayColor.Apple, Item(TownImportLayer.Overcoat), DisplayColor.Blue);
