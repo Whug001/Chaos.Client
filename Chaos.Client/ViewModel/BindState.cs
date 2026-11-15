@@ -15,6 +15,9 @@ namespace Chaos.Client.ViewModel;
 ///     back while the player's own throw is pending -- this is the second layer, so a preview sent just before the
 ///     outcome cannot cut the result short.
 ///     <para />
+///     A throw still pending with no <c>Throw</c> packet for <see cref="PENDING_WATCHDOG" /> is given up on (its
+///     outcome was lost): the stored <c>Preview</c> or <c>Hidden</c> is applied, else the meter hides.
+///     <para />
 ///     Time is passed in rather than read, so the hold is deterministic under test. The screen feeds it game time.
 /// </remarks>
 public sealed class BindState
@@ -22,11 +25,18 @@ public sealed class BindState
     /// <summary>How long <c>BOUND</c> or <c>BROKE FREE</c> stays up before the meter moves on.</summary>
     public static readonly TimeSpan OUTCOME_HOLD = TimeSpan.FromMilliseconds(1500);
 
+    /// <summary>
+    ///     How long a pending throw waits for its next <c>Throw</c> packet before the meter gives up on it. The server
+    ///     sends one per shake interval, so this is several intervals of silence.
+    /// </summary>
+    public static readonly TimeSpan PENDING_WATCHDOG = TimeSpan.FromSeconds(4);
+
     /// <summary>Segments in the throw bar: one per shake.</summary>
     public const int SEGMENTS = 3;
 
     private SetBindStateArgs? Deferred;
     private TimeSpan? HoldEndsAt;
+    private TimeSpan LastThrowPacketAt;
     private bool ThrowActive;
 
     /// <summary>True while there is anything to draw.</summary>
@@ -65,10 +75,20 @@ public sealed class BindState
         Show(args);
     }
 
-    /// <summary>Ends an outcome hold once it has run its course.</summary>
+    /// <summary>
+    ///     Ends an outcome hold once it has run its course, or a pending throw whose packets stopped for
+    ///     <see cref="PENDING_WATCHDOG" />.
+    /// </summary>
     public void Update(TimeSpan now)
     {
-        if (!ThrowActive || HoldEndsAt is not { } endsAt || (now < endsAt))
+        if (!ThrowActive)
+            return;
+
+        if (HoldEndsAt is { } endsAt)
+        {
+            if (now < endsAt)
+                return;
+        } else if (now - LastThrowPacketAt < PENDING_WATCHDOG)
             return;
 
         ThrowActive = false;
@@ -94,6 +114,7 @@ public sealed class BindState
     private void ShowThrow(SetBindStateArgs args, TimeSpan now)
     {
         ThrowActive = true;
+        LastThrowPacketAt = now;
 
         var shakes = Math.Min((int)args.Shakes, SEGMENTS);
 

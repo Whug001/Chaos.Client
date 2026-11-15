@@ -207,4 +207,42 @@ public class BindStateTests
         bind.Update(Start + TimeSpan.FromSeconds(10));
         bind.Visible.Should().BeFalse();
     }
+
+    [Test]
+    public void PendingThrow_WithLostOutcome_HidesAfterWatchdog()
+    {
+        var bind = new BindState();
+
+        bind.Apply(Throw(0), Start);
+        bind.Apply(Throw(1), Start + TimeSpan.FromMilliseconds(800));
+
+        bind.Update(Start + TimeSpan.FromMilliseconds(800) + BindState.PENDING_WATCHDOG - TimeSpan.FromMilliseconds(1));
+        bind.ShownMode.Should().Be(BindMeterMode.Throw, "the watchdog counts from the last Throw packet");
+
+        bind.Update(Start + TimeSpan.FromMilliseconds(800) + BindState.PENDING_WATCHDOG);
+        bind.Visible.Should().BeFalse();
+
+        // a later preview shows at once: the throw no longer owns the meter
+        bind.Apply(Preview("Goblin", "Clay", 48), Start + TimeSpan.FromSeconds(10));
+        bind.ShownMode.Should().Be(BindMeterMode.Preview);
+    }
+
+    [Test]
+    public void PendingThrow_WithLostOutcome_AppliesStoredPreviewAfterWatchdog()
+    {
+        var bind = new BindState();
+
+        bind.Apply(Throw(0), Start);
+        bind.Apply(Preview("Kobold", "Bronze", 30), Start + TimeSpan.FromMilliseconds(100));
+        bind.ShownMode.Should().Be(BindMeterMode.Throw);
+
+        bind.Update(Start + BindState.PENDING_WATCHDOG);
+
+        bind.ShownMode.Should().Be(BindMeterMode.Preview);
+        bind.Label.Should().Be("Kobold — Bronze 30%");
+    }
+
+    [Test]
+    public void PendingWatchdog_IsLongerThanTheShakeInterval()
+        => BindState.PENDING_WATCHDOG.Should().BeGreaterThan(TimeSpan.FromMilliseconds(800) * 3);
 }
