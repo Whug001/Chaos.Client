@@ -1824,7 +1824,7 @@ public sealed partial class WorldScreen
         switch (args.Type)
         {
             case DyeShopDisplayType.Open:
-                WorldState.DyeShop.ApplyOpen(args);
+                WorldState.DyeShop.ApplyOpen(args, WorldState.GetPlayerEntity()?.Appearance);
 
                 if (!DyeShop.Visible)
                     DyeShop.Show();

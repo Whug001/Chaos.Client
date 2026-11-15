@@ -344,7 +344,7 @@ public sealed class DyeShopControl : FramedDialogPanelBase
         {
             ItemCaption.ForegroundColor = LegendColors.Gray;
             ItemCaption.Text = "Pick an item to dye.";
-            ShowFigure(TownImportPreviewLook.Plain(vm.Gender) with { HeadSprite = vm.HairStyle, HeadColor = vm.HairColor });
+            ShowFigure(DyeShopFigure.Bare(vm.Gender, vm.HairStyle, vm.HairColor, vm.BodyColor, vm.FaceSprite));
 
             return;
         }
@@ -354,7 +354,7 @@ public sealed class DyeShopControl : FramedDialogPanelBase
 
         if (DyeShopFigure.CanWear(item, vm.Gender))
         {
-            ShowFigure(DyeShopFigure.Compose(vm.Gender, vm.HairStyle, vm.HairColor, item, color));
+            ShowFigure(DyeShopFigure.Compose(vm.Gender, vm.HairStyle, vm.HairColor, item, color, vm.BodyColor, vm.FaceSprite));
 
             return;
         }

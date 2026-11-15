@@ -1,5 +1,6 @@
 #region
 using System.Globalization;
+using Chaos.Client.Rendering;
 using Chaos.DarkAges.Definitions;
 using Chaos.Networking.Entities.Server;
 #endregion
@@ -68,9 +69,18 @@ public sealed class DyeShop
     /// <summary>What dyeing with <paramref name="color" /> costs.</summary>
     public int CostOf(DisplayColor color) => OmbreDyes.IsOmbre(color) ? OmbreDyePrice : DyePrice;
 
-    public void ApplyOpen(DyeShopDisplayArgs args)
+    /// <summary>The player's skin colour, from their live look; the dye shop packet does not carry it.</summary>
+    public int BodyColor { get; private set; }
+
+    /// <summary>The player's face sprite, from their live look (0 = unknown, draw the default).</summary>
+    public int FaceSprite { get; private set; }
+
+    public void ApplyOpen(DyeShopDisplayArgs args, AislingAppearance? liveLook = null)
     {
         Gender = args.Gender;
+        //without the live look the preview figure fell back to the default skin, so pale skins showed tan
+        BodyColor = liveLook?.BodyColor ?? 0;
+        FaceSprite = liveLook?.FaceSprite ?? 0;
         HairStyle = args.HairStyle;
         HairColor = args.HairColor;
         Gold = args.Gold;
@@ -124,6 +134,7 @@ public sealed class DyeShop
         Gender = Gender.Male;
         HairStyle = 0;
         HairColor = DisplayColor.Default;
+        BodyColor = FaceSprite = 0;
         Gold = DyePrice = OmbreDyePrice = 0;
         Colors = [];
         OmbreColors = [];
