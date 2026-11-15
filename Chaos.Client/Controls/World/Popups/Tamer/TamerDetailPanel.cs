@@ -270,7 +270,6 @@ public sealed class TamerDetailPanel : UIPanel
     private sealed class AbilityRow : UIPanel
     {
         private const int CHOOSE_BUTTON_WIDTH = 100;
-        private const int CHOOSE_HEIGHT = CustomButton.HEIGHT;
         private const int NAME_WIDTH = 230;
         private const int STATE_LEFT = 250;
         private const int STATE_WIDTH = 120;
@@ -304,7 +303,8 @@ public sealed class TamerDetailPanel : UIPanel
             StateLabel = new UILabel
             {
                 X = STATE_LEFT,
-                Y = (CHOOSE_HEIGHT - TextRenderer.CHAR_HEIGHT) / 2,
+                //on the name's line, clear of the description below it
+                Y = 0,
                 Width = STATE_WIDTH,
                 Height = TextRenderer.CHAR_HEIGHT,
                 HorizontalAlignment = HorizontalAlignment.Right,
