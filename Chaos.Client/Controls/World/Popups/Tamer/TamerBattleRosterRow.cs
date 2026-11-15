@@ -95,7 +95,7 @@ public sealed class TamerBattleRosterRow : UIPanel
             Height = HEALTH_HEIGHT,
             BackgroundColor = new Color(10, 8, 5),
             BorderColor = LegendColors.DimGray,
-            FillColor = LegendColors.SpringGreen,
+            FillColor = TamerBoardView.NearFill,
             IsHitTestVisible = false
         };
         AddChild(HealthBar);
@@ -109,8 +109,7 @@ public sealed class TamerBattleRosterRow : UIPanel
             HorizontalAlignment = HorizontalAlignment.Center,
             ForegroundColor = LegendColors.White,
 
-            //a black shadow both sides, as the HUD's health and mana numbers have: white on the bright green fill
-            //is unreadable without it
+            //a black shadow both sides, as the HUD's health and mana numbers have, over a dark side-coloured fill
             ShadowStyle = ShadowStyle.BothSides,
             ColorCodesEnabled = false,
             IsHitTestVisible = false
@@ -145,7 +144,7 @@ public sealed class TamerBattleRosterRow : UIPanel
     }
 
     /// <summary>Stamps the row from one battle unit. The caller hides the row where the side has no unit for it.</summary>
-    public void Bind(TamerBattleUnitState unit)
+    public void Bind(TamerBattleUnitState unit, bool near)
     {
         ArgumentNullException.ThrowIfNull(unit);
 
@@ -162,7 +161,7 @@ public sealed class TamerBattleRosterRow : UIPanel
 
         var fraction = unit.MaxHealth > 0 ? (float)unit.Health / unit.MaxHealth : 0f;
         HealthBar.Percent = fraction;
-        HealthBar.FillColor = unit.Alive ? HealthColor(fraction) : LegendColors.Gray;
+        HealthBar.FillColor = unit.Alive ? TamerBoardView.SideFill(near) : LegendColors.Gray;
         HealthTextLabel.ForegroundColor = nameColor;
         HealthTextLabel.Text = TamerBattleText.HealthText(unit.Health, unit.MaxHealth);
 
@@ -199,12 +198,4 @@ public sealed class TamerBattleRosterRow : UIPanel
             if (child.Visible)
                 child.Draw(spriteBatch);
     }
-
-    private static Color HealthColor(float fraction)
-        => fraction switch
-        {
-            > 0.5f => LegendColors.SpringGreen,
-            > 0.25f => LegendColors.Orange,
-            _ => LegendColors.Red
-        };
 }

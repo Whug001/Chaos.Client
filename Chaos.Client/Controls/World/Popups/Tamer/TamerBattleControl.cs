@@ -67,6 +67,10 @@ public sealed class TamerBattleControl : FramedDialogPanelBase
     private static readonly Color PanelFill = new(28, 20, 12);
     private static readonly Color BannerFill = new(10, 8, 5, 230);
 
+    //the roster headers in lighter shades of the two health-bar colours
+    private static readonly Color FarHeader = new(240, 112, 112);
+    private static readonly Color NearHeader = new(112, 220, 132);
+
     private readonly UILabel TitleLabel;
     private readonly UILabel VersusLabel;
     private readonly UILabel ClockLabel;
@@ -120,8 +124,8 @@ public sealed class TamerBattleControl : FramedDialogPanelBase
 
         LeftPanel = RosterPanel(ROSTER_LEFT_X);
         RightPanel = RosterPanel(ROSTER_RIGHT_X);
-        LeftHeaderLabel = Label(2, 0, ROSTER_WIDTH - 4, string.Empty, LegendColors.Gold, HorizontalAlignment.Center);
-        RightHeaderLabel = Label(2, 0, ROSTER_WIDTH - 4, string.Empty, LegendColors.Gold, HorizontalAlignment.Center);
+        LeftHeaderLabel = Label(2, 0, ROSTER_WIDTH - 4, string.Empty, NearHeader, HorizontalAlignment.Center);
+        RightHeaderLabel = Label(2, 0, ROSTER_WIDTH - 4, string.Empty, FarHeader, HorizontalAlignment.Center);
         LeftPanel.AddChild(LeftHeaderLabel);
         RightPanel.AddChild(RightHeaderLabel);
 
@@ -240,14 +244,14 @@ public sealed class TamerBattleControl : FramedDialogPanelBase
             if (i < leftUnits.Count)
             {
                 LeftRows[i].Visible = true;
-                LeftRows[i].Bind(leftUnits[i]);
+                LeftRows[i].Bind(leftUnits[i], true);
             } else
                 LeftRows[i].Visible = false;
 
             if (i < rightUnits.Count)
             {
                 RightRows[i].Visible = true;
-                RightRows[i].Bind(rightUnits[i]);
+                RightRows[i].Bind(rightUnits[i], false);
             } else
                 RightRows[i].Visible = false;
         }

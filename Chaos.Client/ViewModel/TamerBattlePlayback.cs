@@ -221,6 +221,13 @@ public sealed class TamerBattlePlayback
             : (column, row);
     }
 
+    /// <summary>
+    ///     True for the side drawn at the bottom of the board and in the left roster: the viewer's own squad, or the
+    ///     attacker when the viewer took no part.
+    /// </summary>
+    public bool IsNearSide(TamerBattleSide side)
+        => side == (Fight.ViewerSide == TamerBattleViewerSide.Defender ? TamerBattleSide.Defender : TamerBattleSide.Attacker);
+
     private int ComputeRising(double clockTicks)
     {
         if (risingStartTick is not { } start)

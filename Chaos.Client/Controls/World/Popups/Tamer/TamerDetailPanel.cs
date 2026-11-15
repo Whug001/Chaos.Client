@@ -18,12 +18,13 @@ public sealed class TamerDetailPanel : UIPanel
     public const int HEIGHT = 308;
     public const int WIDTH = 370;
 
-    private const int ABILITY_FIRST_TOP = 186;
+    private const int ABILITY_FIRST_TOP = 170;
     private const int ABILITY_MAX = 3;
-    private const int ABILITY_ROW_HEIGHT = 28;
-    private const int ABILITY_TEXT_TOP = 14;
+    private const int ABILITY_ROW_HEIGHT = 38;
+    private const int ABILITY_TEXT_LINES = 2;
+    private const int ABILITY_TEXT_TOP = 12;
     private const int BUTTON_GAP = 16;
-    private const int BUTTON_TOP = 276;
+    private const int BUTTON_TOP = 286;
     private const int BUTTON_WIDTH = 90;
     private const int HEADER_LEFT = 120;
     private const int HEADER_WIDTH = TamerStableText.DETAIL_HEADER_TEXT_WIDTH + 2;
@@ -36,10 +37,10 @@ public sealed class TamerDetailPanel : UIPanel
     private const int STATS_HEIGHT = (TextRenderer.CHAR_HEIGHT * 2) + 2;
     private const int STATS_TOP = 82;
     private const int TRAIT_NAME_TOP = 116;
-    private const int TRAIT_TEXT_TOP = 132;
-    private const int TRAIT_TEXT_LINES = 4;
+    private const int TRAIT_TEXT_TOP = 129;
+    private const int TRAIT_TEXT_LINES = 3;
 
-    //four wrapped lines plus the label's 1px padding top and bottom; ends at 182, above the first ability row
+    //three wrapped lines plus the label's 1px padding top and bottom; ends at 167, above the first ability row
     private const int TRAIT_TEXT_HEIGHT = (TextRenderer.CHAR_HEIGHT * TRAIT_TEXT_LINES) + 2;
     private const int XP_BAR_HEIGHT = 10;
     private const int XP_BAR_TOP = 56;
@@ -273,7 +274,9 @@ public sealed class TamerDetailPanel : UIPanel
         private const int NAME_WIDTH = 230;
         private const int STATE_LEFT = 250;
         private const int STATE_WIDTH = 120;
-        private const int TEXT_WIDTH = STATE_LEFT;
+        //the text runs the full width, except beside a Choose button, which reaches down into its first line
+        private const int TEXT_WIDTH = TamerDetailPanel.WIDTH;
+        private const int TEXT_WIDTH_BESIDE_BUTTON = TamerDetailPanel.WIDTH - CHOOSE_BUTTON_WIDTH - 8;
 
         private readonly UILabel NameLabel;
         private readonly UILabel TextLabel;
@@ -287,7 +290,17 @@ public sealed class TamerDetailPanel : UIPanel
             Height = ABILITY_ROW_HEIGHT;
 
             NameLabel = Label(0, 0, NAME_WIDTH, LegendColors.Gold);
-            TextLabel = Label(0, ABILITY_TEXT_TOP, TEXT_WIDTH, LegendColors.Silver);
+            TextLabel = new UILabel
+            {
+                X = 0,
+                Y = ABILITY_TEXT_TOP,
+                Width = TEXT_WIDTH,
+                Height = (TextRenderer.CHAR_HEIGHT * ABILITY_TEXT_LINES) + 2,
+                ForegroundColor = LegendColors.Silver,
+                WordWrap = true,
+                ColorCodesEnabled = false,
+                IsHitTestVisible = false
+            };
             StateLabel = new UILabel
             {
                 X = STATE_LEFT,
@@ -322,9 +335,13 @@ public sealed class TamerDetailPanel : UIPanel
 
             AbilityKey = row.Ability.Key;
             NameLabel.Text = TamerStableText.FitLines(row.Ability.Name, NAME_WIDTH - 2, 1);
-            TextLabel.Text = TamerStableText.FitLines(row.Ability.Text, TEXT_WIDTH - 2, 1);
 
             var choosable = row.State == TamerAbilityRowState.CanChoose;
+
+            TextLabel.Text = TamerStableText.FitLines(
+                row.Ability.Text,
+                (choosable ? TEXT_WIDTH_BESIDE_BUTTON : TEXT_WIDTH) - 2,
+                ABILITY_TEXT_LINES);
 
             ChooseButton.Visible = choosable;
             StateLabel.Visible = !choosable;

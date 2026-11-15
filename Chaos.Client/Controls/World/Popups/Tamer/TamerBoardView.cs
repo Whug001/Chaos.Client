@@ -10,7 +10,7 @@ namespace Chaos.Client.Controls.World.Popups.Tamer;
 /// <summary>
 ///     The battle board: a 7 by 6 flat board, halves tinted differently with a line between rows 2 and 3. Draws only
 ///     what <see cref="TamerBattlePlayback" /> answers: each unit's sprite at one size for its cell, standing on the
-///     cell's bottom-centre and facing its target, a health bar with a white shield edge over each, ranged dots,
+///     cell's bottom-centre and facing its target, a health bar (green for the near side, red for the far side) with a white shield edge over each, ranged dots,
 ///     ability names, floating numbers, gold flashes and leaps along an arc. A missing sprite draws a plain
 ///     element-coloured marker with the unit's initial; the frame is fetched from <see cref="CreatureRenderer" />
 ///     every draw and never kept or disposed.
@@ -26,6 +26,14 @@ public sealed class TamerBoardView : UIElement
     private const int LEAP_LIFT = 18;
     private const int MARKER_SIZE = 24;
     private const int PROJECTILE_SIZE = 4;
+    private const int SIDE_STRIP_HEIGHT = 2;
+    private const int SIDE_STRIP_INSET = 6;
+
+    /// <summary>Health fill of the near side (the viewer's squad): a dark green that white numbers read on.</summary>
+    public static readonly Color NearFill = new(40, 140, 64);
+
+    /// <summary>Health fill of the far side (the opponent).</summary>
+    public static readonly Color FarFill = new(176, 48, 48);
 
     private static readonly Color BottomHalf = new(42, 30, 26);
     private static readonly Color GridLine = new(60, 60, 70);
@@ -117,6 +125,12 @@ public sealed class TamerBoardView : UIElement
         var centreX = cellX + (CELL / 2);
         var centreY = cellY + (CELL / 2);
 
+        //a strip in the side's colour along the cell's bottom, under the feet, so the two squads stay apart once mixed
+        DrawRectClipped(
+            spriteBatch,
+            new Rectangle(cellX + SIDE_STRIP_INSET, cellY + CELL - SIDE_STRIP_HEIGHT - 1, CELL - (2 * SIDE_STRIP_INSET), SIDE_STRIP_HEIGHT),
+            Fade(SideFill(Playback?.IsNearSide(unit.Side) ?? true), opacity));
+
         if (unit.Flash == TamerBattleFlash.Gold)
             DrawBorderClipped(
                 spriteBatch,
@@ -165,6 +179,9 @@ public sealed class TamerBoardView : UIElement
         DrawBar(spriteBatch, cellX, cellY, unit, opacity);
     }
 
+    /// <summary>The health fill for a side: green for the near side, red for the far side.</summary>
+    public static Color SideFill(bool near) => near ? NearFill : FarFill;
+
     private void DrawBar(SpriteBatch spriteBatch, int cellX, int cellY, TamerBattleUnitState unit, float opacity)
     {
         var barX = cellX + ((CELL - BAR_WIDTH) / 2);
@@ -184,7 +201,7 @@ public sealed class TamerBoardView : UIElement
                 DrawRectClipped(
                     spriteBatch,
                     new Rectangle(barX + 1, barY + 1, fillWidth, BAR_HEIGHT - 2),
-                    Fade(HealthColor(fraction), opacity));
+                    Fade(SideFill(Playback?.IsNearSide(unit.Side) ?? true), opacity));
         }
     }
 
@@ -245,14 +262,6 @@ public sealed class TamerBoardView : UIElement
         DrawRectClipped(spriteBatch, box, new Color((byte)0, (byte)0, (byte)0, (byte)180));
         DrawTextClipped(spriteBatch, new Vector2(box.X + 2, top), name, LegendColors.White, false);
     }
-
-    private static Color HealthColor(float fraction)
-        => fraction switch
-        {
-            > 0.5f => LegendColors.SpringGreen,
-            > 0.25f => LegendColors.Orange,
-            _ => LegendColors.Red
-        };
 
     private static Color Fade(Color colour, float opacity) => colour * opacity;
 
