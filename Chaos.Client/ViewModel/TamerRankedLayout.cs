@@ -75,7 +75,10 @@ public static class TamerRankedLayout
     public const int ATTACK_LEFT = 310;
     public const int ATTACK_TOP = 11;
 
-    /// <summary>The one line shown in the first offer row's place when there is no defence or nobody to offer.</summary>
+    /// <summary>
+    ///     The one line shown in the first offer row's place when the ladder is unavailable, there is no defence, or
+    ///     nobody is offered.
+    /// </summary>
     public const int NOTE_TOP = OFFER_TOP + ((OFFER_HEIGHT - TEXT_HEIGHT) / 2);
 
     public const int LOG_TITLE_TOP = 168;
@@ -118,7 +121,7 @@ public static class TamerRankedLayout
     public static TamerBox DailyWin => new("Daily win", DAILY_WIN_LEFT, HEADER_TEXT_TOP, DAILY_WIN_WIDTH, TEXT_HEIGHT);
     public static TamerBox Attacks => new("Attacks left", ATTACKS_LEFT, HEADER_TEXT_TOP, ATTACKS_WIDTH, TEXT_HEIGHT);
     public static TamerBox Refresh => new("Refresh button", REFRESH_LEFT, REFRESH_TOP, ACTION_BUTTON_WIDTH, BUTTON_HEIGHT);
-    public static TamerBox Note => new("No defence / no opponents line", RIGHT_X, NOTE_TOP, RIGHT_WIDTH, TEXT_HEIGHT);
+    public static TamerBox Note => new("Note line", RIGHT_X, NOTE_TOP, RIGHT_WIDTH, TEXT_HEIGHT);
     public static TamerBox LogTitle => new("Defence log", RIGHT_X, LOG_TITLE_TOP, RIGHT_WIDTH, TEXT_HEIGHT);
     public static TamerBox LogList => new("Log list", RIGHT_X, LOG_TOP, RIGHT_WIDTH, LOG_HEIGHT);
     public static TamerBox Watch => new("Watch button", WATCH_LEFT, LOG_BUTTON_TOP, LOG_BUTTON_WIDTH, BUTTON_HEIGHT);

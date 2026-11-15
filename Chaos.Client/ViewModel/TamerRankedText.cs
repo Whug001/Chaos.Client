@@ -57,6 +57,10 @@ public static class TamerRankedText
     public const string Reading = "Reading the ladder...";
     public const string NoDefence = "Save a squad of five as your defence to enter the ladder.";
     public const string NoOpponents = "No opponents yet. Check back later.";
+
+    /// <summary>Shown in the no defence prompt's place when the server could not read the ladder; also why every button is off.</summary>
+    public const string Unavailable = "The ladder is unavailable.";
+
     public const string DefenceGone = "Your defence uses a creature that no longer exists. Save it again.";
     public const string Opponents = "Opponents";
     public const string Refresh = "Refresh";
@@ -86,6 +90,8 @@ public static class TamerRankedText
     public const string NoEntryChosen = "Choose a fight in the log first.";
     public const string NoRevengeThere = "That fight cannot be revenged.";
     public const string AlreadyRevenged = "You have already taken that revenge.";
+    public const string NoRefreshLeft = "You have used today's refresh.";
+    public const string NoReplayKept = "That fight keeps no replay.";
 
     private const int MINUTES_PER_HOUR = 60;
     private const int MINUTES_PER_DAY = 1440;

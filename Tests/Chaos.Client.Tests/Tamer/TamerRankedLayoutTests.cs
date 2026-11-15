@@ -133,6 +133,16 @@ public sealed class TamerRankedLayoutTests
     }
 
     [Test]
+    public void The_unavailable_line_takes_the_note_place_and_fits_it()
+    {
+        //the line shows in the no defence prompt's label, which overlaps only the offer rows it replaces
+        TamerRankedLayout.Replacements().Should().Contain((TamerRankedLayout.Note, "Offer row"));
+        TamerRankedLayout.Note.Should().Be(new TamerBox("Note line", 196, 42, 384, 12));
+        (TamerRankedText.Unavailable.Length * CHAR).Should().BeLessThanOrEqualTo(TamerRankedLayout.Note.Width - 2);
+        TamerDrawableText.IsPrintableAscii(TamerRankedText.Unavailable).Should().BeTrue();
+    }
+
+    [Test]
     public void The_regions_match_the_spec_table()
     {
         TamerRankedLayout.Step.Should().Be(new TamerBox("Tier and step", 0, 0, 186, 12));

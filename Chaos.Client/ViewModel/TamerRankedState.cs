@@ -62,11 +62,28 @@ public sealed class TamerRankedState
     /// <summary>Why the last ranked request was refused, or empty.</summary>
     public string LastMessage { get; private set; } = string.Empty;
 
-    /// <summary>A defence is saved, whether or not the data can still build it.</summary>
-    public bool HasDefence => HasView && (DefenceState != TamerWireDefenceState.None);
+    /// <summary>A defence is saved, whether or not the data can still build it. Unknown, so false, while the ladder is unavailable.</summary>
+    public bool HasDefence => HasView && DefenceState is TamerWireDefenceState.Good or TamerWireDefenceState.NeedsSaving;
 
     /// <summary>The saved defence uses a creature the data no longer has.</summary>
     public bool DefenceNeedsSaving => HasView && (DefenceState == TamerWireDefenceState.NeedsSaving);
+
+    /// <summary>The server could not read the ladder: nothing on the tab can be asked for until it can.</summary>
+    public bool IsUnavailable => HasView && (DefenceState == TamerWireDefenceState.Unavailable);
+
+    /// <summary>The offer rows are drawn only with a defence; otherwise the note line stands in their place.</summary>
+    public bool ShowsOffers => HasDefence;
+
+    /// <summary>
+    ///     The line in the first offer row's place: the ladder is unavailable, there is no defence yet, or nobody is
+    ///     offered. Empty while offers show, and before the first display.
+    /// </summary>
+    public string NoteLine
+        => !HasView ? string.Empty
+            : IsUnavailable ? TamerRankedText.Unavailable
+            : !HasDefence ? TamerRankedText.NoDefence
+            : Enumerable.Range(0, MAX_OFFERS).All(slot => OfferAt(slot) is null) ? TamerRankedText.NoOpponents
+            : string.Empty;
 
     public TamerRankedLogView? SelectedEntry => SelectedId is { } id ? LogList.FirstOrDefault(entry => entry.Id == id) : null;
 
@@ -80,10 +97,42 @@ public sealed class TamerRankedState
     public bool SelectedRevengeUsed => SelectedEntry is { } entry && entry.Flags.HasFlag(TamerRankedLogFlags.RevengeUsed);
 
     /// <summary>One refresh is left today, and there is a defence to be offered opponents for.</summary>
-    public bool CanRefresh => HasDefence && (RefreshLeft > 0);
+    public bool CanRefresh => CanRefreshNow(out _);
 
     /// <summary>The selected entry keeps a replay.</summary>
-    public bool CanWatch => SelectedEntry is { } entry && entry.Flags.HasFlag(TamerRankedLogFlags.ReplayKept);
+    public bool CanWatch => CanWatchNow(out _);
+
+    /// <summary>As <see cref="CanRefresh" />, with why not.</summary>
+    public bool CanRefreshNow(out string? reason)
+    {
+        if (!HasView)
+            reason = TamerRankedText.Reading;
+        else if (IsUnavailable)
+            reason = TamerRankedText.Unavailable;
+        else if (!HasDefence)
+            reason = TamerRankedText.NeedDefence;
+        else if (RefreshLeft == 0)
+            reason = TamerRankedText.NoRefreshLeft;
+        else
+            reason = null;
+
+        return reason is null;
+    }
+
+    /// <summary>As <see cref="CanWatch" />, with why not.</summary>
+    public bool CanWatchNow(out string? reason)
+    {
+        if (IsUnavailable)
+            reason = TamerRankedText.Unavailable;
+        else if (SelectedEntry is not { } entry)
+            reason = TamerRankedText.NoEntryChosen;
+        else if (!entry.Flags.HasFlag(TamerRankedLogFlags.ReplayKept))
+            reason = TamerRankedText.NoReplayKept;
+        else
+            reason = null;
+
+        return reason is null;
+    }
 
     /// <summary>Takes a <c>Ranked</c> display; other display kinds leave the state alone.</summary>
     public void Apply(TamerDisplayArgs args)
@@ -162,6 +211,8 @@ public sealed class TamerRankedState
     {
         if (!HasView)
             reason = TamerRankedText.Reading;
+        else if (IsUnavailable)
+            reason = TamerRankedText.Unavailable;
         else if (!HasDefence)
             reason = TamerRankedText.NeedDefence;
         else if (OfferAt(slot) is null)
@@ -181,6 +232,8 @@ public sealed class TamerRankedState
     {
         if (!HasView)
             reason = TamerRankedText.Reading;
+        else if (IsUnavailable)
+            reason = TamerRankedText.Unavailable;
         else if (SquadSize(stable, squad) != DEFENCE_SIZE)
             reason = TamerRankedText.NeedFive;
         else
@@ -192,7 +245,9 @@ public sealed class TamerRankedState
     /// <summary>Revenge is on when the selected entry's revenge flag is set and the active squad is not empty.</summary>
     public bool CanRevenge(TamerStableState stable, out string? reason)
     {
-        if (SelectedEntry is not { } entry)
+        if (IsUnavailable)
+            reason = TamerRankedText.Unavailable;
+        else if (SelectedEntry is not { } entry)
             reason = TamerRankedText.NoEntryChosen;
         else if (entry.Flags.HasFlag(TamerRankedLogFlags.RevengeUsed))
             reason = TamerRankedText.AlreadyRevenged;

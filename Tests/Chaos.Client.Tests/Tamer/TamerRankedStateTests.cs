@@ -250,6 +250,93 @@ public sealed class TamerRankedStateTests
     }
 
     [Test]
+    public void An_unavailable_ladder_is_neither_a_defence_nor_none()
+    {
+        //whatever else the display carries, the server could not read the ladder
+        var state = Applied(Ranked(TamerWireDefenceState.Unavailable, log: [Entry(1, flags: CanRevengeFlags)]));
+
+        state.HasView.Should().BeTrue();
+        state.IsUnavailable.Should().BeTrue();
+        state.HasDefence.Should().BeFalse();
+        state.DefenceNeedsSaving.Should().BeFalse();
+
+        Applied(Ranked()).IsUnavailable.Should().BeFalse();
+        Applied(Ranked(TamerWireDefenceState.None)).IsUnavailable.Should().BeFalse();
+        new TamerRankedState().IsUnavailable.Should().BeFalse();
+    }
+
+    [Test]
+    public void An_unavailable_ladder_turns_every_ranked_button_off_with_its_reason()
+    {
+        var state = Applied(Ranked(TamerWireDefenceState.Unavailable, log: [Entry(1, flags: CanRevengeFlags)]));
+        var stable = Stable();
+
+        state.CanSetDefence(0, stable, out var reason).Should().BeFalse();
+        reason.Should().Be(TamerRankedText.Unavailable);
+
+        state.CanRefresh.Should().BeFalse();
+        state.CanRefreshNow(out reason).Should().BeFalse();
+        reason.Should().Be(TamerRankedText.Unavailable);
+
+        state.CanAttack(0, stable, out reason).Should().BeFalse();
+        reason.Should().Be(TamerRankedText.Unavailable);
+
+        state.CanWatch.Should().BeFalse();
+        state.CanWatchNow(out reason).Should().BeFalse();
+        reason.Should().Be(TamerRankedText.Unavailable);
+
+        state.CanRevenge(stable, out reason).Should().BeFalse();
+        reason.Should().Be(TamerRankedText.Unavailable);
+    }
+
+    [Test]
+    public void Refresh_and_watch_give_their_reasons()
+    {
+        new TamerRankedState().CanRefreshNow(out var reason).Should().BeFalse();
+        reason.Should().Be(TamerRankedText.Reading);
+
+        Applied(Ranked(TamerWireDefenceState.None)).CanRefreshNow(out reason).Should().BeFalse();
+        reason.Should().Be(TamerRankedText.NeedDefence);
+
+        Applied(Ranked(refreshLeft: 0)).CanRefreshNow(out reason).Should().BeFalse();
+        reason.Should().Be(TamerRankedText.NoRefreshLeft);
+
+        Applied(Ranked()).CanRefreshNow(out reason).Should().BeTrue();
+        reason.Should().BeNull();
+
+        Applied(Ranked(log: [])).CanWatchNow(out reason).Should().BeFalse();
+        reason.Should().Be(TamerRankedText.NoEntryChosen);
+
+        Applied(Ranked(log: [Entry(1, flags: Won)])).CanWatchNow(out reason).Should().BeFalse();
+        reason.Should().Be(TamerRankedText.NoReplayKept);
+
+        Applied(Ranked(log: [Entry(1, flags: Won | TamerRankedLogFlags.ReplayKept)])).CanWatchNow(out reason).Should().BeTrue();
+        reason.Should().BeNull();
+    }
+
+    [Test]
+    public void The_note_line_says_unavailable_no_defence_or_no_opponents()
+    {
+        Applied(Ranked(TamerWireDefenceState.Unavailable)).NoteLine.Should().Be(TamerRankedText.Unavailable);
+        Applied(Ranked(TamerWireDefenceState.Unavailable, offers: [])).NoteLine.Should().Be(TamerRankedText.Unavailable);
+        Applied(Ranked(TamerWireDefenceState.None)).NoteLine.Should().Be(TamerRankedText.NoDefence);
+        Applied(Ranked(offers: [])).NoteLine.Should().Be(TamerRankedText.NoOpponents);
+        Applied(Ranked(offers: [new(string.Empty, 6, Five())])).NoteLine.Should().Be(TamerRankedText.NoOpponents);
+        Applied(Ranked()).NoteLine.Should().BeEmpty();
+        Applied(Ranked(TamerWireDefenceState.NeedsSaving)).NoteLine.Should().BeEmpty();
+        new TamerRankedState().NoteLine.Should().BeEmpty();
+    }
+
+    [Test]
+    public void Offers_show_only_with_a_defence()
+    {
+        Applied(Ranked()).ShowsOffers.Should().BeTrue();
+        Applied(Ranked(TamerWireDefenceState.NeedsSaving)).ShowsOffers.Should().BeTrue();
+        Applied(Ranked(TamerWireDefenceState.None)).ShowsOffers.Should().BeFalse();
+        Applied(Ranked(TamerWireDefenceState.Unavailable)).ShowsOffers.Should().BeFalse();
+    }
+
+    [Test]
     public void Refresh_is_enabled_while_one_is_left()
     {
         Applied(Ranked(refreshLeft: 1)).CanRefresh.Should().BeTrue();

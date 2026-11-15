@@ -49,6 +49,7 @@ public sealed class TamerRankedTextTests
         TamerRankedText.TagNoRank.Should().Be("no rank");
         TamerRankedText.TagRevenged.Should().Be("revenged");
         TamerRankedText.RefreshQuestion.Should().Be("Refresh the opponents? You can do this once a day.");
+        TamerRankedText.Unavailable.Should().Be("The ladder is unavailable.");
     }
 
     [Test]
@@ -220,7 +221,9 @@ public sealed class TamerRankedTextTests
     [Test]
     public void Every_refusal_the_server_can_send_fits_the_bottom_message_line()
     {
-        //copied from the server at commit 9b8329707; the tests may not reference its service classes
+        //copied from the server at commit 9b8329707 and checked again at 7e546b8e6, where every line below is still
+        //sent word for word; the tests may not reference its service classes. TamerLadderHandler.FriendlyLine's
+        //shortened lines are not here: they answer Friendly on the orange bar and never reach this label
         string[] refusals =
         [
             //TamerStableHandler: DEAD_TEXT, LEDGER_GONE_TEXT, NO_LEDGER_TEXT, and RefusalText(BadName) for an over-long string
@@ -309,6 +312,7 @@ public sealed class TamerRankedTextTests
         ShouldFit(TamerRankedText.Reading, TamerRankedText.RIGHT_WIDTH);
         ShouldFit(TamerRankedText.NoOpponents, TamerRankedText.RIGHT_WIDTH);
         ShouldFit(TamerRankedText.NoDefence, TamerRankedText.RIGHT_WIDTH);
+        ShouldFit(TamerRankedText.Unavailable, TamerRankedText.RIGHT_WIDTH);
 
         //captions are centred in their buttons with no padding of their own; keep a character clear each side
         foreach (var caption in new[] { TamerRankedText.Refresh, TamerRankedText.Attack })

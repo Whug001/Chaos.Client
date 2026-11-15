@@ -264,18 +264,16 @@ public sealed class TamerRankedPanel : UIPanel
         DailyWinLabel.ForegroundColor = ranked.DailyWinOpen ? LegendColors.Gold : LegendColors.Gray;
         RefreshButton.Enabled = ranked.CanRefresh;
 
-        //no defence yet shows the way in and no offers, whatever the server sent
+        //no defence yet, or a ladder the server could not read, shows the note line and no offers, whatever was sent
         foreach (var row in OfferRows)
         {
-            if (ranked.HasDefence)
+            if (ranked.ShowsOffers)
                 row.Bind(ranked, stable);
             else
                 row.Visible = false;
         }
 
-        var note = !ranked.HasDefence ? TamerRankedText.NoDefence
-            : OfferRows.All(row => !row.Visible) ? TamerRankedText.NoOpponents
-            : string.Empty;
+        var note = ranked.NoteLine;
 
         NoteLabel.Text = note;
         NoteLabel.Visible = note.Length > 0;
