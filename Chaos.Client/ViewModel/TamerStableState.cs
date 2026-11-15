@@ -65,6 +65,14 @@ public sealed class TamerStableState
     public byte ActiveSquad { get; private set; }
     public IReadOnlyList<IReadOnlyList<TamerDisplaySquadMember>> Squads { get; private set; } = [[], [], []];
     public string LastMessage { get; private set; } = string.Empty;
+
+    /// <summary>
+    ///     Moves on with every applied snapshot, every completed catalog and every clear, even when the data is the
+    ///     same. A ranked question notes it when it is asked, so a Yes after a new snapshot can tell it is out of date.
+    ///     Sorting and selecting are the player's own and leave it alone.
+    /// </summary>
+    public int Revision { get; private set; }
+
     public TamerStableSort Sort { get; private set; } = TamerStableSort.Newest;
     public IReadOnlyList<TamerMonsterView> Monsters => SortedMonsters;
 
@@ -127,6 +135,7 @@ public sealed class TamerStableState
 
         RebuildSorted();
         FixSelection();
+        Revision = unchecked(Revision + 1);
     }
 
     public void Clear()
@@ -155,6 +164,7 @@ public sealed class TamerStableState
         Squads = [[], [], []];
         LastMessage = string.Empty;
         Sort = TamerStableSort.Newest;
+        Revision = unchecked(Revision + 1);
     }
 
     /// <summary>Whether the next snapshot may open the window. Consumes the flag: true once, then false until the next catalog.</summary>
@@ -613,6 +623,7 @@ public sealed class TamerStableState
         ExperiencePerFeed = perFeed;
         HasCatalog = true;
         CatalogJustArrived = true;
+        Revision = unchecked(Revision + 1);
     }
 
     private static IReadOnlyList<IReadOnlyList<TamerDisplaySquadMember>> NormalizeSquads(List<List<TamerDisplaySquadMember>>? squads)

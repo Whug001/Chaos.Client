@@ -93,6 +93,9 @@ public static class TamerRankedText
     public const string NoRefreshLeft = "You have used today's refresh.";
     public const string NoReplayKept = "That fight keeps no replay.";
 
+    /// <summary>On the bottom line when a Yes sent nothing because new data arrived while the question was up.</summary>
+    public const string Changed = "That changed. Look again.";
+
     private const int MINUTES_PER_HOUR = 60;
     private const int MINUTES_PER_DAY = 1440;
     private const uint SECONDS_PER_HOUR = 3600;

@@ -454,8 +454,13 @@ public sealed class TamerStableControl : FramedDialogPanelBase
             answer =>
             {
                 //the window may have closed or switched tab while the question was up
-                if ((answer == 0) && Visible && (Tab == TamerStableTab.Ranked))
-                    onYes();
+                if ((answer != 0) || !Visible || (Tab != TamerStableTab.Ranked))
+                    return;
+
+                onYes();
+
+                //a Yes that sent nothing because the data changed says so on the bottom line
+                Refresh();
             });
     }
 

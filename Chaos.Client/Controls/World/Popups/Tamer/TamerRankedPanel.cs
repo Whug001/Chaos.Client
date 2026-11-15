@@ -15,7 +15,8 @@ namespace Chaos.Client.Controls.World.Popups.Tamer;
 ///     The Ranked tab: the standing, the saved defence and the top 10 on the left; the offered opponents and the
 ///     defence log on the right. It only draws what <see cref="TamerRankedState" /> and <see cref="TamerRankedText" />
 ///     answer, at the places <see cref="TamerRankedLayout" /> names. Refresh, Attack, Set from squad and Revenge ask
-///     first, on the window's choice panel through <see cref="QuestionRequested" />.
+///     first, on the window's choice panel through <see cref="QuestionRequested" />; each question is a
+///     <see cref="TamerRankedConfirmation" />, so a Yes after a new display or snapshot sends nothing.
 /// </summary>
 public sealed class TamerRankedPanel : UIPanel
 {
@@ -283,62 +284,41 @@ public sealed class TamerRankedPanel : UIPanel
         RevengeButton.Enabled = ranked.CanRevenge(stable, out _);
     }
 
-    private void Ask(string? question, Action onYes)
+    //the question remembers the data it was asked against; a Yes after new data sends nothing and says so
+    private void Ask(TamerRankedConfirmation? confirmation)
     {
-        if (!string.IsNullOrEmpty(question))
-            QuestionRequested?.Invoke(question, onYes);
+        if (confirmation is null)
+            return;
+
+        QuestionRequested?.Invoke(
+            confirmation.Question,
+            () =>
+            {
+                var ranked = WorldState.TamerRanked;
+
+                if (confirmation.Confirm(ranked, WorldState.TamerStable, out var answer) is { } action)
+                    ActionRequested?.Invoke(action);
+                else if (answer == TamerRankedAnswer.Changed)
+                    ranked.ShowLocalMessage(TamerRankedText.Changed);
+            });
     }
 
     private void OnSetDefenceClicked(byte squad)
     {
-        if (!Visible || !WorldState.TamerRanked.CanSetDefence(squad, WorldState.TamerStable, out _))
-            return;
-
-        Ask(
-            TamerRankedText.SetDefenceQuestion(squad),
-            () =>
-            {
-                //the squad may have changed while the question was up
-                if (WorldState.TamerRanked.CanSetDefence(squad, WorldState.TamerStable, out _)
-                    && TamerRankedState.SetDefenceAction(squad) is { } action)
-                    ActionRequested?.Invoke(action);
-            });
+        if (Visible)
+            Ask(TamerRankedConfirmation.SetDefence(WorldState.TamerRanked, WorldState.TamerStable, squad));
     }
 
     private void OnRefreshClicked()
     {
-        if (!Visible || !WorldState.TamerRanked.CanRefresh)
-            return;
-
-        Ask(
-            TamerRankedText.RefreshQuestion,
-            () =>
-            {
-                if (WorldState.TamerRanked.CanRefresh)
-                    ActionRequested?.Invoke(TamerRankedState.RefreshAction());
-            });
+        if (Visible)
+            Ask(TamerRankedConfirmation.Refresh(WorldState.TamerRanked, WorldState.TamerStable));
     }
 
     private void OnAttackClicked(int slot)
     {
-        var ranked = WorldState.TamerRanked;
-
-        if (!Visible || !ranked.CanAttack(slot, WorldState.TamerStable, out _) || (ranked.OfferAt(slot) is not { } offer))
-            return;
-
-        var name = offer.Name;
-
-        Ask(
-            ranked.AttackQuestion(slot),
-            () =>
-            {
-                //a new display may have put someone else in the slot while the question was up: the Yes was for this name
-                if (!ranked.CanAttack(slot, WorldState.TamerStable, out _) || (ranked.OfferAt(slot)?.Name != name))
-                    return;
-
-                if (TamerRankedState.AttackAction((byte)slot, name) is { } action)
-                    ActionRequested?.Invoke(action);
-            });
+        if (Visible)
+            Ask(TamerRankedConfirmation.Attack(WorldState.TamerRanked, WorldState.TamerStable, slot));
     }
 
     private void OnLogRowClicked(TamerRankedLogRow row)
@@ -363,23 +343,7 @@ public sealed class TamerRankedPanel : UIPanel
 
     private void OnRevengeClicked()
     {
-        var ranked = WorldState.TamerRanked;
-
-        if (!Visible || !ranked.CanRevenge(WorldState.TamerStable, out _) || (ranked.SelectedEntry is not { } entry))
-            return;
-
-        var id = entry.Id;
-
-        Ask(
-            ranked.RevengeQuestion(),
-            () =>
-            {
-                //the Yes was for this entry: the selection or its flag may have changed while the question was up
-                if ((ranked.SelectedEntry?.Id != id) || !ranked.CanRevenge(WorldState.TamerStable, out _))
-                    return;
-
-                if (TamerRankedState.RevengeAction(id) is { } action)
-                    ActionRequested?.Invoke(action);
-            });
+        if (Visible)
+            Ask(TamerRankedConfirmation.Revenge(WorldState.TamerRanked, WorldState.TamerStable));
     }
 }

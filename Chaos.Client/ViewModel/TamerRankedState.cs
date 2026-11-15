@@ -62,6 +62,12 @@ public sealed class TamerRankedState
     /// <summary>Why the last ranked request was refused, or empty.</summary>
     public string LastMessage { get; private set; } = string.Empty;
 
+    /// <summary>
+    ///     Moves on with every applied <c>Ranked</c> display and every clear, even when the data is the same. A question
+    ///     notes it when it is asked, so a Yes after new data can tell the question is out of date.
+    /// </summary>
+    public int Revision { get; private set; }
+
     /// <summary>A defence is saved, whether or not the data can still build it. Unknown, so false, while the ladder is unavailable.</summary>
     public bool HasDefence => HasView && DefenceState is TamerWireDefenceState.Good or TamerWireDefenceState.NeedsSaving;
 
@@ -161,7 +167,14 @@ public sealed class TamerRankedState
 
         HasView = true;
         FixSelection();
+        Revision = unchecked(Revision + 1);
     }
+
+    /// <summary>
+    ///     A line of the client's own for the bottom line, such as why a Yes sent nothing. It is not new data, so the
+    ///     revision stays; the next display replaces it.
+    /// </summary>
+    public void ShowLocalMessage(string message) => LastMessage = message ?? string.Empty;
 
     public void Clear()
     {
@@ -184,6 +197,7 @@ public sealed class TamerRankedState
         LogList.Clear();
         TopList.Clear();
         SelectedId = null;
+        Revision = unchecked(Revision + 1);
     }
 
     /// <summary>Selects a log entry by id; an id not in the log changes nothing.</summary>
