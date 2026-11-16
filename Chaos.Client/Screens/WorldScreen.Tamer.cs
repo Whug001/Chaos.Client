@@ -1,5 +1,6 @@
 #region
 using Chaos.Client.Collections;
+using Chaos.Client.Controls.Generic;
 using Chaos.Client.Controls.World.Popups.Tamer;
 using Chaos.Client.ViewModel;
 using Chaos.DarkAges.Definitions;
@@ -24,6 +25,8 @@ public sealed partial class WorldScreen
 {
     private TamerStableControl? TamerStableWindow;
     private TamerBattleControl? TamerBattleWindow;
+    private OkPopupMessageControl? TamerBoutPrompt;
+    private string? TamerBoutTarget;
 
     private void WireTamer()
     {
@@ -129,6 +132,31 @@ public sealed partial class WorldScreen
     }
 
     private void OnTamerStableClosed() => WorldState.TamerStable.ClearCatalogJustArrived();
+
+    /// <summary>
+    ///     Asks for a yes before sending a friendly tamer bout to the named player, through the same yes/no prompt as
+    ///     the card battle spectate question. Yes routes through <see cref="SendTamerAction" />, so the bout is still
+    ///     dropped while the battle window is showing a fight.
+    /// </summary>
+    private void AskTamerBout(string name)
+    {
+        if (TamerBoutPrompt is null)
+        {
+            TamerBoutPrompt = new OkPopupMessageControl(yesNo: true) { Name = "TamerBoutPrompt" };
+            Root!.AddChild(TamerBoutPrompt);
+            TamerBoutPrompt.OnOk += () =>
+            {
+                TamerBoutPrompt.Hide();
+
+                if (TamerBoutTarget is { } target && TamerRankedState.FriendlyAction(target) is { } bout)
+                    SendTamerAction(bout);
+            };
+            TamerBoutPrompt.OnCancel += () => TamerBoutPrompt.Hide();
+        }
+
+        TamerBoutTarget = name;
+        TamerBoutPrompt.Show($"Start a friendly tamer bout with {name}?");
+    }
 
     private bool EnsureTamerBattleWindow()
     {
