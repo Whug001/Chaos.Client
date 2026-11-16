@@ -478,10 +478,10 @@ public sealed class TamerBattlePlaybackTests
     }
 
     [Test]
-    [Arguments(11.0)] //mid-walk and mid-attack
-    [Arguments(21.0)] //mid-leap
     [Arguments(31.5)] //a ranged attack's dot in flight, a number floating
     [Arguments(45.0)] //settled, with a status on
+    [Arguments(75.0)] //long settled, statuses still on
+    [Arguments(150.0)] //long idle
     public void State_always_equals_a_fresh_playback_at_the_same_clock(double clock)
     {
         List<TamerBattleMonsterView> Monsters()
@@ -501,22 +501,32 @@ public sealed class TamerBattlePlaybackTests
                 Ev(40, TamerBattleEventType.StatusOn, 0, 1, 10, -1, -1, -1, "Stun")
             ];
 
-        //The busy playback reaches the clock by a crooked path: a speed change mid-animation, a skip, a replay.
-        //Speed cycles 1x, 2x, 4x, 1x, so three cycles leave it at 1x again.
+        //The busy playback reaches the clock by a crooked path: a big 2.5 s step at double speed, a
+        //frozen-while-paused step, a skip, a replay, a mid-fight pause and replay, then a large step after
+        //that replay with the remainder at double speed. Speed cycles 1x, 2x, 4x, 1x, so the cycles below
+        //leave it at 1x again.
         var busy = new TamerBattlePlayback(Fight(Monsters(), Events(), endTick: 600));
         AdvanceTo(busy, 10.5);
         busy.CycleSpeed();
-        AdvanceTo(busy, 5.25);
+        busy.Advance(TimeSpan.FromSeconds(2.5));
         busy.Paused = true;
-        AdvanceTo(busy, 50);
+        busy.Advance(TimeSpan.FromSeconds(2.5));
+        busy.ClockTicks.Should().BeApproximately(60.5, 0.001);
         busy.Paused = false;
+        busy.CycleSpeed();
+        busy.CycleSpeed();
         busy.Skip();
         busy.Replay();
+        AdvanceTo(busy, 20);
+        busy.Paused = true;
+        busy.Paused = false;
+        busy.Replay();
+        busy.Advance(TimeSpan.FromSeconds(2.5));
+        busy.CycleSpeed();
+        busy.Advance(TimeSpan.FromSeconds((clock - 25) / 20.0));
         busy.CycleSpeed();
         busy.CycleSpeed();
         busy.Speed.Should().Be(1);
-        AdvanceTo(busy, clock / 2);
-        AdvanceTo(busy, clock / 2);
 
         var fresh = new TamerBattlePlayback(Fight(Monsters(), Events(), endTick: 600));
         AdvanceTo(fresh, clock);

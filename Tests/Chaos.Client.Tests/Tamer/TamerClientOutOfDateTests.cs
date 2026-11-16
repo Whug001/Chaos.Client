@@ -1,7 +1,13 @@
 using System.Buffers;
+using System.Text;
 using Chaos.Client.Networking;
 using Chaos.Client.Networking.Definitions;
+using Chaos.DarkAges.Definitions;
+using Chaos.Extensions.Common;
 using Chaos.Networking.Abstractions.Definitions;
+using Chaos.Networking.Entities.Server;
+using Chaos.Packets;
+using Chaos.Packets.Abstractions;
 using FluentAssertions;
 
 namespace Chaos.Client.Tests;
@@ -17,6 +23,47 @@ public sealed class TamerClientOutOfDateTests
         var rented = ArrayPool<byte>.Shared.Rent(0);
 
         return new ServerPacket((byte)opcode, 0, rented, 0);
+    }
+
+    private static ServerPacket ValidSetBindState()
+    {
+        //same converter discovery as GameClient: mentioning SetBindStateArgs loads the converters assembly
+        //before the scan runs, so the throw below serializes with the real server converter
+        var converters = new Dictionary<Type, IPacketConverter>();
+        var instances = typeof(IPacketConverter<>).LoadImplementations()
+            .Select(type => (IPacketConverter)Activator.CreateInstance(type)!);
+
+        foreach (var instance in instances)
+        {
+            var argsType = instance.GetType()
+                .GetInterfaces()
+                .Where(i => i.IsGenericType)
+                .First(i => i.GetGenericTypeDefinition() == typeof(IPacketConverter<>))
+                .GetGenericArguments()
+                .First();
+
+            converters.TryAdd(argsType, instance);
+        }
+
+        var serializer = new PacketSerializer(Encoding.GetEncoding(949), converters);
+        var packet = serializer.Serialize(
+            new SetBindStateArgs
+            {
+                Mode = BindMeterMode.Throw,
+                Grade = "Clay",
+                MonsterName = "Goblin",
+                Chance = 48,
+                Shakes = 1,
+                Outcome = BindOutcome.Pending
+            });
+
+        var rented = ArrayPool<byte>.Shared.Rent(packet.Length);
+        packet.Buffer[..packet.Length].CopyTo(rented);
+
+        var length = packet.Length;
+        packet.MemoryOwner?.Dispose();
+
+        return new ServerPacket((byte)ServerOpCode.SetBindState, 0, rented, length);
     }
 
     private static void EnterLogin(ConnectionManager manager)
@@ -88,5 +135,60 @@ public sealed class TamerClientOutOfDateTests
         manager.ProcessPackets([Malformed(ServerOpCode.TamerDisplay)]);
 
         warnings.Should().Be(2);
+    }
+
+    [Test]
+    public void A_throwing_subscriber_after_a_successful_decode_does_not_warn()
+    {
+        using var manager = new ConnectionManager();
+        var warnings = 0;
+        manager.OnTamerClientOutOfDate += () => warnings++;
+        manager.OnSetBindState += _ => throw new InvalidOperationException("UI boom");
+
+        manager.ProcessPackets([ValidSetBindState()]);
+
+        warnings.Should().Be(0);
+    }
+
+    [Test]
+    public void A_valid_packet_still_reaches_its_subscribers()
+    {
+        //guards the test above: a silent pass because the packet never decoded would prove nothing
+        using var manager = new ConnectionManager();
+        SetBindStateArgs? received = null;
+        manager.OnSetBindState += args => received = args;
+
+        manager.ProcessPackets([ValidSetBindState()]);
+
+        received.Should().NotBeNull();
+        received!.Mode.Should().Be(BindMeterMode.Throw);
+        received.Grade.Should().Be("Clay");
+        received.MonsterName.Should().Be("Goblin");
+    }
+
+    [Test]
+    public void No_subscriber_does_not_consume_the_warning()
+    {
+        using var manager = new ConnectionManager();
+        manager.ProcessPackets([Malformed(ServerOpCode.TamerDisplay)]);
+
+        var warnings = 0;
+        manager.OnTamerClientOutOfDate += () => warnings++;
+        manager.ProcessPackets([Malformed(ServerOpCode.TamerDisplay)]);
+
+        warnings.Should().Be(1);
+    }
+
+    [Test]
+    public void A_throwing_warning_subscriber_does_not_break_the_batch()
+    {
+        using var manager = new ConnectionManager();
+        manager.OnTamerClientOutOfDate += () => throw new InvalidOperationException("orange bar boom");
+        SetBindStateArgs? received = null;
+        manager.OnSetBindState += args => received = args;
+
+        manager.ProcessPackets([Malformed(ServerOpCode.TamerDisplay), ValidSetBindState()]);
+
+        received.Should().NotBeNull();
     }
 }

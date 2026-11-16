@@ -335,4 +335,36 @@ public sealed class TamerBattleAssemblyTests
         assembly.HasActive.Should().BeTrue();
         assembly.ActiveFightNumber.Should().Be(1);
     }
+
+    [Test]
+    public void A_part_boundary_that_breaks_tick_order_still_applies_every_event()
+    {
+        //part 0 carries a later tick than part 1; without a sort the incremental playback stops at the
+        //first future tick and applies the pair backwards, so the shield would absorb the damage instead
+        //of landing after it
+        var assembly = new TamerBattleAssembly();
+        assembly.Accept(Start(7));
+        assembly.Accept(
+            Events(
+                7,
+                0,
+                [new TamerBattleEventView(20, TamerBattleEventType.Shield, 1, 1, 40, -1, -1, -1, "")]));
+        assembly.Accept(
+            Events(
+                7,
+                1,
+                [new TamerBattleEventView(10, TamerBattleEventType.Damage, 6, 1, 30, -1, -1, 5, "")]));
+        var ready = assembly.Accept(End(7, 2));
+
+        ready.Status.Should().Be(TamerBattleAcceptance.Ready);
+        ready.Fight!.Events[0].Tick.Should().Be(10);
+        ready.Fight.Events[1].Tick.Should().Be(20);
+
+        var playback = new TamerBattlePlayback(ready.Fight);
+        playback.Advance(TimeSpan.FromSeconds(2.5));
+
+        var unit = playback.Units.Single(u => u.Id == 1);
+        unit.Health.Should().Be(70);
+        unit.Shield.Should().Be(40);
+    }
 }
