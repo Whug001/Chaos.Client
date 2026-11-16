@@ -212,4 +212,160 @@ public class FlyByFlockTests
 
         flock.Flyers.Should().BeEmpty("a flyer pushed back past its entry edge is gone for good");
     }
+
+    private static FlyByFlock NewGeese(int seed) => new(FlyByStyle.GooseShadows, new Random(seed));
+
+    //a goose flock just after its first V has spawned
+    private static FlyByFlock GeeseWithAVeeUp(int seed)
+    {
+        var flock = NewGeese(seed);
+
+        while (flock.GroupsSpawned == 0)
+            Run(flock, STEP);
+
+        return flock;
+    }
+
+    [Test]
+    public void Vee_HasOneLeaderAndTwoArms()
+    {
+        var style = FlyByStyle.GooseShadows;
+
+        //the placement jitter, plus the little each bird bobs in the frame it spawned on
+        var tolerance = style.VeeJitter + 0.3f;
+
+        for (var seed = 0; seed < 20; seed++)
+        {
+            var flock = GeeseWithAVeeUp(seed);
+            var direction = flock.Flyers[0].Direction;
+            var leader = flock.Flyers.MaxBy(f => f.Position.X * direction)!;
+            var arms = new Dictionary<int, List<int>> { [-1] = [], [1] = [] };
+
+            flock.Flyers
+                 .Should()
+                 .HaveCountGreaterThanOrEqualTo(7)
+                 .And
+                 .HaveCountLessThanOrEqualTo(11);
+
+            foreach (var bird in flock.Flyers.Where(f => f != leader))
+            {
+                var behind = (leader.Position.X - bird.Position.X) * direction;
+                var aside = bird.Position.Y - leader.Position.Y;
+                var k = (int)MathF.Round(behind / style.VeeAlong);
+
+                k.Should()
+                 .BeGreaterThanOrEqualTo(1, $"seed {seed}: every other bird is behind the leader");
+
+                behind.Should()
+                      .BeApproximately(k * style.VeeAlong, tolerance, $"seed {seed}: bird {k} back along the flight line");
+
+                MathF.Abs(aside)
+                     .Should()
+                     .BeApproximately(k * style.VeeAcross, tolerance, $"seed {seed}: bird {k} out to the side");
+
+                arms[MathF.Sign(aside)].Add(k);
+            }
+
+            foreach (var arm in arms.Values)
+                arm.Order()
+                   .Should()
+                   .Equal(Enumerable.Range(1, arm.Count), $"seed {seed}: an arm is one bird per step, with no gaps")
+                   .And
+                   .NotBeEmpty();
+        }
+    }
+
+    [Test]
+    public void Vee_EveryBirdLeavesWithinBound()
+    {
+        var style = FlyByStyle.GooseShadows;
+
+        for (var seed = 0; seed < 20; seed++)
+        {
+            var flock = GeeseWithAVeeUp(seed);
+            var bound = ((Viewport.X + flock.GroupDepth + style.EntryMargin + style.ExitMargin) / style.SpeedMin) + 2f;
+
+            for (var t = 0f; t < bound; t += STEP)
+            {
+                var before = flock.Flyers.ToList();
+                flock.Update(STEP, Viewport, Vector2.Zero, false);
+
+                foreach (var removed in before.Except(flock.Flyers))
+                    removed.Position
+                           .X
+                           .Should()
+                           .NotBeInRange(0f, Viewport.X, $"seed {seed}: a bird still on screen stays");
+            }
+
+            flock.Flyers
+                 .Should()
+                 .BeEmpty($"seed {seed}: the whole V, tail included, is gone within {bound:F1} s");
+        }
+    }
+
+    [Test]
+    public void Vee_PushedBackByTheCamera_IsRemoved()
+    {
+        for (var seed = 0; seed < 20; seed++)
+        {
+            var flock = GeeseWithAVeeUp(seed);
+            var direction = flock.Flyers[0].Direction;
+
+            for (var t = 0f; (t < 60f) && (flock.Flyers.Count > 0); t += STEP)
+                flock.Update(STEP, Viewport, new Vector2(-direction * 30f, 0f), false);
+
+            flock.Flyers
+                 .Should()
+                 .BeEmpty($"seed {seed}: a V pushed back past its entry edge is gone for good");
+        }
+    }
+
+    [Test]
+    public void Vee_IsNotRemovedOnTheFrameItSpawns()
+    {
+        //with a short exit margin, only the V's own depth keeps its tail inside the entry limit
+        var style = FlyByStyle.GooseShadows with { ExitMargin = 20f };
+
+        for (var seed = 0; seed < 20; seed++)
+        {
+            var flock = new FlyByFlock(style, new Random(seed));
+
+            while (flock.GroupsSpawned == 0)
+                Run(flock, STEP);
+
+            flock.Flyers
+                 .Should()
+                 .HaveCountGreaterThanOrEqualTo(7, $"seed {seed}: the tail of a long V starts inside the entry limit");
+        }
+    }
+
+    [Test]
+    public void Vee_ResetClearsFlyers()
+    {
+        var flock = GeeseWithAVeeUp(3);
+        Run(flock, 5f);
+
+        flock.Flyers
+             .Should()
+             .NotBeEmpty("the V is mid-crossing");
+
+        flock.Reset();
+
+        flock.Flyers
+             .Should()
+             .BeEmpty();
+    }
+
+    [Test]
+    public void Scatter_HasNoGroupDepth()
+    {
+        var flock = NewFlock(3);
+
+        while (flock.GroupsSpawned == 0)
+            Run(flock, STEP);
+
+        flock.GroupDepth
+             .Should()
+             .Be(0f);
+    }
 }

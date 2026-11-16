@@ -49,6 +49,12 @@ public sealed class FlyByFlock
     /// <summary>How many groups have spawned since this flock was made. Tests use it to time the gaps.</summary>
     public int GroupsSpawned { get; private set; }
 
+    /// <summary>
+    ///     How far behind its leader the latest group's last flyer started, px. Zero for a scattered group, where
+    ///     <see cref="FlyByStyle.SpreadAlong" /> is the limit instead.
+    /// </summary>
+    public float GroupDepth { get; private set; }
+
     /// <summary>Removes every flyer and restarts the first-group delay. Used on map change.</summary>
     public void Reset()
     {
@@ -110,14 +116,38 @@ public sealed class FlyByFlock
         var drift = Roll(-Style.DriftMax, Style.DriftMax);
         var count = Rng.Next(Style.GroupMin, Style.GroupMax + 1);
 
+        var vee = Style.Formation == FlyByFormation.Vee;
+
+        //in a V, flyer 0 leads, flyers 1..lead trail up one arm and the rest trail down the other
+        var lead = vee ? Rng.Next(2, Math.Max(3, count - 2)) : 0;
+        GroupDepth = 0f;
+
         for (var i = 0; i < count; i++)
+        {
+            Vector2 position;
+
+            if (vee)
+            {
+                var arm = i <= lead ? -1 : 1;
+                var k = i <= lead ? i : i - lead;
+                var jitter = i == 0 ? Vector2.Zero : new Vector2(Roll(-Style.VeeJitter, Style.VeeJitter), Roll(-Style.VeeJitter, Style.VeeJitter));
+
+                position = new Vector2(
+                    entryX - (direction * ((k * Style.VeeAlong) + jitter.X)),
+                    lineY + (arm * k * Style.VeeAcross) + jitter.Y);
+
+                GroupDepth = MathF.Max(GroupDepth, (k * Style.VeeAlong) + Style.VeeJitter);
+            }
+            else
+                position = new Vector2(
+                    entryX - (direction * Roll(0f, Style.SpreadAlong)),
+                    lineY + Roll(-Style.SpreadAcross, Style.SpreadAcross));
+
             FlyerList.Add(
                 new Flyer
                 {
                     Direction = direction,
-                    Position = new Vector2(
-                        entryX - (direction * Roll(0f, Style.SpreadAlong)),
-                        lineY + Roll(-Style.SpreadAcross, Style.SpreadAcross)),
+                    Position = position,
                     VelocityX = direction * speed * Roll(1f - Style.SpeedJitter, 1f + Style.SpeedJitter),
                     Drift = drift,
                     WaveAmplitude = Style.WaveAmplitude * Roll(0.7f, 1.3f),
@@ -126,6 +156,7 @@ public sealed class FlyByFlock
                     FlapRate = Roll(Style.FlapMin, Style.FlapMax),
                     FlapPhase = Roll(0f, 1f)
                 });
+        }
 
         GroupsSpawned++;
     }
@@ -154,11 +185,12 @@ public sealed class FlyByFlock
         flyer.Position += cameraShift + (velocity * dt);
     }
 
-    //gone once past the far edge, or pushed back (a player walking with the bats) further outside the entry edge than
-    //a group can stretch
+    //gone once past the far edge, or pushed back (a player walking with the flyers) further outside the entry edge than
+    //a group can stretch. a V stretches by its own depth
     private bool HasLeft(Flyer flyer, float viewportWidth)
     {
-        var entryLimit = Style.EntryMargin + Style.SpreadAlong + Style.ExitMargin;
+        var stretch = Style.Formation == FlyByFormation.Vee ? GroupDepth : Style.SpreadAlong;
+        var entryLimit = Style.EntryMargin + stretch + Style.ExitMargin;
 
         return flyer.Direction > 0
             ? (flyer.Position.X > viewportWidth + Style.ExitMargin) || (flyer.Position.X < -entryLimit)

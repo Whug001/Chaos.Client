@@ -1,6 +1,7 @@
 using Chaos.Client.Rendering;
 using FluentAssertions;
 using Microsoft.Xna.Framework;
+using Microsoft.Xna.Framework.Graphics;
 
 namespace Chaos.Client.Tests;
 
@@ -73,5 +74,14 @@ public class FlyByRendererTests
 
         renderer.IsActive.Should().BeTrue();
         renderer.FlyerCount.Should().BeGreaterThan(0);
+    }
+
+    [Test]
+    public void EffectsFor_FlipsLeftFlyersOnlyWhenAsked()
+    {
+        FlyByRenderer.EffectsFor(FlyByStyle.GooseShadows, -1).Should().Be(SpriteEffects.FlipHorizontally);
+        FlyByRenderer.EffectsFor(FlyByStyle.GooseShadows, 1).Should().Be(SpriteEffects.None);
+        FlyByRenderer.EffectsFor(FlyByStyle.Bats, -1).Should().Be(SpriteEffects.None);
+        FlyByRenderer.EffectsFor(FlyByStyle.Bats, 1).Should().Be(SpriteEffects.None);
     }
 }

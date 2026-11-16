@@ -4,6 +4,16 @@ using Microsoft.Xna.Framework;
 
 namespace Chaos.Client.Rendering;
 
+/// <summary>How the flyers of one <see cref="FlyByFlock" /> group are arranged when they enter.</summary>
+public enum FlyByFormation
+{
+    /// <summary>Each flyer starts at a random spot within the group's spread — bats.</summary>
+    Scatter,
+
+    /// <summary>One leader in front and two arms trailing back and out from it — geese.</summary>
+    Vee
+}
+
 /// <summary>
 ///     Tunables for one <see cref="FlyByRenderer" /> effect: groups of small pixel sprites that cross the screen now and
 ///     then, with quiet gaps between. Every "Min/Max" pair is rolled uniformly. Adjust for feel and rebuild to apply.
@@ -53,6 +63,27 @@ public sealed record FlyByStyle
 
     /// <summary>How far above or below its group's line a flyer may start, px.</summary>
     public float SpreadAcross { get; init; }
+
+    /// <summary>
+    ///     How a group is arranged. <see cref="FlyByFormation.Vee" /> places the flyers by the Vee fields below and does
+    ///     not use <see cref="SpreadAlong" /> or <see cref="SpreadAcross" />.
+    /// </summary>
+    public FlyByFormation Formation { get; init; } = FlyByFormation.Scatter;
+
+    /// <summary>In a Vee, how far behind the flyer ahead of it on its arm each flyer sits, px.</summary>
+    public float VeeAlong { get; init; } = 13f;
+
+    /// <summary>In a Vee, how far further out to the side than the flyer ahead of it each flyer sits, px.</summary>
+    public float VeeAcross { get; init; } = 8f;
+
+    /// <summary>In a Vee, the largest random offset of a flyer from its exact place, px on each axis.</summary>
+    public float VeeJitter { get; init; } = 1.5f;
+
+    /// <summary>
+    ///     Draws flyers heading left mirrored. For sprites that face right, like the geese; the bats look the same
+    ///     either way.
+    /// </summary>
+    public bool FlipWithDirection { get; init; }
 
     /// <summary>Largest up or down speed a group shares, px/sec. Rolled between minus and plus this.</summary>
     public float DriftMax { get; init; }
@@ -119,5 +150,40 @@ public sealed record FlyByStyle
         DartSpeed = new Vector2(40f, 55f),
         FlapMin = 4f,
         FlapMax = 5f
+    };
+
+    /// <summary>
+    ///     A V of 7-11 goose-shaped shadows sliding over the ground every 15-35 s. The geese themselves fly above the
+    ///     camera and are never drawn. Every bird shares one speed, so the V holds its shape.
+    /// </summary>
+    public static FlyByStyle GooseShadows { get; } = new()
+    {
+        FadeSeconds = 1.5f,
+        Frames = SpriteGrid.GooseFrames,
+        FrameCycle = [0, 1, 2, 1],
+        Color = Color.Black,
+        Alpha = 0.18f,
+        Formation = FlyByFormation.Vee,
+        VeeAlong = 13f,
+        VeeAcross = 8f,
+        VeeJitter = 1.5f,
+        FlipWithDirection = true,
+        FirstGroupMin = 4f,
+        FirstGroupMax = 10f,
+        GapMin = 15f,
+        GapMax = 35f,
+        GroupMin = 7,
+        GroupMax = 11,
+        SpeedMin = 34f,
+        SpeedMax = 44f,
+        SpeedJitter = 0f,
+        DriftMax = 5f,
+        WaveAmplitude = 1.2f,
+        WaveFreq = 0.2f,
+        DartIntervalMax = 0f,
+        FlapMin = 2.2f,
+        FlapMax = 2.8f,
+        BandTop = 30f,
+        BandBottom = 0.75f
     };
 }

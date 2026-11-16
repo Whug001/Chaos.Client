@@ -6,7 +6,7 @@ using Microsoft.Xna.Framework.Graphics;
 namespace Chaos.Client.Rendering;
 
 /// <summary>
-///     Full-viewport overlay for things that fly past in groups now and then — the bats. The flight itself is a
+///     Full-viewport overlay for things that fly past in groups now and then — the bats and the goose shadows. The flight itself is a
 ///     <see cref="FlyByFlock" />; this class fades the whole effect in and out and draws each flyer's current frame as a
 ///     1:1 pixel sprite. Switched off, no new group starts, and the flyers already in the air fade with the effect.
 ///     Touched only on the game-loop thread.
@@ -102,9 +102,22 @@ public sealed class FlyByRenderer : IAmbientOverlay
                 viewport.X + MathF.Round(flyer.Position.X - (texture.Width / 2f)),
                 viewport.Y + MathF.Round(flyer.Position.Y - (texture.Height / 2f)));
 
-            spriteBatch.Draw(texture, topLeft, color);
+            spriteBatch.Draw(
+                texture,
+                topLeft,
+                null,
+                color,
+                0f,
+                Vector2.Zero,
+                1f,
+                EffectsFor(Style, flyer.Direction),
+                0f);
         }
     }
+
+    /// <summary>Mirrors a flyer heading left when the style's sprites face right.</summary>
+    internal static SpriteEffects EffectsFor(FlyByStyle style, int direction)
+        => style.FlipWithDirection && (direction < 0) ? SpriteEffects.FlipHorizontally : SpriteEffects.None;
 
     /// <inheritdoc />
     public void Dispose()
