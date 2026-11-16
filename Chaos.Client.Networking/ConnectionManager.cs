@@ -972,6 +972,8 @@ public sealed class ConnectionManager : IDisposable
     {
         Client.DrainPackets(buffer);
 
+        var tamerDecodeFailed = false;
+
         foreach (var pkt in buffer)
         {
             try
@@ -984,12 +986,17 @@ public sealed class ConnectionManager : IDisposable
                 Debug.WriteLine($"[ConnectionManager] ProcessPackets opcode {pkt.OpCode} skipped: {ex.Message}");
 
                 if (ex is TamerDecodeException)
-                    WarnOnceForTamerVersionSkew(pkt.OpCode);
+                    tamerDecodeFailed = true;
             } finally
             {
                 ArrayPool<byte>.Shared.Return(pkt.Data);
             }
         }
+
+        //the warning fires after every buffer is returned, so a throwing warning subscriber cannot skip the
+        //rest of the batch or leak a rented buffer
+        if (tamerDecodeFailed)
+            WarnOnceForTamerVersionSkew();
 
         //follow pending redirect once the old connection is fully torn down
         if (PendingRedirect is not null && !Client.Connected)
@@ -2227,23 +2234,34 @@ public sealed class ConnectionManager : IDisposable
         : Exception($"Tamer packet {(ServerOpCode)opCode} failed to decode.", inner);
 
     /// <summary>
-    ///     A tamer packet that fails to decode means the server speaks a newer tamer protocol. Warn once per login so
-    ///     a stream of such packets shows one orange-bar message instead of failing silently. Other opcodes keep the
-    ///     old silent skip.
+    ///     Warns once per login that the server speaks a newer tamer protocol. Runs after the packet loop so a
+    ///     throwing subscriber cannot skip the rest of a batch. The flag sets only when at least one subscriber is
+    ///     told: with nobody listening the next failure still warns.
     /// </summary>
-    private void WarnOnceForTamerVersionSkew(byte opCode)
+    private void WarnOnceForTamerVersionSkew()
     {
-        if (TamerClientOutOfDateWarned || !IsTamerOpcode(opCode))
+        if (TamerClientOutOfDateWarned)
             return;
 
-        TamerClientOutOfDateWarned = true;
-        OnTamerClientOutOfDate?.Invoke();
-    }
+        var handler = OnTamerClientOutOfDate;
 
-    private static bool IsTamerOpcode(byte opCode)
-        => opCode is (byte)ServerOpCode.TamerDisplay
-            or (byte)ServerOpCode.TamerBattleDisplay
-            or (byte)ServerOpCode.SetBindState;
+        if (handler is null)
+            return;
+
+        //one throwing subscriber must not stop the rest of the list
+        foreach (TamerClientOutOfDateHandler single in handler.GetInvocationList())
+        {
+            try
+            {
+                single();
+            } catch (Exception ex)
+            {
+                Debug.WriteLine($"[ConnectionManager] OnTamerClientOutOfDate skipped: {ex.Message}");
+            }
+        }
+
+        TamerClientOutOfDateWarned = true;
+    }
 
     private void HandleAcceptConnection(ServerPacket _)
     {
