@@ -979,9 +979,12 @@ public sealed class ConnectionManager : IDisposable
                 HandlePacket(pkt);
             } catch (Exception ex)
             {
-                //malformed packet — skip
+                //malformed packet — skip. only a decode failure warns: a subscriber throwing after a
+                //successful decode is that subscriber's bug, not a newer server protocol.
                 Debug.WriteLine($"[ConnectionManager] ProcessPackets opcode {pkt.OpCode} skipped: {ex.Message}");
-                WarnOnceForTamerVersionSkew(pkt.OpCode);
+
+                if (ex is TamerDecodeException)
+                    WarnOnceForTamerVersionSkew(pkt.OpCode);
             } finally
             {
                 ArrayPool<byte>.Shared.Return(pkt.Data);
@@ -2216,6 +2219,14 @@ public sealed class ConnectionManager : IDisposable
     }
 
     /// <summary>
+    ///     Marks a tamer packet that failed to decode: the server speaks a newer tamer protocol than this client. Only
+    ///     decode failures throw this; a subscriber throwing after a successful decode leaves it unwrapped so the
+    ///     out-of-date warning stays silent.
+    /// </summary>
+    private sealed class TamerDecodeException(byte opCode, Exception inner)
+        : Exception($"Tamer packet {(ServerOpCode)opCode} failed to decode.", inner);
+
+    /// <summary>
     ///     A tamer packet that fails to decode means the server speaks a newer tamer protocol. Warn once per login so
     ///     a stream of such packets shows one orange-bar message instead of failing silently. Other opcodes keep the
     ///     old silent skip.
@@ -2508,7 +2519,16 @@ public sealed class ConnectionManager : IDisposable
 
     private void HandleSetBindState(ServerPacket pkt)
     {
-        var args = Client.Deserialize<SetBindStateArgs>(in pkt);
+        SetBindStateArgs args;
+
+        try
+        {
+            args = Client.Deserialize<SetBindStateArgs>(in pkt);
+        } catch (Exception ex)
+        {
+            throw new TamerDecodeException(pkt.OpCode, ex);
+        }
+
         OnSetBindState?.Invoke(args);
     }
 
@@ -2852,13 +2872,31 @@ public sealed class ConnectionManager : IDisposable
 
     private void HandleTamerDisplay(ServerPacket pkt)
     {
-        var args = Client.Deserialize<TamerDisplayArgs>(in pkt);
+        TamerDisplayArgs args;
+
+        try
+        {
+            args = Client.Deserialize<TamerDisplayArgs>(in pkt);
+        } catch (Exception ex)
+        {
+            throw new TamerDecodeException(pkt.OpCode, ex);
+        }
+
         OnTamerDisplay?.Invoke(args);
     }
 
     private void HandleTamerBattleDisplay(ServerPacket pkt)
     {
-        var args = Client.Deserialize<TamerBattleDisplayArgs>(in pkt);
+        TamerBattleDisplayArgs args;
+
+        try
+        {
+            args = Client.Deserialize<TamerBattleDisplayArgs>(in pkt);
+        } catch (Exception ex)
+        {
+            throw new TamerDecodeException(pkt.OpCode, ex);
+        }
+
         OnTamerBattleDisplay?.Invoke(args);
     }
 
