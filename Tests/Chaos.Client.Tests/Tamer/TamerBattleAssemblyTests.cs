@@ -313,4 +313,26 @@ public sealed class TamerBattleAssemblyTests
         next.Status.Should().Be(TamerBattleAcceptance.Ready);
         next.Fight!.FightNumber.Should().Be(8);
     }
+
+    [Test]
+    public void Only_the_most_recent_64_ignored_fights_are_remembered()
+    {
+        var assembly = new TamerBattleAssembly();
+
+        for (ushort fight = 1; fight <= 100; fight++)
+            assembly.Accept(Events(fight, 0, [Ev(10, 1, 6)])).Status.Should().Be(TamerBattleAcceptance.Broken);
+
+        //the last 64 (37..100) are still ignored: quiet Waiting, never reassembled
+        assembly.Accept(Events(37, 0, [Ev(10, 1, 6)])).Status.Should().Be(TamerBattleAcceptance.Waiting);
+
+        //older ids fell out: parts for one look broken again, not ignored
+        assembly.Accept(Events(36, 0, [Ev(10, 1, 6)])).Status.Should().Be(TamerBattleAcceptance.Broken);
+
+        //and a wrapped id is never dropped forever: a new fight reusing it assembles
+        var start = assembly.Accept(Start(1));
+
+        start.Status.Should().Be(TamerBattleAcceptance.Waiting);
+        assembly.HasActive.Should().BeTrue();
+        assembly.ActiveFightNumber.Should().Be(1);
+    }
 }
