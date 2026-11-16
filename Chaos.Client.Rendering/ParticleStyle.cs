@@ -40,7 +40,13 @@ public enum ParticleShape
     ///     Pixel-art barred feather with a cream quill and tip, built from <see cref="SpriteGrid.FeatherBody" /> and
     ///     <see cref="SpriteGrid.FeatherTip" />. The body takes the particle's color. Size is its length in px.
     /// </summary>
-    Feather
+    Feather,
+
+    /// <summary>
+    ///     Pixel-art wheat head on a short stalk, drawn 1:1 from <see cref="SpriteGrid.WheatHead" />. It spins but does
+    ///     not squash, and Size is ignored.
+    /// </summary>
+    WheatHead
 }
 
 /// <summary>
@@ -89,6 +95,21 @@ public sealed record ParticleStyle
     ///     way it is swinging instead of spinning, and drops fastest mid-swing and slowest at each end. Zero means off.
     /// </summary>
     public float SeeSaw { get; init; }
+
+    /// <summary>
+    ///     Sideways speed multipliers in a lull and in the strongest gust. The breeze swings between the two on one
+    ///     curve shared by every effect (<see cref="ParticleRenderer.Gust" />), so layers gust together. Both 1 means
+    ///     no gusting.
+    /// </summary>
+    public float GustLow { get; init; } = 1f;
+
+    public float GustHigh { get; init; } = 1f;
+
+    /// <summary>
+    ///     Above zero, the particles show only while the gust level is above this, fading in over the next 0.15 of
+    ///     it — wind lines that appear in strong gusts. Zero means always shown.
+    /// </summary>
+    public float GustGate { get; init; }
 
     public float AlphaMin { get; init; } = 1f;
 
@@ -569,5 +590,61 @@ public sealed record ParticleStyle
         SeeSaw = 0.55f,
         AlphaMin = 0.95f,
         AlphaMax = 0.95f
+    };
+
+    /// <summary>Golden chaff flecks on a gusting breeze. Paired with the Chaff mist, the wind lines and the wheat heads.</summary>
+    public static ParticleStyle ChaffFlecks { get; } = new()
+    {
+        Count = 70,
+        Shape = ParticleShape.Streak,
+        Colors = [new Color(232, 192, 96), new Color(212, 162, 62), new Color(246, 218, 140), new Color(184, 132, 52)],
+        SizeMin = 2f,
+        SizeMax = 3f,
+        VelocityMin = new Vector2(42f, 1f),
+        VelocityMax = new Vector2(78f, 5f),
+        Sway = new Vector2(0f, 8f),
+        SwayFreqMin = 0.25f,
+        SwayFreqMax = 0.5f,
+        AlphaMin = 0.55f,
+        AlphaMax = 0.9f,
+        GustLow = 0.5f,
+        GustHigh = 1.67f
+    };
+
+    /// <summary>A few long pale wind lines that show only during strong gusts.</summary>
+    public static ParticleStyle ChaffWindLines { get; } = new()
+    {
+        Count = 6,
+        Shape = ParticleShape.Streak,
+        Colors = [new Color(255, 244, 214)],
+        SizeMin = 18f,
+        SizeMax = 40f,
+        VelocityMin = new Vector2(70f, 0f),
+        VelocityMax = new Vector2(120f, 0f),
+        AlphaMin = 0.16f,
+        AlphaMax = 0.16f,
+        GustLow = 0.5f,
+        GustHigh = 1.67f,
+        GustGate = 0.62f
+    };
+
+    /// <summary>The odd wheat head tumbling past on the breeze.</summary>
+    public static ParticleStyle ChaffHeads { get; } = new()
+    {
+        Count = 2,
+        Shape = ParticleShape.WheatHead,
+        Colors = [new Color(226, 184, 80)],
+        SizeMin = 14f,
+        SizeMax = 14f,
+        VelocityMin = new Vector2(45f, 0f),
+        VelocityMax = new Vector2(70f, 4f),
+        Sway = new Vector2(0f, 10f),
+        SwayFreqMin = 0.5f,
+        SwayFreqMax = 0.5f,
+        Spin = 7f,
+        AlphaMin = 1f,
+        AlphaMax = 1f,
+        GustLow = 0.5f,
+        GustHigh = 1.67f
     };
 }

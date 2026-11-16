@@ -49,6 +49,8 @@ public sealed class ParticleRenderer : IAmbientOverlay
     private static readonly Color GhostDetail = new(36, 34, 58); // ghost eyes and mouth
     private static readonly Color FeatherBarDetail = new(110, 100, 95); // multiplied by the feather color: darker bars
     private static readonly Color FeatherTipColor = new(232, 222, 198); // cream quill and tip
+    private static readonly Color WheatStalkDetail = new(150, 120, 60);
+    private const float GUST_GATE_FADE = 0.15f; // gust level above GustGate over which gated particles fade in
 
     private readonly ParticleStyle Style;
     private readonly Random Rng = new();
@@ -67,10 +69,12 @@ public sealed class ParticleRenderer : IAmbientOverlay
     private Texture2D? BalloonDetailTexture;
     private Texture2D[]? GhostTextures;
     private Texture2D[]? FeatherTextures; // body, then tip
+    private Texture2D? WheatHeadTexture;
 
     private bool Active;
     private float EffectAlpha; // 0..1 current fade level
     private float Clock;       // seconds, drives sway / twinkle / tumble
+    private float GustLevel;   // 0..1, read from total game time so every renderer gusts together
 
     private struct Particle
     {
@@ -142,6 +146,7 @@ public sealed class ParticleRenderer : IAmbientOverlay
 
         LastWorldOrigin = worldOrigin;
         Clock = (Clock + dt) % 10000f;
+        GustLevel = Gust(gameTime.TotalGameTime.TotalSeconds);
 
         var spanW = viewport.Width + (2f * WRAP_MARGIN);
         var spanH = viewport.Height + (2f * WRAP_MARGIN);
@@ -173,7 +178,7 @@ public sealed class ParticleRenderer : IAmbientOverlay
 
         foreach (var p in Particles)
         {
-            var alpha = p.Alpha * TwinkleLevel(in p) * EffectAlpha;
+            var alpha = p.Alpha * TwinkleLevel(in p) * EffectAlpha * GustAlphaFactor(Style, GustLevel);
 
             if (alpha <= 0.004f)
                 continue;
@@ -288,6 +293,8 @@ public sealed class ParticleRenderer : IAmbientOverlay
                 featherTexture.Dispose();
 
         FeatherTextures = null;
+        WheatHeadTexture?.Dispose();
+        WheatHeadTexture = null;
     }
 
     internal bool HasAllocatedTextures => (PixelTexture is not null)
@@ -298,7 +305,8 @@ public sealed class ParticleRenderer : IAmbientOverlay
                                           || (BalloonTexture is not null)
                                           || (BalloonDetailTexture is not null)
                                           || (GhostTextures is not null)
-                                          || (FeatherTextures is not null);
+                                          || (FeatherTextures is not null)
+                                          || (WheatHeadTexture is not null);
 
     public void Dispose()
     {
@@ -328,6 +336,8 @@ public sealed class ParticleRenderer : IAmbientOverlay
                 featherTexture.Dispose();
 
         FeatherTextures = null;
+        WheatHeadTexture?.Dispose();
+        WheatHeadTexture = null;
     }
 
     // ============================================================
@@ -376,6 +386,30 @@ public sealed class ParticleRenderer : IAmbientOverlay
     /// </summary>
     internal static float SeeSawDrop(float swayAngle) => 0.5f + (0.9f * MathF.Abs(MathF.Sin(swayAngle)));
 
+    /// <summary>
+    ///     The strength of the breeze, 0 (lull) to 1 (strongest gust), at <paramref name="seconds" /> of total game
+    ///     time. Two slow waves of different lengths, so gusts come unevenly. Every renderer reads the same value.
+    /// </summary>
+    public static float Gust(double seconds)
+        => (float)Math.Clamp(0.5 + (0.3 * Math.Sin(0.83 * seconds)) + (0.2 * Math.Sin((1.9 * seconds) + 1.3)), 0.0, 1.0);
+
+    /// <summary>The sideways speed multiplier for <paramref name="style" /> at gust level <paramref name="gust" />.</summary>
+    internal static float GustSpeedFactor(ParticleStyle style, float gust) => MathHelper.Lerp(style.GustLow, style.GustHigh, gust);
+
+    /// <summary>
+    ///     The opacity multiplier for <paramref name="style" /> at gust level <paramref name="gust" />: 1 unless the
+    ///     style has a <see cref="ParticleStyle.GustGate" />, and then 0 below the gate rising smoothly to 1.
+    /// </summary>
+    internal static float GustAlphaFactor(ParticleStyle style, float gust)
+    {
+        if (style.GustGate <= 0f)
+            return 1f;
+
+        var t = Math.Clamp((gust - style.GustGate) / GUST_GATE_FADE, 0f, 1f);
+
+        return t * t * (3f - (2f * t));
+    }
+
     private float SwayAngle(in Particle p) => (MathF.Tau * p.SwayFreq * Clock) + p.SwayPhase;
 
     //base velocity plus sway. Y sways at a different rate from X so two-axis sway traces a wandering loop
@@ -386,6 +420,8 @@ public sealed class ParticleRenderer : IAmbientOverlay
 
         if (Style.SeeSaw > 0f)
             velocity.Y *= SeeSawDrop(angle);
+
+        velocity.X *= GustSpeedFactor(Style, GustLevel);
 
         return velocity + new Vector2(Style.Sway.X * MathF.Sin(angle), Style.Sway.Y * MathF.Sin((angle * 0.77f) + 1.3f));
     }
@@ -415,6 +451,7 @@ public sealed class ParticleRenderer : IAmbientOverlay
             ParticleShape.Petal  => (p.Rotation, new Vector2(p.Size / texture.Width, p.Size * 0.6f / texture.Width * tumble)),
             ParticleShape.Confetti => (p.Rotation, new Vector2(p.Size * 0.55f, p.Size * tumble)),
             ParticleShape.Feather => (p.Rotation, new Vector2(p.Size / texture.Width)),
+            ParticleShape.WheatHead => (p.Rotation, Vector2.One),
             _                    => (0f, new Vector2(p.Size / texture.Width))
         };
     }
@@ -483,6 +520,7 @@ public sealed class ParticleRenderer : IAmbientOverlay
             ParticleShape.Bubble                         => BubbleTexture ??= BuildBubbleTexture(device),
             ParticleShape.Balloon                        => BalloonTexture ??= BuildBalloonTexture(device),
             ParticleShape.Feather                        => (FeatherTextures ??= BuildFeatherTextures(device))[0],
+            ParticleShape.WheatHead                      => WheatHeadTexture ??= SpriteGrid.Build(device, SpriteGrid.WheatHead, WheatStalkDetail),
             _                                            => SoftDotTexture ??= BuildSoftDotTexture(device)
         };
 

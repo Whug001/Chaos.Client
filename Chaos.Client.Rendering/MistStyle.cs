@@ -278,6 +278,17 @@ public sealed record MistStyle
         NoiseKnee = 0.5f
     };
 
+    /// <summary>A faint gold haze drifting sideways. Paired with the wheat chaff particles.</summary>
+    public static MistStyle Chaff { get; } = new()
+    {
+        WashColor = new Color(200, 150, 60),
+        WashAlpha = 0.07f,
+        LayerTint = new Color(230, 190, 110),
+        Layers = [new MistLayer(3.5f, 0.10f, new Vector2(20f, 0f))],
+        Seed = 5050,
+        NoiseKnee = 0.5f
+    };
+
     /// <summary>Large soft shadows of passing clouds sliding over the ground. No wash, so no tint.</summary>
     public static MistStyle CloudShadows { get; } = new()
     {
