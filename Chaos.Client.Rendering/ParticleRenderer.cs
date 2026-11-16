@@ -297,6 +297,12 @@ public sealed class ParticleRenderer : IAmbientOverlay
         WheatHeadTexture = null;
     }
 
+    /// <summary>The breeze strength this renderer last read. Tests use it.</summary>
+    internal float CurrentGustLevel => GustLevel;
+
+    /// <summary>Each particle's current rotation, in radians. Tests use it.</summary>
+    internal IReadOnlyList<float> ParticleRotations => Particles.Select(p => p.Rotation).ToArray();
+
     internal bool HasAllocatedTextures => (PixelTexture is not null)
                                           || (SoftDotTexture is not null)
                                           || (LeafTexture is not null)
