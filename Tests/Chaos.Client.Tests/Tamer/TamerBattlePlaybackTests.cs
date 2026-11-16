@@ -1149,4 +1149,101 @@ public sealed class TamerBattlePlaybackTests
 
         playback.TailFinished.Should().BeFalse();
     }
+
+    private static TamerBattleFight RecordedFight()
+        => Fight(
+            [Monster(1, TamerBattleSide.Attacker, 100, 3), Monster(6, TamerBattleSide.Defender)],
+            [
+                Ev(0, TamerBattleEventType.Spawn, 1, 0, 100, 3, 3, -1, "wolf"),
+                Ev(0, TamerBattleEventType.Spawn, 6, 0, 100, 3, 2, -1, "wolf"),
+                Ev(5, TamerBattleEventType.RisingDamage, 0, 0),
+                Ev(10, TamerBattleEventType.Step, 1, 0, 0, 3, 2, -1),
+                Ev(12, TamerBattleEventType.Step, 1, 0, 0, 3, 1, -1),
+                Ev(14, TamerBattleEventType.Attack, 1, 6, 0, -1, -1, 25),
+                Ev(15, TamerBattleEventType.Damage, 1, 6, 20),
+                Ev(16, TamerBattleEventType.Ability, 1, 6, 0, -1, -1, 30, "bite_strike"),
+                Ev(18, TamerBattleEventType.Trait, 1, 0, 0, -1, -1, -1, "rake"),
+                Ev(19, TamerBattleEventType.SetBonus, 6, 0, 0, -1, -1, -1, "shell_wall"),
+                Ev(20, TamerBattleEventType.Heal, 1, 6, 10),
+                Ev(22, TamerBattleEventType.Shield, 6, 6, 15),
+                Ev(24, TamerBattleEventType.StatusOn, 6, 6, 0, -1, -1, -1, "thorns"),
+                Ev(26, TamerBattleEventType.StatusOff, 6, 6, 0, -1, -1, -1, "thorns"),
+                Ev(28, TamerBattleEventType.Step, 6, 0, 0, 3, 1, -1),
+                Ev(30, TamerBattleEventType.Attack, 6, 1, 0, -1, -1, 40),
+                Ev(31, TamerBattleEventType.Damage, 6, 1, 90),
+                Ev(32, TamerBattleEventType.Down, 1, 0),
+                Ev(40, TamerBattleEventType.Attack, 6, 1, 0, -1, -1, 50),
+                Ev(50, TamerBattleEventType.Step, 6, 0, 0, 2, 1, -1)
+            ],
+            endTick: 60);
+
+    private static void AssertSameState(TamerBattlePlayback actual, TamerBattlePlayback expected, string frame)
+    {
+        actual.Units.Should().BeEquivalentTo(expected.Units, frame);
+        actual.LogLines.Should().Equal(expected.LogLines, frame);
+        actual.Floaters.Should().BeEquivalentTo(expected.Floaters, frame);
+        actual.Projectiles.Should().BeEquivalentTo(expected.Projectiles, frame);
+        actual.RisingPercent.Should().Be(expected.RisingPercent, frame);
+        actual.Finished.Should().Be(expected.Finished, frame);
+    }
+
+    [Test]
+    public void Incremental_advance_matches_a_full_rebuild_at_many_points_and_at_the_end()
+    {
+        var fight = RecordedFight();
+        var incremental = new TamerBattlePlayback(fight);
+        var oracle = new TamerBattlePlayback(fight);
+
+        //frame by frame, one tick each: the oracle moves to the same clock and then rebuilds from scratch
+        for (var frame = 0; frame < 60; frame++)
+        {
+            incremental.Advance(TimeSpan.FromSeconds(0.1));
+            oracle.Advance(TimeSpan.FromSeconds(0.1));
+            oracle.RebuildFromScratch();
+
+            AssertSameState(incremental, oracle, $"frame {frame}");
+        }
+
+        incremental.Finished.Should().BeTrue();
+
+        //a mid-fight Replay rebuilds too: both start over and must agree again all the way to the end
+        incremental.Replay();
+        oracle = new TamerBattlePlayback(fight);
+
+        for (var frame = 0; frame < 60; frame++)
+        {
+            incremental.Advance(TimeSpan.FromSeconds(0.1));
+            oracle.Advance(TimeSpan.FromSeconds(0.1));
+            oracle.RebuildFromScratch();
+
+            AssertSameState(incremental, oracle, $"replay frame {frame}");
+        }
+
+        incremental.Finished.Should().BeTrue();
+
+        incremental.Skip();
+        oracle.Skip();
+
+        AssertSameState(incremental, oracle, "skipped");
+    }
+
+    [Test]
+    public void Log_line_strings_are_built_once_not_every_frame()
+    {
+        var incremental = new TamerBattlePlayback(RecordedFight());
+
+        //drive past the last log event (the Down at tick 32) into a quiet window
+        for (var frame = 0; frame < 40; frame++)
+            incremental.Advance(TimeSpan.FromSeconds(0.1));
+
+        var before = incremental.LogLines.ToList();
+
+        for (var frame = 0; frame < 5; frame++)
+            incremental.Advance(TimeSpan.FromSeconds(0.1));
+
+        incremental.LogLines.Should().HaveCount(before.Count);
+
+        for (var i = 0; i < before.Count; i++)
+            ReferenceEquals(incremental.LogLines[i], before[i]).Should().BeTrue($"log line {i} is the same string instance");
+    }
 }

@@ -94,6 +94,13 @@ public sealed class TamerBattleControl : FramedDialogPanelBase
 
     private TamerBattlePlayback? Playback;
 
+    //the inputs the last Refresh painted: Refresh is called every frame, but repaints only when one changed
+    private TamerBattlePlayback? LastRefreshPlayback;
+    private double LastRefreshClock;
+    private double LastRefreshAnimation;
+    private int LastRefreshSpeed;
+    private bool LastRefreshPaused;
+
     /// <summary>The window was hidden, by the player. Closing tells the server nothing.</summary>
     public event Action? Closed;
 
@@ -203,13 +210,30 @@ public sealed class TamerBattleControl : FramedDialogPanelBase
         Refresh();
     }
 
-    /// <summary>Repaints every label, roster row and button from the playback. Called every update while visible.</summary>
+    /// <summary>
+    ///     Repaints every label, roster row and button from the playback. Called every update while visible, but
+    ///     repaints only when an input changed: the clock or animation tick, pause, speed, or the playback itself.
+    /// </summary>
     public void Refresh()
     {
         if (!Visible || (Playback is null))
             return;
 
         var playback = Playback;
+
+        if (ReferenceEquals(playback, LastRefreshPlayback)
+            && (playback.ClockTicks == LastRefreshClock)
+            && (playback.AnimationTicks == LastRefreshAnimation)
+            && (playback.Speed == LastRefreshSpeed)
+            && (playback.Paused == LastRefreshPaused))
+            return;
+
+        LastRefreshPlayback = playback;
+        LastRefreshClock = playback.ClockTicks;
+        LastRefreshAnimation = playback.AnimationTicks;
+        LastRefreshSpeed = playback.Speed;
+        LastRefreshPaused = playback.Paused;
+
         var fight = playback.Fight;
 
         VersusLabel.Text = TamerStableText.FitLines(
