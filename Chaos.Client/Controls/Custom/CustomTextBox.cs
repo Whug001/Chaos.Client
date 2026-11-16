@@ -38,6 +38,9 @@ public sealed class CustomTextBox : UITextBox
     /// <summary>When true, only digit characters can be typed or pasted.</summary>
     public bool DigitsOnly { get; init; }
 
+    /// <summary>When true, only hex digits (0-9, A-F, a-f) and '#' can be typed or pasted.</summary>
+    public bool HexOnly { get; init; }
+
     public CustomTextBox()
     {
         //small symmetric inset; with a ~22px box this vertically centers a 12px text row inside the frame.
@@ -70,7 +73,13 @@ public sealed class CustomTextBox : UITextBox
             DrawTextClipped(spriteBatch, new Vector2(ScreenX + PaddingLeft, ScreenY + PaddingTop), HintText, HintColor);
     }
 
-    protected override bool AcceptsCharacter(char c) => !DigitsOnly || char.IsDigit(c);
+    protected override bool AcceptsCharacter(char c)
+    {
+        if (HexOnly)
+            return (c == '#') || char.IsAsciiHexDigit(c);
+
+        return !DigitsOnly || char.IsDigit(c);
+    }
 
     private void EnsureFrameTexture()
     {
