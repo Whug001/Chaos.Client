@@ -110,6 +110,10 @@ public sealed partial class WorldScreen
         TcgBattleMarks.Clear();
         TcgSpectatePrompt?.Hide();
 
+        //a forgotten bout question must not survive the warp: Yes would send a bout for a player left behind
+        TamerBoutPrompt?.Hide();
+        TamerBoutTarget = null;
+
         //windows tied to the old map go without telling the server: the close already happened
         //map-side (Hide/CloseFromServer/Close send nothing here; the server re-sends on the way back in)
         CommissionBoardWindow?.Hide();

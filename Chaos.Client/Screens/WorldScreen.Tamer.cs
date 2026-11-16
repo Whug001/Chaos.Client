@@ -53,6 +53,10 @@ public sealed partial class WorldScreen
             TamerBattleWindow.Closed -= OnTamerBattleClosed;
             TamerBattleWindow.Hide();
         }
+
+        //logout drops any pending bout question with its target, same as a map change
+        TamerBoutPrompt?.Hide();
+        TamerBoutTarget = null;
     }
 
     private bool EnsureTamerWindow()
