@@ -230,7 +230,7 @@ git worktree add ../../worktrees/thanksgiving-server -b feat/thanksgiving-effect
 - Modify: `Data/Configuration/MapInstances/Temuair/Events/ThanksgivingChallenge/Instance.json`
 - Modify: `docs/ambient-map-effects.md`
 
-- [ ] **Step 1: Create the worktree:** `cd ~/Documents/GitHub/Unora && git fetch -q origin && git worktree add ../worktrees/thanksgiving-unora -b feat/thanksgiving-effects origin/<default branch>`.
+- [ ] **Step 1: Create the worktree:** `cd ~/Documents/GitHub/Unora && git fetch -q origin && git worktree add ../worktrees/thanksgiving-unora -b feat/thanksgiving-effects origin/main`.
 - [ ] **Step 2: Set `"flags": "TurkeyFeathers, GeeseShadows, WheatChaff"`** in both instance files.
 - [ ] **Step 3: Docs.** Add the three rows to the effects table in `docs/ambient-map-effects.md`, and a short note on `Formation = Vee`, `FlipWithDirection`, `SeeSaw` and the gust fields in its "adding effects" part.
 - [ ] **Step 4: Verify.** Start the local playtest server on the Task 1 server branch with this data. It loads with no map-instance parse errors, and Harvest Field and the Thanksgiving Challenge show all three effects.
