@@ -574,6 +574,11 @@ public delegate void TamerDisplayHandler(TamerDisplayArgs args);
 /// <summary>Handles one battle part: a start, events, or end.</summary>
 public delegate void TamerBattleDisplayHandler(TamerBattleDisplayArgs args);
 
+/// <summary>
+///     Fired when a tamer packet fails to decode, so the UI can warn that the client is out of date for the tamer feature.
+/// </summary>
+public delegate void TamerClientOutOfDateHandler();
+
 /// <summary>Handles a Mileth College window opening, refreshing or getting an answer, or a picture part arriving.</summary>
 public delegate void CollegeDisplayHandler(CollegeDisplayArgs args);
 

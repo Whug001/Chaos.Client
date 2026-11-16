@@ -25,6 +25,7 @@ public sealed class ConnectionManager : IDisposable
     private readonly Action<ServerPacket>?[] PacketHandlers = new Action<ServerPacket>?[byte.MaxValue + 1];
     private WorldEntryState EntryState;
     private RedirectInfo? PendingRedirect;
+    private bool TamerClientOutOfDateWarned;
 
     /// <summary>
     ///     The local player's unique entity ID, assigned by the server upon world entry.
@@ -75,6 +76,11 @@ public sealed class ConnectionManager : IDisposable
 
             var old = field;
             field = value;
+
+            //a new login may bring a newer tamer protocol again, so the out-of-date warning may show once more
+            if (value == ConnectionState.Login)
+                TamerClientOutOfDateWarned = false;
+
             StateChanged?.Invoke(old, value);
         }
     } = ConnectionState.Disconnected;
@@ -732,6 +738,17 @@ public sealed class ConnectionManager : IDisposable
     /// <summary>Fired when the server sends one battle part: a start, events, or end.</summary>
     public event TamerBattleDisplayHandler? OnTamerBattleDisplay;
 
+    /// <summary>
+    ///     The orange-bar text shown when a tamer packet fails to decode: the server speaks a newer tamer protocol.
+    /// </summary>
+    public const string TamerClientOutOfDateMessage = "Your client is out of date for the tamer feature. Please update.";
+
+    /// <summary>
+    ///     Fired at most once per login when a tamer packet (TamerDisplay, TamerBattleDisplay, SetBindState) fails to
+    ///     decode, so the UI can warn that the client is out of date instead of failing silently.
+    /// </summary>
+    public event TamerClientOutOfDateHandler? OnTamerClientOutOfDate;
+
     /// <summary>Fired when the server sends one season of the Endless Tower leaderboard.</summary>
     public event TowerLeaderboardHandler? OnTowerLeaderboard;
 
@@ -964,6 +981,7 @@ public sealed class ConnectionManager : IDisposable
             {
                 //malformed packet — skip
                 Debug.WriteLine($"[ConnectionManager] ProcessPackets opcode {pkt.OpCode} skipped: {ex.Message}");
+                WarnOnceForTamerVersionSkew(pkt.OpCode);
             } finally
             {
                 ArrayPool<byte>.Shared.Return(pkt.Data);
@@ -2196,6 +2214,25 @@ public sealed class ConnectionManager : IDisposable
         var handler = PacketHandlers[pkt.OpCode];
         handler?.Invoke(pkt);
     }
+
+    /// <summary>
+    ///     A tamer packet that fails to decode means the server speaks a newer tamer protocol. Warn once per login so
+    ///     a stream of such packets shows one orange-bar message instead of failing silently. Other opcodes keep the
+    ///     old silent skip.
+    /// </summary>
+    private void WarnOnceForTamerVersionSkew(byte opCode)
+    {
+        if (TamerClientOutOfDateWarned || !IsTamerOpcode(opCode))
+            return;
+
+        TamerClientOutOfDateWarned = true;
+        OnTamerClientOutOfDate?.Invoke();
+    }
+
+    private static bool IsTamerOpcode(byte opCode)
+        => opCode is (byte)ServerOpCode.TamerDisplay
+            or (byte)ServerOpCode.TamerBattleDisplay
+            or (byte)ServerOpCode.SetBindState;
 
     private void HandleAcceptConnection(ServerPacket _)
     {

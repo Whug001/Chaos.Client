@@ -1,6 +1,7 @@
 #region
 using Chaos.Client.Collections;
 using Chaos.Client.Controls.Generic;
+using Chaos.Client.Networking;
 using Chaos.Client.Controls.World.Popups.Tamer;
 using Chaos.Client.ViewModel;
 using Chaos.DarkAges.Definitions;
@@ -32,12 +33,14 @@ public sealed partial class WorldScreen
     {
         Game.Connection.OnTamerDisplay += HandleTamerDisplay;
         Game.Connection.OnTamerBattleDisplay += HandleTamerBattleDisplay;
+        Game.Connection.OnTamerClientOutOfDate += HandleTamerClientOutOfDate;
     }
 
     private void UnwireTamer()
     {
         Game.Connection.OnTamerDisplay -= HandleTamerDisplay;
         Game.Connection.OnTamerBattleDisplay -= HandleTamerBattleDisplay;
+        Game.Connection.OnTamerClientOutOfDate -= HandleTamerClientOutOfDate;
 
         if (TamerStableWindow is not null)
         {
@@ -132,6 +135,10 @@ public sealed partial class WorldScreen
     }
 
     private void OnTamerStableClosed() => WorldState.TamerStable.ClearCatalogJustArrived();
+
+    //ConnectionManager fires this at most once per login; just show the message.
+    private void HandleTamerClientOutOfDate()
+        => WorldState.Chat.AddOrangeBarMessage(ConnectionManager.TamerClientOutOfDateMessage);
 
     /// <summary>
     ///     Asks for a yes before sending a friendly tamer bout to the named player, through the same yes/no prompt as
