@@ -8,7 +8,7 @@ namespace Chaos.Client.Rendering;
 /// <summary>
 ///     Builds small pixel-art textures from text grids, one string per row, top to bottom. <c>'X'</c> is opaque white,
 ///     tinted at draw time. <c>'o'</c> is an opaque dark detail color chosen by the caller (the draw tint multiplies it
-///     too). <c>'.'</c> is clear. Also holds the bat and ghost frames the Halloween effects draw.
+///     too). <c>'.'</c> is clear. Also holds the frames the Halloween and Thanksgiving effects draw.
 /// </summary>
 public static class SpriteGrid
 {
@@ -81,6 +81,86 @@ public static class SpriteGrid
             ".XXX.XXX.XX",
             "..X...X...X"
         ]
+    ];
+
+    /// <summary>
+    ///     Turkey feather body, 14 x 5. <c>'X'</c> takes the feather's color and <c>'o'</c> is the darker bars.
+    /// </summary>
+    public static string[] FeatherBody { get; } =
+    [
+        "...XXooXXoo...",
+        "..XXXooXXooX..",
+        "..XXXooXXooX..",
+        "..XXXooXXooX..",
+        "...XXooXXoo..."
+    ];
+
+    /// <summary>
+    ///     Drawn over <see cref="FeatherBody" /> with the same transform: the bare quill on the left and the pale tip
+    ///     on the right.
+    /// </summary>
+    public static string[] FeatherTip { get; } =
+    [
+        "..............",
+        "............X.",
+        "XX..........XX",
+        "............X.",
+        ".............."
+    ];
+
+    /// <summary>
+    ///     Goose frames seen from above, 17 x 11, heading right: wings fully spread, then two steps of the downstroke.
+    ///     Played 0, 1, 2, 1 per flap. <c>'o'</c> marks the tail, neck and head.
+    /// </summary>
+    public static IReadOnlyList<string[]> GooseFrames { get; } =
+    [
+        [
+            "....XX...........",
+            ".....XXXX........",
+            ".....XXXXX.......",
+            "......XXXXX......",
+            "....XXXXXXX....o.",
+            "ooXXXXXXXXXXooooo",
+            "....XXXXXXX......",
+            "......XXXXX......",
+            ".....XXXXX.......",
+            ".....XXXX........",
+            "....XX..........."
+        ],
+        [
+            ".................",
+            ".....XX..........",
+            ".....XXXXX.......",
+            "......XXXXX......",
+            "....XXXXXXX....o.",
+            "ooXXXXXXXXXXooooo",
+            "....XXXXXXX......",
+            "......XXXXX......",
+            ".....XXXXX.......",
+            ".....XX..........",
+            "................."
+        ],
+        [
+            ".................",
+            ".................",
+            ".....XX..........",
+            "......XXXXX......",
+            "....XXXXXXX....o.",
+            "ooXXXXXXXXXXooooo",
+            "....XXXXXXX......",
+            "......XXXXX......",
+            ".....XX..........",
+            ".................",
+            "................."
+        ]
+    ];
+
+    /// <summary>Wheat head, 14 x 3. <c>'X'</c> is the grain and <c>'o'</c> is the stalk.</summary>
+    public static string[] WheatHead { get; } =
+    [
+        ".X.X.X.X......",
+        "XXXXXXXXoooooo",
+        ".X.X.X.X......"
     ];
 
     /// <summary>

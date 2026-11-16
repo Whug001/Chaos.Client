@@ -75,6 +75,63 @@ public class SpriteGridTests
     }
 
     [Test]
+    public void ThanksgivingGrids_HaveEvenRows()
+    {
+        string[][] grids = [SpriteGrid.FeatherBody, SpriteGrid.FeatherTip, SpriteGrid.WheatHead, .. SpriteGrid.GooseFrames];
+
+        foreach (var grid in grids)
+        {
+            var act = () => SpriteGrid.ToPixels(grid, Color.Black);
+
+            act.Should()
+               .NotThrow();
+        }
+    }
+
+    [Test]
+    public void ThanksgivingGrids_HaveTheSpecSizes()
+    {
+        SizeOf(SpriteGrid.FeatherBody)
+            .Should()
+            .Be((14, 5));
+
+        SizeOf(SpriteGrid.FeatherTip)
+            .Should()
+            .Be((14, 5));
+
+        SizeOf(SpriteGrid.WheatHead)
+            .Should()
+            .Be((14, 3));
+
+        SpriteGrid.GooseFrames
+                   .Should()
+                   .HaveCount(3);
+
+        foreach (var frame in SpriteGrid.GooseFrames)
+            SizeOf(frame)
+                .Should()
+                .Be((17, 11));
+    }
+
+    [Test]
+    public void GooseFrames_SpanShrinksFrameToFrame()
+    {
+        var filled = SpriteGrid.GooseFrames
+                               .Select(frame => frame.Sum(row => row.Count(cell => cell != '.')))
+                               .ToArray();
+
+        filled[1]
+            .Should()
+            .BeLessThan(filled[0]);
+
+        filled[2]
+            .Should()
+            .BeLessThan(filled[1]);
+    }
+
+    private static (int Width, int Height) SizeOf(string[] grid) => (grid[0].Length, grid.Length);
+
+    [Test]
     public void GhostFrames_AreTwoValidFrames11By13()
     {
         SpriteGrid.GhostFrames
