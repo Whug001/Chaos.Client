@@ -20,12 +20,13 @@ public sealed class AmbientEffects : IDisposable
     /// </summary>
     public const MapFlags EXTENDED_FLAGS = (MapFlags)0xFFFF_FFFF_FFFF_FF00UL;
 
-    //draw order, back to front: cloud shadows first because they lie on the ground, then tints and mists, lightning
+    //draw order, back to front: cloud and goose shadows first because they lie on the ground, then tints and mists, lightning
     //flashing through them, fog over the flash (as in the original storm), then particles so glows and falling
     //things read on top of every haze, and bats last of all, flying over everything
     private readonly (MapFlags Flag, IAmbientOverlay Overlay)[] Overlays =
     [
         (MapFlags.CloudShadows, new MistRenderer(MistStyle.CloudShadows)),
+        (MapFlags.GeeseShadows, new FlyByRenderer(FlyByStyle.GooseShadows)),
         (MapFlags.DappledLight, new DappleRenderer()),
         (MapFlags.Rain, new WetWallRenderer()),
         (MapFlags.Underwater, new MistRenderer(MistStyle.Underwater)),
@@ -38,6 +39,7 @@ public sealed class AmbientEffects : IDisposable
         (MapFlags.Arcane, new MistRenderer(MistStyle.Arcane)),
         (MapFlags.Frost, new MistRenderer(MistStyle.Frost)),
         (MapFlags.Dust, new MistRenderer(MistStyle.Dust)),
+        (MapFlags.WheatChaff, new MistRenderer(MistStyle.Chaff)),
         (MapFlags.SeaSpray, new MistRenderer(MistStyle.SeaSpray)),
         (MapFlags.Sandstorm, new MistRenderer(MistStyle.Sandstorm)),
         (MapFlags.Blizzard, new MistRenderer(MistStyle.Blizzard)),
@@ -68,6 +70,10 @@ public sealed class AmbientEffects : IDisposable
         (MapFlags.Wisps, new ParticleRenderer(ParticleStyle.Wisps)),
         (MapFlags.Drips, new ParticleRenderer(ParticleStyle.Drips)),
         (MapFlags.HarvestMoon, new ParticleRenderer(ParticleStyle.HarvestSparks)),
+        (MapFlags.WheatChaff, new ParticleRenderer(ParticleStyle.ChaffFlecks)),
+        (MapFlags.WheatChaff, new ParticleRenderer(ParticleStyle.ChaffWindLines)),
+        (MapFlags.WheatChaff, new ParticleRenderer(ParticleStyle.ChaffHeads)),
+        (MapFlags.TurkeyFeathers, new ParticleRenderer(ParticleStyle.TurkeyFeathers)),
         (MapFlags.Confetti, new ParticleRenderer(ParticleStyle.Confetti)),
         (MapFlags.Balloons, new ParticleRenderer(ParticleStyle.Balloons)),
         (MapFlags.Ghosts, new ParticleRenderer(ParticleStyle.Ghosts)),
