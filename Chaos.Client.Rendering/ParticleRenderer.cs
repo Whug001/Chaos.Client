@@ -47,6 +47,8 @@ public sealed class ParticleRenderer : IAmbientOverlay
     private const float GHOST_FRAME_RATE = 2.2f;   // ghost hem frames per second
 
     private static readonly Color GhostDetail = new(36, 34, 58); // ghost eyes and mouth
+    private static readonly Color FeatherBarDetail = new(110, 100, 95); // multiplied by the feather color: darker bars
+    private static readonly Color FeatherTipColor = new(232, 222, 198); // cream quill and tip
 
     private readonly ParticleStyle Style;
     private readonly Random Rng = new();
@@ -64,6 +66,7 @@ public sealed class ParticleRenderer : IAmbientOverlay
     private Texture2D? BalloonTexture;
     private Texture2D? BalloonDetailTexture;
     private Texture2D[]? GhostTextures;
+    private Texture2D[]? FeatherTextures; // body, then tip
 
     private bool Active;
     private float EffectAlpha; // 0..1 current fade level
@@ -148,7 +151,9 @@ public sealed class ParticleRenderer : IAmbientOverlay
             ref var p = ref Particles[i];
 
             p.Position += cameraShift + (CurrentVelocity(in p) * dt);
-            p.Rotation = (p.Rotation + (p.SpinRate * dt)) % MathF.Tau;
+            p.Rotation = Style.SeeSaw > 0f
+                ? SeeSawTilt(Style.SeeSaw, SwayAngle(in p))
+                : (p.Rotation + (p.SpinRate * dt)) % MathF.Tau;
 
             p.Position.X = Wrap(p.Position.X, spanW);
             p.Position.Y = Wrap(p.Position.Y, spanH);
@@ -204,6 +209,10 @@ public sealed class ParticleRenderer : IAmbientOverlay
                 continue;
             }
 
+            //whole-pixel positions keep the feather's bars from shimmering as it drifts
+            if (Style.Shape == ParticleShape.Feather)
+                position = new Vector2(MathF.Round(position.X), MathF.Round(position.Y));
+
             var (rotation, scale) = ShapeTransform(in p, texture);
 
             spriteBatch.Draw(
@@ -231,6 +240,18 @@ public sealed class ParticleRenderer : IAmbientOverlay
                     SpriteEffects.None,
                     0f);
             }
+
+            if (Style.Shape == ParticleShape.Feather)
+                spriteBatch.Draw(
+                    FeatherTextures![1],
+                    position,
+                    null,
+                    WithAlpha(FeatherTipColor, alpha),
+                    rotation,
+                    textureCenter,
+                    scale,
+                    SpriteEffects.None,
+                    0f);
         }
     }
 
@@ -261,6 +282,12 @@ public sealed class ParticleRenderer : IAmbientOverlay
                 ghostTexture.Dispose();
 
         GhostTextures = null;
+
+        if (FeatherTextures is not null)
+            foreach (var featherTexture in FeatherTextures)
+                featherTexture.Dispose();
+
+        FeatherTextures = null;
     }
 
     internal bool HasAllocatedTextures => (PixelTexture is not null)
@@ -270,7 +297,8 @@ public sealed class ParticleRenderer : IAmbientOverlay
                                           || (WingTexture is not null)
                                           || (BalloonTexture is not null)
                                           || (BalloonDetailTexture is not null)
-                                          || (GhostTextures is not null);
+                                          || (GhostTextures is not null)
+                                          || (FeatherTextures is not null);
 
     public void Dispose()
     {
@@ -294,6 +322,12 @@ public sealed class ParticleRenderer : IAmbientOverlay
                 ghostTexture.Dispose();
 
         GhostTextures = null;
+
+        if (FeatherTextures is not null)
+            foreach (var featherTexture in FeatherTextures)
+                featherTexture.Dispose();
+
+        FeatherTextures = null;
     }
 
     // ============================================================
@@ -330,12 +364,30 @@ public sealed class ParticleRenderer : IAmbientOverlay
             };
     }
 
+    /// <summary>
+    ///     The tilt, in radians, of a see-sawing particle at <paramref name="swayAngle" />. It follows the sideways sway
+    ///     speed: level at each end of the swing and tilted most mid-swing, toward the way it is moving.
+    /// </summary>
+    internal static float SeeSawTilt(float seeSaw, float swayAngle) => seeSaw * MathF.Sin(swayAngle);
+
+    /// <summary>
+    ///     The fall-speed multiplier of a see-sawing particle at <paramref name="swayAngle" />: 0.5 at each end of the
+    ///     swing, where it nearly hangs, and 1.4 mid-swing.
+    /// </summary>
+    internal static float SeeSawDrop(float swayAngle) => 0.5f + (0.9f * MathF.Abs(MathF.Sin(swayAngle)));
+
+    private float SwayAngle(in Particle p) => (MathF.Tau * p.SwayFreq * Clock) + p.SwayPhase;
+
     //base velocity plus sway. Y sways at a different rate from X so two-axis sway traces a wandering loop
     private Vector2 CurrentVelocity(in Particle p)
     {
-        var angle = (MathF.Tau * p.SwayFreq * Clock) + p.SwayPhase;
+        var angle = SwayAngle(in p);
+        var velocity = p.Velocity;
 
-        return p.Velocity + new Vector2(Style.Sway.X * MathF.Sin(angle), Style.Sway.Y * MathF.Sin((angle * 0.77f) + 1.3f));
+        if (Style.SeeSaw > 0f)
+            velocity.Y *= SeeSawDrop(angle);
+
+        return velocity + new Vector2(Style.Sway.X * MathF.Sin(angle), Style.Sway.Y * MathF.Sin((angle * 0.77f) + 1.3f));
     }
 
     //brightness multiplier [0..1] from the style's blink settings
@@ -362,6 +414,7 @@ public sealed class ParticleRenderer : IAmbientOverlay
             ParticleShape.Leaf   => (p.Rotation, new Vector2(p.Size / texture.Width, p.Size / texture.Width * tumble)),
             ParticleShape.Petal  => (p.Rotation, new Vector2(p.Size / texture.Width, p.Size * 0.6f / texture.Width * tumble)),
             ParticleShape.Confetti => (p.Rotation, new Vector2(p.Size * 0.55f, p.Size * tumble)),
+            ParticleShape.Feather => (p.Rotation, new Vector2(p.Size / texture.Width)),
             _                    => (0f, new Vector2(p.Size / texture.Width))
         };
     }
@@ -413,6 +466,14 @@ public sealed class ParticleRenderer : IAmbientOverlay
                       .Select(rows => SpriteGrid.Build(device, rows, GhostDetail))
                       .ToArray();
 
+    //the body takes the particle color, with darker bars; the tip is drawn over it in cream
+    private static Texture2D[] BuildFeatherTextures(GraphicsDevice device)
+        =>
+        [
+            SpriteGrid.Build(device, SpriteGrid.FeatherBody, FeatherBarDetail),
+            SpriteGrid.Build(device, SpriteGrid.FeatherTip, Color.White)
+        ];
+
     private Texture2D GetShapeTexture(GraphicsDevice device)
         => Style.Shape switch
         {
@@ -421,6 +482,7 @@ public sealed class ParticleRenderer : IAmbientOverlay
             ParticleShape.Ghost                          => (GhostTextures ??= BuildGhostTextures(device))[0],
             ParticleShape.Bubble                         => BubbleTexture ??= BuildBubbleTexture(device),
             ParticleShape.Balloon                        => BalloonTexture ??= BuildBalloonTexture(device),
+            ParticleShape.Feather                        => (FeatherTextures ??= BuildFeatherTextures(device))[0],
             _                                            => SoftDotTexture ??= BuildSoftDotTexture(device)
         };
 

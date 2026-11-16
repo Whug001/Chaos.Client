@@ -34,7 +34,13 @@ public enum ParticleShape
     ///     Pixel-art sheet ghost with a rippling hem, drawn 1:1 from <see cref="SpriteGrid.GhostFrames" />. Size and
     ///     spin are ignored.
     /// </summary>
-    Ghost
+    Ghost,
+
+    /// <summary>
+    ///     Pixel-art barred feather with a cream quill and tip, built from <see cref="SpriteGrid.FeatherBody" /> and
+    ///     <see cref="SpriteGrid.FeatherTip" />. The body takes the particle's color. Size is its length in px.
+    /// </summary>
+    Feather
 }
 
 /// <summary>
@@ -77,6 +83,12 @@ public sealed record ParticleStyle
 
     /// <summary>Maximum spin, radians/sec, either direction. Leaves and petals also tumble (squash) as they spin.</summary>
     public float Spin { get; init; }
+
+    /// <summary>
+    ///     Peak tilt, in radians, of a particle that see-saws down like a feather. Above zero, the particle tilts the
+    ///     way it is swinging instead of spinning, and drops fastest mid-swing and slowest at each end. Zero means off.
+    /// </summary>
+    public float SeeSaw { get; init; }
 
     public float AlphaMin { get; init; } = 1f;
 
@@ -539,5 +551,23 @@ public sealed record ParticleStyle
         TwinkleSharpness = 2f,
         HaloScale = 32f,
         HaloAlpha = 0.18f
+    };
+
+    /// <summary>A few barred turkey feathers see-sawing down.</summary>
+    public static ParticleStyle TurkeyFeathers { get; } = new()
+    {
+        Count = 10,
+        Shape = ParticleShape.Feather,
+        Colors = [new Color(128, 80, 42), new Color(150, 72, 36), new Color(112, 94, 74)],
+        SizeMin = 11f,
+        SizeMax = 14f,
+        VelocityMin = new Vector2(2f, 9f),
+        VelocityMax = new Vector2(6f, 15f),
+        Sway = new Vector2(40f, 0f),
+        SwayFreqMin = 0.35f,
+        SwayFreqMax = 0.55f,
+        SeeSaw = 0.55f,
+        AlphaMin = 0.95f,
+        AlphaMax = 0.95f
     };
 }
