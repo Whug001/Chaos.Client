@@ -82,9 +82,9 @@ public sealed record TamerBattleProjectile(
 
 /// <summary>
 ///     The state of every monster at the playback clock, the log, the clock, pause, speed, skip, replay and the
-///     board turn. State is rebuilt deterministically from the events up to the clock: after any sequence of
-///     Advance, Skip and Replay the state equals a fresh playback advanced to the same clock. Never touches a
-///     texture. Pure.
+///     board turn. Events apply incrementally from the last applied index while the clock moves forward; a full
+///     rebuild happens only on Replay, Skip and RebuildFromScratch. After any sequence of Advance, Skip and
+///     Replay the state equals a fresh playback advanced to the same clock. Never touches a texture. Pure.
 /// </summary>
 public sealed class TamerBattlePlayback
 {
@@ -114,6 +114,17 @@ public sealed class TamerBattlePlayback
     private List<string> LogList = [];
     private double animationClock;
 
+    //the incremental simulation: mutable units plus the candidates, log lines and bonus keys built so far, and the
+    //count of events already applied. events arrive in tick order (the assembly stable-sorts by tick on Ready),
+    //so a forward Advance resumes from the last applied index instead of replaying every event from tick 0.
+    private readonly Dictionary<byte, MutableUnit> AppliedUnits = new();
+    private readonly List<byte> AppliedOrder = [];
+    private readonly List<FloaterCandidate> AppliedFloaters = [];
+    private readonly List<ProjectileCandidate> AppliedProjectiles = [];
+    private readonly List<string> AppliedLogs = [];
+    private readonly HashSet<(TamerBattleSide Side, string Key)> AppliedBonuses = new();
+    private int AppliedEventCount;
+
     public TamerBattlePlayback(TamerBattleFight fight)
     {
         Fight = fight ?? throw new ArgumentNullException(nameof(fight));
@@ -133,7 +144,7 @@ public sealed class TamerBattlePlayback
         risingStartTick = FindRisingStart(events);
         risingPerSecond = RISING_PER_SECOND;
 
-        Rebuild();
+        RebuildFromScratch();
     }
 
     public TamerBattleFight Fight { get; }
@@ -186,7 +197,7 @@ public sealed class TamerBattlePlayback
         ClockTicks = Math.Min(Fight.EndTick, ClockTicks + deltaTicks);
         animationClock = Math.Min(tailEnd, animationClock + deltaTicks);
 
-        Rebuild();
+        ApplyPendingEvents();
     }
 
     /// <summary>Cycles speed through 1x, 2x, 4x, 1x. Returns the new speed.</summary>
@@ -201,7 +212,7 @@ public sealed class TamerBattlePlayback
     {
         ClockTicks = Fight.EndTick;
         animationClock = Fight.EndTick + ANIMATION_TAIL_TICKS;
-        Rebuild();
+        RebuildFromScratch();
     }
 
     /// <summary>Starts again from tick 0, unpaused.</summary>
@@ -210,7 +221,7 @@ public sealed class TamerBattlePlayback
         ClockTicks = 0;
         animationClock = 0;
         Paused = false;
-        Rebuild();
+        RebuildFromScratch();
     }
 
     /// <summary>The one board-turn mapping, used for every position and facing. Defender turns 180; others identity.</summary>
@@ -324,16 +335,30 @@ public sealed class TamerBattlePlayback
 
     private sealed record ProjectileCandidate(int Tick, double FromX, double FromY, double ToX, double ToY);
 
-    private void Rebuild()
+    /// <summary>
+    ///     Reapplies every event from tick 0 up to the clock, rebuilding the simulation from scratch. Used after any
+    ///     clock discontinuity (<see cref="Replay" />, <see cref="Skip" />), and by tests as the full-rebuild oracle
+    ///     for the incremental path: only a continuous forward <see cref="Advance" /> may reuse applied state.
+    /// </summary>
+    public void RebuildFromScratch()
     {
-        var clock = ClockTicks;
-        var anim = animationClock;
-        var units = new Dictionary<byte, MutableUnit>();
-        var orderedIds = new List<byte>();
+        ResetApplied();
+        ApplyPendingEvents();
+    }
+
+    private void ResetApplied()
+    {
+        AppliedUnits.Clear();
+        AppliedOrder.Clear();
+        AppliedFloaters.Clear();
+        AppliedProjectiles.Clear();
+        AppliedLogs.Clear();
+        AppliedBonuses.Clear();
+        AppliedEventCount = 0;
 
         foreach (var monster in Fight.Monsters ?? [])
         {
-            if ((monster is null) || units.ContainsKey(monster.UnitId))
+            if ((monster is null) || AppliedUnits.ContainsKey(monster.UnitId))
                 continue;
 
             var maxHealth = Math.Max(0, monster.MaxHealth);
@@ -358,31 +383,48 @@ public sealed class TamerBattlePlayback
                 Facing = InitialFacing(monster.Side)
             };
 
-            units[monster.UnitId] = mutable;
-            orderedIds.Add(monster.UnitId);
+            AppliedUnits[monster.UnitId] = mutable;
+            AppliedOrder.Add(monster.UnitId);
         }
+    }
 
-        var floaters = new List<FloaterCandidate>();
-        var projectiles = new List<ProjectileCandidate>();
-        var logs = new List<string>();
-        var loggedBonuses = new HashSet<(TamerBattleSide Side, string Key)>();
-
+    /// <summary>
+    ///     Applies every not-yet-applied event up to the clock, then re-derives the visible state. Events arrive in
+    ///     tick order, so application resumes from the last applied index and stops at the first future event.
+    /// </summary>
+    private void ApplyPendingEvents()
+    {
         var events = Fight.Events ?? [];
 
-        for (var i = 0; i < events.Count; i++)
+        for (; AppliedEventCount < events.Count; AppliedEventCount++)
         {
-            var ev = events[i];
+            var ev = events[AppliedEventCount];
 
             if (ev is null)
                 continue;
 
-            if (((int)ev.Tick) > clock + 1e-9)
-                continue;
+            if (((int)ev.Tick) > ClockTicks + 1e-9)
+                break;
 
             if (!Enum.IsDefined(ev.Type))
                 continue;
 
-            switch (ev.Type)
+            ApplyEvent(ev, AppliedEventCount);
+        }
+
+        Derive();
+    }
+
+    private void ApplyEvent(TamerBattleEventView ev, int index)
+    {
+        //aliases so the per-event application below reads as the simulation it is
+        var units = AppliedUnits;
+        var logs = AppliedLogs;
+        var floaters = AppliedFloaters;
+        var projectiles = AppliedProjectiles;
+        var loggedBonuses = AppliedBonuses;
+
+        switch (ev.Type)
             {
                 case TamerBattleEventType.Spawn:
                 {
@@ -417,7 +459,7 @@ public sealed class TamerBattlePlayback
                     unit.EngineRow = ev.Y;
                     unit.Action = TamerBattleAction.Walk;
                     unit.ActionStart = ev.Tick;
-                    unit.ActionDuration = StepDurations[i];
+                    unit.ActionDuration = StepDurations[index];
                     unit.Facing = MovementFacing(unit.FromColumn, unit.FromRow, ev.X, ev.Y);
                     break;
                 }
@@ -666,13 +708,16 @@ public sealed class TamerBattlePlayback
                     break;
                 }
             }
-        }
+    }
 
-        var unitStates = new List<TamerBattleUnitState>(orderedIds.Count);
+    private void Derive()
+    {
+        var anim = animationClock;
+        var unitStates = new List<TamerBattleUnitState>(AppliedOrder.Count);
 
-        foreach (var id in orderedIds)
+        foreach (var id in AppliedOrder)
         {
-            var unit = units[id];
+            var unit = AppliedUnits[id];
             var (viewColumn, viewRow) = ViewCell(unit.EngineColumn, unit.EngineRow);
 
             var elapsed = anim - unit.ActionStart;
@@ -758,17 +803,17 @@ public sealed class TamerBattlePlayback
 
         UnitList = unitStates;
 
-        FloaterList = floaters
+        FloaterList = AppliedFloaters
             .Where(f => ((anim - f.Tick) >= 0) && ((anim - f.Tick) < FLOATER_TICKS))
             .Select(f => new TamerBattleFloater(f.Amount, f.Kind, f.ViewColumn, f.ViewRow, (anim - f.Tick) / (double)TICKS_PER_SECOND))
             .ToList();
 
-        ProjectileList = projectiles
+        ProjectileList = AppliedProjectiles
             .Where(p => ((anim - p.Tick) >= 0) && ((anim - p.Tick) < PROJECTILE_TICKS))
             .Select(p => new TamerBattleProjectile(p.FromX, p.FromY, p.ToX, p.ToY, (anim - p.Tick) / (double)PROJECTILE_TICKS))
             .ToList();
 
-        LogList = logs.Count <= 4 ? new List<string>(logs) : logs.GetRange(logs.Count - 4, 4);
+        LogList = AppliedLogs.Count <= 4 ? new List<string>(AppliedLogs) : AppliedLogs.GetRange(AppliedLogs.Count - 4, 4);
     }
 
     private Direction InitialFacing(TamerBattleSide side)

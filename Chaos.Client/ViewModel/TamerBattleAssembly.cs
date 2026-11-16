@@ -41,9 +41,9 @@ public sealed record TamerBattleFight(
 ///     The server sends all parts at once in order over TCP; out-of-order Events parts are buffered by part number
 ///     and duplicated parts are ignored. A Start for a new fight number discards any unfinished fight. An Events part
 ///     or an End with no active Start, or an End with parts missing, is broken: the fight is dropped.
-///     On Ready the parts are released and the completed fight number is remembered; late or duplicate parts for that
-///     number return Waiting. A broken fight is reported once: its number is remembered and its remaining parts
-///     return Waiting.
+///     On Ready the parts are released stable-sorted by tick (same-tick order is the wire order) and the completed
+///     fight number is remembered; late or duplicate parts for that number return Waiting. A broken fight is
+///     reported once: its number is remembered and its remaining parts return Waiting.
 ///     Pure: no textures.
 /// </summary>
 public sealed class TamerBattleAssembly
@@ -54,11 +54,15 @@ public sealed class TamerBattleAssembly
     public const int MAX_PARTS = 64;
     public const int MAX_RESULT_LINES = 4;
 
+    /// <summary>How many finished or broken fight numbers are remembered. A wrapped ushort id falls out eventually.</summary>
+    public const int MAX_IGNORED_FIGHTS = 64;
+
     private ushort? CurrentFight;
     private TamerBattleDisplayArgs? Start;
     private readonly Dictionary<byte, List<TamerBattleEventView>> Parts = [];
     private TamerBattleDisplayArgs? End;
     private readonly HashSet<ushort> IgnoredFights = [];
+    private readonly Queue<ushort> IgnoredOrder = new();
 
     public bool HasActive => CurrentFight is not null;
 
@@ -88,6 +92,7 @@ public sealed class TamerBattleAssembly
         Parts.Clear();
         End = null;
         IgnoredFights.Clear();
+        IgnoredOrder.Clear();
     }
 
     private void ClearActive()
@@ -96,6 +101,22 @@ public sealed class TamerBattleAssembly
         Start = null;
         Parts.Clear();
         End = null;
+    }
+
+    /// <summary>
+    ///     Remembers a finished or broken fight number so its late or duplicate parts stay quiet, keeping only the
+    ///     most recent <see cref="MAX_IGNORED_FIGHTS" /> ids: the ushort fight number wraps, so an id remembered
+    ///     forever would eventually drop a new fight reusing it.
+    /// </summary>
+    private void IgnoreFight(ushort fightNumber)
+    {
+        if (!IgnoredFights.Add(fightNumber))
+            return;
+
+        IgnoredOrder.Enqueue(fightNumber);
+
+        while (IgnoredOrder.Count > MAX_IGNORED_FIGHTS)
+            IgnoredFights.Remove(IgnoredOrder.Dequeue());
     }
 
     private TamerBattleAcceptResult AcceptStart(TamerBattleDisplayArgs args)
@@ -109,7 +130,7 @@ public sealed class TamerBattleAssembly
         if ((monsters.Count > MAX_MONSTERS) || (names.Count > MAX_NAMES))
         {
             ClearActive();
-            IgnoredFights.Add(args.FightNumber);
+            IgnoreFight(args.FightNumber);
             return Broken();
         }
 
@@ -138,7 +159,7 @@ public sealed class TamerBattleAssembly
         if (CurrentFight is null || args.FightNumber != CurrentFight)
         {
             if (CurrentFight is null)
-                IgnoredFights.Add(args.FightNumber);
+                IgnoreFight(args.FightNumber);
 
             return Broken();
         }
@@ -149,7 +170,7 @@ public sealed class TamerBattleAssembly
         {
             var dropped = CurrentFight.Value;
             ClearActive();
-            IgnoredFights.Add(dropped);
+            IgnoreFight(dropped);
             return Broken();
         }
 
@@ -167,7 +188,7 @@ public sealed class TamerBattleAssembly
         if (CurrentFight is null || args.FightNumber != CurrentFight)
         {
             if (CurrentFight is null)
-                IgnoredFights.Add(args.FightNumber);
+                IgnoreFight(args.FightNumber);
 
             return Broken();
         }
@@ -178,7 +199,7 @@ public sealed class TamerBattleAssembly
         {
             var dropped = CurrentFight.Value;
             ClearActive();
-            IgnoredFights.Add(dropped);
+            IgnoreFight(dropped);
             return Broken();
         }
 
@@ -188,7 +209,7 @@ public sealed class TamerBattleAssembly
         {
             var dropped = CurrentFight.Value;
             ClearActive();
-            IgnoredFights.Add(dropped);
+            IgnoreFight(dropped);
             return Broken();
         }
 
@@ -234,6 +255,10 @@ public sealed class TamerBattleAssembly
         for (var i = 0; i < end.EventParts; i++)
             events.AddRange(Parts[(byte)i]);
 
+        //each part arrives tick-sorted but a part boundary is not: the playback below stops at the first
+        //future tick, so sort once here. OrderBy is stable, keeping same-tick events in wire order.
+        events = events.OrderBy(static ev => ev?.Tick ?? 0).ToList();
+
         var fight = new TamerBattleFight(
             start.FightNumber,
             start.AttackerName ?? string.Empty,
@@ -248,7 +273,7 @@ public sealed class TamerBattleAssembly
             end.EndTick,
             (end.ResultLines ?? []).ToList());
 
-        IgnoredFights.Add(fight.FightNumber);
+        IgnoreFight(fight.FightNumber);
         ClearActive();
 
         return new TamerBattleAcceptResult(TamerBattleAcceptance.Ready, fight);

@@ -31,6 +31,16 @@ public sealed class TamerStableSendGuardTests
     }
 
     [Test]
+    public void A_confirmed_friendly_bout_goes_only_while_no_fight_is_showing()
+    {
+        var bout = TamerRankedState.FriendlyAction("Rook");
+
+        bout.Should().NotBeNull();
+        TamerStableSendGuard.Allows(bout, false).Should().BeTrue("a Yes with no battle window up sends");
+        TamerStableSendGuard.Allows(bout, true).Should().BeFalse("a Yes under the battle window is dropped");
+    }
+
+    [Test]
     public void Close_always_goes_so_the_server_never_keeps_a_window_the_client_hid()
     {
         TamerStableSendGuard.Allows(TamerStableState.CloseAction(), true).Should().BeTrue();

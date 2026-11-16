@@ -313,4 +313,58 @@ public sealed class TamerBattleAssemblyTests
         next.Status.Should().Be(TamerBattleAcceptance.Ready);
         next.Fight!.FightNumber.Should().Be(8);
     }
+
+    [Test]
+    public void Only_the_most_recent_64_ignored_fights_are_remembered()
+    {
+        var assembly = new TamerBattleAssembly();
+
+        for (ushort fight = 1; fight <= 100; fight++)
+            assembly.Accept(Events(fight, 0, [Ev(10, 1, 6)])).Status.Should().Be(TamerBattleAcceptance.Broken);
+
+        //the last 64 (37..100) are still ignored: quiet Waiting, never reassembled
+        assembly.Accept(Events(37, 0, [Ev(10, 1, 6)])).Status.Should().Be(TamerBattleAcceptance.Waiting);
+
+        //older ids fell out: parts for one look broken again, not ignored
+        assembly.Accept(Events(36, 0, [Ev(10, 1, 6)])).Status.Should().Be(TamerBattleAcceptance.Broken);
+
+        //and a wrapped id is never dropped forever: a new fight reusing it assembles
+        var start = assembly.Accept(Start(1));
+
+        start.Status.Should().Be(TamerBattleAcceptance.Waiting);
+        assembly.HasActive.Should().BeTrue();
+        assembly.ActiveFightNumber.Should().Be(1);
+    }
+
+    [Test]
+    public void A_part_boundary_that_breaks_tick_order_still_applies_every_event()
+    {
+        //part 0 carries a later tick than part 1; without a sort the incremental playback stops at the
+        //first future tick and applies the pair backwards, so the shield would absorb the damage instead
+        //of landing after it
+        var assembly = new TamerBattleAssembly();
+        assembly.Accept(Start(7));
+        assembly.Accept(
+            Events(
+                7,
+                0,
+                [new TamerBattleEventView(20, TamerBattleEventType.Shield, 1, 1, 40, -1, -1, -1, "")]));
+        assembly.Accept(
+            Events(
+                7,
+                1,
+                [new TamerBattleEventView(10, TamerBattleEventType.Damage, 6, 1, 30, -1, -1, 5, "")]));
+        var ready = assembly.Accept(End(7, 2));
+
+        ready.Status.Should().Be(TamerBattleAcceptance.Ready);
+        ready.Fight!.Events[0].Tick.Should().Be(10);
+        ready.Fight.Events[1].Tick.Should().Be(20);
+
+        var playback = new TamerBattlePlayback(ready.Fight);
+        playback.Advance(TimeSpan.FromSeconds(2.5));
+
+        var unit = playback.Units.Single(u => u.Id == 1);
+        unit.Health.Should().Be(70);
+        unit.Shield.Should().Be(40);
+    }
 }

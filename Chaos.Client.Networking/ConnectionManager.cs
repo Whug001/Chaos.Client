@@ -25,6 +25,7 @@ public sealed class ConnectionManager : IDisposable
     private readonly Action<ServerPacket>?[] PacketHandlers = new Action<ServerPacket>?[byte.MaxValue + 1];
     private WorldEntryState EntryState;
     private RedirectInfo? PendingRedirect;
+    private bool TamerClientOutOfDateWarned;
 
     /// <summary>
     ///     The local player's unique entity ID, assigned by the server upon world entry.
@@ -75,6 +76,11 @@ public sealed class ConnectionManager : IDisposable
 
             var old = field;
             field = value;
+
+            //a new login may bring a newer tamer protocol again, so the out-of-date warning may show once more
+            if (value == ConnectionState.Login)
+                TamerClientOutOfDateWarned = false;
+
             StateChanged?.Invoke(old, value);
         }
     } = ConnectionState.Disconnected;
@@ -732,6 +738,17 @@ public sealed class ConnectionManager : IDisposable
     /// <summary>Fired when the server sends one battle part: a start, events, or end.</summary>
     public event TamerBattleDisplayHandler? OnTamerBattleDisplay;
 
+    /// <summary>
+    ///     The orange-bar text shown when a tamer packet fails to decode: the server speaks a newer tamer protocol.
+    /// </summary>
+    public const string TamerClientOutOfDateMessage = "Your client is out of date for the tamer feature. Please update.";
+
+    /// <summary>
+    ///     Fired at most once per login when a tamer packet (TamerDisplay, TamerBattleDisplay, SetBindState) fails to
+    ///     decode, so the UI can warn that the client is out of date instead of failing silently.
+    /// </summary>
+    public event TamerClientOutOfDateHandler? OnTamerClientOutOfDate;
+
     /// <summary>Fired when the server sends one season of the Endless Tower leaderboard.</summary>
     public event TowerLeaderboardHandler? OnTowerLeaderboard;
 
@@ -955,6 +972,8 @@ public sealed class ConnectionManager : IDisposable
     {
         Client.DrainPackets(buffer);
 
+        var tamerDecodeFailed = false;
+
         foreach (var pkt in buffer)
         {
             try
@@ -962,13 +981,22 @@ public sealed class ConnectionManager : IDisposable
                 HandlePacket(pkt);
             } catch (Exception ex)
             {
-                //malformed packet — skip
+                //malformed packet — skip. only a decode failure warns: a subscriber throwing after a
+                //successful decode is that subscriber's bug, not a newer server protocol.
                 Debug.WriteLine($"[ConnectionManager] ProcessPackets opcode {pkt.OpCode} skipped: {ex.Message}");
+
+                if (ex is TamerDecodeException)
+                    tamerDecodeFailed = true;
             } finally
             {
                 ArrayPool<byte>.Shared.Return(pkt.Data);
             }
         }
+
+        //the warning fires after every buffer is returned, so a throwing warning subscriber cannot skip the
+        //rest of the batch or leak a rented buffer
+        if (tamerDecodeFailed)
+            WarnOnceForTamerVersionSkew();
 
         //follow pending redirect once the old connection is fully torn down
         if (PendingRedirect is not null && !Client.Connected)
@@ -2197,6 +2225,44 @@ public sealed class ConnectionManager : IDisposable
         handler?.Invoke(pkt);
     }
 
+    /// <summary>
+    ///     Marks a tamer packet that failed to decode: the server speaks a newer tamer protocol than this client. Only
+    ///     decode failures throw this; a subscriber throwing after a successful decode leaves it unwrapped so the
+    ///     out-of-date warning stays silent.
+    /// </summary>
+    private sealed class TamerDecodeException(byte opCode, Exception inner)
+        : Exception($"Tamer packet {(ServerOpCode)opCode} failed to decode.", inner);
+
+    /// <summary>
+    ///     Warns once per login that the server speaks a newer tamer protocol. Runs after the packet loop so a
+    ///     throwing subscriber cannot skip the rest of a batch. The flag sets only when at least one subscriber is
+    ///     told: with nobody listening the next failure still warns.
+    /// </summary>
+    private void WarnOnceForTamerVersionSkew()
+    {
+        if (TamerClientOutOfDateWarned)
+            return;
+
+        var handler = OnTamerClientOutOfDate;
+
+        if (handler is null)
+            return;
+
+        //one throwing subscriber must not stop the rest of the list
+        foreach (TamerClientOutOfDateHandler single in handler.GetInvocationList())
+        {
+            try
+            {
+                single();
+            } catch (Exception ex)
+            {
+                Debug.WriteLine($"[ConnectionManager] OnTamerClientOutOfDate skipped: {ex.Message}");
+            }
+        }
+
+        TamerClientOutOfDateWarned = true;
+    }
+
     private void HandleAcceptConnection(ServerPacket _)
     {
         if (PendingLobbyVersion)
@@ -2471,7 +2537,16 @@ public sealed class ConnectionManager : IDisposable
 
     private void HandleSetBindState(ServerPacket pkt)
     {
-        var args = Client.Deserialize<SetBindStateArgs>(in pkt);
+        SetBindStateArgs args;
+
+        try
+        {
+            args = Client.Deserialize<SetBindStateArgs>(in pkt);
+        } catch (Exception ex)
+        {
+            throw new TamerDecodeException(pkt.OpCode, ex);
+        }
+
         OnSetBindState?.Invoke(args);
     }
 
@@ -2815,13 +2890,31 @@ public sealed class ConnectionManager : IDisposable
 
     private void HandleTamerDisplay(ServerPacket pkt)
     {
-        var args = Client.Deserialize<TamerDisplayArgs>(in pkt);
+        TamerDisplayArgs args;
+
+        try
+        {
+            args = Client.Deserialize<TamerDisplayArgs>(in pkt);
+        } catch (Exception ex)
+        {
+            throw new TamerDecodeException(pkt.OpCode, ex);
+        }
+
         OnTamerDisplay?.Invoke(args);
     }
 
     private void HandleTamerBattleDisplay(ServerPacket pkt)
     {
-        var args = Client.Deserialize<TamerBattleDisplayArgs>(in pkt);
+        TamerBattleDisplayArgs args;
+
+        try
+        {
+            args = Client.Deserialize<TamerBattleDisplayArgs>(in pkt);
+        } catch (Exception ex)
+        {
+            throw new TamerDecodeException(pkt.OpCode, ex);
+        }
+
         OnTamerBattleDisplay?.Invoke(args);
     }
 
