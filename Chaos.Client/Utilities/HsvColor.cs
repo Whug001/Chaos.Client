@@ -34,6 +34,60 @@ public static class HsvColor
         return (hue < 0f ? hue + 360f : hue, saturation, max);
     }
 
+    /// <summary>
+    ///     Parses a hex colour code: optional leading '#', then exactly 6 hex digits (RRGGBB) or 3 (RGB shorthand,
+    ///     each digit doubled). Surrounding whitespace is ignored. Case-insensitive, alpha is always 255.
+    ///     Anything else returns false.
+    /// </summary>
+    public static bool TryParseHex(string? text, out Color color)
+    {
+        color = new Color(0, 0, 0);
+
+        if (text is null)
+            return false;
+
+        var span = text.Trim();
+
+        if (span.StartsWith('#'))
+            span = span[1..];
+
+        if ((span.Length != 6) && (span.Length != 3))
+            return false;
+
+        foreach (var c in span)
+            if (!char.IsAsciiHexDigit(c))
+                return false;
+
+        int r, g, b;
+
+        if (span.Length == 6)
+        {
+            r = (Nibble(span[0]) << 4) | Nibble(span[1]);
+            g = (Nibble(span[2]) << 4) | Nibble(span[3]);
+            b = (Nibble(span[4]) << 4) | Nibble(span[5]);
+        } else
+        {
+            r = (Nibble(span[0]) << 4) | Nibble(span[0]);
+            g = (Nibble(span[1]) << 4) | Nibble(span[1]);
+            b = (Nibble(span[2]) << 4) | Nibble(span[2]);
+        }
+
+        color = new Color((byte)r, (byte)g, (byte)b);
+
+        return true;
+
+        static int Nibble(char c)
+        {
+            if ((c >= '0') && (c <= '9'))
+                return c - '0';
+
+            if ((c >= 'a') && (c <= 'f'))
+                return c - 'a' + 10;
+
+            return c - 'A' + 10;
+        }
+    }
+
     public static Color FromHsv(float hue, float saturation, float value)
     {
         hue = ((hue % 360f) + 360f) % 360f;
