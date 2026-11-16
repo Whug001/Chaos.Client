@@ -20,7 +20,7 @@ main Chaos.Client checkout. Their JavaScript holds the motion this spec copies.
 
 - The effects are switched on per map by flags, like every other effect. There is no date-based switch.
 - `harvest_field` (Gobbler King) and `ThanksgivingChallenge` get all three flags. No other map does.
-- The Suomi theatre stage-effects menu lists all three on page 3.
+- The Suomi theatre stage-effects menu and the admin trinket's Map Flags menu list all three on page 3.
 - Mileth and the festival list do **not** get them.
 - None of the three go in the F4 "Triggering or Unsettling Map Effects" section. Nothing flashes; the wind lines fade
   in and out over about a second.
@@ -36,10 +36,13 @@ main Chaos.Client checkout. Their JavaScript holds the motion this spec copies.
    `/atmosphere` hides them.
 3. `Chaos/Scripting/DialogScripts/Temuair/Suomi/TheatreStageEffects.cs`: add page-3 entries after Rising Steam:
    `new("Turkey Feathers", MapFlags.TurkeyFeathers, 3)`, `new("Geese", MapFlags.GeeseShadows, 3)` and
-   `new("Wheat Chaff", MapFlags.WheatChaff, 3)`. Page 3 then holds 13 of its 16 slots.
+   `new("Wheat Chaff", MapFlags.WheatChaff, 3)`. Page 3 then holds 13 of its 16 slots. The admin trinket's Map
+   Flags menu (`AdminTrinketScript.DisplayMapFlags`) builds its pages from this same list, so the three effects appear
+   on trinket page 3 (`admintrinket_mapflags3`) with no trinket code change.
 4. Tests: update `Tests/Chaos.Tests/MapFlagVisibilityTests.cs` and `Tests/Chaos.Tests/Theatre/TheatreStageEffectsTests.cs`
    where they list effects or count page 3. Add the three flags to the `AmbientFlags` list in
-   `Tests/Chaos.Tests/Networking/MapEffectsPacketConverterTests.cs`.
+   `Tests/Chaos.Tests/Networking/MapEffectsPacketConverterTests.cs`. In `Tests/Chaos.Tests/Admin/AdminTrinketMapFlagsTests.cs`,
+   add a test that trinket page 3 lists all three and that choosing "Start Turkey Feathers" turns the flag on.
 
 No packet change and no CLIENT_VERSION bump. An older client receives the new bits and draws nothing for them.
 
@@ -247,7 +250,7 @@ Server: the three test files named in part 1.
 
 Manual check in game: on a field map, `/mapFlag add TurkeyFeathers`, `GeeseShadows`, `WheatChaff` one at a time and
 together. Walk around and check that the shadows stay over the map and flip with direction. Then `/mapFlag remove`
-each, change maps, and try the theatre menu page 3. After Part 3, enter Harvest Field and the Thanksgiving Challenge.
+each, change maps, and try page 3 of the theatre menu and of the admin trinket's Map Flags menu. After Part 3, enter Harvest Field and the Thanksgiving Challenge.
 
 ## Part 5: docs
 
