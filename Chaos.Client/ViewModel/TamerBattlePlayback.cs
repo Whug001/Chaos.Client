@@ -115,8 +115,8 @@ public sealed class TamerBattlePlayback
     private double animationClock;
 
     //the incremental simulation: mutable units plus the candidates, log lines and bonus keys built so far, and the
-    //count of events already applied. events arrive in tick order, so a forward Advance resumes from the last
-    //applied index instead of replaying every event from tick 0.
+    //count of events already applied. events arrive in tick order (the assembly stable-sorts by tick on Ready),
+    //so a forward Advance resumes from the last applied index instead of replaying every event from tick 0.
     private readonly Dictionary<byte, MutableUnit> AppliedUnits = new();
     private readonly List<byte> AppliedOrder = [];
     private readonly List<FloaterCandidate> AppliedFloaters = [];

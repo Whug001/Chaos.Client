@@ -41,9 +41,9 @@ public sealed record TamerBattleFight(
 ///     The server sends all parts at once in order over TCP; out-of-order Events parts are buffered by part number
 ///     and duplicated parts are ignored. A Start for a new fight number discards any unfinished fight. An Events part
 ///     or an End with no active Start, or an End with parts missing, is broken: the fight is dropped.
-///     On Ready the parts are released and the completed fight number is remembered; late or duplicate parts for that
-///     number return Waiting. A broken fight is reported once: its number is remembered and its remaining parts
-///     return Waiting.
+///     On Ready the parts are released stable-sorted by tick (same-tick order is the wire order) and the completed
+///     fight number is remembered; late or duplicate parts for that number return Waiting. A broken fight is
+///     reported once: its number is remembered and its remaining parts return Waiting.
 ///     Pure: no textures.
 /// </summary>
 public sealed class TamerBattleAssembly
@@ -254,6 +254,10 @@ public sealed class TamerBattleAssembly
 
         for (var i = 0; i < end.EventParts; i++)
             events.AddRange(Parts[(byte)i]);
+
+        //each part arrives tick-sorted but a part boundary is not: the playback below stops at the first
+        //future tick, so sort once here. OrderBy is stable, keeping same-tick events in wire order.
+        events = events.OrderBy(static ev => ev?.Tick ?? 0).ToList();
 
         var fight = new TamerBattleFight(
             start.FightNumber,
