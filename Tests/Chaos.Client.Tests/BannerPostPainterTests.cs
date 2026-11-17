@@ -39,11 +39,27 @@ public sealed class BannerPostPainterTests
     public void An_emblem_pixel_fills_its_2x2_block()
     {
         var image = BannerPostPainter.Paint(RedDot());
-        var origin = BannerPostPainter.EmblemOrigin;
+        var block = BannerPostPainter.EmblemBlock(3, 5);
 
-        for (var dy = 10; dy <= 11; dy++)
-            for (var dx = 6; dx <= 7; dx++)
-                At(image, origin.X + dx, origin.Y + dy).Should().Be(new Color(200, 10, 10, 255));
+        //lit and folded, but still the emblem's red
+        for (var dy = 0; dy <= 1; dy++)
+            for (var dx = 0; dx <= 1; dx++)
+            {
+                var pixel = At(image, block.X + dx, block.Y + dy);
+                pixel.R.Should().BeGreaterThan(150);
+                pixel.G.Should().BeLessThan(20);
+                pixel.B.Should().BeLessThan(20);
+            }
+    }
+
+    [Test]
+    public void The_cloth_is_sheared_along_the_iso_axis()
+    {
+        var first = BannerPostPainter.EmblemBlock(0, 0);
+        var next = BannerPostPainter.EmblemBlock(1, 0);
+
+        next.X.Should().Be(first.X + 2);
+        next.Y.Should().Be(first.Y - 1);
     }
 
     [Test]
@@ -52,7 +68,11 @@ public sealed class BannerPostPainterTests
         var image = BannerPostPainter.Paint(RedDot());
         var origin = BannerPostPainter.EmblemOrigin;
 
-        At(image, origin.X, origin.Y).Should().Be(new Color(90, 4, 4, 255));
+        //the field is (90, 4, 4) = (200, 10, 10) x 0.45, lit a little on the cloth's left side
+        var pixel = At(image, origin.X, origin.Y);
+        pixel.R.Should().BeInRange(80, 110);
+        pixel.G.Should().BeLessThan(10);
+        pixel.B.Should().BeLessThan(10);
     }
 
     [Test]
