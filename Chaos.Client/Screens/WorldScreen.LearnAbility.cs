@@ -7,7 +7,7 @@ namespace Chaos.Client.Screens;
 
 /// <summary>
 ///     The learn-ability popup. The server sends the requirements dialog first and this packet right after it, so the
-///     popup opens over that dialog, hides its text and options, and answers through them. Any new dialog or menu, or the
+///     popup opens over that dialog, hides the dialog entirely, and answers through it. Any new dialog or menu, or the
 ///     dialog closing, takes the popup down without answering.
 /// </summary>
 public sealed partial class WorldScreen

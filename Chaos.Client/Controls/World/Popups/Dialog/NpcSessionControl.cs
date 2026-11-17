@@ -52,8 +52,9 @@ public sealed class NpcSessionControl : PrefabPanel
     private Texture2D? PortraitTexture;
     private int ScrollLine;
 
-    //the body (text and option panels) is covered by a popup that answers for it, e.g. the learn-ability popup.
-    //the panels hidden for it, so SetBodyHidden(false) shows exactly those again.
+    //the dialog is covered by a popup that answers for it, e.g. the learn-ability popup: nothing is drawn or clickable,
+    //but the dialog stays open underneath. The panels hidden for it, so SetHiddenBehindPopup(false) shows exactly those
+    //again.
     private bool BodyHidden;
     private readonly List<UIPanel> PanelsHiddenForBody = [];
     public DialogType? CurrentDialogType { get; private set; }
@@ -274,7 +275,8 @@ public sealed class NpcSessionControl : PrefabPanel
 
     public override void Draw(SpriteBatch spriteBatch)
     {
-        if (!Visible)
+        //covered by a popup answering for it: open, but out of sight
+        if (!Visible || BodyHidden)
             return;
 
         UpdateClipRect();
@@ -387,6 +389,7 @@ public sealed class NpcSessionControl : PrefabPanel
     {
         //a new dialog, menu or close resets the body: nothing stays hidden for a popup that no longer applies
         BodyHidden = false;
+        IsHitTestVisible = true;
         PanelsHiddenForBody.Clear();
         DialogTextLabel.Visible = true;
 
@@ -517,16 +520,18 @@ public sealed class NpcSessionControl : PrefabPanel
     public void SelectOption(int index) => OnOptionSelected?.Invoke(index);
 
     /// <summary>
-    ///     Hides (or shows again) the dialog text and the option, list and shop panels while a popup answers for them. The
-    ///     frame, portrait, name and Close button stay. Showing again restores only the panels this hid. Any new dialog,
+    ///     Hides (or shows again) the whole dialog -- frame, portrait, name, text, buttons and option panels -- while a popup
+    ///     answers for it. The dialog stays open (still <see cref="UIElement.Visible" />, so the popup can tell when it
+    ///     closes) but draws nothing and takes no clicks. Showing again restores only the panels this hid. Any new dialog,
     ///     menu or close resets it.
     /// </summary>
-    public void SetBodyHidden(bool hidden)
+    public void SetHiddenBehindPopup(bool hidden)
     {
         if (hidden == BodyHidden)
             return;
 
         BodyHidden = hidden;
+        IsHitTestVisible = !hidden;
         DialogTextLabel.Visible = !hidden;
 
         if (hidden)
