@@ -104,7 +104,7 @@ public sealed class LearnAbilityControl : HandBuiltDialogBase
     }
 
     /// <summary>
-    ///     Opens the popup for <paramref name="args" /> over the NPC dialog, hiding the dialog's text and options while it is
+    ///     Opens the popup for <paramref name="args" /> over the NPC dialog, hiding the whole dialog while it is
     ///     up. <paramref name="area" /> is the world viewport: the popup is centred on it and never taller than it.
     /// </summary>
     public void Show(LearnAbilityDisplayArgs args, Rectangle area)
@@ -121,14 +121,14 @@ public sealed class LearnAbilityControl : HandBuiltDialogBase
 
         Layout(view, area);
 
-        Session.SetBodyHidden(true);
+        Session.SetHiddenBehindPopup(true);
 
         if (!Visible)
             Show();
     }
 
     /// <summary>
-    ///     Takes the popup down without answering and shows the dialog's text and options again. Safe to call when it is
+    ///     Takes the popup down without answering and shows the dialog again. Safe to call when it is
     ///     already hidden.
     /// </summary>
     public override void Hide()
@@ -138,7 +138,7 @@ public sealed class LearnAbilityControl : HandBuiltDialogBase
         if (!Visible)
             return;
 
-        Session.SetBodyHidden(false);
+        Session.SetHiddenBehindPopup(false);
         base.Hide();
     }
 
