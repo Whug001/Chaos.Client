@@ -977,4 +977,15 @@ public sealed class TamerStableStateTests
         state.SpriteOf(plain).Should().Be(100);
         state.SpriteOf(null).Should().Be(0);
     }
+
+    [Test]
+    public void A_ranked_member_shows_its_caught_look_else_its_species_sprite()
+    {
+        var state = Ready([], DexSpecies());
+
+        state.SpriteOf("wolf", 777).Should().Be(777);
+        state.SpriteOf("wolf", 0).Should().Be(100);
+        state.SpriteOf("missing", 0).Should().Be(0, "a species the catalog lacks draws the empty box");
+        state.SpriteOf(null, 0).Should().Be(0);
+    }
 }

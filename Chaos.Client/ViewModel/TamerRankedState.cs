@@ -21,6 +21,7 @@ public sealed class TamerRankedState
     public const int DEFENCE_SIZE = 5;
 
     private readonly List<string> DefenceList = [];
+    private readonly List<ushort> DefenceSpriteList = [];
     private readonly List<TamerRankedOfferView> OfferList = [];
     private readonly List<TamerRankedLogView> LogList = [];
     private readonly List<TamerRankedTopView> TopList = [];
@@ -50,6 +51,13 @@ public sealed class TamerRankedState
 
     /// <summary>The saved defence's species keys in squad order.</summary>
     public IReadOnlyList<string> Defence => DefenceList;
+
+    /// <summary>The look the defence member at <paramref name="index" /> was caught with, or 0 for its species sprite.</summary>
+    public ushort DefenceSpriteAt(int index) => (index >= 0) && (index < DefenceSpriteList.Count) ? DefenceSpriteList[index] : (ushort)0;
+
+    /// <summary>The look the offered monster at <paramref name="index" /> was caught with, or 0 for its species sprite.</summary>
+    public static ushort OfferSpriteAt(TamerRankedOfferView? offer, int index)
+        => (offer?.Sprites is { } sprites) && (index >= 0) && (index < sprites.Count) ? sprites[index] : (ushort)0;
 
     /// <summary>The offered opponents; the index is the offer slot.</summary>
     public IReadOnlyList<TamerRankedOfferView> Offers => OfferList;
@@ -161,6 +169,8 @@ public sealed class TamerRankedState
         LastMessage = args.Message ?? string.Empty;
 
         Replace(DefenceList, args.Defence, MAX_DEFENCE);
+        DefenceSpriteList.Clear();
+        DefenceSpriteList.AddRange((args.DefenceSprites ?? []).Take(MAX_DEFENCE));
         Replace(OfferList, args.Offers, MAX_OFFERS);
         Replace(LogList, args.Log, MAX_LOG);
         Replace(TopList, args.Top, MAX_TOP);
@@ -193,6 +203,7 @@ public sealed class TamerRankedState
         DefenceState = TamerWireDefenceState.None;
         LastMessage = string.Empty;
         DefenceList.Clear();
+        DefenceSpriteList.Clear();
         OfferList.Clear();
         LogList.Clear();
         TopList.Clear();

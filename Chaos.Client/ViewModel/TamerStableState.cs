@@ -260,6 +260,9 @@ public sealed class TamerStableState
             : monster.Sprite > 0 ? monster.Sprite
             : SpeciesOf(monster)?.Sprite ?? 0;
 
+    /// <summary>The look a ranked squad member shows: the one it was caught with, else its species sprite (0 when unknown).</summary>
+    public ushort SpriteOf(string? speciesKey, ushort caught) => caught > 0 ? caught : GetSpecies(speciesKey)?.Sprite ?? 0;
+
     public TamerTraitView? TraitOf(TamerMonsterView? monster)
         => monster is null ? null : GetTrait(monster.TraitKey);
 
