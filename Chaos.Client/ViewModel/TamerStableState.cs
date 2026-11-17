@@ -11,7 +11,19 @@ public enum TamerStableSort : byte
 {
     Newest = 0,
     Level = 1,
-    Name = 2
+    Name = 2,
+
+    /// <summary>Dex number, lowest first; species without one go last.</summary>
+    Dex = 3,
+
+    /// <summary>Rarest first, then dex order.</summary>
+    Rarity = 4,
+
+    /// <summary>Fire, Water, Wind, Earth, then dex order.</summary>
+    Element = 5,
+
+    /// <summary>Bruiser, Striker, Support, then dex order.</summary>
+    Role = 6
 }
 
 /// <summary>What the ability row shows.</summary>
@@ -178,7 +190,9 @@ public sealed class TamerStableState
     /// <summary>Clears the pending open, for a close or the player closing the window.</summary>
     public void ClearCatalogJustArrived() => CatalogJustArrived = false;
 
-    public void CycleSort() => SetSort((TamerStableSort)(((int)Sort + 1) % 3));
+    public void CycleSort() => SetSort((TamerStableSort)(((int)Sort + 1) % SORT_COUNT));
+
+    private const int SORT_COUNT = (int)TamerStableSort.Role + 1;
 
     public void SetSort(TamerStableSort sort)
     {
@@ -195,6 +209,22 @@ public sealed class TamerStableState
             return;
 
         SelectedId = monsterId;
+    }
+
+    /// <summary>
+    ///     Moves the selection <paramref name="delta" /> rows through the sorted list, stopping at either end. With nothing
+    ///     selected it picks the first row. Returns the new index, or -1 when the list is empty.
+    /// </summary>
+    public int MoveSelection(int delta)
+    {
+        if (SortedMonsters.Count == 0)
+            return -1;
+
+        var current = SelectedId is { } id ? SortedMonsters.FindIndex(m => m.Id == id) : -1;
+        var next = current < 0 ? 0 : Math.Clamp(current + delta, 0, SortedMonsters.Count - 1);
+        SelectedId = SortedMonsters[next].Id;
+
+        return next;
     }
 
     public TamerSpeciesView? GetSpecies(string? key)
@@ -223,6 +253,12 @@ public sealed class TamerStableState
 
     public TamerSpeciesView? SpeciesOf(TamerMonsterView? monster)
         => monster is null ? null : GetSpecies(monster.SpeciesKey);
+
+    /// <summary>The monster's portrait: the look it was caught with, else its species sprite; 0 when unknown.</summary>
+    public ushort SpriteOf(TamerMonsterView? monster)
+        => monster is null ? (ushort)0
+            : monster.Sprite > 0 ? monster.Sprite
+            : SpeciesOf(monster)?.Sprite ?? 0;
 
     public TamerTraitView? TraitOf(TamerMonsterView? monster)
         => monster is null ? null : GetTrait(monster.TraitKey);
@@ -623,6 +659,8 @@ public sealed class TamerStableState
         ExperiencePerFeed = perFeed;
         HasCatalog = true;
         CatalogJustArrived = true;
+        //the dex, rarity, element and role orders read the species
+        RebuildSorted();
         Revision = unchecked(Revision + 1);
     }
 
@@ -662,9 +700,26 @@ public sealed class TamerStableState
                     .OrderBy(entry => entry.monster.Name, StringComparer.OrdinalIgnoreCase)
                     .ThenBy(entry => entry.index)
                     .Select(entry => entry.monster),
+                TamerStableSort.Dex => ByDex(_ => 0),
+                TamerStableSort.Rarity => ByDex(species => species is null ? int.MaxValue : -(int)species.Rarity),
+                TamerStableSort.Element => ByDex(species => species is null ? int.MaxValue : (int)species.Element),
+                TamerStableSort.Role => ByDex(species => species is null ? int.MaxValue : (int)species.Role),
                 _ => RawMonsters.AsEnumerable().Reverse()
             });
     }
+
+    //groups by the key, then dex order (numberless species last, by species name), then the same species by level and
+    //name; the stable index breaks the last tie, so the order never shuffles between snapshots
+    private IEnumerable<TamerMonsterView> ByDex(Func<TamerSpeciesView?, int> group)
+        => RawMonsters
+           .Select((monster, index) => (monster, index, species: GetSpecies(monster.SpeciesKey)))
+           .OrderBy(entry => group(entry.species))
+           .ThenBy(entry => entry.species is { Dex: > 0 } species ? species.Dex : int.MaxValue)
+           .ThenBy(entry => entry.species?.Name ?? entry.monster.SpeciesKey, StringComparer.OrdinalIgnoreCase)
+           .ThenByDescending(entry => entry.monster.Level)
+           .ThenBy(entry => entry.monster.Name, StringComparer.OrdinalIgnoreCase)
+           .ThenBy(entry => entry.index)
+           .Select(entry => entry.monster);
 
     private void FixSelection()
     {

@@ -210,19 +210,22 @@ public sealed class TamerStableStateTests
     }
 
     [Test]
-    public void Cycle_sort_goes_newest_level_name_newest()
+    public void Cycle_sort_goes_through_every_order_and_back_to_newest()
     {
         var state = new TamerStableState();
         state.Sort.Should().Be(TamerStableSort.Newest);
 
-        state.CycleSort();
-        state.Sort.Should().Be(TamerStableSort.Level);
+        TamerStableSort[] expected =
+        [
+            TamerStableSort.Level, TamerStableSort.Name, TamerStableSort.Dex, TamerStableSort.Rarity, TamerStableSort.Element,
+            TamerStableSort.Role, TamerStableSort.Newest
+        ];
 
-        state.CycleSort();
-        state.Sort.Should().Be(TamerStableSort.Name);
-
-        state.CycleSort();
-        state.Sort.Should().Be(TamerStableSort.Newest);
+        foreach (var sort in expected)
+        {
+            state.CycleSort();
+            state.Sort.Should().Be(sort);
+        }
     }
 
     [Test]
@@ -893,5 +896,85 @@ public sealed class TamerStableStateTests
         TamerStableState.SetActiveSquadAction(3).Should().BeNull();
         TamerStableState.SetActiveSquadAction(255).Should().BeNull();
     }
-}
 
+    private static List<TamerSpeciesView> DexSpecies()
+        =>
+        [
+            Species("wolf", TamerWireElement.Wind, name: "Wolf", rarity: TamerWireRarity.Common, role: TamerWireRole.Striker) with { Dex = 2 },
+            Species("crab", TamerWireElement.Water, name: "Crab", rarity: TamerWireRarity.Rare, role: TamerWireRole.Bruiser) with { Dex = 1 },
+            Species("odd", TamerWireElement.Fire, name: "Odd", rarity: TamerWireRarity.Uncommon, role: TamerWireRole.Support),
+            Species("bat", TamerWireElement.Fire, name: "Bat", rarity: TamerWireRarity.Common, role: TamerWireRole.Striker) with { Dex = 3 }
+        ];
+
+    private static TamerStableState DexReady()
+        => Ready(
+            [
+                Monster(Id(1), "wolf", "Rex", 3, 0, 10),
+                Monster(Id(2), "odd", "Oddie", 1, 0, 10),
+                Monster(Id(3), "crab", "Pinch", 2, 0, 10),
+                Monster(Id(4), "wolf", "Alpha", 9, 0, 10),
+                Monster(Id(5), "bat", "Flap", 1, 0, 10)
+            ],
+            DexSpecies());
+
+    //formatter:off
+    [Test]
+    [Arguments(TamerStableSort.Dex, new[] { 3, 4, 1, 5, 2 })]
+    [Arguments(TamerStableSort.Rarity, new[] { 3, 2, 4, 1, 5 })]
+    [Arguments(TamerStableSort.Element, new[] { 5, 2, 3, 4, 1 })]
+    [Arguments(TamerStableSort.Role, new[] { 3, 4, 1, 5, 2 })]
+    //formatter:on
+    public void Species_sorts_group_then_follow_dex_order_with_numberless_species_last(TamerStableSort sort, int[] expected)
+    {
+        var state = DexReady();
+
+        state.SetSort(sort);
+
+        state.Monsters.Select(m => m.Id).Should().Equal(expected.Select(Id));
+    }
+
+    [Test]
+    public void Species_sort_is_the_same_on_every_snapshot()
+    {
+        var state = DexReady();
+        state.SetSort(TamerStableSort.Dex);
+        var first = state.Monsters.Select(m => m.Id).ToList();
+
+        state.SetSort(TamerStableSort.Dex);
+
+        state.Monsters.Select(m => m.Id).Should().Equal(first);
+    }
+
+    [Test]
+    public void Move_selection_walks_the_sorted_list_and_stops_at_the_ends()
+    {
+        var state = DexReady();
+        state.SetSort(TamerStableSort.Dex);
+        state.Select(Id(3));
+
+        state.MoveSelection(1).Should().Be(1);
+        state.Selected!.Id.Should().Be(Id(4));
+
+        state.MoveSelection(10).Should().Be(4);
+        state.Selected!.Id.Should().Be(Id(2));
+
+        state.MoveSelection(-10).Should().Be(0);
+        state.Selected!.Id.Should().Be(Id(3));
+    }
+
+    [Test]
+    public void Move_selection_on_an_empty_stable_is_minus_one()
+        => new TamerStableState().MoveSelection(1).Should().Be(-1);
+
+    [Test]
+    public void Sprite_of_prefers_the_caught_look_over_the_species_sprite()
+    {
+        var caught = Monster(Id(1), "wolf", "Rex", 1, 0, 10) with { Sprite = 777 };
+        var plain = Monster(Id(2), "wolf", "Rex", 1, 0, 10);
+        var state = Ready([caught, plain], DexSpecies());
+
+        state.SpriteOf(caught).Should().Be(777);
+        state.SpriteOf(plain).Should().Be(100);
+        state.SpriteOf(null).Should().Be(0);
+    }
+}

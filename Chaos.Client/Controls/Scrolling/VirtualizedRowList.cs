@@ -58,7 +58,7 @@ internal sealed class VirtualizedRowList<T> : UIPanel, IVerticalScrollable
     //fully-visible row count for the current height, clamped to the recycled pool. A property (not a ctor-frozen
     //field) so a host whose viewport grows at runtime (e.g. an expandable chat panel) shows more rows once the pool
     //is grown via EnsureViewportCapacity. Fixed-height hosts keep height/rowHeight unchanged (pool always covers it).
-    private int VisibleRows => RowHeight > 0 ? Math.Min(Height / RowHeight, RowPool.Length) : 0;
+    public int VisibleRows => RowHeight > 0 ? Math.Min(Height / RowHeight, RowPool.Length) : 0;
 
     //largest valid top-anchored scroll offset (the last unit pinned to the viewport bottom).
     private int MaxOffset => Math.Max(0, Items.Count - VisibleRows);
@@ -300,6 +300,25 @@ internal sealed class VirtualizedRowList<T> : UIPanel, IVerticalScrollable
             return;
 
         var target = Math.Clamp(index - (VisibleRows / 2), 0, MaxOffset);
+
+        if (target != ScrollOffset)
+            ((IVerticalScrollable)this).VerticalOffset = target;
+    }
+
+    /// <summary>
+    ///     Scrolls the least needed to show the given item index, leaving the view alone when it is already on screen.
+    ///     Used by arrow-key browsing so the list doesn't jump on every step.
+    /// </summary>
+    public void ScrollIntoView(int index)
+    {
+        if (index < 0)
+            return;
+
+        var rows = Math.Max(1, VisibleRows);
+        var target = index < ScrollOffset ? index
+            : index >= ScrollOffset + rows ? index - rows + 1
+            : ScrollOffset;
+        target = Math.Clamp(target, 0, Math.Max(0, MaxOffset));
 
         if (target != ScrollOffset)
             ((IVerticalScrollable)this).VerticalOffset = target;

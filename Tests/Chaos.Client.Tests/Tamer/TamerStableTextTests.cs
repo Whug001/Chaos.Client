@@ -141,6 +141,15 @@ public sealed class TamerStableTextTests
     }
 
     [Test]
+    public void Dex_label_pads_to_three_digits_and_is_empty_without_a_number()
+    {
+        TamerStableText.DexLabel(7).Should().Be("#007");
+        TamerStableText.DexLabel(132).Should().Be("#132");
+        TamerStableText.DexLabel(0).Should().BeEmpty();
+        TamerStableText.SpeciesLine("Wolf", TamerWireRarity.Common, TamerStableText.DETAIL_HEADER_TEXT_WIDTH, 12).Should().Be("#012 - Wolf - Common");
+    }
+
+    [Test]
     public void Element_rarity_and_role_names_match_the_enums()
     {
         TamerStableText.ElementName(TamerWireElement.Fire).Should().Be("Fire");
