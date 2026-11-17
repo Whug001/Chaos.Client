@@ -146,6 +146,27 @@ public sealed class TamerRankedStateTests
     }
 
     [Test]
+    public void The_defence_and_offers_keep_their_caught_looks()
+    {
+        var args = Ranked(offers: [new("Aoife", 6, Five("a"), [0, 512])]);
+        args.DefenceSprites = [0, 0, 300];
+        var state = Applied(args);
+
+        Enumerable.Range(0, 5).Select(state.DefenceSpriteAt).Should().Equal(0, 0, 300, 0, 0);
+        state.DefenceSpriteAt(-1).Should().Be(0);
+        Enumerable.Range(0, 5).Select(i => TamerRankedState.OfferSpriteAt(state.OfferAt(0), i)).Should().Equal(0, 512, 0, 0, 0);
+        TamerRankedState.OfferSpriteAt(null, 0).Should().Be(0);
+
+        state.Apply(Ranked());
+        state.DefenceSpriteAt(2).Should().Be(0, "a later display without caught looks replaces them");
+
+        args.DefenceSprites = [9];
+        state.Apply(args);
+        state.Clear();
+        state.DefenceSpriteAt(0).Should().Be(0);
+    }
+
+    [Test]
     public void The_state_keeps_its_own_copy_of_the_lists()
     {
         var args = Ranked();

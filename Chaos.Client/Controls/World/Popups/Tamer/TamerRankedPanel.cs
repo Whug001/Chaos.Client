@@ -243,7 +243,7 @@ public sealed class TamerRankedPanel : UIPanel
             var key = i < ranked.Defence.Count ? ranked.Defence[i] : null;
 
             DefencePortraits[i].Visible = !ranked.DefenceNeedsSaving;
-            DefencePortraits[i].SpriteId = stable.GetSpecies(key)?.Sprite ?? 0;
+            DefencePortraits[i].SpriteId = stable.SpriteOf(key, ranked.DefenceSpriteAt(i));
         }
 
         for (var i = 0; i < SquadButtons.Length; i++)

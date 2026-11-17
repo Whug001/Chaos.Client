@@ -99,8 +99,8 @@ public sealed class TamerRankedOfferRow : UIPanel
         {
             var key = (offer.Species is not null) && (i < offer.Species.Count) ? offer.Species[i] : null;
 
-            //a species the catalog lacks has sprite 0, which draws the empty box
-            Portraits[i].SpriteId = stable.GetSpecies(key)?.Sprite ?? 0;
+            //the look it was caught with, else its species; a species the catalog lacks has sprite 0, which draws the empty box
+            Portraits[i].SpriteId = stable.SpriteOf(key, TamerRankedState.OfferSpriteAt(offer, i));
         }
 
         AttackButton.Enabled = ranked.CanAttack(Slot, stable, out _);
