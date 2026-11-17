@@ -68,8 +68,6 @@ public sealed class CraftingIngredientRow : UIPanel
         //a choosable row takes clicks; otherwise the row stays click-through as now
         IsHitTestVisible = Choosable;
 
-        //the arrow sits in the name colour directly after the name
-        NameLabel.Text = Choosable ? ingredient.Name + ">" : ingredient.Name;
         CountText = (ingredient.Have >= ingredient.Need ? "{=u" : "{=b") + $"{ingredient.Have} / {ingredient.Need}";
 
         //the count takes only the room its text needs (plus the label's padding and the last glyph's overhang),
@@ -78,6 +76,19 @@ public sealed class CraftingIngredientRow : UIPanel
         CountLabel.X = Width - countWidth;
         CountLabel.Width = countWidth;
         NameLabel.Width = Math.Max(0, CountLabel.X - NAME_GAP - NAME_X);
+
+        if (Choosable)
+        {
+            //the arrow is appended after the name is fit, so it stays visible when the name is cut with "...".
+            //the name fits in what remains after reserving the arrow, and never reaches under the count.
+            //the label's own truncation stays off here, so it cannot eat the arrow a second time
+            NameLabel.TruncateWithEllipsis = false;
+            NameLabel.Text = WithArrow(ingredient.Name, NameLabel.Width - NameLabel.PaddingLeft - NameLabel.PaddingRight);
+        } else
+        {
+            NameLabel.TruncateWithEllipsis = true;
+            NameLabel.Text = ingredient.Name;
+        }
 
         //color-code measuring needs the legend palette, which only exists once the client has loaded its data
         if (UiRenderer.Instance is not { } ui)
@@ -98,7 +109,13 @@ public sealed class CraftingIngredientRow : UIPanel
     public override void OnClick(ClickEvent e)
     {
         if (Choosable)
-            SwapRequested?.Invoke(e.Button == MouseButton.Left);
+        {
+            if (e.Button == MouseButton.Left)
+                SwapRequested?.Invoke(true);
+            else if (e.Button == MouseButton.Right)
+                SwapRequested?.Invoke(false);
+            //any other button does nothing
+        }
 
         //panels absorb their own clicks either way, so a swap click never reaches the world behind
         base.OnClick(e);
@@ -109,6 +126,28 @@ public sealed class CraftingIngredientRow : UIPanel
         //shared cached texture
         Icon = null;
         base.Dispose();
+    }
+
+    /// <summary>
+    ///     The name with the choosable arrow directly after it, fitting <paramref name="innerWidth" /> pixels. The
+    ///     arrow's width is reserved first; the name is cut with "..." to fit what remains, so the arrow is always
+    ///     visible. Mirrors <see cref="UILabel" /> ellipsis truncation, then appends the arrow.
+    /// </summary>
+    private static string WithArrow(string name, int innerWidth)
+    {
+        var arrowWidth = TextRenderer.MeasureWidth(">");
+        var maxNameWidth = innerWidth - arrowWidth;
+
+        if (TextRenderer.MeasureWidth(name) <= maxNameWidth)
+            return name + ">";
+
+        var maxTextWidth = maxNameWidth - TextRenderer.MeasureWidth("...");
+        var truncLen = name.Length;
+
+        while ((truncLen > 0) && (TextRenderer.MeasureWidth(name[..truncLen]) > maxTextWidth))
+            truncLen--;
+
+        return (truncLen > 0 ? name[..truncLen] + "..." : "...") + ">";
     }
 
     private void DrawIcon(SpriteBatch spriteBatch)

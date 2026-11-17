@@ -238,6 +238,10 @@ public sealed class CraftingWindowState
 
     public void ClearCatalyst()
     {
+        //the stove takes no catalyst; clearing one there changes nothing and raises nothing
+        if (IsCooking)
+            return;
+
         CatalystSlot = CraftingProtocol.NO_CATALYST;
         CatalystIndex = -1;
         CatalystCount = 0;

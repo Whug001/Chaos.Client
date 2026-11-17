@@ -432,6 +432,27 @@ public sealed class CraftingWindowStateTests
     }
 
     [Test]
+    public void Clear_catalyst_does_nothing_when_cooking()
+    {
+        var state = new CraftingWindowState();
+        state.Apply(CookingOpen(Recipe(1, "Apple Pie")));
+        state.Select(1);
+        state.Apply(Detail(1, 5));
+
+        var raised = 0;
+        state.Changed += () => raised++;
+
+        var quantity = state.Quantity;
+        var slot = state.CatalystSlot;
+        state.ClearCatalyst();
+
+        raised.Should().Be(0);
+        state.Quantity.Should().Be(quantity);
+        state.CatalystSlot.Should().Be(slot);
+        state.CatalystRate.Should().BeNull();
+    }
+
+    [Test]
     public void Times_made_dash_when_negative()
     {
         var state = Opened();

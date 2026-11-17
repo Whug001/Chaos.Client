@@ -68,6 +68,10 @@ public sealed class CraftingConfirmControl : PrefabPanel, IInventoryDropTarget
 
         CatalystImage.Clicked += () =>
         {
+            //the stove takes no catalyst, so its square ignores clicks entirely
+            if (State.IsCooking)
+                return;
+
             State.ClearCatalyst();
             Refresh();
         };
@@ -177,7 +181,7 @@ public sealed class CraftingConfirmControl : PrefabPanel, IInventoryDropTarget
         if (State.CatalystRate is { } withCatalyst)
             success += $" ({withCatalyst}% with catalyst)";
 
-        DescLabel.Text = $"{success}\nMade: {detail.TimesMade}\nCrafting {State.Quantity} (one roll each)";
+        DescLabel.Text = $"{success}\nMade: {State.TimesMadeText}\nCrafting {State.Quantity} (one roll each)";
         NumLabel.Text = $"{State.Quantity}/{State.QuantityMax}";
 
         if (!QuantityBox.IsFocused)
@@ -243,7 +247,8 @@ public sealed class CraftingConfirmControl : PrefabPanel, IInventoryDropTarget
 
     private void SwapIngredient(CraftingIngredientRow row, bool forward)
     {
-        if ((row.Index < 0) || (State.SwapAction((byte)row.Index, forward) is not { } action))
+        //a captured row can still click after Escape hid the window; a hidden window sends no swaps
+        if (!Visible || (row.Index < 0) || (State.SwapAction((byte)row.Index, forward) is not { } action))
             return;
 
         ActionRequested?.Invoke(action);
