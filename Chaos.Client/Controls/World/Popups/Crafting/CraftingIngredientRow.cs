@@ -1,4 +1,5 @@
 using Chaos.Client.Controls.Components;
+using Chaos.Client.Definitions;
 using Chaos.Client.Rendering;
 using Chaos.Client.Rendering.Definitions;
 using Chaos.Networking.Entities.Server;
@@ -49,10 +50,26 @@ public sealed class CraftingIngredientRow : UIPanel
 
     public string CountText { get; private set; } = string.Empty;
 
+    /// <summary>True for a left click, false for a right click, on a choosable row.</summary>
+    public event Action<bool>? SwapRequested;
+
+    /// <summary>Whether this row offers a choice of ingredients (cooking mode).</summary>
+    public bool Choosable { get; private set; }
+
+    /// <summary>This row's position among the confirm window's ingredient rows (the catalyst line has none).</summary>
+    public int Index { get; private set; }
+
     /// <summary>Binds an ingredient whose Need is already the total for the batch.</summary>
-    public void Bind(CraftingIngredientInfo ingredient)
+    public void Bind(CraftingIngredientInfo ingredient, int index = 0)
     {
-        NameLabel.Text = ingredient.Name;
+        Choosable = ingredient.Choosable;
+        Index = index;
+
+        //a choosable row takes clicks; otherwise the row stays click-through as now
+        IsHitTestVisible = Choosable;
+
+        //the arrow sits in the name colour directly after the name
+        NameLabel.Text = Choosable ? ingredient.Name + ">" : ingredient.Name;
         CountText = (ingredient.Have >= ingredient.Need ? "{=u" : "{=b") + $"{ingredient.Have} / {ingredient.Need}";
 
         //the count takes only the room its text needs (plus the label's padding and the last glyph's overhang),
@@ -76,6 +93,15 @@ public sealed class CraftingIngredientRow : UIPanel
 
         if (Visible)
             DrawIcon(spriteBatch);
+    }
+
+    public override void OnClick(ClickEvent e)
+    {
+        if (Choosable)
+            SwapRequested?.Invoke(e.Button == MouseButton.Left);
+
+        //panels absorb their own clicks either way, so a swap click never reaches the world behind
+        base.OnClick(e);
     }
 
     public override void Dispose()

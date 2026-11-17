@@ -1,5 +1,6 @@
 using Chaos.Client.ViewModel;
 using Chaos.DarkAges.Definitions;
+using Chaos.Networking.Entities.Client;
 using Chaos.Networking.Entities.Server;
 using FluentAssertions;
 
@@ -42,6 +43,17 @@ public sealed class CraftingWindowStateTests
 
         return state;
     }
+
+    private static CraftingDisplayArgs CookingOpen(params CraftingRecipeInfo[] recipes)
+        => Open(recipes) with
+        {
+            Mode = CraftingWindowMode.Cooking,
+            CraftName = "Cooking",
+            RankTitle = string.Empty,
+            NextRankTitle = "Beginner Cook",
+            RankCount = 0,
+            RankThreshold = 1
+        };
 
     [Test]
     public void Filter_matches_names_case_insensitively()
@@ -338,5 +350,112 @@ public sealed class CraftingWindowStateTests
 
         state.RankBarPercent.Should().Be(1f);
         state.RankBarText.Should().Be("Eternal Alchemist");
+    }
+
+    [Test]
+    public void Swap_action_carries_row_and_direction()
+    {
+        var state = Opened();
+        state.Select(1);
+        state.Apply(Detail(1, 3));
+
+        state.SwapAction(3, false).Should().BeEquivalentTo(
+            new { Type = CraftingActionType.SwapIngredient, RecipeId = (ushort)1, IngredientRow = (byte)3, Forward = false });
+        state.SwapAction(2, true).Should().BeEquivalentTo(
+            new { Type = CraftingActionType.SwapIngredient, RecipeId = (ushort)1, IngredientRow = (byte)2, Forward = true });
+    }
+
+    [Test]
+    public void Swap_action_is_null_while_running()
+    {
+        var state = Opened();
+        state.Select(1);
+        state.Apply(Detail(1, 5));
+        state.CraftAction();
+
+        state.SwapAction(0, true).Should().BeNull();
+    }
+
+    [Test]
+    public void Swap_action_is_null_without_selection()
+        => Opened().SwapAction(0, true).Should().BeNull();
+
+    [Test]
+    public void Cooking_rank_text_uses_full_title()
+    {
+        var state = new CraftingWindowState();
+        state.Apply(
+            CookingOpen(Recipe(1, "Apple Pie")) with
+            {
+                RankTitle = "Apprentice Cook", NextRankTitle = "Sous Chef", RankCount = 212, RankThreshold = 300
+            });
+
+        state.IsCooking.Should().BeTrue();
+        state.RankBarText.Should().Be("212 / 300 to Sous Chef");
+        state.RankShortTitle.Should().Be("Apprentice Cook");
+
+        var fresh = new CraftingWindowState();
+        fresh.Apply(CookingOpen(Recipe(1, "Apple Pie")));
+
+        fresh.RankBarText.Should().Be("0 / 1 to Beginner Cook");
+    }
+
+    [Test]
+    public void Cooking_progress_says_cooking()
+    {
+        var state = new CraftingWindowState();
+        state.Apply(CookingOpen(Recipe(1, "Apple Pie")));
+        state.Select(1);
+        state.Apply(Detail(1, 5));
+        state.CraftAction();
+
+        state.ProgressText.Should().Be("Cooking 0 / 1");
+
+        state.Apply(new CraftingDisplayArgs { Type = CraftingDisplayType.Progress, Done = 2, Total = 5 });
+
+        state.ProgressText.Should().Be("Cooking 2 / 5");
+    }
+
+    [Test]
+    public void Catalyst_cannot_be_set_when_cooking()
+    {
+        var state = Opened();
+        state.Select(1);
+        state.Apply(Detail(1, 10));
+        state.SetCatalyst(7, "Bright Catalyst", 2).Should().BeTrue();
+
+        state.Apply(CookingOpen(Recipe(1, "Apple Pie")) with { Type = CraftingDisplayType.List });
+
+        state.CatalystRate.Should().BeNull();
+        state.SetCatalyst(7, "Bright Catalyst", 2).Should().BeFalse();
+        state.CatalystRate.Should().BeNull();
+    }
+
+    [Test]
+    public void Times_made_dash_when_negative()
+    {
+        var state = Opened();
+
+        state.TimesMadeText.Should().BeEmpty();
+
+        state.Select(1);
+        state.Apply(Detail(1, 3) with { TimesMade = -1 });
+
+        state.TimesMadeText.Should().Be("-");
+
+        state.Apply(Detail(1, 3) with { TimesMade = 12 });
+
+        state.TimesMadeText.Should().Be("12");
+    }
+
+    [Test]
+    public void Other_crafts_keep_short_rank_text()
+    {
+        var state = new CraftingWindowState();
+        state.Apply(Open(Recipe(1, "Hemloch Draught")) with { RankTitle = "Novice Alchemist", NextRankTitle = "Initiate Alchemist" });
+
+        state.IsCooking.Should().BeFalse();
+        state.RankBarText.Should().Be("30 / 75 to Initiate");
+        state.RankShortTitle.Should().Be("Novice");
     }
 }

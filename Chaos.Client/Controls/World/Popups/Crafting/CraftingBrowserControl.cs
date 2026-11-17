@@ -244,7 +244,7 @@ public sealed class CraftingBrowserControl : PrefabPanel
         DescriptionRecipeId = detail?.RecipeId;
         RankValue.Text = State.RankShortTitle;
         SuccessValue.Text = detail is null ? string.Empty : $"{detail.SuccessRate}%";
-        MadeValue.Text = detail is null ? string.Empty : detail.TimesMade.ToString();
+        MadeValue.Text = State.TimesMadeText;
         LevelValue.Text = detail is null ? string.Empty : $"{detail.Level} / {detail.RequiredLevel}";
 
         AbilityValue.Text = detail is null ? string.Empty

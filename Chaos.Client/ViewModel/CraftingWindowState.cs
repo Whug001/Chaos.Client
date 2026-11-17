@@ -63,12 +63,22 @@ public sealed class CraftingWindowState
 
     public float RankBarPercent => RankThreshold <= 0 ? 1f : Math.Clamp((float)RankCount / RankThreshold, 0f, 1f);
 
-    /// <summary>The rank word alone ("Novice" of "Novice Alchemist"), short enough for the rank cell.</summary>
-    public string RankShortTitle => RankWord(RankTitle);
+    /// <summary>True while the stove's window is open. Cooking shows full rank titles and no catalyst.</summary>
+    public bool IsCooking => Mode == CraftingWindowMode.Cooking;
 
-    //the bar holds about 28 characters, so the counts come first and only the next rank's word follows
+    /// <summary>The rank word alone ("Novice" of "Novice Alchemist"), short enough for the rank cell.</summary>
+    public string RankShortTitle => IsCooking ? RankTitle : RankWord(RankTitle);
+
+    //the bar holds about 28 characters, so the counts come first and only the next rank's word follows.
+    //cooking keeps the full next title ("to Sous Chef"), since the first word alone ("to Sous") says nothing
     public string RankBarText
-        => string.IsNullOrEmpty(NextRankTitle) ? RankTitle : $"{RankCount} / {RankThreshold} to {RankWord(NextRankTitle)}";
+        => string.IsNullOrEmpty(NextRankTitle)
+            ? RankTitle
+            : $"{RankCount} / {RankThreshold} to {(IsCooking ? NextRankTitle : RankWord(NextRankTitle))}";
+
+    /// <summary>"-" while cooking (the server sends -1 and keeps no per-recipe count), else the count.</summary>
+    public string TimesMadeText
+        => Detail is not { } detail ? string.Empty : detail.TimesMade < 0 ? "-" : detail.TimesMade.ToString();
 
     /// <summary>The recipe whose confirm window opens once its detail arrives (a double-click beat the server's reply).</summary>
     public ushort? PendingConfirmId { get; private set; }
@@ -120,7 +130,7 @@ public sealed class CraftingWindowState
 
                 break;
             case CraftingDisplayType.Progress:
-                ProgressText = args.Finished ? args.Message : $"Crafting {args.Done} / {args.Total}";
+                ProgressText = args.Finished ? args.Message : $"{(IsCooking ? "Cooking" : "Crafting")} {args.Done} / {args.Total}";
 
                 if (args.Finished)
                     Running = false;
@@ -206,6 +216,9 @@ public sealed class CraftingWindowState
 
     public bool SetCatalyst(byte slot, string? itemName, uint count)
     {
+        if (IsCooking)
+            return false;
+
         var index = CraftingProtocol.CatalystIndexByName(itemName);
 
         if ((index < 0) || (count == 0))
@@ -232,13 +245,31 @@ public sealed class CraftingWindowState
         Changed?.Invoke();
     }
 
+    /// <summary>
+    ///     Moves one choosable ingredient row to its next (forward) or previous choice. Null while a batch
+    ///     runs or with nothing selected; the confirm window sends it only when non-null.
+    /// </summary>
+    public CraftingActionArgs? SwapAction(byte row, bool forward)
+    {
+        if (Running || (SelectedId is not { } id))
+            return null;
+
+        return new CraftingActionArgs
+        {
+            Type = CraftingActionType.SwapIngredient,
+            RecipeId = id,
+            IngredientRow = row,
+            Forward = forward
+        };
+    }
+
     public CraftingActionArgs? CraftAction()
     {
         if (Running || (SelectedId is not { } id) || (Quantity < 1))
             return null;
 
         Running = true;
-        ProgressText = $"Crafting 0 / {Quantity}";
+        ProgressText = $"{(IsCooking ? "Cooking" : "Crafting")} 0 / {Quantity}";
         Changed?.Invoke();
 
         return new CraftingActionArgs
@@ -279,6 +310,14 @@ public sealed class CraftingWindowState
         RankThreshold = args.RankThreshold;
         Recipes = args.Recipes;
         PendingConfirmId = null;
+
+        //the stove takes no catalyst; drop any the player held from another craft
+        if (Mode == CraftingWindowMode.Cooking)
+        {
+            CatalystSlot = CraftingProtocol.NO_CATALYST;
+            CatalystIndex = -1;
+            CatalystCount = 0;
+        }
 
         //an upgrade can move the item to another recipe; the old one is gone from the list
         if ((SelectedId is { } id) && Recipes.All(r => r.Id != id))

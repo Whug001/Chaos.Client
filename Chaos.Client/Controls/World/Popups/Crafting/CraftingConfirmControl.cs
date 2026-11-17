@@ -29,7 +29,7 @@ public sealed class CraftingConfirmControl : PrefabPanel, IInventoryDropTarget
     private readonly UILabel DescLabel;
     private readonly UILabel NumLabel;
     private readonly CustomTextBox QuantityBox;
-    private readonly VirtualizedRowList<CraftingIngredientInfo> IngredientList;
+    private readonly VirtualizedRowList<IndexedIngredient> IngredientList;
     private readonly Rectangle CatalystRect;
     private ushort? IngredientsRecipeId;
 
@@ -101,12 +101,19 @@ public sealed class CraftingConfirmControl : PrefabPanel, IInventoryDropTarget
         var ingredientRect = GetRect("INGREDIENT");
         var rowWidth = ingredientRect.Width - ScrollBarControl.DEFAULT_WIDTH - 4;
 
-        IngredientList = new VirtualizedRowList<CraftingIngredientInfo>(
+        IngredientList = new VirtualizedRowList<IndexedIngredient>(
             rowWidth,
             ingredientRect.Height,
             CraftingIngredientRow.HEIGHT,
-            () => new CraftingIngredientRow(rowWidth),
-            (row, ingredient, _) => ((CraftingIngredientRow)row).Bind(ingredient));
+            () =>
+            {
+                //rows are recycled, so each row's swap event is wired once here and reads its current index
+                var row = new CraftingIngredientRow(rowWidth);
+                row.SwapRequested += forward => SwapIngredient(row, forward);
+
+                return row;
+            },
+            (row, wrapped, _) => ((CraftingIngredientRow)row).Bind(wrapped.Ingredient, wrapped.Index));
 
         AddChild(
             new ScrollViewerControl(IngredientList)
@@ -127,7 +134,8 @@ public sealed class CraftingConfirmControl : PrefabPanel, IInventoryDropTarget
         => DataContext.UserControls.Get(PREFAB) is null ? null : new CraftingConfirmControl();
 
     public bool AcceptsInventoryDrop(byte slot, int screenX, int screenY)
-        => (slot != 0)
+        => !State.IsCooking
+           && (slot != 0)
            && Visible
            && new Rectangle(
                ScreenX + CatalystRect.X,
@@ -175,15 +183,17 @@ public sealed class CraftingConfirmControl : PrefabPanel, IInventoryDropTarget
         if (!QuantityBox.IsFocused)
             QuantityBox.Text = State.Quantity.ToString();
 
-        var ingredients = State.ScaledIngredients.ToList();
+        var ingredients = State.ScaledIngredients.Select((ingredient, index) => new IndexedIngredient(index, ingredient)).ToList();
 
-        if (State.CatalystLine is not { } catalystLine)
+        //cooking never carries a catalyst (the state clears it and refuses new ones), so the square stays empty;
+        //the catalyst line is not an ingredient row and takes no index
+        if (State.IsCooking || (State.CatalystLine is not { } catalystLine))
             CatalystImage.Texture = null;
         else
         {
             ref readonly var catalyst = ref WorldState.Inventory.GetSlot(State.CatalystSlot);
             CatalystImage.Texture = ui.GetItemIcon(catalyst.Sprite, catalyst.Color);
-            ingredients.Add(catalystLine with { Sprite = catalyst.Sprite, Color = catalyst.Color });
+            ingredients.Add(new IndexedIngredient(-1, catalystLine with { Sprite = catalyst.Sprite, Color = catalyst.Color }));
         }
 
         //quantity steps and batch progress resend the same recipe; only a new recipe starts the list at the top
@@ -231,6 +241,14 @@ public sealed class CraftingConfirmControl : PrefabPanel, IInventoryDropTarget
         base.Dispose();
     }
 
+    private void SwapIngredient(CraftingIngredientRow row, bool forward)
+    {
+        if ((row.Index < 0) || (State.SwapAction((byte)row.Index, forward) is not { } action))
+            return;
+
+        ActionRequested?.Invoke(action);
+    }
+
     private void Step(int delta)
     {
         State.Step(delta);
@@ -267,6 +285,9 @@ public sealed class CraftingConfirmControl : PrefabPanel, IInventoryDropTarget
         ActionRequested?.Invoke(action);
         Hide();
     }
+
+    /// <summary>An ingredient row with its position, so a swap click names the server's row.</summary>
+    private sealed record IndexedIngredient(int Index, CraftingIngredientInfo Ingredient);
 
     private sealed class ClickableImage : UIImage
     {
