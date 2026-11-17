@@ -410,6 +410,58 @@ public sealed class MenuListPanel : FramedDialogPanelBase
         }
     }
 
+    /// <summary>
+    ///     Keyboard browsing of the two-column grid: arrows move the selection (scrolling to keep it in view),
+    ///     Enter/Space pick it. Returns true when the key was used.
+    /// </summary>
+    public bool HandleNavigationKey(Keycode key)
+    {
+        //with nothing selected, enter/space fall through and close the menu, the same as the shop's OK button
+        if (key is Keycode.Enter or Keycode.Space)
+        {
+            if (SelectedIndex < 0)
+                return false;
+
+            OnItemSelected?.Invoke(SelectedIndex);
+
+            return true;
+        }
+
+        var step = key switch
+        {
+            Keycode.Left  => -1,
+            Keycode.Right => 1,
+            Keycode.Up    => -COLUMN_COUNT,
+            Keycode.Down  => COLUMN_COUNT,
+            _             => 0
+        };
+
+        if (step == 0)
+            return false;
+
+        if (Entries.Count == 0)
+            return true;
+
+        SelectedIndex = SelectedIndex < 0 ? ScrollOffset * COLUMN_COUNT : Math.Clamp(SelectedIndex + step, 0, Entries.Count - 1);
+        SelectedIndex = Math.Min(SelectedIndex, Entries.Count - 1);
+
+        //keep the selected row inside the fully visible rows
+        var row = SelectedIndex / COLUMN_COUNT;
+
+        if (row < ScrollOffset)
+            ScrollOffset = row;
+        else if (row >= (ScrollOffset + MAX_VISIBLE_ROWS))
+            ScrollOffset = row - MAX_VISIBLE_ROWS + 1;
+
+        if (ScrollBar.Visible)
+            ScrollBar.Value = ScrollOffset;
+
+        LayoutEntries();
+        OkButton?.Enabled = true;
+
+        return true;
+    }
+
     public override void OnMouseScroll(MouseScrollEvent e)
     {
         if (ScrollBar.TotalItems <= ScrollBar.VisibleItems)
