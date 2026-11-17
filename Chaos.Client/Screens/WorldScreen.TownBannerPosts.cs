@@ -21,6 +21,8 @@ public sealed partial class WorldScreen
 
     private void HandleTownBannerPosts(TownBannerPostsArgs args)
     {
+        //wall banner tiles are cut for one map's walls
+        BannerPostTextures.ClearWallCells();
         WorldState.TownBannerPosts.Set(args);
 
         if (args.DesignId != 0)
@@ -40,6 +42,31 @@ public sealed partial class WorldScreen
 
         scope.Require(BlendState.AlphaBlend);
         scope.Batch.Draw(texture, BannerPostTopLeft(x, y), Color.White);
+    }
+
+    /// <summary>
+    ///     Repaints the wall banner on tile (<paramref name="x" />, <paramref name="y" />) with the town's banner, over the
+    ///     wall pieces drawn just before it in the stripe pass.
+    /// </summary>
+    private void DrawTownWallBannerTile(BatchBlendScope scope, int x, int y)
+    {
+        var posts = WorldState.TownBannerPosts;
+
+        if (!posts.InWallBanner(x, y) || MapFile is null || (x >= MapFile.Width) || (y >= MapFile.Height))
+            return;
+
+        var tile = MapFile.Tiles[x, y];
+
+        if (BannerPostTextures.GetWallCell(Device, posts.DesignId, x, y, IsTileWall(tile.LeftForeground), IsTileWall(tile.RightForeground))
+            is not { } texture)
+            return;
+
+        var smooth = ClientSettings.ScrollLevel > 0;
+        var corner = Camera.WorldToScreen(Camera.TileToWorld(x, y, MapFile.Height));
+        var top = corner.Y + TownWallBannerPainter.CELL_TOP;
+
+        scope.Require(BlendState.AlphaBlend);
+        scope.Batch.Draw(texture, smooth ? new Vector2(corner.X, top) : new Vector2(MathF.Floor(corner.X), MathF.Floor(top)), Color.White);
     }
 
     /// <summary>Where the post's image goes so its foot pixel stands on the tile's floor centre (viewport space).</summary>

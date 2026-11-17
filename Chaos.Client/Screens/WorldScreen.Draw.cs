@@ -552,7 +552,10 @@ public sealed partial class WorldScreen
                     DrawCollegeWallTile(scope, tileX, depth - tileX);
 
                 if (bannerPostsOn)
+                {
+                    DrawTownWallBannerTile(scope, tileX, depth - tileX);
                     DrawBannerPostTile(scope, tileX, depth - tileX);
+                }
             }
         }
     }

@@ -29,6 +29,22 @@ public sealed class TownBannerPostsState
 
     public IReadOnlyCollection<Point> Posts => PostSet;
 
+    /// <summary>Wall-tile rectangles whose painted wall banner shows the town's banner; empty while there is none.</summary>
+    public IReadOnlyList<TownBannerWallInfo> Walls { get; private set; } = [];
+
+    /// <summary>True when tile (<paramref name="x" />, <paramref name="y" />) lies in a wall banner's rectangle and there is a banner.</summary>
+    public bool InWallBanner(int x, int y)
+    {
+        if (DesignId == 0)
+            return false;
+
+        foreach (var wall in Walls)
+            if ((x >= wall.X0) && (x <= wall.X1) && (y >= wall.Y0) && (y <= wall.Y1))
+                return true;
+
+        return false;
+    }
+
     /// <summary>The post tiles as pathfinding blockers; empty while there is no banner.</summary>
     public IEnumerable<IPoint> BlockedPoints
         => DesignId == 0 ? [] : PostSet.Select(post => (IPoint)new GeoPoint(post.X, post.Y));
@@ -42,6 +58,7 @@ public sealed class TownBannerPostsState
         TownName = args.TownName;
         Designer = args.Designer;
         PostSet.Clear();
+        Walls = args.Walls.ToList();
 
         foreach (var post in args.Posts)
             PostSet.Add(new Point(post.X, post.Y));
@@ -81,5 +98,6 @@ public sealed class TownBannerPostsState
         TownName = string.Empty;
         Designer = string.Empty;
         PostSet.Clear();
+        Walls = [];
     }
 }

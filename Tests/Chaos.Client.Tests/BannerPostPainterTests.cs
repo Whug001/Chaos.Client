@@ -47,8 +47,8 @@ public sealed class BannerPostPainterTests
                 var pixel = At(image, block.X + dx, block.Y + dy);
                 //paint on cloth is a touch duller than the design, but red still dominates
                 pixel.R.Should().BeGreaterThan(150);
-                pixel.G.Should().BeLessThan(pixel.R / 4);
-                pixel.B.Should().BeLessThan(pixel.R / 4);
+                pixel.G.Should().BeLessThan((byte)(pixel.R / 4));
+                pixel.B.Should().BeLessThan((byte)(pixel.R / 4));
             }
     }
 
