@@ -38,19 +38,19 @@ public static class BannerPostPainter
     private const int PLINTH_DEPTH = 3;
     private const float FIELD_SHADE = 0.45f;
 
-    private static readonly Color WoodOutline = new(42, 28, 18);
-    private static readonly Color WoodLight = new(176, 128, 78);
-    private static readonly Color Wood = new(128, 86, 48);
-    private static readonly Color WoodDark = new(82, 54, 30);
-    private static readonly Color GoldLight = new(250, 226, 128);
-    private static readonly Color Gold = new(212, 175, 55);
-    private static readonly Color GoldDark = new(140, 106, 30);
-    private static readonly Color GoldOutline = new(70, 50, 15);
-    private static readonly Color StoneLight = new(156, 150, 138);
-    private static readonly Color Stone = new(132, 127, 117);
-    private static readonly Color StoneLeft = new(106, 101, 94);
-    private static readonly Color StoneRight = new(76, 72, 68);
-    private static readonly Color StoneOutline = new(38, 36, 34);
+    private static readonly Color WoodOutline = new(26, 15, 9);
+    private static readonly Color WoodLight = new(156, 98, 56);
+    private static readonly Color Wood = new(118, 68, 38);
+    private static readonly Color WoodDark = new(74, 40, 22);
+    private static readonly Color GoldLight = new(214, 182, 104);
+    private static readonly Color Gold = new(170, 132, 58);
+    private static readonly Color GoldDark = new(108, 80, 34);
+    private static readonly Color GoldOutline = new(40, 28, 12);
+    private static readonly Color StoneLight = new(118, 110, 96);
+    private static readonly Color Stone = new(98, 91, 80);
+    private static readonly Color StoneLeft = new(76, 70, 62);
+    private static readonly Color StoneRight = new(54, 50, 45);
+    private static readonly Color StoneOutline = new(22, 20, 18);
     private static readonly Color DefaultField = new(70, 40, 30);
 
     /// <summary>The top-left pixel of the emblem's first (top-left) 2 × 2 block.</summary>
@@ -110,6 +110,7 @@ public static class BannerPostPainter
     {
         var image = new Color[WIDTH * HEIGHT];
 
+        PaintShadow(image);
         PaintPlinth(image);
         PaintPole(image);
         PaintBar(image);
@@ -160,6 +161,35 @@ public static class BannerPostPainter
             (int)Math.Clamp(MathF.Round(color.G * factor), 0, 255),
             (int)Math.Clamp(MathF.Round(color.B * factor), 0, 255));
 
+    /// <summary>A fixed per-pixel jitter in [-1, 1], so the texture looks hand-pixelled and repaints the same.</summary>
+    private static float Noise(int x, int y)
+    {
+        var h = unchecked((uint)((x * 73856093) ^ (y * 19349663) ^ 0x5bd1e995));
+        h ^= h >> 13;
+        h = unchecked(h * 0x85ebca6b);
+        h ^= h >> 16;
+
+        return ((h & 0xFF) / 127.5f) - 1f;
+    }
+
+    /// <summary>A soft dark ellipse on the floor under the post (premultiplied, so it darkens what is under it).</summary>
+    private static void PaintShadow(Color[] image)
+    {
+        for (var y = PLINTH_Y - 3; y <= (PLINTH_Y + 8); y++)
+            for (var x = FOOT_X - 14; x <= (FOOT_X + 13); x++)
+            {
+                var dx = (x - FOOT_X + 0.5f) / 14f;
+                var dy = (y - (PLINTH_Y + 3)) / 6f;
+                var d = (dx * dx) + (dy * dy);
+
+                if (d >= 1)
+                    continue;
+
+                var alpha = (int)(90 * (1 - d));
+                Set(image, x, y, new Color(0, 0, 0, alpha));
+            }
+    }
+
     private static void PaintPlinth(Color[] image)
     {
         for (var y = 0; y < HEIGHT; y++)
@@ -175,12 +205,13 @@ public static class BannerPostPainter
                 if (!InPlinth(x - 1, y) || !InPlinth(x + 1, y) || !InPlinth(x, y - 1) || !InPlinth(x, y + 1))
                     color = StoneOutline;
                 else if (y <= topFaceBottom)
-                    //the top face, a little lighter toward the upper left, with a faint checker for texture
-                    color = Shade(
-                        ((x + y) % 2) == 0 ? StoneLight : Stone,
-                        1.04f - (0.08f * ((x - (FOOT_X - PLINTH_HALF_WIDTH)) / (2f * PLINTH_HALF_WIDTH))));
+                    color = Shade(Noise(x, y) > 0.35f ? StoneLight : Stone, 1f + (0.12f * Noise(y, x)));
                 else
-                    color = x < FOOT_X ? StoneLeft : StoneRight;
+                    color = Shade(x < FOOT_X ? StoneLeft : StoneRight, 1f + (0.12f * Noise(x, y)));
+
+                //a few dark cracks and pits
+                if (Noise(x * 3, y * 5) > 0.82f)
+                    color = Shade(color, 0.7f);
 
                 Set(image, x, y, color);
             }
@@ -188,19 +219,29 @@ public static class BannerPostPainter
 
     private static void PaintPole(Color[] image)
     {
+        //five columns: outline, highlight, body, shadow, outline. Grain runs down the pole in streaks that start and stop
         for (var y = POLE_TOP; y < PLINTH_Y; y++)
         {
-            //a little grain: every few rows the middle of the pole darkens a shade
-            var grain = (y % 7) == 3 ? 0.88f : 1f;
-
-            Set(image, POLE_LEFT, y, WoodOutline);
-            Set(image, POLE_LEFT + 1, y, Shade(WoodLight, grain));
-            Set(image, POLE_LEFT + 2, y, Shade(Wood, grain));
-            Set(image, POLE_LEFT + 3, y, WoodDark);
+            Set(image, POLE_LEFT - 1, y, WoodOutline);
             Set(image, POLE_LEFT + 4, y, WoodOutline);
+
+            for (var i = 0; i < 4; i++)
+            {
+                var x = POLE_LEFT + i;
+                var tone = i switch
+                {
+                    0 => WoodLight,
+                    1 => Wood,
+                    2 => Wood,
+                    _ => WoodDark
+                };
+
+                var streak = Noise(x, y / 3) > 0.45f ? 0.72f : 1f;
+                Set(image, x, y, Shade(tone, streak * (1f + (0.1f * Noise(x, y)))));
+            }
         }
 
-        //the finial: a shaded gold ball sitting on a collar
+        //the finial: a dull brass knob on a collar
         const int CX = FOOT_X;
         const int CY = 5;
 
@@ -224,8 +265,11 @@ public static class BannerPostPainter
                 else
                     color = GoldDark;
 
-                Set(image, x, y, color);
+                Set(image, x, y, Shade(color, 1f + (0.08f * Noise(x, y))));
             }
+
+        for (var x = POLE_LEFT - 1; x <= (POLE_LEFT + 4); x++)
+            Set(image, x, CY + 4, x == (POLE_LEFT - 1) || x == (POLE_LEFT + 4) ? GoldOutline : GoldDark);
     }
 
     private static void PaintBar(Color[] image)
@@ -234,9 +278,11 @@ public static class BannerPostPainter
         {
             var y = BarY(x);
             var cap = (x < CLOTH_LEFT) || (x >= (CLOTH_LEFT + CLOTH_WIDTH));
+            var grain = 1f + (0.12f * Noise(x, y));
 
-            Set(image, x, y - 1, cap ? GoldLight : WoodLight);
-            Set(image, x, y, cap ? Gold : Wood);
+            Set(image, x, y - 2, cap ? GoldOutline : WoodOutline);
+            Set(image, x, y - 1, Shade(cap ? GoldLight : WoodLight, grain));
+            Set(image, x, y, Shade(cap ? Gold : Wood, grain));
             Set(image, x, y + 1, cap ? GoldOutline : WoodOutline);
         }
     }
@@ -244,7 +290,7 @@ public static class BannerPostPainter
     private static void PaintCloth(Color[] image, GuildEmblemDesign design)
     {
         var field = FieldColor(design);
-        var border = Shade(field, 0.4f);
+        var outline = Shade(field, 0.25f);
 
         for (var x = CLOTH_LEFT; x < (CLOTH_LEFT + CLOTH_WIDTH); x++)
         {
@@ -258,9 +304,13 @@ public static class BannerPostPainter
 
                 var y = top + r;
 
+                //a frayed hem: a few bottom pixels of each tail are missing
+                if (!InClothLocal(c, r + 1) && (r >= BODY_ROWS) && (Noise(x, 7) > 0.55f))
+                    continue;
+
                 if (!InClothLocal(c - 1, r) || !InClothLocal(c + 1, r) || !InClothLocal(c, r - 1) || !InClothLocal(c, r + 1))
                 {
-                    Set(image, x, y, border);
+                    Set(image, x, y, Shade(outline, 1f + (0.15f * Noise(x, y))));
 
                     continue;
                 }
@@ -275,34 +325,45 @@ public static class BannerPostPainter
 
                     if ((index < design.Pixels.Length) && design.Pixels[index] is var number and > 0 && (number <= design.Colors.Count))
                     {
+                        //paint on cloth: a touch duller than the design itself
                         var paint = design.Colors[number - 1];
-                        color = new Color(paint.R, paint.G, paint.B);
+                        var grey = (paint.R + paint.G + paint.B) / 3f;
+                        color = new Color(
+                            (int)((paint.R * 0.82f) + (grey * 0.18f)),
+                            (int)((paint.G * 0.82f) + (grey * 0.18f)),
+                            (int)((paint.B * 0.82f) + (grey * 0.18f)));
                     }
                 }
 
-                Set(image, x, y, Shade(color, ClothLight(c, r)));
+                //the weave: alternate pixels a shade apart, plus a little jitter
+                var weave = ((x + y) % 2) == 0 ? 1.03f : 0.95f;
+                Set(image, x, y, Shade(color, ClothLight(c, r) * weave * (1f + (0.06f * Noise(x, y)))));
             }
         }
     }
 
     /// <summary>
-    ///     How lit the cloth is at local (c, r): brighter on the left, two soft folds, the crossbar's shadow along the top
+    ///     How lit the cloth is at local (c, r): brighter on the left, three soft folds, the crossbar's shadow along the top
     ///     and the tails darkening toward their tips.
     /// </summary>
     public static float ClothLight(int c, int r)
     {
-        var light = 1.1f - (0.22f * c / (CLOTH_WIDTH - 1));
+        var light = 1.05f - (0.3f * c / (CLOTH_WIDTH - 1));
 
-        if (c is 9 or 19)
-            light += 0.06f;
-        else if (c is 11 or 21)
-            light -= 0.1f;
+        //each fold: a lit ridge, then a shaded trough
+        light += c switch
+        {
+            6 or 15 or 23 => 0.08f,
+            8 or 17 or 25 => -0.14f,
+            9 or 18 or 26 => -0.08f,
+            _ => 0f
+        };
 
         if (r <= 2)
-            light -= 0.18f;
+            light -= 0.25f - (0.07f * r);
 
         if (r >= BODY_ROWS)
-            light -= 0.05f * (r - BODY_ROWS + 1);
+            light -= 0.06f * (r - BODY_ROWS + 1);
 
         return light;
     }

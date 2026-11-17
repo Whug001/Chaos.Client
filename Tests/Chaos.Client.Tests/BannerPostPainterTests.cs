@@ -41,14 +41,14 @@ public sealed class BannerPostPainterTests
         var image = BannerPostPainter.Paint(RedDot());
         var block = BannerPostPainter.EmblemBlock(3, 5);
 
-        //lit and folded, but still the emblem's red
-        for (var dy = 0; dy <= 1; dy++)
+                for (var dy = 0; dy <= 1; dy++)
             for (var dx = 0; dx <= 1; dx++)
             {
                 var pixel = At(image, block.X + dx, block.Y + dy);
+                //paint on cloth is a touch duller than the design, but red still dominates
                 pixel.R.Should().BeGreaterThan(150);
-                pixel.G.Should().BeLessThan(20);
-                pixel.B.Should().BeLessThan(20);
+                pixel.G.Should().BeLessThan(pixel.R / 4);
+                pixel.B.Should().BeLessThan(pixel.R / 4);
             }
     }
 
