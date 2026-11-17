@@ -734,6 +734,15 @@ public sealed class NpcSessionControl : PrefabPanel
             return;
         }
 
+        //a held enter/space must not pick: the first press opens the next step (often a confirm), and its repeats would
+        //land on that step's highlighted option. Paging through plain text with a held key still works.
+        if (IsHeldPick(e, MenuShop.Visible || MenuList.Visible || DialogOption is { Visible: true, OptionCount: > 0 }))
+        {
+            e.Handled = true;
+
+            return;
+        }
+
         //shop and list menus browse with the arrows and buy/pick with enter or space
         if (MenuShop.Visible && MenuShop.HandleNavigationKey(e.Keycode))
         {
@@ -777,6 +786,13 @@ public sealed class NpcSessionControl : PrefabPanel
             }
         }
     }
+
+    /// <summary>
+    ///     Whether <paramref name="e" /> is an auto-repeat of Enter or Space while a menu or option list would take it as a
+    ///     pick. Those repeats are swallowed so holding the key buys or answers once, not into the next prompt.
+    /// </summary>
+    internal static bool IsHeldPick(KeyDownEvent e, bool pickerOpen)
+        => pickerOpen && e.IsRepeat && (e.Keycode is Keycode.Enter or Keycode.Space);
 
     private void UpdateScrollButtons()
     {
