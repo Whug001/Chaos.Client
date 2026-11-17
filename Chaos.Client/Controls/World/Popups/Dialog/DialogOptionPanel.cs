@@ -37,6 +37,9 @@ public sealed class DialogOptionPanel : FramedDialogPanelBase
 
     private readonly List<OptionLabel> OptionLabels = [];
 
+    //the option Enter/Space picks; arrow keys and the mouse move it
+    private int HighlightIndex;
+
     //3-slice stripe pieces
     private Texture2D? StripeLeft;
     private Texture2D? StripeLeftOn;
@@ -66,6 +69,7 @@ public sealed class DialogOptionPanel : FramedDialogPanelBase
         }
 
         OptionLabels.Clear();
+        HighlightIndex = 0;
     }
 
     public override void Draw(SpriteBatch spriteBatch)
@@ -99,6 +103,26 @@ public sealed class DialogOptionPanel : FramedDialogPanelBase
     }
 
     public int OptionCount => OptionLabels.Count;
+
+    /// <summary>The option that Enter or Space picks.</summary>
+    public int HighlightedIndex => HighlightIndex;
+
+    /// <summary>Moves the highlight by <paramref name="delta" /> rows, wrapping around the ends.</summary>
+    public void MoveHighlight(int delta)
+    {
+        if (OptionLabels.Count == 0)
+            return;
+
+        SetHighlight(((HighlightIndex + delta) % OptionLabels.Count + OptionLabels.Count) % OptionLabels.Count);
+    }
+
+    private void SetHighlight(int index)
+    {
+        HighlightIndex = index;
+
+        for (var i = 0; i < OptionLabels.Count; i++)
+            OptionLabels[i].IsHighlighted = i == index;
+    }
 
     public ushort GetOptionPursuitId(int index)
     {
@@ -174,9 +198,12 @@ public sealed class DialogOptionPanel : FramedDialogPanelBase
             };
 
             label.Clicked += () => OnOptionSelected?.Invoke(index);
+            label.Hovered += () => SetHighlight(index);
             OptionLabels.Add(label);
             AddChild(label);
         }
+
+        SetHighlight(0);
 
         //ok button: 20px from right outer edge, 4px from bottom outer edge, shown as disabled
         if (OkButton is not null)
@@ -212,8 +239,11 @@ public sealed class DialogOptionPanel : FramedDialogPanelBase
         private readonly Texture2D? StripeRightOn;
         private readonly TextElement TextCache = new();
         private readonly int TextWidth;
-        private bool IsHovered;
         private bool IsPressed;
+
+        /// <summary>Lit while the mouse is over it or the arrow keys put it there.</summary>
+        public bool IsHighlighted { get; set; }
+
         public ushort PursuitId { get; }
         public string Text { get; }
 
@@ -259,9 +289,9 @@ public sealed class DialogOptionPanel : FramedDialogPanelBase
             var drawWidth = Width - (IsPressed ? 2 : 0);
 
             //draw 3-slice stripe background
-            var left = IsHovered ? StripeLeftOn ?? StripeLeft : StripeLeft;
-            var mid = IsHovered ? StripeMidOn ?? StripeMid : StripeMid;
-            var right = IsHovered ? StripeRightOn ?? StripeRight : StripeRight;
+            var left = IsHighlighted ? StripeLeftOn ?? StripeLeft : StripeLeft;
+            var mid = IsHighlighted ? StripeMidOn ?? StripeMid : StripeMid;
+            var right = IsHighlighted ? StripeRightOn ?? StripeRight : StripeRight;
 
             var leftW = left?.Width ?? 0;
             var rightW = right?.Width ?? 0;
@@ -302,14 +332,13 @@ public sealed class DialogOptionPanel : FramedDialogPanelBase
 
         public event ClickedHandler? Clicked;
 
+        public event ClickedHandler? Hovered;
+
         public override void OnMouseEnter()
-        {
-            IsHovered = true;
-        }
+            => Hovered?.Invoke();
 
         public override void OnMouseLeave()
         {
-            IsHovered = false;
             IsPressed = false;
         }
 

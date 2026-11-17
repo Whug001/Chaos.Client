@@ -168,8 +168,7 @@ public sealed class TamerFormationGrid : UIPanel
                 return;
             }
 
-            var species = state.SpeciesOf(monster);
-            Portrait.SpriteId = species?.Sprite ?? 0;
+            Portrait.SpriteId = state.SpriteOf(monster);
             LevelLabel.Text = TamerStableText.ListLevel(monster.Level);
         }
 

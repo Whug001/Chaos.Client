@@ -154,7 +154,7 @@ public sealed class TamerDetailPanel : UIPanel
         var species = monster is null ? null : state.SpeciesOf(monster);
         var known = (monster is not null) && (species is not null);
 
-        Portrait.SpriteId = known ? species!.Sprite : (ushort)0;
+        Portrait.SpriteId = known ? state.SpriteOf(monster) : (ushort)0;
 
         if (monster is null)
         {
@@ -185,7 +185,7 @@ public sealed class TamerDetailPanel : UIPanel
         {
             NameLabel.ForegroundColor = LegendColors.Gold;
             NameLabel.Text = TamerStableText.FitLines(monster.Name, TamerStableText.DETAIL_HEADER_TEXT_WIDTH, 1);
-            SpeciesLabel.Text = TamerStableText.SpeciesLine(species!.Name, species.Rarity, TamerStableText.DETAIL_HEADER_TEXT_WIDTH);
+            SpeciesLabel.Text = TamerStableText.SpeciesLine(species!.Name, species.Rarity, TamerStableText.DETAIL_HEADER_TEXT_WIDTH, species.Dex);
             KindLabel.Text = TamerStableText.KindLine(
                 species.Element,
                 species.Family,

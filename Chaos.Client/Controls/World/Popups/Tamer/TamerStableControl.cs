@@ -395,8 +395,35 @@ public sealed class TamerStableControl : FramedDialogPanelBase
             return;
         }
 
+        //Up/Down (and PageUp/PageDown) walk the Creatures list while no prompt is open
+        if ((Tab == TamerStableTab.Creatures) && !Choice.Visible && !RenamePrompt.Visible && !FeedPrompt.Visible
+            && ArrowStep(e.Keycode) is { } step)
+        {
+            var index = WorldState.TamerStable.MoveSelection(step);
+
+            if (index >= 0)
+            {
+                Refresh();
+                RowList.ScrollIntoView(index);
+            }
+
+            e.Handled = true;
+
+            return;
+        }
+
         base.OnKeyDown(e);
     }
+
+    private int? ArrowStep(Keycode key)
+        => key switch
+        {
+            Keycode.Up => -1,
+            Keycode.Down => 1,
+            Keycode.PageUp => -Math.Max(1, RowList.VisibleRows - 1),
+            Keycode.PageDown => Math.Max(1, RowList.VisibleRows - 1),
+            _ => null
+        };
 
     private static int IndexOf(Guid monsterId)
     {

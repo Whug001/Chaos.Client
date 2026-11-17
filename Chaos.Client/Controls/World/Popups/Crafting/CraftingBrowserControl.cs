@@ -34,6 +34,9 @@ public sealed class CraftingBrowserControl : PrefabPanel
     private ushort? DescriptionRecipeId;
     private string LastFilter = string.Empty;
 
+    //what the list is showing, so the arrow keys can step through it by index
+    private IReadOnlyList<CraftingRecipeInfo> ShownRecipes = [];
+
     private static CraftingWindowState State => WorldState.Crafting;
 
     /// <summary>Each action to send, including Close when the player hides the window and Cancel while a batch runs.</summary>
@@ -131,12 +134,7 @@ public sealed class CraftingBrowserControl : PrefabPanel
 
         AddChild(RankBarLabel);
 
-        CreateButton("ok")!.Clicked += () =>
-        {
-            //the selected recipe may be filtered out of view; only confirm what the player can see
-            if (RecipeList.SelectedItem is { } recipe && (recipe.Id == State.SelectedId))
-                ConfirmRequested?.Invoke();
-        };
+        CreateButton("ok")!.Clicked += ConfirmSelected;
 
         //while a batch runs the window stays open and Cancel stops the batch; otherwise it closes the window
         CreateButton("cancel")!.Clicked += CancelOrHide;
@@ -201,6 +199,32 @@ public sealed class CraftingBrowserControl : PrefabPanel
             return;
         }
 
+        //the filter box needs the arrows and Space for its caret and text
+        if (!FilterBox.IsFocused)
+            switch (e.Keycode)
+            {
+                case Keycode.Up or Keycode.Down:
+                    MoveSelection(e.Keycode == Keycode.Up ? -1 : 1);
+                    e.Handled = true;
+
+                    return;
+
+                //there is no second column to move to; swallow them so browsing doesn't walk the player
+                case Keycode.Left or Keycode.Right:
+                    e.Handled = true;
+
+                    return;
+
+                //same as OK; a held key must not reopen the confirm window
+                case Keycode.Enter or Keycode.Space:
+                    if (!e.IsRepeat)
+                        ConfirmSelected();
+
+                    e.Handled = true;
+
+                    return;
+            }
+
         base.OnKeyDown(e);
     }
 
@@ -250,6 +274,40 @@ public sealed class CraftingBrowserControl : PrefabPanel
         LoadRecipes();
     }
 
+    //the selected recipe may be filtered out of view; only confirm what the player can see
+    private void ConfirmSelected()
+    {
+        if (RecipeList.SelectedItem is { } recipe && (recipe.Id == State.SelectedId))
+            ConfirmRequested?.Invoke();
+    }
+
+    //steps the highlight (clamped at the ends), keeps it in view, and selects it the way a click does
+    private void MoveSelection(int delta)
+    {
+        var recipes = ShownRecipes;
+
+        if (recipes.Count == 0)
+            return;
+
+        var current = RecipeList.HasSelection ? RecipeList.SelectedIndex : -1;
+        var next = current < 0 ? 0 : Math.Clamp(current + delta, 0, recipes.Count - 1);
+
+        if (next == current)
+            return;
+
+        var target = recipes[next];
+        RecipeList.RestoreSelection(recipe => recipe.Id == target.Id);
+
+        var scroll = (IVerticalScrollable)RecipeList;
+
+        if (next < scroll.VerticalOffset)
+            scroll.VerticalOffset = next;
+        else if (next >= (scroll.VerticalOffset + scroll.VerticalViewport))
+            scroll.VerticalOffset = next - scroll.VerticalViewport + 1;
+
+        OnRecipeSelected();
+    }
+
     private void CancelOrHide()
     {
         if (State.Running)
@@ -261,10 +319,12 @@ public sealed class CraftingBrowserControl : PrefabPanel
     //SetItems drops the highlight; put it back on the recipe the server still has selected, if it is in view
     private void LoadRecipes(bool keepScroll = false)
     {
+        ShownRecipes = State.VisibleRecipes;
+
         if (keepScroll)
-            RecipeList.ReplaceItems(State.VisibleRecipes);
+            RecipeList.ReplaceItems(ShownRecipes);
         else
-            RecipeList.SetItems(State.VisibleRecipes);
+            RecipeList.SetItems(ShownRecipes);
 
         RecipeList.RestoreSelection(recipe => recipe.Id == State.SelectedId);
     }

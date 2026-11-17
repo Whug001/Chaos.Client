@@ -365,10 +365,19 @@ public sealed class MenuShopPanel : PrefabPanel
         if (slotIndex < offset)
             return;
 
-        var categoryIndex = TabWindowStart + (slotIndex - offset);
+        SelectCategory(TabWindowStart + (slotIndex - offset));
+    }
 
-        if ((categoryIndex >= Categories.Count) || (categoryIndex == SelectedCategoryIndex))
+    private void SelectCategory(int categoryIndex)
+    {
+        if ((categoryIndex < 0) || (categoryIndex >= Categories.Count) || (categoryIndex == SelectedCategoryIndex))
             return;
+
+        //slide the tab window so the chosen tab is on screen
+        if (categoryIndex < TabWindowStart)
+            TabWindowStart = categoryIndex;
+        else if (categoryIndex >= (TabWindowStart + MAX_VISIBLE_TABS))
+            TabWindowStart = categoryIndex - MAX_VISIBLE_TABS + 1;
 
         SelectedCategoryIndex = categoryIndex;
         SelectedIndex = -1;
@@ -385,6 +394,52 @@ public sealed class MenuShopPanel : PrefabPanel
         CloseButton?.Enabled = false;
 
         SaveNpcMemory();
+    }
+
+    /// <summary>
+    ///     Keyboard browsing: Up/Down step through the items (turning pages), Left/Right switch category tabs,
+    ///     Enter/Space buy the selected item. Returns true when the key was used.
+    /// </summary>
+    public bool HandleNavigationKey(Keycode key)
+    {
+        switch (key)
+        {
+            case Keycode.Left or Keycode.Right:
+                SelectCategory(SelectedCategoryIndex + (key == Keycode.Left ? -1 : 1));
+
+                return true;
+
+            case Keycode.Up or Keycode.Down:
+            {
+                if (FilteredIndices.Count == 0)
+                    return true;
+
+                var position = FilteredIndices.IndexOf(SelectedIndex);
+
+                position = position < 0
+                    ? (key == Keycode.Up ? FilteredIndices.Count - 1 : CurrentPage * ItemsPerPage)
+                    : Math.Clamp(position + (key == Keycode.Up ? -1 : 1), 0, FilteredIndices.Count - 1);
+
+                position = Math.Min(position, FilteredIndices.Count - 1);
+                SelectedIndex = FilteredIndices[position];
+                CurrentPage = position / ItemsPerPage;
+                ShowDetails(SelectedIndex);
+                UpdatePageDisplay();
+                SaveNpcMemory();
+
+                CloseButton?.Enabled = true;
+
+                return true;
+            }
+
+            case Keycode.Enter or Keycode.Space when SelectedIndex >= 0:
+                OnItemSelected?.Invoke(SelectedIndex);
+
+                return true;
+
+            default:
+                return false;
+        }
     }
 
     private void SaveNpcMemory()

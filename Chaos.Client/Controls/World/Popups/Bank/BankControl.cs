@@ -101,6 +101,9 @@ public sealed class BankControl : FramedDialogPanelBase, IInventoryDropTarget
 
     private int Page;
 
+    //keyboard focus for the arrow keys: the category rail (true) or the item list (false). Left/Right switch it.
+    private bool RailHasFocus;
+
     //the entry the detail pane currently shows. BankState raises Changed for both the categories and the items, so a
     //single interaction refreshes twice — and repainting the pane means re-running its whole stat-block build.
     private BankItemEntry? PopulatedEntry;
@@ -535,6 +538,7 @@ public sealed class BankControl : FramedDialogPanelBase, IInventoryDropTarget
         //reset even when already visible: an Open can retarget the window at the other bank, and the server opens it
         //unfiltered — a surviving search box would show text that filters nothing until the next refresh sends it.
         Page = 0;
+        RailHasFocus = false;
         SearchBox.Text = string.Empty;
         ClearSelection();
 
@@ -582,11 +586,106 @@ public sealed class BankControl : FramedDialogPanelBase, IInventoryDropTarget
 
                 break;
 
+            //a focused text field (search box, amount spinner) needs the arrows and Space for itself
+            case Keycode.Up or Keycode.Down or Keycode.Left or Keycode.Right or Keycode.Enter or Keycode.Space
+                when !SearchBox.IsFocused && InputDispatcher.Instance?.ExplicitFocus is not UITextBox { IsFocused: true }:
+                HandleNavigationKey(e);
+                e.Handled = true;
+
+                break;
+
             default:
                 base.OnKeyDown(e);
 
                 break;
         }
+    }
+
+    /// <summary>
+    ///     Arrow/Enter navigation. Up/Down move through the focused column (the rail applies the category as a click
+    ///     does); Left/Right switch between the rail and the item list; Enter/Space take the selected item out the same
+    ///     way a double-click does, or step from the rail into the item list.
+    /// </summary>
+    private void HandleNavigationKey(KeyDownEvent e)
+    {
+        switch (e.Keycode)
+        {
+            case Keycode.Left:
+                RailHasFocus = true;
+
+                break;
+
+            case Keycode.Right:
+                RailHasFocus = false;
+                EnsureKeyboardSelection();
+
+                break;
+
+            case Keycode.Up or Keycode.Down when RailHasFocus:
+                Rail.MoveSelection(e.Keycode == Keycode.Up ? -1 : 1);
+
+                break;
+
+            case Keycode.Up or Keycode.Down:
+                MoveItemSelection(e.Keycode == Keycode.Up ? -1 : 1);
+
+                break;
+
+            //held Enter must not stack withdraw prompts
+            case Keycode.Enter or Keycode.Space when e.IsRepeat:
+                break;
+
+            case Keycode.Enter or Keycode.Space when RailHasFocus:
+                RailHasFocus = false;
+                EnsureKeyboardSelection();
+
+                break;
+
+            case Keycode.Enter or Keycode.Space:
+                if (FindSelected() is { } entry)
+                    WithdrawGestured?.Invoke(entry.Name, entry.Count);
+
+                break;
+        }
+    }
+
+    private int SelectedIndex()
+    {
+        if (SelectedName.Length == 0)
+            return -1;
+
+        var items = Items;
+
+        for (var i = 0; i < items.Count; i++)
+            if (string.Equals(items[i].Name, SelectedName, StringComparison.Ordinal))
+                return i;
+
+        return -1;
+    }
+
+    //entering the item list with nothing selected lands on the first row of the page in view, so the focus shows
+    private void EnsureKeyboardSelection()
+    {
+        if (SelectedIndex() < 0)
+            SelectItemIndex(Page * ROWS_PER_PAGE);
+    }
+
+    private void MoveItemSelection(int delta)
+    {
+        var current = SelectedIndex();
+
+        SelectItemIndex(current < 0 ? Page * ROWS_PER_PAGE : current + delta);
+    }
+
+    //selects by index into the whole loaded category, turning the page so the row is in view
+    private void SelectItemIndex(int index)
+    {
+        if (Items.Count == 0)
+            return;
+
+        index = Math.Clamp(index, 0, Items.Count - 1);
+        Page = index / ROWS_PER_PAGE;
+        SelectSlot(index % ROWS_PER_PAGE);
     }
 
     //the rail and the detail pane consume the wheel themselves; over the item list it pages instead of scrolling. The

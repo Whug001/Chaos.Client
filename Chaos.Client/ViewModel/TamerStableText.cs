@@ -89,8 +89,11 @@ public static class TamerStableText
     ///     The detail header's first species line, "Species - Rarity", cut with ".." only when it is wider than
     ///     <paramref name="maxWidth" /> pixels.
     /// </summary>
-    public static string SpeciesLine(string? speciesName, TamerWireRarity rarity, int maxWidth)
-        => FitLines(JoinParts(speciesName, RarityName(rarity)), maxWidth, 1);
+    public static string SpeciesLine(string? speciesName, TamerWireRarity rarity, int maxWidth, int dex = 0)
+        => FitLines(JoinParts(DexLabel(dex), speciesName, RarityName(rarity)), maxWidth, 1);
+
+    /// <summary>"#007" for a dex number; empty when the species has none.</summary>
+    public static string DexLabel(int dex) => dex > 0 ? $"#{dex:000}" : string.Empty;
 
     /// <summary>
     ///     The detail header's second species line, "Element - Family - Role", cut with ".." only when it is wider than
@@ -108,6 +111,10 @@ public static class TamerStableText
             TamerStableSort.Newest => "Newest",
             TamerStableSort.Level => "Level",
             TamerStableSort.Name => "Name",
+            TamerStableSort.Dex => "Dex",
+            TamerStableSort.Rarity => "Rarity",
+            TamerStableSort.Element => "Element",
+            TamerStableSort.Role => "Role",
             _ => "Unknown"
         };
 

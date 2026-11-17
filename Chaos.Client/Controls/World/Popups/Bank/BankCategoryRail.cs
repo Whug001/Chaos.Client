@@ -81,6 +81,39 @@ public sealed class BankCategoryRail : UIPanel
         RefreshRows();
     }
 
+    /// <summary>
+    ///     Keyboard navigation: moves the selection <paramref name="delta" /> rows (clamped at the ends), scrolls it into
+    ///     view and raises <see cref="CategorySelected" /> exactly as a click would. With nothing selected it lands on the
+    ///     first category. No-op when the move would not change the selection.
+    /// </summary>
+    public void MoveSelection(int delta)
+    {
+        if (Categories.Count == 0)
+            return;
+
+        var current = -1;
+
+        for (var i = 0; i < Categories.Count; i++)
+            if (Categories[i] == SelectedName)
+            {
+                current = i;
+
+                break;
+            }
+
+        var next = current < 0 ? 0 : Math.Clamp(current + delta, 0, Categories.Count - 1);
+
+        if (next == current)
+            return;
+
+        if (next < ScrollOffset)
+            ScrollOffset = next;
+        else if (next >= (ScrollOffset + VisibleRows))
+            ScrollOffset = next - VisibleRows + 1;
+
+        SelectSlot(next - ScrollOffset);
+    }
+
     private void SelectSlot(int slot)
     {
         var index = ScrollOffset + slot;

@@ -734,12 +734,36 @@ public sealed class NpcSessionControl : PrefabPanel
             return;
         }
 
-        //space/enter — advance normal dialogs via next button, or select first option in menus
+        //shop and list menus browse with the arrows and buy/pick with enter or space
+        if (MenuShop.Visible && MenuShop.HandleNavigationKey(e.Keycode))
+        {
+            e.Handled = true;
+
+            return;
+        }
+
+        if (MenuList.Visible && MenuList.HandleNavigationKey(e.Keycode))
+        {
+            e.Handled = true;
+
+            return;
+        }
+
+        //up/down — move the highlighted option in menus
+        if (e.Keycode is Keycode.Up or Keycode.Down && DialogOption is { Visible: true, OptionCount: > 0 })
+        {
+            DialogOption.MoveHighlight(e.Keycode == Keycode.Up ? -1 : 1);
+            e.Handled = true;
+
+            return;
+        }
+
+        //space/enter — advance normal dialogs via next button, or select the highlighted option in menus
         if (e.Keycode is Keycode.Space or Keycode.Enter)
         {
             if (DialogOption is { Visible: true, OptionCount: > 0 })
             {
-                OnOptionSelected?.Invoke(0);
+                OnOptionSelected?.Invoke(DialogOption.HighlightedIndex);
                 e.Handled = true;
             } else if (NextButton is { Visible: true, Enabled: true })
             {
