@@ -51,6 +51,11 @@ public sealed class NpcSessionControl : PrefabPanel
     //portrait texture (owned illustration or cached sprite frame)
     private Texture2D? PortraitTexture;
     private int ScrollLine;
+
+    //the body (text and option panels) is covered by a popup that answers for it, e.g. the learn-ability popup.
+    //the panels hidden for it, so SetBodyHidden(false) shows exactly those again.
+    private bool BodyHidden;
+    private readonly List<UIPanel> PanelsHiddenForBody = [];
     public DialogType? CurrentDialogType { get; private set; }
     public MenuType? CurrentMenuType { get; private set; }
     public ushort DialogId { get; private set; }
@@ -380,6 +385,11 @@ public sealed class NpcSessionControl : PrefabPanel
 
     private void HideAllSubPanels()
     {
+        //a new dialog, menu or close resets the body: nothing stays hidden for a popup that no longer applies
+        BodyHidden = false;
+        PanelsHiddenForBody.Clear();
+        DialogTextLabel.Visible = true;
+
         DialogOption.Hide();
         DialogTextEntry.Hide();
         MenuTextEntry.Hide();
@@ -498,6 +508,47 @@ public sealed class NpcSessionControl : PrefabPanel
             TopButton.Visible = false;
             TopButton.Enabled = false;
         }
+    }
+
+    /// <summary>
+    ///     Answers the current dialog or menu with the option at 0-based <paramref name="index" />, exactly as clicking that
+    ///     option would. Used by popups that stand in for the option list.
+    /// </summary>
+    public void SelectOption(int index) => OnOptionSelected?.Invoke(index);
+
+    /// <summary>
+    ///     Hides (or shows again) the dialog text and the option, list and shop panels while a popup answers for them. The
+    ///     frame, portrait, name and Close button stay. Showing again restores only the panels this hid. Any new dialog,
+    ///     menu or close resets it.
+    /// </summary>
+    public void SetBodyHidden(bool hidden)
+    {
+        if (hidden == BodyHidden)
+            return;
+
+        BodyHidden = hidden;
+        DialogTextLabel.Visible = !hidden;
+
+        if (hidden)
+        {
+            PanelsHiddenForBody.Clear();
+
+            //only the picker panels: the text-entry panels own a focused textbox that hiding would drop
+            foreach (UIPanel panel in (ReadOnlySpan<UIPanel>)[DialogOption, MenuList, MenuShop])
+                if (panel.Visible)
+                {
+                    panel.Visible = false;
+                    PanelsHiddenForBody.Add(panel);
+                }
+        } else
+        {
+            foreach (var panel in PanelsHiddenForBody)
+                panel.Visible = true;
+
+            PanelsHiddenForBody.Clear();
+        }
+
+        UpdateScrollButtons();
     }
 
     /// <summary>
@@ -800,7 +851,7 @@ public sealed class NpcSessionControl : PrefabPanel
         var innerH = DialogTextLabel.Height - DialogTextLabel.PaddingTop + DialogTextLabel.PaddingBottom;
         var visibleLines = innerH / TextRenderer.CHAR_HEIGHT;
 
-        if (totalLines <= visibleLines)
+        if (BodyHidden || (totalLines <= visibleLines))
         {
             ScrollUpButton?.Visible = false;
 

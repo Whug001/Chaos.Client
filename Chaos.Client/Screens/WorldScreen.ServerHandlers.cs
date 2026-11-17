@@ -547,6 +547,10 @@ public sealed partial class WorldScreen
     {
         var dialog = WorldState.NpcInteraction.CurrentDialog;
 
+        //any new dialog (or a close) replaces the one the learn-ability popup answers for. The popup's own packet comes
+        //after the dialog it belongs to, so this never takes down a popup that is still current.
+        HideLearnAbility();
+
         if (dialog is null || (dialog.DialogType == DialogType.CloseDialog))
         {
             NpcSession.HideAll();
@@ -565,6 +569,8 @@ public sealed partial class WorldScreen
         if (menu is null)
             return;
 
+        //a new menu replaces the dialog the learn-ability popup answers for
+        HideLearnAbility();
         NpcSession.ShowMenu(menu);
         RenderNpcSessionPortrait();
     }
