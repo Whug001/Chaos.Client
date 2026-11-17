@@ -588,6 +588,9 @@ public delegate void TownContestDisplayHandler(TownContestDisplayArgs args);
 /// <summary>The town banner posts on the current map, replacing the ones the client has.</summary>
 public delegate void TownBannerPostsHandler(TownBannerPostsArgs args);
 
+/// <summary>The learn-ability popup for a skill or spell offered in the current NPC dialog.</summary>
+public delegate void LearnAbilityDisplayHandler(LearnAbilityDisplayArgs args);
+
 /// <summary>Handles one season of the Endless Tower leaderboard arriving.</summary>
 public delegate void TowerLeaderboardHandler(TowerLeaderboardArgs args);
 

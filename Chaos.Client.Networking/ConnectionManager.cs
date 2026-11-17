@@ -761,6 +761,9 @@ public sealed class ConnectionManager : IDisposable
     /// <summary>The town banner posts on the current map.</summary>
     public event TownBannerPostsHandler? OnTownBannerPosts;
 
+    /// <summary>The learn-ability popup for a skill or spell, sent right after the requirements menu.</summary>
+    public event LearnAbilityDisplayHandler? OnLearnAbilityDisplay;
+
     /// <summary>Fired when the server opens the guild emblem editor or updates its status line.</summary>
     public event GuildEmblemEditorHandler? OnGuildEmblemEditor;
 
@@ -2150,6 +2153,7 @@ public sealed class ConnectionManager : IDisposable
         PacketHandlers[(byte)ServerOpCode.CollegeDisplay] = HandleCollegeDisplay;
         PacketHandlers[(byte)ServerOpCode.TownContestDisplay] = HandleTownContestDisplay;
         PacketHandlers[(byte)ServerOpCode.TownBannerPosts] = HandleTownBannerPosts;
+        PacketHandlers[(byte)ServerOpCode.LearnAbilityDisplay] = HandleLearnAbilityDisplay;
         PacketHandlers[(byte)ServerOpCode.GuildEmblemEditor] = HandleGuildEmblemEditor;
         PacketHandlers[(byte)ServerOpCode.GuildEmblemDesign] = HandleGuildEmblemDesign;
         PacketHandlers[(byte)ServerOpCode.DisplayAisling] = HandleDisplayAisling;
@@ -2920,6 +2924,12 @@ public sealed class ConnectionManager : IDisposable
         }
 
         OnTamerBattleDisplay?.Invoke(args);
+    }
+
+    private void HandleLearnAbilityDisplay(ServerPacket pkt)
+    {
+        var args = Client.Deserialize<LearnAbilityDisplayArgs>(in pkt);
+        OnLearnAbilityDisplay?.Invoke(args);
     }
 
     private void HandleTownBannerPosts(ServerPacket pkt)
