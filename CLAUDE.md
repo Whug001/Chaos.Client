@@ -53,7 +53,7 @@ Chaos.Client.slnx (.NET 10.0, C# 14)
 
 - Opcode-byte array-indexed dispatch, never switch-case (match Chaos-Server pattern).
 - Tables sized `byte.MaxValue + 1`, indexed by opcode, wired in `IndexHandlers()`.
-- New handler: `private void OnXxx(ref ServerPacket packet)` in `ConnectionManager`; `Handlers[(byte)ServerOpCode.Xxx] = OnXxx`; deserialize via `Chaos.Networking` converter; raise manager event for `WorldScreen`.
+- New handler: `private void HandleXxx(ServerPacket pkt)` in `ConnectionManager`; `PacketHandlers[(byte)ServerOpCode.Xxx] = HandleXxx`; deserialize via `Chaos.Networking` converter; raise manager event for `WorldScreen`.
 
 ### UI Patterns
 

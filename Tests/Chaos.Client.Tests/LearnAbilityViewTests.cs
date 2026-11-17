@@ -34,7 +34,8 @@ public sealed class LearnAbilityViewTests
             Spells = [new LearnAbilityRequirement("Arcane Bolt", 20, true)],
             LearnOption = 0,
             GuildFundsOption = 1,
-            CancelOption = 2
+            CancelOption = 2,
+            LevelMet = true
         };
 
     [Test]
@@ -42,13 +43,14 @@ public sealed class LearnAbilityViewTests
     {
         var view = LearnAbilityView.From(Args());
 
-        view.Title.Should().Be("Arcane Missile  Lv 40");
+        view.Title.Should().Be("Arcane Missile");
         view.Description.Should().Be("{=aA volley of bolts.");
         view.ShowGuildFunds.Should().BeTrue();
 
         view.Rows
             .Should()
             .Equal(
+                new LearnAbilityRow("Level", "40", true),
                 new LearnAbilityRow("Gold", "15,000", true),
                 new LearnAbilityRow("Ability Level", "50", false),
                 new LearnAbilityRow("INT", "25", true),
@@ -56,6 +58,53 @@ public sealed class LearnAbilityViewTests
                 new LearnAbilityRow("Exquisite Linen", "x3", false),
                 new LearnAbilityRow("Meditate", "", true),
                 new LearnAbilityRow("Arcane Bolt", "Lv 20", true));
+    }
+
+    [Test]
+    public void From_LevelNotMet_LevelRowNotMet()
+    {
+        var args = Args();
+        args.LevelMet = false;
+
+        LearnAbilityView.From(args).Rows[0].Should().Be(new LearnAbilityRow("Level", "40", false));
+    }
+
+    [Test]
+    public void From_RequiresMaster_MasterRowAfterLevel()
+    {
+        var args = Args();
+        args.RequiresMaster = true;
+        args.MasterMet = false;
+
+        var rows = LearnAbilityView.From(args).Rows;
+
+        rows[1].Should().Be(new LearnAbilityRow("Master", "", false));
+        rows.Select(r => r.Label).Should().NotContain("Grand Master");
+    }
+
+    [Test]
+    public void From_GrandMasterOnly_MasterAndGrandMasterRows()
+    {
+        var args = Args();
+        args.RequiresMaster = true;
+        args.MasterMet = true;
+        args.GrandMasterOnly = true;
+        args.GrandMasterMet = false;
+
+        LearnAbilityView.From(args)
+                        .Rows
+                        .Take(3)
+                        .Should()
+                        .Equal(
+                            new LearnAbilityRow("Level", "40", true),
+                            new LearnAbilityRow("Master", "", true),
+                            new LearnAbilityRow("Grand Master", "", false));
+    }
+
+    [Test]
+    public void From_NoMasterRequirement_NoMasterRows()
+    {
+        LearnAbilityView.From(Args()).Rows.Select(r => r.Label).Should().NotContain(["Master", "Grand Master"]);
     }
 
     [Test]

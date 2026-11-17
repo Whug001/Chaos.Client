@@ -3,7 +3,6 @@ using Chaos.Client.Controls.Components;
 using Chaos.Client.Controls.Custom;
 using Chaos.Client.Controls.Scrolling;
 using Chaos.Client.Controls.World.Popups.Dialog;
-using Chaos.Client.Controls.World.Popups.GuildCloak;
 using Chaos.Client.Definitions;
 using Chaos.Client.Rendering;
 using Chaos.Client.Rendering.Definitions;
@@ -24,7 +23,7 @@ namespace Chaos.Client.Controls.World.Popups.Learn;
 ///     "Requirements" caption, the requirement rows (scroll when the window would not fit), the button row, then the frame's
 ///     bottom border. Sized to its content, about 480 wide, capped at the world viewport's height and centred on it.
 /// </remarks>
-public sealed class LearnAbilityControl : GuildCloakDialogBase
+public sealed class LearnAbilityControl : HandBuiltDialogBase
 {
     private const int WIDTH = 480;
     private const int LEFT = 16;
