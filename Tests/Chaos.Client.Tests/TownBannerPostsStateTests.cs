@@ -57,3 +57,24 @@ public sealed class TownBannerPostsStateTests
         state.BlockedPoints.Select(p => (p.X, p.Y)).Should().Equal((3, 4));
     }
 }
+
+public sealed class TownBannerPostsCreditTests
+{
+    private static TownBannerPostsState With(string designer)
+    {
+        var state = new TownBannerPostsState();
+        state.Set(new TownBannerPostsArgs { DesignId = 5, TownName = "Mileth", Designer = designer, Posts = [new GeoPoint(1, 1)] });
+
+        return state;
+    }
+
+    [Test]
+    public void Credit_fits_the_orange_bar()
+    {
+        var longName = With(new string('a', 40)).Credit();
+        longName.Should().HaveLength(45).And.StartWith("Banner of Mileth by ").And.EndWith("...");
+
+        With("Ayla").Credit().Should().Be("Banner of Mileth by Ayla");
+        With("").Credit().Should().Be("Banner of Mileth");
+    }
+}

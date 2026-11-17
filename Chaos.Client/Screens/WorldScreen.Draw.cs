@@ -478,6 +478,7 @@ public sealed partial class WorldScreen
 
         var mirrorsOn = WorldState.Mirrors.HasMirrors && MirrorRenderer.FacesReady;
         var collegeWallOn = College?.Wall.HasWall == true;
+        var bannerPostsOn = WorldState.TownBannerPosts.DesignId != 0;
 
         var cinemaOn = CinemaScreenOn;
         var kartsOn = PrepareKartDraws(TumbleClock.Now);
@@ -549,6 +550,9 @@ public sealed partial class WorldScreen
 
                 if (collegeWallOn)
                     DrawCollegeWallTile(scope, tileX, depth - tileX);
+
+                if (bannerPostsOn)
+                    DrawBannerPostTile(scope, tileX, depth - tileX);
             }
         }
     }

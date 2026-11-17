@@ -1266,6 +1266,7 @@ public sealed partial class WorldScreen : IScreen
         Game.AislingRenderer.ClearGroupTintCache();
         Game.AislingRenderer.GuildCloaks.Clear();
         GuildEmblemTextures.Clear();
+        BannerPostTextures.Clear();
         College?.Transfers.Clear();
         PortraitPictures?.Clear();
         College?.Drawings.Clear();

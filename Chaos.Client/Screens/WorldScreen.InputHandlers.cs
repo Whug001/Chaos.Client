@@ -1846,6 +1846,10 @@ public sealed partial class WorldScreen
             return;
         }
 
+        //a town banner post is client-side decor: clicking it shows its credit and sends nothing
+        if (entity is null && TryClickBannerPost(mouseX, mouseY))
+            return;
+
         if (entity?.Type is ClientEntityType.Creature)
             Game.Connection.ClickEntity(entity.Id);
         else if (IsTileOnMap(tileX, tileY))

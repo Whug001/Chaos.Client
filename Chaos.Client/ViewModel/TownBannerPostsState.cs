@@ -12,6 +12,12 @@ namespace Chaos.Client.ViewModel;
 /// </summary>
 public sealed class TownBannerPostsState
 {
+    /// <summary>The orange bar's limit.</summary>
+    public const int MAX_CREDIT = 45;
+
+    //three dots rather than the one-character ellipsis, which the game font may not have
+    private const string ELLIPSIS = "...";
+
     private readonly HashSet<Point> PostSet = [];
     private int? LastMapId;
 
@@ -48,6 +54,25 @@ public sealed class TownBannerPostsState
             Clear();
 
         LastMapId = mapId;
+    }
+
+    /// <summary>
+    ///     The orange-bar credit shown when a post is clicked: "Banner of Mileth by Ayla", with the designer's name cut to
+    ///     fit the bar's <see cref="MAX_CREDIT" /> characters.
+    /// </summary>
+    public string Credit()
+    {
+        var town = $"Banner of {TownName}";
+
+        if (string.IsNullOrEmpty(Designer))
+            return town;
+
+        var full = $"{town} by {Designer}";
+
+        if (full.Length <= MAX_CREDIT)
+            return full;
+
+        return full[..(MAX_CREDIT - ELLIPSIS.Length)] + ELLIPSIS;
     }
 
     public void Clear()
