@@ -106,7 +106,8 @@ public sealed class AbilityMetadataDetailsControl : PrefabPanel
         if (name is null)
             return string.Empty;
 
-        return $"{name} {level}";
+        //0 means any level: the name alone
+        return level == 0 ? name : $"{name} {level}";
     }
 
     private static Color RequirementColor(int required, int? current) => current >= required ? LegendColors.White : UnmetColor;

@@ -57,6 +57,11 @@ public sealed class NpcSessionControl : PrefabPanel
     //again.
     private bool BodyHidden;
     private readonly List<UIPanel> PanelsHiddenForBody = [];
+
+    //how long the dialog stays hidden after a popup answered for it, waiting for the server's next dialog. The reply
+    //normally lands well inside this; if it never does, the dialog shows again rather than staying open out of sight.
+    private const float POPUP_ANSWER_TIMEOUT_SECONDS = 2f;
+    private float? PopupAnswerTimer;
     public DialogType? CurrentDialogType { get; private set; }
     public MenuType? CurrentMenuType { get; private set; }
     public ushort DialogId { get; private set; }
@@ -391,6 +396,7 @@ public sealed class NpcSessionControl : PrefabPanel
         BodyHidden = false;
         IsHitTestVisible = true;
         PanelsHiddenForBody.Clear();
+        PopupAnswerTimer = null;
         DialogTextLabel.Visible = true;
 
         DialogOption.Hide();
@@ -520,6 +526,20 @@ public sealed class NpcSessionControl : PrefabPanel
     public void SelectOption(int index) => OnOptionSelected?.Invoke(index);
 
     /// <summary>
+    ///     Answers with the option at 0-based <paramref name="index" /> on behalf of a popup that was covering the dialog,
+    ///     keeping the dialog hidden so its options do not flash up before the server's reply replaces them. The reply (any
+    ///     new dialog, menu or close) shows the dialog again; if none arrives within a couple of seconds it shows again
+    ///     on its own.
+    /// </summary>
+    public void AnswerFromPopup(int index)
+    {
+        if (BodyHidden)
+            PopupAnswerTimer = POPUP_ANSWER_TIMEOUT_SECONDS;
+
+        SelectOption(index);
+    }
+
+    /// <summary>
     ///     Hides (or shows again) the whole dialog -- frame, portrait, name, text, buttons and option panels -- while a popup
     ///     answers for it. The dialog stays open (still <see cref="UIElement.Visible" />, so the popup can tell when it
     ///     closes) but draws nothing and takes no clicks. Showing again restores only the panels this hid. Any new dialog,
@@ -531,6 +551,7 @@ public sealed class NpcSessionControl : PrefabPanel
             return;
 
         BodyHidden = hidden;
+        PopupAnswerTimer = null;
         IsHitTestVisible = !hidden;
         DialogTextLabel.Visible = !hidden;
 
@@ -754,6 +775,17 @@ public sealed class NpcSessionControl : PrefabPanel
     {
         if (!Visible || !Enabled)
             return;
+
+        //a popup answered for this dialog and the server never replied: show the dialog again
+        if (PopupAnswerTimer is { } remaining)
+        {
+            remaining -= (float)gameTime.ElapsedGameTime.TotalSeconds;
+
+            if (remaining <= 0)
+                SetHiddenBehindPopup(false);
+            else
+                PopupAnswerTimer = remaining;
+        }
 
         //animate scroll arrow buttons (flip frames every 500ms)
         var anyArrowVisible = ScrollUpButton is { Visible: true } || ScrollDownButton is { Visible: true };
