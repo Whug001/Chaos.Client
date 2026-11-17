@@ -183,12 +183,21 @@ public sealed class LearnAbilityControl : HandBuiltDialogBase
 
     private void Answer(LearnAbilityButton button)
     {
-        //read before Hide: Hide closes the state, and the dialog's options must be visible again before one is picked
+        //Press closes the state and gives the option to answer with
         var option = State.Press(button);
-        Hide();
 
-        if (option is { } index)
-            Session.SelectOption(index);
+        if (option is not { } index)
+        {
+            //nothing to answer with: show the dialog again
+            Hide();
+
+            return;
+        }
+
+        //take only the popup down. The dialog stays hidden until the server's reply replaces it, so its options do
+        //not flash up for a frame in between. The option list keeps its entries while hidden, so the pick still resolves.
+        base.Hide();
+        Session.AnswerFromPopup(index);
     }
 
     private void Layout(LearnAbilityView view, Rectangle area)
