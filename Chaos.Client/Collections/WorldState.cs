@@ -261,6 +261,12 @@ public static class WorldState
     public static GuildHallEditorState GuildHallEditor { get; } = new();
 
     /// <summary>
+    ///     The town banner posts on the current map. Not cleared by <see cref="Clear" />: it clears itself on a change of
+    ///     map id (<see cref="TownBannerPostsState.OnMapInfo" />), and <see cref="ResetAll" /> clears it on logout.
+    /// </summary>
+    public static TownBannerPostsState TownBannerPosts { get; } = new();
+
+    /// <summary>
     ///     Which guild cloak design each player's cloak shows (0 = plain), from the server's GuildCloakLook. Kept across
     ///     DisplayAisling updates; cleared with the entities.
     /// </summary>
@@ -577,6 +583,7 @@ public static class WorldState
         GlassWay.Clear();
         KartRace.Clear();
         GuildHallEditor.Close();
+        TownBannerPosts.Clear();
         ClassResource.Reset();
         Oxygen.Reset();
         Bind.Reset();

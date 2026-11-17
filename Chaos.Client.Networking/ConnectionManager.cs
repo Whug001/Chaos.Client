@@ -758,6 +758,9 @@ public sealed class ConnectionManager : IDisposable
     /// <summary>The song composer for a town contest, the contest review window, or a town song to play.</summary>
     public event TownContestDisplayHandler? OnTownContestDisplay;
 
+    /// <summary>The town banner posts on the current map.</summary>
+    public event TownBannerPostsHandler? OnTownBannerPosts;
+
     /// <summary>Fired when the server opens the guild emblem editor or updates its status line.</summary>
     public event GuildEmblemEditorHandler? OnGuildEmblemEditor;
 
@@ -2146,6 +2149,7 @@ public sealed class ConnectionManager : IDisposable
         PacketHandlers[(byte)ServerOpCode.TowerLeaderboard] = HandleTowerLeaderboard;
         PacketHandlers[(byte)ServerOpCode.CollegeDisplay] = HandleCollegeDisplay;
         PacketHandlers[(byte)ServerOpCode.TownContestDisplay] = HandleTownContestDisplay;
+        PacketHandlers[(byte)ServerOpCode.TownBannerPosts] = HandleTownBannerPosts;
         PacketHandlers[(byte)ServerOpCode.GuildEmblemEditor] = HandleGuildEmblemEditor;
         PacketHandlers[(byte)ServerOpCode.GuildEmblemDesign] = HandleGuildEmblemDesign;
         PacketHandlers[(byte)ServerOpCode.DisplayAisling] = HandleDisplayAisling;
@@ -2916,6 +2920,12 @@ public sealed class ConnectionManager : IDisposable
         }
 
         OnTamerBattleDisplay?.Invoke(args);
+    }
+
+    private void HandleTownBannerPosts(ServerPacket pkt)
+    {
+        var args = Client.Deserialize<TownBannerPostsArgs>(in pkt);
+        OnTownBannerPosts?.Invoke(args);
     }
 
     private void HandleTownContestDisplay(ServerPacket pkt)

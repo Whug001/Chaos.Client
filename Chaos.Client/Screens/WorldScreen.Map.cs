@@ -35,6 +35,9 @@ public sealed partial class WorldScreen
 
     private void HandleMapInfo(MapInfoArgs args)
     {
+        //before anything else: a different map id drops the old map's banner posts, a refresh keeps them
+        WorldState.TownBannerPosts.OnMapInfo(args.MapId);
+
         LeaveSeatedUi();
         SeatedView.Reset();
 
@@ -420,6 +423,7 @@ public sealed partial class WorldScreen
             return [];
 
         var blocked = WorldState.GetBlockedPoints();
+        blocked.AddRange(WorldState.TownBannerPosts.BlockedPoints);
 
         if (GlobalSettings.RequireSwimmingSkill && !WorldState.SkillBook.HasSkillByName("swimming"))
             blocked.AddRange(MapWaterTiles);
@@ -470,7 +474,7 @@ public sealed partial class WorldScreen
 
         var tile = MapFile.Tiles[tileX, tileY];
 
-        return IsTileWall(tile.LeftForeground) || IsTileWall(tile.RightForeground);
+        return IsTileWall(tile.LeftForeground) || IsTileWall(tile.RightForeground) || WorldState.TownBannerPosts.Blocks(tileX, tileY);
     }
 
     private bool IsTilePassable(int tileX, int tileY)
@@ -482,6 +486,10 @@ public sealed partial class WorldScreen
         var tile = MapFile.Tiles[tileX, tileY];
 
         if (IsTileWall(tile.LeftForeground) || IsTileWall(tile.RightForeground))
+            return false;
+
+        //a town banner post stands like a wall
+        if (WorldState.TownBannerPosts.Blocks(tileX, tileY))
             return false;
 
         //check gndattr walk-blocking (deep water tiles) — only when swim gate active and player can't swim

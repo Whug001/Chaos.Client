@@ -935,6 +935,7 @@ public sealed partial class WorldScreen : IScreen
         WireGuildCloak();
         WireGuildEmblem();
         WireTownContest();
+        WireTownBannerPosts();
         WireChatTranslation();
         WireTownImports();
         WireTownBallot();
@@ -1203,6 +1204,7 @@ public sealed partial class WorldScreen : IScreen
         UnwireGuildCloak();
         UnwireGuildEmblem();
         UnwireTownContest();
+        UnwireTownBannerPosts();
         UnwireChatTranslation();
         UnwireTownImports();
         UnwireTownBallot();
