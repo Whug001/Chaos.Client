@@ -138,7 +138,8 @@ public enum SettingKey
     CinemaHideVideo,
     CinemaLowerMusic,
     FrameRate,
-    ShowCustomChatBubbles
+    ShowCustomChatBubbles,
+    PlainLooks
 }
 
 /// <summary>
@@ -204,6 +205,7 @@ public static class SettingDefinitions
         new(SettingKey.PriorityAnimations, "Priority animations", SettingSection.Display, SettingCategory.ServerOption, UserOption.PriorityAnimations),
         new(SettingKey.HideEnemyHealthBars, "Hide enemy health bars", SettingSection.Display, SettingCategory.ServerOption, UserOption.HideEnemyHealthBars),
         new(SettingKey.ShowFriendlyNametags, "Always show friendly nametags", SettingSection.Display, SettingCategory.ServerOption, UserOption.AlwaysShowFriendlyNametags),
+        new(SettingKey.PlainLooks, "Hide others' cosmetic gear", SettingSection.Display, SettingCategory.ServerOption, UserOption.PlainLooks),
         new(
             SettingKey.SmoothScrolling,
             "Smooth screen scrolling",
