@@ -1,4 +1,5 @@
 using Chaos.Client.Controls.Components;
+using Chaos.Client.Definitions;
 using Chaos.Client.Rendering;
 using Chaos.Client.Rendering.Definitions;
 using Chaos.Networking.Entities.Server;
@@ -49,10 +50,28 @@ public sealed class CraftingIngredientRow : UIPanel
 
     public string CountText { get; private set; } = string.Empty;
 
+    /// <summary>Raised when a choosable row is clicked with either mouse button (selection only).</summary>
+    public event Action? Clicked;
+
+    /// <summary>Whether this row offers a choice of ingredients (cooking mode).</summary>
+    public bool Choosable { get; private set; }
+
+    /// <summary>This row's position among the confirm window's ingredient rows (the catalyst line has none).</summary>
+    public int Index { get; private set; }
+
     /// <summary>Binds an ingredient whose Need is already the total for the batch.</summary>
-    public void Bind(CraftingIngredientInfo ingredient)
+    public void Bind(CraftingIngredientInfo ingredient, int index = 0, bool active = false)
     {
-        NameLabel.Text = ingredient.Name;
+        Choosable = ingredient.Choosable;
+        Index = index;
+
+        //the active row (the one the catalyst square controls) takes the selected recipe row's
+        //highlight; recycled rows reset here, so a row that was active does not stay tinted
+        NameLabel.ForegroundColor = active ? CraftingRecipeRow.HighlightColor : LegendColors.White;
+
+        //a choosable row takes clicks; otherwise the row stays click-through as now
+        IsHitTestVisible = Choosable;
+
         CountText = (ingredient.Have >= ingredient.Need ? "{=u" : "{=b") + $"{ingredient.Have} / {ingredient.Need}";
 
         //the count takes only the room its text needs (plus the label's padding and the last glyph's overhang),
@@ -61,6 +80,10 @@ public sealed class CraftingIngredientRow : UIPanel
         CountLabel.X = Width - countWidth;
         CountLabel.Width = countWidth;
         NameLabel.Width = Math.Max(0, CountLabel.X - NAME_GAP - NAME_X);
+
+        //choosable and fixed rows lay out their names identically; only the active row's highlight differs
+        NameLabel.TruncateWithEllipsis = true;
+        NameLabel.Text = ingredient.Name;
 
         //color-code measuring needs the legend palette, which only exists once the client has loaded its data
         if (UiRenderer.Instance is not { } ui)
@@ -76,6 +99,16 @@ public sealed class CraftingIngredientRow : UIPanel
 
         if (Visible)
             DrawIcon(spriteBatch);
+    }
+
+    public override void OnClick(ClickEvent e)
+    {
+        //either mouse button selects a choosable row; any other button does nothing
+        if (Choosable && (e.Button is MouseButton.Left or MouseButton.Right))
+            Clicked?.Invoke();
+
+        //panels absorb their own clicks either way, so a row click never reaches the world behind
+        base.OnClick(e);
     }
 
     public override void Dispose()

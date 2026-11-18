@@ -10,7 +10,9 @@ namespace Chaos.Client.Controls.World.Popups.Crafting;
 public sealed class CraftingRecipeRow : UIPanel
 {
     public const int HEIGHT = 34;
-    private static readonly Color SelectedBackground = new(156, 96, 12, 180);
+
+    /// <summary>The selected row's highlight, reused as the confirm window's active ingredient row colour.</summary>
+    internal static readonly Color HighlightColor = new(156, 96, 12, 180);
 
     private readonly UIImage IconImage;
     private readonly UILabel NameLabel;
@@ -60,7 +62,7 @@ public sealed class CraftingRecipeRow : UIPanel
 
         NameLabel.Text = recipe.Name;
         NameLabel.ForegroundColor = recipe.Makeable ? LegendColors.White : LegendColors.DimGray;
-        BackgroundColor = selected ? SelectedBackground : null;
+        BackgroundColor = selected ? HighlightColor : null;
     }
 
     public override void Dispose()

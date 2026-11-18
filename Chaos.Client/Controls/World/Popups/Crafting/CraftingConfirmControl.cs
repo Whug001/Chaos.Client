@@ -10,6 +10,7 @@ using Chaos.Client.ViewModel;
 using Chaos.Networking.Entities.Client;
 using Chaos.Networking.Entities.Server;
 using Microsoft.Xna.Framework;
+using Microsoft.Xna.Framework.Graphics;
 
 namespace Chaos.Client.Controls.World.Popups.Crafting;
 
@@ -23,13 +24,21 @@ public sealed class CraftingConfirmControl : PrefabPanel, IInventoryDropTarget
     private const int QUANTITY_BOX_GAP = 4;
     private const int QUANTITY_BOX_HEIGHT = 22;
 
+    //gap between the catalyst square and its cooking-mode arrows (the lmanu ADDITIONAL rect is 32x32
+    //at [21,170], i.e. x 21..53, y 170..202; the 9x14 PREV/NEXT art flanks the square at [7,179] and
+    //[58,179], vertically centred. nothing else lives in that band (INGREDIENT starts at x 71, CANCEL
+    //at y 225), so the left arrow stays inside the 288-wide panel without touching any control or text)
+    private const int SWAP_ARROW_GAP = 5;
+
     private readonly UIImage Tile;
     private readonly ClickableImage CatalystImage;
+    private readonly UIButton SwapPrevButton;
+    private readonly UIButton SwapNextButton;
     private readonly UILabel NameLabel;
     private readonly UILabel DescLabel;
     private readonly UILabel NumLabel;
     private readonly CustomTextBox QuantityBox;
-    private readonly VirtualizedRowList<CraftingIngredientInfo> IngredientList;
+    private readonly VirtualizedRowList<IndexedIngredient> IngredientList;
     private readonly Rectangle CatalystRect;
     private ushort? IngredientsRecipeId;
 
@@ -68,8 +77,22 @@ public sealed class CraftingConfirmControl : PrefabPanel, IInventoryDropTarget
 
         CatalystImage.Clicked += () =>
         {
+            //in cooking mode the square is the active row's control (left = next); otherwise it clears the catalyst
+            if (State.IsCooking)
+            {
+                SwapActive(true);
+
+                return;
+            }
+
             State.ClearCatalyst();
             Refresh();
+        };
+        CatalystImage.RightClicked += () =>
+        {
+            //right = previous for the active row; the other crafts keep right-click doing nothing here
+            if (State.IsCooking)
+                SwapActive(false);
         };
         AddChild(CatalystImage);
 
@@ -101,12 +124,22 @@ public sealed class CraftingConfirmControl : PrefabPanel, IInventoryDropTarget
         var ingredientRect = GetRect("INGREDIENT");
         var rowWidth = ingredientRect.Width - ScrollBarControl.DEFAULT_WIDTH - 4;
 
-        IngredientList = new VirtualizedRowList<CraftingIngredientInfo>(
+        IngredientList = new VirtualizedRowList<IndexedIngredient>(
             rowWidth,
             ingredientRect.Height,
             CraftingIngredientRow.HEIGHT,
-            () => new CraftingIngredientRow(rowWidth),
-            (row, ingredient, _) => ((CraftingIngredientRow)row).Bind(ingredient));
+            () =>
+            {
+                //rows are recycled, so each row's click event is wired once here and reads its current index
+                var row = new CraftingIngredientRow(rowWidth);
+                row.Clicked += () => SelectIngredientRow(row);
+
+                return row;
+            },
+            (row, wrapped, _) => ((CraftingIngredientRow)row).Bind(
+                wrapped.Ingredient,
+                wrapped.Index,
+                wrapped.Index >= 0 && State.IsCooking && (wrapped.Index == State.ActiveSwapRow)));
 
         AddChild(
             new ScrollViewerControl(IngredientList)
@@ -117,8 +150,45 @@ public sealed class CraftingConfirmControl : PrefabPanel, IInventoryDropTarget
                 Height = ingredientRect.Height
             });
 
-        CreateButton("PREV")!.Clicked += () => Step(-1);
-        CreateButton("NEXT")!.Clicked += () => Step(+1);
+        var prevButton = CreateButton("PREV")!;
+        prevButton.Clicked += () => Step(-1);
+        var nextButton = CreateButton("NEXT")!;
+        nextButton.Clicked += () => Step(+1);
+
+        //cooking-mode arrows: manual buttons reusing the quantity stepper art, flanking the catalyst
+        //square and vertically centred on it; hidden unless cooking (Refresh owns Visible)
+        SwapPrevButton = new UIButton
+        {
+            Name = "SwapPrev",
+            X = CatalystRect.X - SWAP_ARROW_GAP - prevButton.Width,
+            Y = CatalystRect.Y + ((CatalystRect.Height - prevButton.Height) / 2),
+            Width = prevButton.Width,
+            Height = prevButton.Height,
+            NormalTexture = prevButton.NormalTexture,
+            PressedTexture = prevButton.PressedTexture,
+            DisabledTexture = prevButton.DisabledTexture,
+            SelectedTexture = prevButton.SelectedTexture,
+            Visible = false
+        };
+        SwapPrevButton.Clicked += () => SwapActive(false);
+        AddChild(SwapPrevButton);
+
+        SwapNextButton = new UIButton
+        {
+            Name = "SwapNext",
+            X = CatalystRect.Right + SWAP_ARROW_GAP,
+            Y = CatalystRect.Y + ((CatalystRect.Height - nextButton.Height) / 2),
+            Width = nextButton.Width,
+            Height = nextButton.Height,
+            NormalTexture = nextButton.NormalTexture,
+            PressedTexture = nextButton.PressedTexture,
+            DisabledTexture = nextButton.DisabledTexture,
+            SelectedTexture = nextButton.SelectedTexture,
+            Visible = false
+        };
+        SwapNextButton.Clicked += () => SwapActive(true);
+        AddChild(SwapNextButton);
+
         CreateButton("OK")!.Clicked += Confirm;
         CreateButton("CANCEL")!.Clicked += Hide;
     }
@@ -127,7 +197,8 @@ public sealed class CraftingConfirmControl : PrefabPanel, IInventoryDropTarget
         => DataContext.UserControls.Get(PREFAB) is null ? null : new CraftingConfirmControl();
 
     public bool AcceptsInventoryDrop(byte slot, int screenX, int screenY)
-        => (slot != 0)
+        => !State.IsCooking
+           && (slot != 0)
            && Visible
            && new Rectangle(
                ScreenX + CatalystRect.X,
@@ -157,7 +228,15 @@ public sealed class CraftingConfirmControl : PrefabPanel, IInventoryDropTarget
 
     public void Refresh()
     {
-        if (!Visible || (State.Detail is not { } detail))
+        if (!Visible)
+            return;
+
+        //the arrows only exist in cooking mode, and only while a row can be rotated
+        var showSwap = State.IsCooking && (State.ActiveSwapRow >= 0);
+        SwapPrevButton.Visible = showSwap;
+        SwapNextButton.Visible = showSwap;
+
+        if (State.Detail is not { } detail)
             return;
 
         var ui = UiRenderer.Instance!;
@@ -169,21 +248,26 @@ public sealed class CraftingConfirmControl : PrefabPanel, IInventoryDropTarget
         if (State.CatalystRate is { } withCatalyst)
             success += $" ({withCatalyst}% with catalyst)";
 
-        DescLabel.Text = $"{success}\nMade: {detail.TimesMade}\nCrafting {State.Quantity} (one roll each)";
+        DescLabel.Text = $"{success}\nMade: {State.TimesMadeText}\nCrafting {State.Quantity} (one roll each)";
         NumLabel.Text = $"{State.Quantity}/{State.QuantityMax}";
 
         if (!QuantityBox.IsFocused)
             QuantityBox.Text = State.Quantity.ToString();
 
-        var ingredients = State.ScaledIngredients.ToList();
+        var ingredients = State.ScaledIngredients.Select((ingredient, index) => new IndexedIngredient(index, ingredient)).ToList();
 
-        if (State.CatalystLine is not { } catalystLine)
+        //cooking never carries a catalyst (the state clears it and refuses new ones): the square shows
+        //the active row's ingredient icon instead (empty with no choosable row); the catalyst line is not
+        //an ingredient row and takes no index
+        if (State.IsCooking)
+            CatalystImage.Texture = ActiveIngredientIcon();
+        else if (State.CatalystLine is not { } catalystLine)
             CatalystImage.Texture = null;
         else
         {
             ref readonly var catalyst = ref WorldState.Inventory.GetSlot(State.CatalystSlot);
             CatalystImage.Texture = ui.GetItemIcon(catalyst.Sprite, catalyst.Color);
-            ingredients.Add(catalystLine with { Sprite = catalyst.Sprite, Color = catalyst.Color });
+            ingredients.Add(new IndexedIngredient(-1, catalystLine with { Sprite = catalyst.Sprite, Color = catalyst.Color }));
         }
 
         //quantity steps and batch progress resend the same recipe; only a new recipe starts the list at the top
@@ -225,10 +309,53 @@ public sealed class CraftingConfirmControl : PrefabPanel, IInventoryDropTarget
 
     public override void Dispose()
     {
-        //shared cached textures
+        //shared cached textures (the swap arrows reuse the PREV/NEXT button art)
         Tile.Texture = null;
         CatalystImage.Texture = null;
+        SwapPrevButton.NormalTexture = null;
+        SwapPrevButton.PressedTexture = null;
+        SwapPrevButton.SelectedTexture = null;
+        SwapNextButton.NormalTexture = null;
+        SwapNextButton.PressedTexture = null;
+        SwapNextButton.SelectedTexture = null;
         base.Dispose();
+    }
+
+    private void SelectIngredientRow(CraftingIngredientRow row)
+    {
+        //a recycled row keeps its wiring, so the row's current position is read (the catalyst line has none);
+        //a click after Escape hid the window selects nothing. selecting never sends an action: only the
+        //arrows and the square rotate the ingredient
+        if (!Visible || (row.Index < 0))
+            return;
+
+        State.SetActiveSwapRow(row.Index);
+        Refresh();
+    }
+
+    private void SwapActive(bool forward)
+    {
+        //a batch sends no swaps (SwapActiveAction is null while running); a hidden window sends nothing
+        if (!Visible || (State.SwapActiveAction(forward) is not { } action))
+            return;
+
+        ActionRequested?.Invoke(action);
+    }
+
+    /// <summary>The active row's icon from the same source its row uses; null with no active row.</summary>
+    private static Texture2D? ActiveIngredientIcon()
+    {
+        if ((UiRenderer.Instance is not { } ui) || (State.ActiveSwapRow < 0))
+            return null;
+
+        var ingredients = State.ScaledIngredients;
+
+        if (State.ActiveSwapRow >= ingredients.Count)
+            return null;
+
+        var ingredient = ingredients[State.ActiveSwapRow];
+
+        return ingredient.Sprite == 0 ? null : ui.GetItemIcon(ingredient.Sprite, ingredient.Color);
     }
 
     private void Step(int delta)
@@ -268,17 +395,28 @@ public sealed class CraftingConfirmControl : PrefabPanel, IInventoryDropTarget
         Hide();
     }
 
+    /// <summary>An ingredient row with its position, so a swap click names the server's row.</summary>
+    private sealed record IndexedIngredient(int Index, CraftingIngredientInfo Ingredient);
+
     private sealed class ClickableImage : UIImage
     {
         public event Action? Clicked;
+        public event Action? RightClicked;
 
         public override void OnClick(ClickEvent e)
         {
-            if (e.Button != MouseButton.Left)
-                return;
+            if (e.Button == MouseButton.Left)
+            {
+                Clicked?.Invoke();
+                e.Handled = true;
+            } else if (e.Button == MouseButton.Right)
+            {
+                RightClicked?.Invoke();
+                e.Handled = true;
+            }
 
-            Clicked?.Invoke();
-            e.Handled = true;
+            //panels absorb their clicks either way, so a square click never reaches the world behind
+            base.OnClick(e);
         }
     }
 }
