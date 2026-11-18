@@ -50,8 +50,8 @@ public sealed class CraftingIngredientRow : UIPanel
 
     public string CountText { get; private set; } = string.Empty;
 
-    /// <summary>True for a left click, false for a right click, on a choosable row.</summary>
-    public event Action<bool>? SwapRequested;
+    /// <summary>Raised when a choosable row is clicked with either mouse button (selection only).</summary>
+    public event Action? Clicked;
 
     /// <summary>Whether this row offers a choice of ingredients (cooking mode).</summary>
     public bool Choosable { get; private set; }
@@ -81,18 +81,9 @@ public sealed class CraftingIngredientRow : UIPanel
         CountLabel.Width = countWidth;
         NameLabel.Width = Math.Max(0, CountLabel.X - NAME_GAP - NAME_X);
 
-        if (Choosable)
-        {
-            //the arrow is appended after the name is fit, so it stays visible when the name is cut with "...".
-            //the name fits in what remains after reserving the arrow, and never reaches under the count.
-            //the label's own truncation stays off here, so it cannot eat the arrow a second time
-            NameLabel.TruncateWithEllipsis = false;
-            NameLabel.Text = WithArrow(ingredient.Name, NameLabel.Width - NameLabel.PaddingLeft - NameLabel.PaddingRight);
-        } else
-        {
-            NameLabel.TruncateWithEllipsis = true;
-            NameLabel.Text = ingredient.Name;
-        }
+        //choosable and fixed rows lay out their names identically; only the active row's highlight differs
+        NameLabel.TruncateWithEllipsis = true;
+        NameLabel.Text = ingredient.Name;
 
         //color-code measuring needs the legend palette, which only exists once the client has loaded its data
         if (UiRenderer.Instance is not { } ui)
@@ -112,16 +103,11 @@ public sealed class CraftingIngredientRow : UIPanel
 
     public override void OnClick(ClickEvent e)
     {
-        if (Choosable)
-        {
-            if (e.Button == MouseButton.Left)
-                SwapRequested?.Invoke(true);
-            else if (e.Button == MouseButton.Right)
-                SwapRequested?.Invoke(false);
-            //any other button does nothing
-        }
+        //either mouse button selects a choosable row; any other button does nothing
+        if (Choosable && (e.Button is MouseButton.Left or MouseButton.Right))
+            Clicked?.Invoke();
 
-        //panels absorb their own clicks either way, so a swap click never reaches the world behind
+        //panels absorb their own clicks either way, so a row click never reaches the world behind
         base.OnClick(e);
     }
 
@@ -130,28 +116,6 @@ public sealed class CraftingIngredientRow : UIPanel
         //shared cached texture
         Icon = null;
         base.Dispose();
-    }
-
-    /// <summary>
-    ///     The name with the choosable arrow directly after it, fitting <paramref name="innerWidth" /> pixels. The
-    ///     arrow's width is reserved first; the name is cut with "..." to fit what remains, so the arrow is always
-    ///     visible. Mirrors <see cref="UILabel" /> ellipsis truncation, then appends the arrow.
-    /// </summary>
-    private static string WithArrow(string name, int innerWidth)
-    {
-        var arrowWidth = TextRenderer.MeasureWidth(">");
-        var maxNameWidth = innerWidth - arrowWidth;
-
-        if (TextRenderer.MeasureWidth(name) <= maxNameWidth)
-            return name + ">";
-
-        var maxTextWidth = maxNameWidth - TextRenderer.MeasureWidth("...");
-        var truncLen = name.Length;
-
-        while ((truncLen > 0) && (TextRenderer.MeasureWidth(name[..truncLen]) > maxTextWidth))
-            truncLen--;
-
-        return (truncLen > 0 ? name[..truncLen] + "..." : "...") + ">";
     }
 
     private void DrawIcon(SpriteBatch spriteBatch)

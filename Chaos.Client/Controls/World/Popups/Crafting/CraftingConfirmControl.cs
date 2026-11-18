@@ -25,9 +25,10 @@ public sealed class CraftingConfirmControl : PrefabPanel, IInventoryDropTarget
     private const int QUANTITY_BOX_HEIGHT = 22;
 
     //gap between the catalyst square and its cooking-mode arrows (the lmanu ADDITIONAL rect is 32x32
-    //at [21,170], free on both sides: nothing else lives in x 0..71, y 140..225, so the 9x14 PREV/NEXT
-    //art flanks the square at [10,179] and [55,179] without touching any control or text)
-    private const int SWAP_ARROW_GAP = 2;
+    //at [21,170], i.e. x 21..53, y 170..202; the 9x14 PREV/NEXT art flanks the square at [7,179] and
+    //[58,179], vertically centred. nothing else lives in that band (INGREDIENT starts at x 71, CANCEL
+    //at y 225), so the left arrow stays inside the 288-wide panel without touching any control or text)
+    private const int SWAP_ARROW_GAP = 5;
 
     private readonly UIImage Tile;
     private readonly ClickableImage CatalystImage;
@@ -129,9 +130,9 @@ public sealed class CraftingConfirmControl : PrefabPanel, IInventoryDropTarget
             CraftingIngredientRow.HEIGHT,
             () =>
             {
-                //rows are recycled, so each row's swap event is wired once here and reads its current index
+                //rows are recycled, so each row's click event is wired once here and reads its current index
                 var row = new CraftingIngredientRow(rowWidth);
-                row.SwapRequested += forward => SwapIngredient(row, forward);
+                row.Clicked += () => SelectIngredientRow(row);
 
                 return row;
             },
@@ -320,20 +321,16 @@ public sealed class CraftingConfirmControl : PrefabPanel, IInventoryDropTarget
         base.Dispose();
     }
 
-    private void SwapIngredient(CraftingIngredientRow row, bool forward)
+    private void SelectIngredientRow(CraftingIngredientRow row)
     {
-        //a captured row can still click after Escape hid the window; a hidden window sends no swaps
-        if (!Visible || (row.Index < 0) || (State.SwapAction((byte)row.Index, forward) is not { } action))
+        //a recycled row keeps its wiring, so the row's current position is read (the catalyst line has none);
+        //a click after Escape hid the window selects nothing. selecting never sends an action: only the
+        //arrows and the square rotate the ingredient
+        if (!Visible || (row.Index < 0))
             return;
 
-        //clicking a choosable row makes it the active row the square controls (cooking only; ignored elsewhere)
-        if (State.IsCooking)
-        {
-            State.SetActiveSwapRow(row.Index);
-            Refresh();
-        }
-
-        ActionRequested?.Invoke(action);
+        State.SetActiveSwapRow(row.Index);
+        Refresh();
     }
 
     private void SwapActive(bool forward)
