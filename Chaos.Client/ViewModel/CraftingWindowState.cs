@@ -256,11 +256,18 @@ public sealed class CraftingWindowState
 
     /// <summary>
     ///     Moves one choosable ingredient row to its next (forward) or previous choice. Null while a batch
-    ///     runs or with nothing selected; the confirm window sends it only when non-null.
+    ///     runs, with nothing selected, without the selected recipe's detail, or for a row that is out of
+    ///     range or not choosable; the confirm window sends it only when non-null.
     /// </summary>
     public CraftingActionArgs? SwapAction(byte row, bool forward)
     {
         if (Running || (SelectedId is not { } id))
+            return null;
+
+        if (Detail?.RecipeId != id)
+            return null;
+
+        if ((row >= Detail.Ingredients.Count) || !Detail.Ingredients[row].Choosable)
             return null;
 
         return new CraftingActionArgs
@@ -292,8 +299,9 @@ public sealed class CraftingWindowState
     }
 
     /// <summary>
-    ///     The swap for the active row. Null with no active row or while a batch runs; the confirm window
-    ///     sends it only when non-null.
+    ///     The swap for the active row. Null with no active row, while a batch runs, or unless the active
+    ///     row is a choosable ingredient of the selected recipe's loaded detail; the confirm window sends
+    ///     it only when non-null.
     /// </summary>
     public CraftingActionArgs? SwapActiveAction(bool forward)
         => ActiveSwapRow < 0 ? null : SwapAction((byte)ActiveSwapRow, forward);

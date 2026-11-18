@@ -357,7 +357,17 @@ public sealed class CraftingWindowStateTests
     {
         var state = Opened();
         state.Select(1);
-        state.Apply(Detail(1, 3));
+        state.Apply(
+            Detail(1, 3) with
+            {
+                Ingredients =
+                [
+                    ChoosableIngredient("Hemloch"),
+                    ChoosableIngredient("Mandrake"),
+                    ChoosableIngredient("Nightshade"),
+                    ChoosableIngredient("Ginseng")
+                ]
+            });
 
         state.SwapAction(3, false).Should().BeEquivalentTo(
             new { Type = CraftingActionType.SwapIngredient, RecipeId = (ushort)1, IngredientRow = (byte)3, Forward = false });
@@ -379,6 +389,46 @@ public sealed class CraftingWindowStateTests
     [Test]
     public void Swap_action_is_null_without_selection()
         => Opened().SwapAction(0, true).Should().BeNull();
+
+    [Test]
+    public void Swap_action_is_null_until_the_new_recipes_detail_arrives()
+    {
+        var state = CookingOpened();
+        state.Select(1);
+        state.Apply(CookingDetail(1, 5, FixedIngredient("Salt"), ChoosableIngredient("Beef"), ChoosableIngredient("Pork")));
+
+        state.Select(2);
+
+        state.SwapAction(1, true).Should().BeNull();
+        state.SwapActiveAction(true).Should().BeNull();
+
+        state.Apply(CookingDetail(2, 5, FixedIngredient("Sugar"), ChoosableIngredient("Apple")));
+
+        state.SwapAction(1, true).Should().NotBeNull();
+        state.SwapActiveAction(true).Should().NotBeNull();
+    }
+
+    [Test]
+    public void Swap_action_is_null_for_a_non_choosable_row()
+    {
+        var state = CookingOpened();
+        state.Select(1);
+        state.Apply(CookingDetail(1, 5, FixedIngredient("Salt"), ChoosableIngredient("Beef")));
+
+        state.SwapAction(0, true).Should().BeNull();
+        state.SwapAction(1, true).Should().NotBeNull();
+    }
+
+    [Test]
+    public void Swap_action_is_null_for_a_row_past_the_end()
+    {
+        var state = CookingOpened();
+        state.Select(1);
+        state.Apply(CookingDetail(1, 5, FixedIngredient("Salt"), ChoosableIngredient("Beef")));
+
+        state.SwapAction(2, true).Should().BeNull();
+        state.SwapAction(1, true).Should().NotBeNull();
+    }
 
     [Test]
     public void Cooking_rank_text_uses_full_title()
@@ -619,7 +669,12 @@ public sealed class CraftingWindowStateTests
         state.Select(1);
         state.Apply(CookingDetail(1, 5, FixedIngredient("Salt"), ChoosableIngredient("Beef")));
 
-        state.CraftAction();
+        state.SwapActiveAction(true).Should().NotBeNull();
+
+        var action = state.CraftAction();
+
+        action.Should().NotBeNull();
+        state.Running.Should().BeTrue();
 
         state.SwapActiveAction(true).Should().BeNull();
     }
