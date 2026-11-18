@@ -20,6 +20,9 @@ public sealed class CraftingWindowState
 
     public ushort? SelectedId { get; private set; }
     public CraftingDisplayArgs? Detail { get; private set; }
+
+    /// <summary>The cooking ingredient row the catalyst square controls (-1 when none). Cooking only.</summary>
+    public int ActiveSwapRow { get; private set; } = -1;
     public int Quantity { get; private set; }
     public byte CatalystSlot { get; private set; } = CraftingProtocol.NO_CATALYST;
     public int CatalystIndex { get; private set; } = -1;
@@ -127,6 +130,7 @@ public sealed class CraftingWindowState
 
                 Detail = args;
                 Quantity = QuantityMax >= 1 ? Math.Clamp(Math.Max(Quantity, 1), 1, QuantityMax) : 0;
+                RefreshActiveSwapRow();
 
                 break;
             case CraftingDisplayType.Progress:
@@ -151,6 +155,7 @@ public sealed class CraftingWindowState
         {
             Detail = null;
             Quantity = 0;
+            ActiveSwapRow = -1;
         }
 
         if (PendingConfirmId != id)
@@ -267,6 +272,32 @@ public sealed class CraftingWindowState
         };
     }
 
+    /// <summary>
+    ///     Makes a choosable ingredient row the active one the catalyst square controls. Ignored when not
+    ///     cooking, with no detail, or for a row that is out of range or not choosable.
+    /// </summary>
+    public void SetActiveSwapRow(int row)
+    {
+        if (!IsCooking || (Detail is null))
+            return;
+
+        if ((row < 0) || (row >= Detail.Ingredients.Count) || !Detail.Ingredients[row].Choosable)
+            return;
+
+        if (ActiveSwapRow == row)
+            return;
+
+        ActiveSwapRow = row;
+        Changed?.Invoke();
+    }
+
+    /// <summary>
+    ///     The swap for the active row. Null with no active row or while a batch runs; the confirm window
+    ///     sends it only when non-null.
+    /// </summary>
+    public CraftingActionArgs? SwapActiveAction(bool forward)
+        => ActiveSwapRow < 0 ? null : SwapAction((byte)ActiveSwapRow, forward);
+
     public CraftingActionArgs? CraftAction()
     {
         if (Running || (SelectedId is not { } id) || (Quantity < 1))
@@ -296,6 +327,7 @@ public sealed class CraftingWindowState
         SelectedId = null;
         Detail = null;
         Quantity = 0;
+        ActiveSwapRow = -1;
         CatalystSlot = CraftingProtocol.NO_CATALYST;
         CatalystIndex = -1;
         CatalystCount = 0;
@@ -330,6 +362,41 @@ public sealed class CraftingWindowState
             Detail = null;
             Quantity = 0;
         }
+
+        //only cooking has an active row; a list that drops the selection drops its detail too
+        if ((Mode != CraftingWindowMode.Cooking) || (SelectedId is null))
+            ActiveSwapRow = -1;
+    }
+
+    /// <summary>
+    ///     Keeps the active row by index across a detail rebuild for the same recipe: a swap rebuilds the
+    ///     detail, and the same index stays active while it is still choosable, otherwise the first
+    ///     choosable row takes over (-1 when none is choosable or not cooking).
+    /// </summary>
+    private void RefreshActiveSwapRow()
+    {
+        if (!IsCooking || (Detail is null))
+        {
+            ActiveSwapRow = -1;
+
+            return;
+        }
+
+        var ingredients = Detail.Ingredients;
+
+        if ((ActiveSwapRow >= 0) && (ActiveSwapRow < ingredients.Count) && ingredients[ActiveSwapRow].Choosable)
+            return;
+
+        ActiveSwapRow = FirstChoosableRow(ingredients);
+    }
+
+    private static int FirstChoosableRow(IReadOnlyList<CraftingIngredientInfo> ingredients)
+    {
+        for (var i = 0; i < ingredients.Count; i++)
+            if (ingredients[i].Choosable)
+                return i;
+
+        return -1;
     }
 
     private static string RankWord(string title)

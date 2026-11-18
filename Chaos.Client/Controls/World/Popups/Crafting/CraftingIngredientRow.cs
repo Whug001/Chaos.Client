@@ -60,10 +60,14 @@ public sealed class CraftingIngredientRow : UIPanel
     public int Index { get; private set; }
 
     /// <summary>Binds an ingredient whose Need is already the total for the batch.</summary>
-    public void Bind(CraftingIngredientInfo ingredient, int index = 0)
+    public void Bind(CraftingIngredientInfo ingredient, int index = 0, bool active = false)
     {
         Choosable = ingredient.Choosable;
         Index = index;
+
+        //the active row (the one the catalyst square controls) takes the selected recipe row's
+        //highlight; recycled rows reset here, so a row that was active does not stay tinted
+        NameLabel.ForegroundColor = active ? CraftingRecipeRow.HighlightColor : LegendColors.White;
 
         //a choosable row takes clicks; otherwise the row stays click-through as now
         IsHitTestVisible = Choosable;

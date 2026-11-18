@@ -479,4 +479,162 @@ public sealed class CraftingWindowStateTests
         state.RankBarText.Should().Be("30 / 75 to Initiate");
         state.RankShortTitle.Should().Be("Novice");
     }
+
+    private static CraftingIngredientInfo FixedIngredient(string name)
+        => new() { Name = name, Have = 4, Need = 2 };
+
+    private static CraftingIngredientInfo ChoosableIngredient(string name)
+        => new() { Name = name, Have = 4, Need = 2, Choosable = true };
+
+    private static CraftingDisplayArgs CookingDetail(ushort id, byte max, params CraftingIngredientInfo[] ingredients)
+        => new()
+        {
+            Type = CraftingDisplayType.Detail,
+            RecipeId = id,
+            RecipeName = "Dinner Plate",
+            MaxQuantity = max,
+            SuccessRate = 70,
+            Ingredients = ingredients
+        };
+
+    private static CraftingWindowState CookingOpened()
+    {
+        var state = new CraftingWindowState();
+        state.Apply(CookingOpen(Recipe(1, "Apple Pie"), Recipe(2, "Dinner Plate")));
+
+        return state;
+    }
+
+    [Test]
+    public void Active_row_defaults_to_the_first_choosable_row()
+    {
+        var state = CookingOpened();
+        state.Select(1);
+        state.Apply(CookingDetail(1, 5, FixedIngredient("Salt"), ChoosableIngredient("Beef"), ChoosableIngredient("Pork")));
+
+        state.ActiveSwapRow.Should().Be(1);
+    }
+
+    [Test]
+    public void No_choosable_row_leaves_no_active_row()
+    {
+        var state = CookingOpened();
+        state.Select(1);
+        state.Apply(CookingDetail(1, 5, FixedIngredient("Salt"), FixedIngredient("Water")));
+
+        state.ActiveSwapRow.Should().Be(-1);
+        state.SwapActiveAction(true).Should().BeNull();
+        state.SwapActiveAction(false).Should().BeNull();
+    }
+
+    [Test]
+    public void Setting_a_non_choosable_or_out_of_range_row_is_ignored()
+    {
+        var state = CookingOpened();
+        state.Select(1);
+        state.Apply(CookingDetail(1, 5, FixedIngredient("Salt"), ChoosableIngredient("Beef"), ChoosableIngredient("Pork")));
+
+        state.SetActiveSwapRow(2);
+        state.SetActiveSwapRow(0);
+        state.SetActiveSwapRow(99);
+        state.SetActiveSwapRow(-1);
+
+        state.ActiveSwapRow.Should().Be(2);
+    }
+
+    [Test]
+    public void Active_row_survives_a_detail_rebuild_for_the_same_recipe()
+    {
+        var state = CookingOpened();
+        state.Select(1);
+        state.Apply(CookingDetail(1, 5, FixedIngredient("Salt"), ChoosableIngredient("Beef"), ChoosableIngredient("Pork")));
+        state.SetActiveSwapRow(2);
+
+        state.Apply(CookingDetail(1, 5, FixedIngredient("Salt"), ChoosableIngredient("Beef"), ChoosableIngredient("Pork")));
+
+        state.ActiveSwapRow.Should().Be(2);
+    }
+
+    [Test]
+    public void Selecting_another_recipe_resets_the_active_row()
+    {
+        var state = CookingOpened();
+        state.Select(1);
+        state.Apply(CookingDetail(1, 5, FixedIngredient("Salt"), ChoosableIngredient("Beef"), ChoosableIngredient("Pork")));
+        state.SetActiveSwapRow(2);
+
+        state.Select(2);
+
+        state.ActiveSwapRow.Should().Be(-1);
+
+        state.Apply(CookingDetail(2, 5, ChoosableIngredient("Apple"), FixedIngredient("Sugar")));
+
+        state.ActiveSwapRow.Should().Be(0);
+    }
+
+    [Test]
+    public void Active_row_falls_back_when_its_row_stops_being_choosable()
+    {
+        var state = CookingOpened();
+        state.Select(1);
+        state.Apply(CookingDetail(1, 5, FixedIngredient("Salt"), ChoosableIngredient("Beef"), ChoosableIngredient("Pork")));
+        state.SetActiveSwapRow(2);
+
+        state.Apply(CookingDetail(1, 5, FixedIngredient("Salt"), ChoosableIngredient("Beef"), FixedIngredient("Pork")));
+
+        state.ActiveSwapRow.Should().Be(1);
+    }
+
+    [Test]
+    public void Active_row_falls_back_to_none_when_nothing_is_choosable()
+    {
+        var state = CookingOpened();
+        state.Select(1);
+        state.Apply(CookingDetail(1, 5, FixedIngredient("Salt"), ChoosableIngredient("Beef")));
+        state.SetActiveSwapRow(1);
+
+        state.Apply(CookingDetail(1, 5, FixedIngredient("Salt"), FixedIngredient("Beef")));
+
+        state.ActiveSwapRow.Should().Be(-1);
+    }
+
+    [Test]
+    public void Swap_active_action_carries_the_active_row_and_direction()
+    {
+        var state = CookingOpened();
+        state.Select(1);
+        state.Apply(CookingDetail(1, 5, FixedIngredient("Salt"), ChoosableIngredient("Beef"), ChoosableIngredient("Pork")));
+        state.SetActiveSwapRow(2);
+
+        state.SwapActiveAction(true).Should().BeEquivalentTo(
+            new { Type = CraftingActionType.SwapIngredient, RecipeId = (ushort)1, IngredientRow = (byte)2, Forward = true });
+        state.SwapActiveAction(false).Should().BeEquivalentTo(
+            new { Type = CraftingActionType.SwapIngredient, RecipeId = (ushort)1, IngredientRow = (byte)2, Forward = false });
+    }
+
+    [Test]
+    public void Swap_active_action_is_null_while_running()
+    {
+        var state = CookingOpened();
+        state.Select(1);
+        state.Apply(CookingDetail(1, 5, FixedIngredient("Salt"), ChoosableIngredient("Beef")));
+
+        state.CraftAction();
+
+        state.SwapActiveAction(true).Should().BeNull();
+    }
+
+    [Test]
+    public void Non_cooking_modes_have_no_active_row()
+    {
+        var state = Opened();
+        state.Select(1);
+        state.Apply(Detail(1, 3) with { Ingredients = [FixedIngredient("Hemloch"), ChoosableIngredient("Mandrake")] });
+
+        state.ActiveSwapRow.Should().Be(-1);
+        state.SetActiveSwapRow(1);
+
+        state.ActiveSwapRow.Should().Be(-1);
+        state.SwapActiveAction(true).Should().BeNull();
+    }
 }
