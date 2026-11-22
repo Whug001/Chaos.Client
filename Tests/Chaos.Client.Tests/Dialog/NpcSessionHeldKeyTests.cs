@@ -40,4 +40,24 @@ public sealed class NpcSessionHeldKeyTests
     //formatter:on
     public void Held_arrows_keep_browsing(Keycode key)
         => NpcSessionControl.IsHeldPick(Key(key, true), true).Should().BeFalse();
+
+    [Test]
+    public void A_hold_that_began_on_a_shop_pick_stays_latched_through_its_repeats()
+    {
+        var held = NpcSessionControl.NextShopPickHeld(Key(Keycode.Space, false), true, false);
+        held = NpcSessionControl.NextShopPickHeld(Key(Keycode.Space, true), false, held);
+
+        held.Should().BeTrue();
+        NpcSessionControl.IsHeldPick(Key(Keycode.Space, true), held).Should().BeTrue();
+    }
+
+    [Test]
+    public void A_hold_on_a_plain_option_menu_keeps_answering_it()
+    {
+        //refining: Yes is highlighted and the hold should keep accepting one refine after another
+        var held = NpcSessionControl.NextShopPickHeld(Key(Keycode.Space, false), false, true);
+
+        held.Should().BeFalse();
+        NpcSessionControl.IsHeldPick(Key(Keycode.Space, true), held).Should().BeFalse();
+    }
 }

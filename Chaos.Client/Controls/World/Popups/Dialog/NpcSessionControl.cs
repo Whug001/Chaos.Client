@@ -822,9 +822,13 @@ public sealed class NpcSessionControl : PrefabPanel
             return;
         }
 
-        //a held enter/space must not pick: the first press opens the next step (often a confirm), and its repeats would
-        //land on that step's highlighted option. Paging through plain text with a held key still works.
-        if (IsHeldPick(e, MenuShop.Visible || MenuList.Visible || DialogOption is { Visible: true, OptionCount: > 0 }))
+        //a fresh enter/space press decides whether this hold may keep picking. A press that buys or picks from a shop
+        //or list latches the hold, because the server answers with a confirm whose first option is highlighted and the
+        //repeats would accept it. Any other press leaves the hold free, so holding space keeps answering plain option
+        //menus -- refining a stack of ore, gems or fiber one confirm after another, as it always has
+        ShopPickHeld = NextShopPickHeld(e, MenuShop.Visible || MenuList.Visible, ShopPickHeld);
+
+        if (IsHeldPick(e, MenuShop.Visible || MenuList.Visible || ShopPickHeld))
         {
             e.Handled = true;
 
@@ -876,8 +880,22 @@ public sealed class NpcSessionControl : PrefabPanel
     }
 
     /// <summary>
-    ///     Whether <paramref name="e" /> is an auto-repeat of Enter or Space while a menu or option list would take it as a
-    ///     pick. Those repeats are swallowed so holding the key buys or answers once, not into the next prompt.
+    ///     Set when the current Enter/Space hold started on a shop or list pick, so its repeats cannot answer the confirm
+    ///     that pick brings up. Cleared by the next fresh press anywhere else.
+    /// </summary>
+    private bool ShopPickHeld;
+
+    /// <summary>
+    ///     The hold latch after <paramref name="e" />: a fresh Enter/Space press latches when it lands on an open shop or
+    ///     list and frees otherwise; repeats and other keys leave it as it was.
+    /// </summary>
+    internal static bool NextShopPickHeld(KeyDownEvent e, bool shopOrListOpen, bool current)
+        => !e.IsRepeat && (e.Keycode is Keycode.Enter or Keycode.Space) ? shopOrListOpen : current;
+
+    /// <summary>
+    ///     Whether <paramref name="e" /> is an auto-repeat of Enter or Space that must be swallowed: one made while a shop
+    ///     or list is open, or one continuing a hold that began on a shop or list pick. Repeats on plain option menus and
+    ///     dialog text go through, so a held key keeps answering them.
     /// </summary>
     internal static bool IsHeldPick(KeyDownEvent e, bool pickerOpen)
         => pickerOpen && e.IsRepeat && (e.Keycode is Keycode.Enter or Keycode.Space);
