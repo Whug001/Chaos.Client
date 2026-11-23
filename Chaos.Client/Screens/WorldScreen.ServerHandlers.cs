@@ -176,7 +176,8 @@ public sealed partial class WorldScreen
     /// </summary>
     private void PredictAndWalk(WorldEntity player, Direction direction)
     {
-        if (KartRefusesStep())
+        //steering the crane predicts nothing: the server consumes the walk as steering and answers with the true position
+        if (KartRefusesStep() || CraneHoldsSteps())
             return;
 
         //bounds check — don't walk off the map edge
@@ -1538,6 +1539,9 @@ public sealed partial class WorldScreen
         }
 
         //unexpected disconnect — show reconnect prompt (skip if this is part of a redirect sequence)
+        if (newState == ConnectionState.Disconnected)
+            ResetCraneControls();
+
         if ((newState == ConnectionState.Disconnected) && !RedirectInProgress)
             DisconnectPopup.Show("The connection has been dropped. Do you wish to log on again?");
     }

@@ -165,6 +165,7 @@ public sealed partial class WorldScreen
         ResetCauseway();
         ResetGlassWay();
         ResetKartRace();
+        ResetCraneControls();
         ResetGuildHallEditor();
         MapRenderer.Dispose();
         MapRenderer = new MapRenderer();

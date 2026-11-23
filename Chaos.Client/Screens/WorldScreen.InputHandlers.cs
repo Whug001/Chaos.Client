@@ -1050,6 +1050,10 @@ public sealed partial class WorldScreen
             {
                 var now = Environment.TickCount64;
 
+                //steering the crane, Space is the drop: sent as always (nothing is predicted for it), and its keycap lights
+                if (CraneInputFor(CraneInput.Space) == CraneInputOutcome.SendOnly)
+                    CraneControls.Press(CraneKey.Space);
+
                 if ((now - LastSpacebarMs) >= SPACEBAR_INTERVAL_MS)
                 {
                     Game.Connection.Spacebar();
@@ -1305,6 +1309,14 @@ public sealed partial class WorldScreen
         if (KartRefusesStep())
             return;
 
+        //steering the crane: the arrow goes to the server as steering and nothing moves or turns locally
+        if (CraneInputFor(CraneInput.Arrow) == CraneInputOutcome.SendOnly)
+        {
+            SteerCrane(direction);
+
+            return;
+        }
+
         Pathfinding.Clear();
         var player = WorldState.GetPlayerEntity();
 
@@ -1375,6 +1387,14 @@ public sealed partial class WorldScreen
         if (CastingSystem.IsTargeting)
         {
             CastingSystem.CancelTargeting();
+            e.Handled = true;
+
+            return;
+        }
+
+        //steering the crane: a right-click path or turn would be consumed as steering and snapped back
+        if (CraneHoldsPointer())
+        {
             e.Handled = true;
 
             return;
@@ -1601,7 +1621,8 @@ public sealed partial class WorldScreen
             e.Handled = true;
         } else if (e.Button == MouseButton.Right)
         {
-            if (MapPathfinder is null)
+            //steering the crane: no follow-and-assail, whose path steps and spacebar would steer or drop the claw
+            if (MapPathfinder is null || CraneHoldsPointer())
                 return;
 
             var player = WorldState.GetPlayerEntity();
@@ -1949,7 +1970,7 @@ public sealed partial class WorldScreen
     /// </summary>
     private void HandleShiftRightClick(int mouseX, int mouseY)
     {
-        if (KartRefusesStep())
+        if (KartRefusesStep() || CraneHoldsPointer())
             return;
 
         if (SeatedView.IsOn)
