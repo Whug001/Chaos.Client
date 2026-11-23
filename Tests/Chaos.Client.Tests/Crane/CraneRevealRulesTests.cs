@@ -125,4 +125,56 @@ public sealed class CraneRevealRulesTests
 
         colors.Should().OnlyHaveUniqueItems();
     }
+
+    //prize type bytes follow the server's CranePrizeType: LoginEffect 0, DeathEffect 1, DeathSound 2, ChatBubble 3,
+    //Mount 4, MountColor 5, Emblem 6, Item 7
+    [Test]
+    [Arguments((byte)0, "Login effect: plays when you log in")]
+    [Arguments((byte)1, "Death effect: plays when you die")]
+    [Arguments((byte)2, "Death sound: plays when you die")]
+    [Arguments((byte)3, "Chat bubble: frames what you say")]
+    [Arguments((byte)4, "Mount: a new mount to ride")]
+    [Arguments((byte)5, "Mount color: a new color for your mount")]
+    [Arguments((byte)6, "Emblem: added to your emblems")]
+    public void KindLine_ExplainsEveryNonItemType(byte prizeType, string line)
+        => CraneRevealRules.KindLine(prizeType).Should().Be(line);
+
+    [Test]
+    public void KindLine_ItemHasNone() => CraneRevealRules.KindLine(7).Should().BeNull();
+
+    [Test]
+    public void WinLine_NewFlagPrize_NamesTheKind()
+        => CraneRevealRules.WinLine(new CranePrizeRevealArgs { PrizeName = "Shatter", PrizeType = 1, IsNew = true })
+                           .Should().Be("You won Shatter (death effect)!");
+
+    [Test]
+    public void WinLine_NewItem_HasNoKind()
+        => CraneRevealRules.WinLine(new CranePrizeRevealArgs { PrizeName = "Raven Wings", PrizeType = 7, IsNew = true })
+                           .Should().Be("You won Raven Wings!");
+
+    [Test]
+    [Arguments((ushort)1, "Duplicate Gilded (login effect): +1 Crane Ticket")]
+    [Arguments((ushort)8, "Duplicate Gilded (login effect): +8 Crane Tickets")]
+    public void WinLine_Duplicate_NamesTheTickets(ushort tickets, string line)
+        => CraneRevealRules.WinLine(new CranePrizeRevealArgs { PrizeName = "Gilded", PrizeType = 0, IsNew = false, TicketsGiven = tickets })
+                           .Should().Be(line);
+
+    [Test]
+    public void Apply_ReportsTheFlipOnlyWhenTheCardTurnsOver()
+    {
+        var state = new CraneRevealState();
+        state.Start(new CranePrizeRevealArgs { PrizeName = "Capsule" });
+
+        //still opening: the press does nothing, so nothing is announced
+        CraneRevealRules.Apply(state, CraneRevealKey.Advance, out var flipped).Should().BeFalse();
+        flipped.Should().BeFalse();
+
+        state.Advance(CraneRevealState.OPEN_MS + CraneRevealState.ARRIVE_MS);
+        CraneRevealRules.Apply(state, CraneRevealKey.Advance, out flipped).Should().BeTrue();
+        flipped.Should().BeTrue();
+
+        state.Advance(CraneRevealState.FLIP_MS);
+        CraneRevealRules.Apply(state, CraneRevealKey.Advance, out flipped).Should().BeTrue();
+        flipped.Should().BeFalse("closing is not a flip");
+    }
 }

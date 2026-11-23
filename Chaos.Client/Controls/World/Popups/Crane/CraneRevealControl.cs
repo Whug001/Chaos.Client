@@ -44,6 +44,7 @@ public sealed class CraneRevealControl : UIPanel
     private static readonly Color BackMark = new(200, 196, 210);
     private static readonly Color FaceFill = new(22, 18, 14);
     private static readonly Color HintColor = new(220, 220, 220);
+    private static readonly Color KindColor = new(190, 184, 200);
     private static readonly Color NameColor = new(240, 232, 208);
     private static readonly Color NewColor = new(255, 230, 90);
     private static readonly Color Pearl = new(226, 222, 214);
@@ -54,6 +55,10 @@ public sealed class CraneRevealControl : UIPanel
     private readonly CraneRevealState Reveal = new();
     private readonly List<string> NameLines = [];
     private readonly List<string> OutcomeLines = [];
+    private readonly List<string> KindLines = [];
+
+    /// <summary>Raised once when the card turns face up, with the prize it shows.</summary>
+    public event Action<CranePrizeRevealArgs>? Flipped;
 
     //time in the phase the control last saw, for the capsule and arrival animations; CraneRevealState keeps its own clock
     private CraneRevealPhase SeenPhase;
@@ -84,11 +89,18 @@ public sealed class CraneRevealControl : UIPanel
 
         var textWidth = CARD_WIDTH - (2 * PADDING);
 
+        //a non-item prize says what it is under its name; its name then keeps to one line so the card still fits
+        KindLines.Clear();
+
+        if (CraneRevealRules.KindLine(prize.PrizeType) is { } kind)
+            KindLines.AddRange(TextRenderer.WrapLines(kind, textWidth));
+
         NameLines.Clear();
-        NameLines.AddRange(TextRenderer.WrapLines(prize.PrizeName, textWidth).Take(NAME_LINES));
+        NameLines.AddRange(TextRenderer.WrapLines(prize.PrizeName, textWidth).Take(KindLines.Count > 0 ? 1 : NAME_LINES));
 
         OutcomeLines.Clear();
         OutcomeLines.AddRange(TextRenderer.WrapLines(CraneRevealRules.OutcomeText(prize.IsNew, prize.TicketsGiven), textWidth));
+
 
         Show();
     }
@@ -135,7 +147,11 @@ public sealed class CraneRevealControl : UIPanel
 
     private void Act(CraneRevealKey key)
     {
-        CraneRevealRules.Apply(Reveal, key);
+        var prize = Reveal.Prize;
+        CraneRevealRules.Apply(Reveal, key, out var flipped);
+
+        if (flipped && prize is not null)
+            Flipped?.Invoke(prize);
 
         if (Reveal.Phase == CraneRevealPhase.Idle)
             Hide();
@@ -339,6 +355,15 @@ public sealed class CraneRevealControl : UIPanel
         foreach (var line in NameLines)
         {
             DrawCentered(spriteBatch, bounds, y, line, NameColor);
+            y += TextRenderer.CHAR_HEIGHT;
+        }
+
+        //what a non-item prize is and when it shows ("Death effect: plays when you die")
+        y += 2;
+
+        foreach (var line in KindLines)
+        {
+            DrawCentered(spriteBatch, bounds, y, line, KindColor);
             y += TextRenderer.CHAR_HEIGHT;
         }
 
