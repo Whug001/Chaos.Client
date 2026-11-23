@@ -94,8 +94,8 @@ public sealed partial class WorldScreen
     }
 
     /// <summary>
-    ///     Shows the controls at the bottom centre of the world view while steering, above the orange bar when that
-    ///     overlaps the view; hides them otherwise. Called on every packet and every frame, since the HUD can switch size.
+    ///     Shows the controls at the left edge of the world view, centred top to bottom, while steering; hides them
+    ///     otherwise. Called on every packet and every frame, since the HUD can switch size.
     /// </summary>
     private void PlaceCraneControls()
     {
@@ -121,17 +121,11 @@ public sealed partial class WorldScreen
             Root.AddChild(CraneControlsPanel);
         }
 
+        //the left edge, centred top to bottom: clear of the orange bar and the chat along the bottom
         var viewport = WorldHud.ViewportBounds;
-        var bottom = viewport.Bottom - CRANE_CONTROLS_MARGIN;
 
-        //an orange bar drawn over the bottom of the view keeps its strip
-        var bar = WorldHud.OrangeBarBounds;
-
-        if ((bar != viewport) && bar.Intersects(viewport) && (bar.Top > viewport.Top + CraneControlsHud.PANEL_HEIGHT))
-            bottom = Math.Min(bottom, bar.Top - CRANE_CONTROLS_MARGIN);
-
-        CraneControlsPanel.X = viewport.X + ((viewport.Width - CraneControlsHud.PANEL_WIDTH) / 2);
-        CraneControlsPanel.Y = bottom - CraneControlsHud.PANEL_HEIGHT;
+        CraneControlsPanel.X = viewport.X + CRANE_CONTROLS_MARGIN;
+        CraneControlsPanel.Y = viewport.Y + ((viewport.Height - CraneControlsHud.PANEL_HEIGHT) / 2);
         CraneControlsPanel.Visible = true;
     }
 
