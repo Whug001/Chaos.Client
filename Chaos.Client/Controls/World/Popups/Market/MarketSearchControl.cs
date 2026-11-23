@@ -15,7 +15,7 @@ namespace Chaos.Client.Controls.World.Popups.Market;
 /// </summary>
 /// <remarks>
 ///     Column 1 (left): item name, seller, the "only items I can use" checkbox, equipment type, and Class + Advanced
-///     Class side by side. Column 2 (middle): level / ability / price ranges. Column 3 (right): the stat-filter chip
+///     Class side by side. Column 2 (middle): level / ability / price ranges, then the "Sort by" dropdown. Column 3 (right): the stat-filter chip
 ///     list with its "+ add a stat" dropdown, on its own. The Search button is centered along the bottom and raises
 ///     <see cref="SearchRequested" />. Pixel positions are a first pass and expected to be nudged in-client.
 /// </remarks>
@@ -77,6 +77,14 @@ public sealed class MarketSearchControl : UIPanel
         ("Magic Resist", MarketStat.MagicResist)
     ];
 
+    //"Sort by" rows, in dropdown order. Row 0 is the server's default (cheapest first), so an untouched dropdown sends
+    //what the market always did.
+    internal static readonly (string Label, MarketSortOrder Order)[] SortOptions =
+    [
+        ("Lowest price", MarketSortOrder.Price),
+        ("Newest", MarketSortOrder.Newest)
+    ];
+
     //index 0 is the dropdown's placeholder row, so a picked index maps to StatFilters[index - 1].
     private static readonly string[] StatOptions = ["+ add a stat", ..StatFilters.Select(filter => filter.Label)];
 
@@ -106,6 +114,7 @@ public sealed class MarketSearchControl : UIPanel
     private CustomTextBox AbilityMaxBox = null!;
     private CustomTextBox PriceMinBox = null!;
     private CustomTextBox PriceMaxBox = null!;
+    private CustomComboBox SortCombo = null!;
 
     public MarketSearchControl(Rectangle rect)
     {
@@ -145,6 +154,7 @@ public sealed class MarketSearchControl : UIPanel
             AbilityMax = ParseU16(AbilityMaxBox.Text),
             PriceMin = ParseI32(PriceMinBox.Text),
             PriceMax = ParseI32(PriceMaxBox.Text),
+            SortOrder = SortOrderAt(SortCombo.SelectedIndex),
             Page = 0
         };
 
@@ -154,6 +164,10 @@ public sealed class MarketSearchControl : UIPanel
 
         return criteria;
     }
+
+    /// <summary>The sort for a "Sort by" row; nothing picked (-1) or an unknown row sorts by price.</summary>
+    internal static MarketSortOrder SortOrderAt(int index)
+        => ((index >= 0) && (index < SortOptions.Length)) ? SortOptions[index].Order : MarketSortOrder.Price;
 
     private static byte MapEquip(int index) => ((index >= 0) && (index < EquipTypeMap.Length)) ? EquipTypeMap[index] : (byte)0;
     private static string? NullIfBlank(string? s) => string.IsNullOrWhiteSpace(s) ? null : s.Trim();
@@ -208,7 +222,11 @@ public sealed class MarketSearchControl : UIPanel
         //numeric range filters: caption above the two min/max boxes — consistent with the left column's label-above layout
         (y, LevelMinBox, LevelMaxBox) = AddLabeledRange("Level", COL2_X, y);
         (y, AbilityMinBox, AbilityMaxBox) = AddLabeledRange("Ability", COL2_X, y);
-        (_, PriceMinBox, PriceMaxBox) = AddLabeledRange("Price", COL2_X, y);
+        (y, PriceMinBox, PriceMaxBox) = AddLabeledRange("Price", COL2_X, y);
+
+        //result order, under the ranges. Inline so its caption is sized to the dropdown and doesn't reach into the
+        //stat column the way a full left-column-width caption would.
+        SortCombo = AddLabeledDropdownInline("Sort by", COL2_X, y, SortOptions.Select(option => option.Label).ToArray());
     }
 
     private void BuildStatColumn()
