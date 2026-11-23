@@ -158,13 +158,16 @@ public sealed partial class WorldScreen
         //execute queued walk when player becomes idle after walk animation.
         var movementHandled = false;
 
-        if (KartRefusesStep())
+        //a kart race or crane steering holds every queued walk and path step: the server would only snap them back
+        var stepsHeld = KartRefusesStep() || CraneHoldsSteps();
+
+        if (stepsHeld)
         {
             Pathfinding.Clear();
             QueuedWalkDirection = null;
         }
 
-        if (!KartRefusesStep() && player is not null && player.IsAtRest && QueuedWalkDirection.HasValue)
+        if (!stepsHeld && player is not null && player.IsAtRest && QueuedWalkDirection.HasValue)
         {
             var queuedDir = QueuedWalkDirection.Value;
             QueuedWalkDirection = null;
@@ -180,7 +183,7 @@ public sealed partial class WorldScreen
         }
 
         //execute next pathfinding step when player becomes idle
-        if (!KartRefusesStep() && !movementHandled && player is not null && player.IsAtRest)
+        if (!stepsHeld && !movementHandled && player is not null && player.IsAtRest)
         {
             if (Pathfinding.Path is { Count: > 0 })
             {
@@ -267,6 +270,7 @@ public sealed partial class WorldScreen
         Camera.ShakeOffset = GiantShake.OffsetAt(TumbleClock.Now, Random.Shared);
         UpdateTumbleLabel();
         UpdateGlassLabel();
+        PlaceCraneControls();
 
         //viewport-layer updates — must always run regardless of which ui panel has input focus
         //so that the world keeps animating visually behind open windows.

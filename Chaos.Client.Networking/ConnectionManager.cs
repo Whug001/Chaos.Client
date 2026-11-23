@@ -605,6 +605,12 @@ public sealed class ConnectionManager : IDisposable
     public event Action<CranePrizeRevealArgs>? OnCranePrizeReveal;
 
     /// <summary>
+    ///     Fired when a crane controls packet is received from the server: the operator's steering started (with the
+    ///     seconds left), its countdown ticked, or it ended.
+    /// </summary>
+    public event Action<CraneControlsArgs>? OnCraneControls;
+
+    /// <summary>
     ///     Fired when a guild hall editor display packet is received from the server: open, close, refused, tiles or NPCs.
     /// </summary>
     public event GuildHallEditorDisplayHandler? OnGuildHallEditorDisplay;
@@ -2110,6 +2116,7 @@ public sealed class ConnectionManager : IDisposable
         PacketHandlers[(byte)ServerOpCode.MountWindowDisplay] = HandleMountWindowDisplay;
         PacketHandlers[(byte)ServerOpCode.EffectWindowDisplay] = HandleEffectWindowDisplay;
         PacketHandlers[(byte)ServerOpCode.CranePrizeReveal] = HandleCranePrizeReveal;
+        PacketHandlers[(byte)ServerOpCode.CraneControls] = HandleCraneControls;
         PacketHandlers[(byte)ServerOpCode.GuildHallEditorDisplay] = HandleGuildHallEditorDisplay;
         PacketHandlers[(byte)ServerOpCode.HallBattleDisplay] = HandleHallBattleDisplay;
         PacketHandlers[(byte)ServerOpCode.FishingDisplay] = HandleFishingDisplay;
@@ -2646,6 +2653,12 @@ public sealed class ConnectionManager : IDisposable
     {
         var args = Client.Deserialize<CranePrizeRevealArgs>(in pkt);
         OnCranePrizeReveal?.Invoke(args);
+    }
+
+    private void HandleCraneControls(ServerPacket pkt)
+    {
+        var args = Client.Deserialize<CraneControlsArgs>(in pkt);
+        OnCraneControls?.Invoke(args);
     }
 
     private void HandleGuildHallEditorDisplay(ServerPacket pkt)
