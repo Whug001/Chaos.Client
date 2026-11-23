@@ -811,6 +811,9 @@ public sealed class NpcSessionControl : PrefabPanel
         base.Update(gameTime);
     }
 
+    /// <summary>Whether the Enter/Space press now being held picked from a shop or list.</summary>
+    private bool HoldStartedOnShopOrList;
+
     public override void OnKeyDown(KeyDownEvent e)
     {
         if (e.Keycode == Keycode.Escape)
@@ -822,9 +825,16 @@ public sealed class NpcSessionControl : PrefabPanel
             return;
         }
 
-        //a held enter/space must not pick: the first press opens the next step (often a confirm), and its repeats would
-        //land on that step's highlighted option. Paging through plain text with a held key still works.
-        if (IsHeldPick(e, MenuShop.Visible || MenuList.Visible || DialogOption is { Visible: true, OptionCount: > 0 }))
+        var shopOrListOpen = MenuShop.Visible || MenuList.Visible;
+        var optionsOpen = DialogOption is { Visible: true, OptionCount: > 0 };
+
+        //a fresh press starts a new hold; remember whether it picks from a shop or list
+        if (!e.IsRepeat)
+            HoldStartedOnShopOrList = shopOrListOpen && (e.Keycode is Keycode.Enter or Keycode.Space);
+
+        //a held enter/space must not pick from a shop or list, nor answer the confirm such a pick opens (its first option
+        //is highlighted). Holding through plain text or a chain of option menus (craft another? yes) still works.
+        if (IsHeldPick(e, shopOrListOpen, optionsOpen, HoldStartedOnShopOrList))
         {
             e.Handled = true;
 
@@ -876,11 +886,14 @@ public sealed class NpcSessionControl : PrefabPanel
     }
 
     /// <summary>
-    ///     Whether <paramref name="e" /> is an auto-repeat of Enter or Space while a menu or option list would take it as a
-    ///     pick. Those repeats are swallowed so holding the key buys or answers once, not into the next prompt.
+    ///     Whether <paramref name="e" /> is an auto-repeat of Enter or Space that must be swallowed: in a shop or list, or
+    ///     on an option menu when the hold began with a shop or list pick (the purchase confirm). Holding the key buys
+    ///     once, not into the next prompt, while option menus that lead to option menus still repeat.
     /// </summary>
-    internal static bool IsHeldPick(KeyDownEvent e, bool pickerOpen)
-        => pickerOpen && e.IsRepeat && (e.Keycode is Keycode.Enter or Keycode.Space);
+    internal static bool IsHeldPick(KeyDownEvent e, bool shopOrListOpen, bool optionsOpen, bool holdStartedOnShopOrList)
+        => e.IsRepeat
+           && (e.Keycode is Keycode.Enter or Keycode.Space)
+           && (shopOrListOpen || (optionsOpen && holdStartedOnShopOrList));
 
     private void UpdateScrollButtons()
     {
