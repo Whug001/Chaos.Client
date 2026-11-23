@@ -1,5 +1,7 @@
 #region
+using Chaos.Client.Collections;
 using Chaos.Client.Controls.World.Popups.Crane;
+using Chaos.Client.ViewModel;
 using Chaos.Networking.Entities.Server;
 #endregion
 
@@ -29,6 +31,9 @@ public sealed partial class WorldScreen
             };
 
             Root.AddChild(CraneReveal);
+
+            //the winner's own line arrives when they turn the card over, never before (the room hears it from the server)
+            CraneReveal.Flipped += prize => WorldState.Chat.AddOrangeBarMessage(CraneRevealRules.WinLine(prize));
         }
 
         //a step or turn queued before the reveal must not go out as steering while it plays
