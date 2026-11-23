@@ -637,6 +637,16 @@ public sealed partial class WorldScreen
         if (player is null)
             return;
 
+        //on the crane's control plate the camera looks at the claw pit, not the operator
+        if (CraneCamera.TryTarget(CurrentMapId, player.TileX, player.TileY, out var pitX, out var pitY))
+        {
+            var low = Camera.TileToWorld((int)pitX, (int)pitY, MapFile.Height);
+            var high = Camera.TileToWorld((int)pitX + 1, (int)pitY + 1, MapFile.Height);
+            Camera.Position = (low + high) / 2;
+
+            return;
+        }
+
         var tileWorld = Camera.TileToWorld(player.TileX, player.TileY, MapFile.Height);
         Camera.Position = tileWorld + player.VisualOffset;
     }

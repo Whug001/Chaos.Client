@@ -25,6 +25,31 @@ public class EffectSpawnerTests
     }
 
     [Test]
+    public void SameEffectOnSameTileTwiceLeavesOneEntry()
+    {
+        //the crane redraws its hovering claw on one tile before the last copy ends; a repeat restarts it, never stacks
+        var effects = new List<Animation>();
+        EffectSpawner.CreateEffect(effects, 449, 100, Info(), tileX: 7, tileY: 7);
+        effects[0].CurrentFrame = 3;
+
+        EffectSpawner.CreateEffect(effects, 449, 100, Info(), tileX: 7, tileY: 7);
+
+        effects.Should().ContainSingle();
+        effects[0].CurrentFrame.Should().Be(0);
+    }
+
+    [Test]
+    public void SameEffectOnOtherTilesStays()
+    {
+        var effects = new List<Animation>();
+        EffectSpawner.CreateEffect(effects, 449, 100, Info(), tileX: 7, tileY: 7);
+        EffectSpawner.CreateEffect(effects, 449, 100, Info(), tileX: 8, tileY: 7);
+        EffectSpawner.CreateEffect(effects, 450, 100, Info(), tileX: 7, tileY: 7);
+
+        effects.Should().HaveCount(3);
+    }
+
+    [Test]
     public void ThirdEffectOnOneEntityEvictsOldest()
     {
         var previous = ClientSettings.MaxEffectAnimationsPerEntity;
