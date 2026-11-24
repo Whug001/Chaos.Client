@@ -1318,6 +1318,11 @@ public static class WorldState
 
         //poll
         connection.OnPoll += args => Poll.Apply(args);
+
+        //prize emotes — subscribed here rather than in WorldScreen so the login-time packet lands in
+        //state even though WorldScreen does not exist yet during world entry (same reason entity
+        //tracking is wired in ChaosGame). the Changed event redraws any open wheel or catalog.
+        connection.OnEmoteUnlocks += args => EmoteUnlocks.Replace(args.BodyAnimations);
     }
 
     /// <summary>

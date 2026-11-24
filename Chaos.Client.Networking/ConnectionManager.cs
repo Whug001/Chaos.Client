@@ -430,7 +430,7 @@ public sealed class ConnectionManager : IDisposable
     /// <summary>
     ///     Fired when the server reports which prize emotes the character has unlocked.
     /// </summary>
-    public event EmoteUnlocksHandler? OnEmoteUnlocks;
+    public event Action<EmoteUnlocksArgs>? OnEmoteUnlocks;
 
     /// <summary>
     ///     Fired when a casting animation should be cancelled.
