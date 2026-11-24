@@ -42,6 +42,21 @@ public sealed class TcgMatchStateTests
     }
 
     [Test]
+    public void The_log_names_an_enthraller_that_enters_and_dies_in_the_same_update()
+    {
+        var state = new TcgMatchState();
+        var update = Update(
+            new TcgEventView(TcgEventType.CreatureEntered, TcgSeat.A, 4, 9, 0, "countess"),
+            new TcgEventView(TcgEventType.ControlChanged, TcgSeat.A, 4, 9, 0, "bear"),
+            new TcgEventView(TcgEventType.ControlChanged, TcgSeat.B, 0, 9, 0, "bear"),
+            new TcgEventView(TcgEventType.CreatureDestroyed, TcgSeat.A, 4, 0, 0, "countess"));
+
+        state.Apply(update, T0, k => char.ToUpper(k[0]) + k[1..]);
+
+        state.Log.Should().ContainInOrder("Bear is enthralled by Countess.", "Bear breaks free.");
+    }
+
+    [Test]
     public void A_return_logs_that_the_creature_broke_free()
     {
         var state = new TcgMatchState();

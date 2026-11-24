@@ -71,20 +71,11 @@ public static class TcgMatchRules
     public static List<int> LegalTargets(TcgDisplayArgs board, TcgCatalogCardView card, Func<string, TcgCatalogCardView?> lookup)
     {
         var you = board.Players[(int)board.YourSeat];
-        var them = board.Players[(int)Other(board.YourSeat)];
 
         if (card.Target == TcgTargetKind.Spell)
             return CanPay(you.Mana, card, 0) ? board.Stack.Select(item => item.CardId).ToList() : [];
 
-        IEnumerable<TcgCreatureView> creatures = card.Target switch
-        {
-            TcgTargetKind.AnyCreature or TcgTargetKind.CreatureOrPlayer => you.Battlefield.Concat(them.Battlefield),
-            TcgTargetKind.EnemyCreature                                 => them.Battlefield,
-            TcgTargetKind.FriendlyCreature                              => you.Battlefield,
-            _                                                           => []
-        };
-
-        var targets = creatures.Where(creature => CanPay(you.Mana, card, HasKeyword(creature.Key, TcgKeyword.Ward, lookup) ? WARD_TAX : 0))
+        var targets = CreatureTargets(board, card.Target).Where(creature => CanPay(you.Mana, card, HasKeyword(creature.Key, TcgKeyword.Ward, lookup) ? WARD_TAX : 0))
                                .Select(creature => creature.Id)
                                .ToList();
 
@@ -92,6 +83,26 @@ public static class TcgMatchRules
             targets.AddRange([PlayerTarget(TcgSeat.A), PlayerTarget(TcgSeat.B)]);
 
         return targets;
+    }
+
+    internal static bool CanCastWithoutTarget(TcgDisplayArgs board, TcgCatalogCardView card)
+        => (card.Type == TcgCardType.Creature)
+           && card.Target != TcgTargetKind.CreatureOrPlayer
+           && (card.Target == TcgTargetKind.Spell ? board.Stack.Count == 0 : !CreatureTargets(board, card.Target).Any())
+           && CanPay(board.Players[(int)board.YourSeat].Mana, card, 0);
+
+    private static IEnumerable<TcgCreatureView> CreatureTargets(TcgDisplayArgs board, TcgTargetKind target)
+    {
+        var you = board.Players[(int)board.YourSeat].Battlefield;
+        var them = board.Players[(int)Other(board.YourSeat)].Battlefield;
+
+        return target switch
+        {
+            TcgTargetKind.AnyCreature or TcgTargetKind.CreatureOrPlayer => you.Concat(them),
+            TcgTargetKind.EnemyCreature => them,
+            TcgTargetKind.FriendlyCreature => you,
+            _ => []
+        };
     }
 
     public static bool CanAttack(TcgDisplayArgs board, TcgCreatureView creature)
@@ -169,7 +180,7 @@ public static class TcgMatchRules
 
     private static bool Affordable(TcgDisplayArgs board, TcgCatalogCardView card, Func<string, TcgCatalogCardView?> lookup)
         => NeedsTarget(card)
-            ? LegalTargets(board, card, lookup).Count > 0
+            ? LegalTargets(board, card, lookup).Count > 0 || CanCastWithoutTarget(board, card)
             : CanPay(board.Players[(int)board.YourSeat].Mana, card, 0);
 
     private static bool HasKeyword(string key, TcgKeyword keyword, Func<string, TcgCatalogCardView?> lookup)

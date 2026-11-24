@@ -52,6 +52,19 @@ public sealed class TcgMatchAnimationTests
     }
 
     [Test]
+    public void Take_and_return_in_one_update_use_both_sides()
+    {
+        var input = new TcgMatchInput(TcgMatchFixtures.Lookup);
+        var board = TcgMatchFixtures.Board(theirs: [TcgMatchFixtures.Creature(9, "bear")]);
+
+        var ownerFeet = TcgMatchWindow.ControlChangeFeet(board, input, 9, TcgSeat.B);
+        var enthrallerFeet = TcgMatchWindow.ControlChangeFeet(board, input, 9, TcgSeat.A);
+
+        ownerFeet.Should().Be(TcgMatchWindow.AnimationStart(board, input, 9)!.Value.Feet);
+        enthrallerFeet.Should().NotBe(ownerFeet);
+    }
+
+    [Test]
     public void A_thrall_returning_before_its_enthraller_dies_keeps_both_animations_findable()
     {
         var input = new TcgMatchInput(TcgMatchFixtures.Lookup);

@@ -66,6 +66,7 @@ public sealed class TcgMatchInputTests
         var board = Board(mana: [Mana(1, TcgElement.Fire)]);
         board.Players[0].Hand.Add(new TcgCardView(7, "countess"));
         var input = Input();
+        TcgMatchRules.Play(board, board.Players[0].Hand.Single(), Lookup, false).CanPlay.Should().BeTrue();
 
         input.ClickHandCard(board, 7);
         var action = input.ChoosePlay(board);
@@ -74,6 +75,20 @@ public sealed class TcgMatchInputTests
         action.CardId.Should().Be(7);
         action.TargetId.Should().Be(0);
         input.Mode.Should().Be(TcgInputMode.Idle);
+    }
+
+    [Test]
+    public void An_unaffordable_ward_target_does_not_allow_a_targetless_cast()
+    {
+        var board = Board(mana: [Mana(1, TcgElement.Fire)], theirs: [Creature(9, "golem")]);
+        var card = new TcgCardView(7, "countess");
+        board.Players[0].Hand.Add(card);
+        var input = Input();
+
+        TcgMatchRules.Play(board, card, Lookup, false).CanPlay.Should().BeFalse();
+        input.ClickHandCard(board, card.Id);
+
+        input.ChoosePlay(board).Should().BeNull();
     }
 
     [Test]

@@ -37,9 +37,27 @@ public sealed class TcgMatchState
         if ((Latest is null) || !string.Equals(Latest.MatchId, update.MatchId, StringComparison.Ordinal))
             Reset();
 
+        var previous = Latest;
+        var playerNames = update.Players.Select(p => p.Name).ToList();
+        TcgSeat? you = update.Spectating ? null : update.YourSeat;
+
+        string? FindCreatureName(int id)
+        {
+            var name = CreatureName(update, id, cardName) ?? CreatureName(previous, id, cardName);
+
+            if (name is not null)
+                return name;
+
+            var key = update.Events.FirstOrDefault(e => (e.SourceId == id) && e.Type is TcgEventType.CreatureEntered or TcgEventType.CreatureDestroyed)?.Key;
+
+            return string.IsNullOrEmpty(key) ? null : cardName(key);
+        }
+
         Latest = update;
         ReceivedAt = now;
         Hint = update.Hint ?? string.Empty;
+
+        Func<int, string?> creatureName = FindCreatureName;
 
         foreach (var e in update.Events)
         {
@@ -50,9 +68,7 @@ public sealed class TcgMatchState
             else if ((e.Type == TcgEventType.Redrew) && (e.Seat == update.YourSeat))
                 RedrawDone = true;
 
-            TcgSeat? you = update.Spectating ? null : update.YourSeat;
-
-            if (TcgMatchText.LogLine(e, you, update.Players.Select(p => p.Name).ToList(), cardName, id => CreatureName(update, id, cardName)) is { } line)
+            if (TcgMatchText.LogLine(e, you, playerNames, cardName, creatureName) is { } line)
                 AddLog(line);
         }
 
@@ -72,8 +88,8 @@ public sealed class TcgMatchState
             AddLog((update.Rejected == TcgRejectReason.WrongMana) && (WrongManaNote is { } note) ? note : TcgMatchText.RejectText(update.Rejected));
     }
 
-    private static string? CreatureName(TcgDisplayArgs board, int id, Func<string, string> cardName)
-        => board.Players.SelectMany(p => p.Battlefield).FirstOrDefault(c => c.Id == id) is { } creature ? cardName(creature.Key) : null;
+    private static string? CreatureName(TcgDisplayArgs? board, int id, Func<string, string> cardName)
+        => board?.Players.SelectMany(p => p.Battlefield).FirstOrDefault(c => c.Id == id) is { } creature ? cardName(creature.Key) : null;
 
     public void MarkRedrawSent() => RedrawDone = true;
 

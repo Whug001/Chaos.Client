@@ -294,9 +294,11 @@ public sealed partial class TcgMatchWindow
     {
         var seats = new[] { playing.YourSeat, TcgMatchRules.Other(playing.YourSeat) };
 
+        var past = Queue.PastEvents;
+
         foreach (var id in FreshIds)
         {
-            if (DestroyedIds.Contains(id))
+            if (DestroyedIds.Contains(id) || AnimatedIds.Contains(id))
                 continue;
 
             foreach (var seat in seats)
@@ -308,8 +310,11 @@ public sealed partial class TcgMatchWindow
                     continue;
 
                 var view = creatures[index];
-                var yours = seat == playing.YourSeat;
-                var slot = DrawFeet(playing, Input, id, yours, index, creatures.Count);
+                var control = past.LastOrDefault(e => (e.Type == TcgEventType.ControlChanged) && (e.TargetId == id));
+                var yours = (control?.Seat ?? seat) == playing.YourSeat;
+                var slot = control is null
+                    ? DrawFeet(playing, Input, id, yours, index, creatures.Count)
+                    : ControlChangeFeet(playing, Input, id, control.Seat);
                 var feet = new Point(ScreenX + slot.X, ScreenY + slot.Y);
                 var tint = view.Tapped ? TappedTint : Color.White;
 

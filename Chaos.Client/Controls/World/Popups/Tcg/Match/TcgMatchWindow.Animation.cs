@@ -390,21 +390,36 @@ public sealed partial class TcgMatchWindow
     /// <summary>Slides the moved creature from its slot on the shown (pre-update) board to its slot on the playing board.</summary>
     private void DrawControlAnimation(SpriteBatch batch, TcgEventView e, float p, int clockMs)
     {
-        if ((Queue.PlayingBoard is not { } after) || (AnimationStart(after, Input, e.TargetId) is not { } end) || (Catalog.Get(end.Key) is not { } card))
+        if ((Queue.PlayingBoard is not { } after) || (Catalog.Get(e.Key) is not { } card))
             return;
 
-        var from = Queue.ShownBoard is { } before ? AnimationStart(before, Input, e.TargetId) : null;
-        var start = from?.Feet ?? end.Feet;
-        var feet = LerpPoint(start, end.Feet, p);
+        var sourceSeat = TcgMatchRules.Other(e.Seat);
+        var before = Queue.ShownBoard ?? after;
+        var start = ControlChangeFeet(before, Input, e.TargetId, sourceSeat);
+        var end = ControlChangeFeet(after, Input, e.TargetId, e.Seat);
+        var feet = LerpPoint(start, end, p);
 
         Creature.Draw(
             batch,
             card,
             new Point(ScreenX + feet.X, ScreenY + feet.Y),
-            TcgMatchLayout.Facing(end.Yours),
+            TcgMatchLayout.Facing(e.Seat == after.YourSeat),
             TcgBoardCreature.Pose.Walk,
             clockMs,
             Color.White);
+    }
+
+    //A take and return can share an update. Either snapshot can then lack the creature on the intermediate side.
+    internal static Point ControlChangeFeet(TcgDisplayArgs board, TcgMatchInput input, int id, TcgSeat seat)
+    {
+        var yours = seat == board.YourSeat;
+
+        if (AnimationStart(board, input, id) is { } position && (position.Yours == yours))
+            return position.Feet;
+
+        var count = board.Players[(int)seat].Battlefield.Count;
+
+        return TcgMatchLayout.CreatureSlot(count, count + 1, yours);
     }
 
     private void DrawPuff(SpriteBatch batch, Point feet, float p)
