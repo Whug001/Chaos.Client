@@ -35,8 +35,11 @@ public static class TcgMatchText
         return active == you ? $"{name}, your turn" : $"{name}, {opponent}'s turn";
     }
 
-    /// <summary>One log line for an event, or null when the event is bookkeeping the player doesn't need to read.</summary>
-    public static string? LogLine(TcgEventView e, TcgSeat? you, IReadOnlyList<string> names, Func<string, string> cardName)
+    /// <summary>
+    ///     One log line for an event, or null when the event is bookkeeping the player doesn't need to read.
+    ///     <paramref name="creatureName" /> names a creature in play by id (the enthraller of a control change).
+    /// </summary>
+    public static string? LogLine(TcgEventView e, TcgSeat? you, IReadOnlyList<string> names, Func<string, string> cardName, Func<int, string?>? creatureName = null)
     {
         var mine = you.HasValue && (e.Seat == you.Value);
         var who = mine ? "You" : names[(int)e.Seat];
@@ -60,6 +63,9 @@ public static class TcgMatchText
             TcgEventType.LifeGained        => mine ? $"You gain {e.Amount} life." : $"{who} gains {e.Amount} life.",
             TcgEventType.Pumped            => $"{card} grew stronger.",
             TcgEventType.CreatureDestroyed => $"{card} was destroyed.",
+            TcgEventType.ControlChanged    => e.SourceId != 0
+                ? $"{card} is enthralled by {(creatureName?.Invoke(e.SourceId) is { Length: > 0 } taker ? taker : who)}."
+                : $"{card} breaks free.",
             TcgEventType.CardDiscarded     => $"{who} discarded {card}.",
             TcgEventType.MatchEnded        => "The match is over.",
             _                              => null

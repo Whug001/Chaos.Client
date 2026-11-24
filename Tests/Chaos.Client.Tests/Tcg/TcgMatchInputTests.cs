@@ -61,6 +61,50 @@ public sealed class TcgMatchInputTests
     }
 
     [Test]
+    public void A_creature_with_no_legal_target_is_cast_with_no_target()
+    {
+        var board = Board(mana: [Mana(1, TcgElement.Fire)]);
+        board.Players[0].Hand.Add(new TcgCardView(7, "countess"));
+        var input = Input();
+
+        input.ClickHandCard(board, 7);
+        var action = input.ChoosePlay(board);
+
+        action!.Type.Should().Be(TcgActionType.Cast);
+        action.CardId.Should().Be(7);
+        action.TargetId.Should().Be(0);
+        input.Mode.Should().Be(TcgInputMode.Idle);
+    }
+
+    [Test]
+    public void A_creature_with_a_legal_target_still_asks_for_one()
+    {
+        var board = Board(mana: [Mana(1, TcgElement.Fire)], theirs: [Creature(9, "bear")]);
+        board.Players[0].Hand.Add(new TcgCardView(7, "countess"));
+        var input = Input();
+
+        input.ClickHandCard(board, 7);
+
+        input.ChoosePlay(board).Should().BeNull();
+        input.Mode.Should().Be(TcgInputMode.Targeting);
+        input.Targets.Should().Equal(9);
+    }
+
+    [Test]
+    public void A_spell_with_no_legal_target_is_unchanged()
+    {
+        var board = Board(mana: [Mana(1, TcgElement.Fire)]);
+        board.Players[0].Hand.Add(new TcgCardView(6, "bolt"));
+        var input = Input();
+
+        input.ClickHandCard(board, 6);
+
+        input.ChoosePlay(board).Should().BeNull();
+        input.Mode.Should().Be(TcgInputMode.Targeting);
+        input.Targets.Should().BeEmpty();
+    }
+
+    [Test]
     public void Mana_places_the_selected_card()
     {
         var board = Board();

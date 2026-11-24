@@ -52,7 +52,7 @@ public sealed class TcgMatchState
 
             TcgSeat? you = update.Spectating ? null : update.YourSeat;
 
-            if (TcgMatchText.LogLine(e, you, update.Players.Select(p => p.Name).ToList(), cardName) is { } line)
+            if (TcgMatchText.LogLine(e, you, update.Players.Select(p => p.Name).ToList(), cardName, id => CreatureName(update, id, cardName)) is { } line)
                 AddLog(line);
         }
 
@@ -71,6 +71,9 @@ public sealed class TcgMatchState
         if (update.Rejected != TcgRejectReason.None)
             AddLog((update.Rejected == TcgRejectReason.WrongMana) && (WrongManaNote is { } note) ? note : TcgMatchText.RejectText(update.Rejected));
     }
+
+    private static string? CreatureName(TcgDisplayArgs board, int id, Func<string, string> cardName)
+        => board.Players.SelectMany(p => p.Battlefield).FirstOrDefault(c => c.Id == id) is { } creature ? cardName(creature.Key) : null;
 
     public void MarkRedrawSent() => RedrawDone = true;
 

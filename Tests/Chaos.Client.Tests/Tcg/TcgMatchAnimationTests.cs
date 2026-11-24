@@ -27,6 +27,54 @@ public sealed class TcgMatchAnimationTests
     }
 
     [Test]
+    public void A_control_change_animates_the_moved_creature()
+    {
+        //SourceId is the enthraller; the moved creature is the target
+        TcgMatchWindow.AnimatedIdsFor(new TcgEventView(TcgEventType.ControlChanged, TcgSeat.A, 4, 9, 0, "bear")).Should().Equal(9);
+        TcgMatchWindow.AnimatedIdsFor(new TcgEventView(TcgEventType.ControlChanged, TcgSeat.B, 0, 9, 0, "bear")).Should().Equal(9);
+    }
+
+    [Test]
+    public void A_moved_creature_starts_on_the_old_side_and_lands_on_the_new_one()
+    {
+        var input = new TcgMatchInput(TcgMatchFixtures.Lookup);
+        var before = TcgMatchFixtures.Board(mine: [TcgMatchFixtures.Creature(4, "countess")], theirs: [TcgMatchFixtures.Creature(9, "bear")]);
+        var after = TcgMatchFixtures.Board(
+            mine: [TcgMatchFixtures.Creature(4, "countess"), TcgMatchFixtures.Creature(9, "bear", sick: true)]);
+
+        var from = TcgMatchWindow.AnimationStart(before, input, 9)!.Value;
+        var to = TcgMatchWindow.AnimationStart(after, input, 9)!.Value;
+
+        from.Yours.Should().BeFalse();
+        to.Yours.Should().BeTrue();
+        to.Feet.Should().NotBe(from.Feet);
+        to.Key.Should().Be(from.Key);
+    }
+
+    [Test]
+    public void A_thrall_returning_before_its_enthraller_dies_keeps_both_animations_findable()
+    {
+        var input = new TcgMatchInput(TcgMatchFixtures.Lookup);
+        //shown (pre-update) board: she still holds the thrall
+        var before = TcgMatchFixtures.Board(theirs: [TcgMatchFixtures.Creature(4, "countess")], mine: [TcgMatchFixtures.Creature(9, "bear")]);
+        var after = TcgMatchFixtures.Board(mine: [], theirs: []);
+        after.Players[1].Battlefield.Add(TcgMatchFixtures.Creature(9, "bear"));
+        var past = new List<TcgEventView> { new(TcgEventType.ControlChanged, TcgSeat.B, 0, 9, 0, "bear") };
+        var destroyed = new HashSet<int>();
+        var fresh = new HashSet<int>();
+
+        TcgMatchWindow.SettledIds(past, destroyed, fresh);
+
+        //the thrall is drawn from the new board; the dying enthraller is still on the shown board
+        fresh.Should().Equal(9);
+        destroyed.Should().BeEmpty();
+        TcgMatchWindow.AnimatedIdsFor(new TcgEventView(TcgEventType.CreatureDestroyed, TcgSeat.B, 0, 4, 0, "countess")).Should().Equal(4);
+        TcgMatchWindow.AnimationStart(before, input, 4).Should().NotBeNull();
+        TcgMatchWindow.AnimationStart(before, input, 9)!.Value.Yours.Should().BeTrue();
+        TcgMatchWindow.AnimationStart(after, input, 9)!.Value.Yours.Should().BeFalse();
+    }
+
+    [Test]
     public void Settled_ids_keep_what_earlier_events_changed()
     {
         var past = new List<TcgEventView>

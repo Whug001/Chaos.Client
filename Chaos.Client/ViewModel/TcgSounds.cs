@@ -43,6 +43,7 @@ public static class TcgSounds
             TcgEventType.Damaged           => CREATURE_DAMAGED,
             TcgEventType.PlayerDamaged     => PLAYER_DAMAGED,
             TcgEventType.CreatureDestroyed => CREATURE_DESTROYED,
+            TcgEventType.ControlChanged    => TRAP_REVEALED,
             _                              => null
         };
 

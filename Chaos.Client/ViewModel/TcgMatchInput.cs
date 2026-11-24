@@ -168,7 +168,13 @@ public sealed class TcgMatchInput(Func<string, TcgCatalogCardView?> lookup)
         if (!TcgMatchRules.NeedsTarget(card))
             return Paid(new TcgActionArgs { Type = TcgActionType.Cast, CardId = SelectedCard }, card, 0);
 
-        Targets = TcgMatchRules.LegalTargets(board, card, lookup);
+        var legal = TcgMatchRules.LegalTargets(board, card, lookup);
+
+        //the server lets a creature enter with no target when its enter effect has nothing to choose
+        if ((card.Type == TcgCardType.Creature) && (legal.Count == 0))
+            return Paid(new TcgActionArgs { Type = TcgActionType.Cast, CardId = SelectedCard }, card, 0);
+
+        Targets = legal;
         Mode = TcgInputMode.Targeting;
 
         return null;

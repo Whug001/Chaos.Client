@@ -42,12 +42,13 @@ public sealed class TcgMatchEventQueue
             TcgEventType.PlayerDamaged     => 600,
             TcgEventType.LifeGained        => 600,
             TcgEventType.CreatureDestroyed => 800,
+            TcgEventType.ControlChanged    => 800,
             _                              => 0
         };
 
     /// <summary>Deaths and the damage that caused them are never skipped to catch up; older entries without them go first.</summary>
     private static bool IsProtectedEvent(TcgEventView e)
-        => e.Type is TcgEventType.CreatureDestroyed or TcgEventType.Damaged or TcgEventType.PlayerDamaged;
+        => e.Type is TcgEventType.CreatureDestroyed or TcgEventType.ControlChanged or TcgEventType.Damaged or TcgEventType.PlayerDamaged;
 
     public void Enqueue(TcgDisplayArgs board)
     {

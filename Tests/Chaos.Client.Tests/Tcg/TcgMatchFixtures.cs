@@ -21,6 +21,7 @@ internal static class TcgMatchFixtures
         ["bear"] = Card("bear", TcgCardType.Creature, generic: 1, fire: 1),
         ["bolt"] = Card("bolt", TcgCardType.Instant, fire: 1, target: TcgTargetKind.EnemyCreature),
         ["heal"] = Card("heal", TcgCardType.Spell, generic: 1, target: TcgTargetKind.Self),
+        ["countess"] = Card("countess", TcgCardType.Creature, generic: 1, target: TcgTargetKind.EnemyCreature),
         ["snare"] = Card("snare", TcgCardType.Trap, generic: 1),
         ["drake"] = Card("drake", TcgCardType.Creature, keywords: TcgKeyword.Flying),
         ["owl"] = Card("owl", TcgCardType.Creature, keywords: TcgKeyword.Reach),

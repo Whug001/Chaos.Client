@@ -23,6 +23,7 @@ public sealed class TcgSoundsTests
     [Arguments(TcgEventType.Damaged, 194)]
     [Arguments(TcgEventType.PlayerDamaged, 195)]
     [Arguments(TcgEventType.CreatureDestroyed, 196)]
+    [Arguments(TcgEventType.ControlChanged, 191)]
     public void Queued_events_map_to_their_sound(TcgEventType type, int sound)
     {
         TcgSounds.ForQueuedEvent(Event(type)).Should().Be(sound);
@@ -58,7 +59,8 @@ public sealed class TcgSoundsTests
         var mapped = new[]
         {
             TcgEventType.CreatureEntered, TcgEventType.CardCast, TcgEventType.TrapRevealed, TcgEventType.Attacked,
-            TcgEventType.Blocked, TcgEventType.Damaged, TcgEventType.PlayerDamaged, TcgEventType.CreatureDestroyed
+            TcgEventType.Blocked, TcgEventType.Damaged, TcgEventType.PlayerDamaged, TcgEventType.CreatureDestroyed,
+            TcgEventType.ControlChanged
         };
 
         foreach (var type in Enum.GetValues<TcgEventType>().Except(mapped))

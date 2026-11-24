@@ -46,6 +46,8 @@ public sealed partial class TcgMatchWindow
             TcgEventType.Attacked          => e.SourceId != 0 ? e.SourceId : e.TargetId,
             TcgEventType.CreatureDestroyed => e.SourceId != 0 ? e.SourceId : e.TargetId,
             TcgEventType.Blocked           => e.SourceId != 0 ? e.SourceId : e.TargetId,
+            //SourceId is the enthraller here, not the creature that moves
+            TcgEventType.ControlChanged    => e.TargetId,
             _                              => 0
         };
 
@@ -61,6 +63,15 @@ public sealed partial class TcgMatchWindow
     {
         foreach (var e in past)
         {
+            //a creature that changed sides is drawn from the new board, like one that just entered
+            if ((e.Type == TcgEventType.ControlChanged) && (e.TargetId > 0))
+            {
+                if (!destroyed.Contains(e.TargetId))
+                    fresh.Add(e.TargetId);
+
+                continue;
+            }
+
             var id = e.SourceId != 0 ? e.SourceId : e.TargetId;
 
             if (id <= 0)
@@ -181,6 +192,10 @@ public sealed partial class TcgMatchWindow
                 break;
             case TcgEventType.Blocked:
                 DrawBlockAnimation(batch, board, e, clockMs);
+
+                break;
+            case TcgEventType.ControlChanged:
+                DrawControlAnimation(batch, e, p, clockMs);
 
                 break;
         }
@@ -370,6 +385,26 @@ public sealed partial class TcgMatchWindow
 
         Creature.Draw(batch, card, feet, facing, TcgBoardCreature.Pose.Idle, clockMs, tint);
         DrawPuff(batch, feet, p);
+    }
+
+    /// <summary>Slides the moved creature from its slot on the shown (pre-update) board to its slot on the playing board.</summary>
+    private void DrawControlAnimation(SpriteBatch batch, TcgEventView e, float p, int clockMs)
+    {
+        if ((Queue.PlayingBoard is not { } after) || (AnimationStart(after, Input, e.TargetId) is not { } end) || (Catalog.Get(end.Key) is not { } card))
+            return;
+
+        var from = Queue.ShownBoard is { } before ? AnimationStart(before, Input, e.TargetId) : null;
+        var start = from?.Feet ?? end.Feet;
+        var feet = LerpPoint(start, end.Feet, p);
+
+        Creature.Draw(
+            batch,
+            card,
+            new Point(ScreenX + feet.X, ScreenY + feet.Y),
+            TcgMatchLayout.Facing(end.Yours),
+            TcgBoardCreature.Pose.Walk,
+            clockMs,
+            Color.White);
     }
 
     private void DrawPuff(SpriteBatch batch, Point feet, float p)

@@ -29,6 +29,29 @@ public sealed class TcgMatchStateTests
     private static TcgEventView Event(TcgEventType type, TcgSeat seat) => new(type, seat, 0, 0, 0, "");
 
     [Test]
+    public void An_enthrall_logs_who_took_whom()
+    {
+        var state = new TcgMatchState();
+        var update = Update(new TcgEventView(TcgEventType.ControlChanged, TcgSeat.A, 4, 9, 0, "bear"));
+        update.Players[0].Battlefield.Add(new TcgCreatureView(4, "countess", 2, 2, 0, false, false));
+        update.Players[0].Battlefield.Add(new TcgCreatureView(9, "bear", 2, 2, 0, false, true));
+
+        state.Apply(update, T0, k => char.ToUpper(k[0]) + k[1..]);
+
+        state.Log.Should().Contain("Bear is enthralled by Countess.");
+    }
+
+    [Test]
+    public void A_return_logs_that_the_creature_broke_free()
+    {
+        var state = new TcgMatchState();
+
+        state.Apply(Update(new TcgEventView(TcgEventType.ControlChanged, TcgSeat.B, 0, 9, 0, "bear")), T0, k => char.ToUpper(k[0]) + k[1..]);
+
+        state.Log.Should().Contain("Bear breaks free.");
+    }
+
+    [Test]
     public void Keeps_the_newest_update()
     {
         var state = new TcgMatchState();

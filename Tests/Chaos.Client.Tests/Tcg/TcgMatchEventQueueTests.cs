@@ -37,6 +37,12 @@ public sealed class TcgMatchEventQueueTests
     }
 
     [Test]
+    public void A_control_change_holds_the_queue_for_800_ms()
+    {
+        TcgMatchEventQueue.DurationMs(TcgEventType.ControlChanged).Should().Be(800);
+    }
+
+    [Test]
     public void Plays_events_in_order_across_updates()
     {
         var queue = new TcgMatchEventQueue();
