@@ -8,6 +8,7 @@ using Chaos.Client.Definitions;
 using Chaos.Client.Rendering;
 using Chaos.Client.Rendering.CustomEmotes;
 using Chaos.Client.Rendering.Definitions;
+using Chaos.Client.Rendering.Utility;
 using Chaos.Client.Systems;
 using Chaos.Client.Utilities;
 using Chaos.DarkAges.Definitions;
@@ -484,12 +485,17 @@ public sealed class EmoteWheelControl : UIPanel
             DrawEmoteIconCentered(spriteBatch, ClipRect, bounds, texture, content, tint);
 
             if (locked)
-                DrawLockBadge(spriteBatch, bounds);
+                DrawLockBadge(spriteBatch, bounds, ClipRect);
         }
     }
 
-    /// <summary>Draws the padlock at the icon's bottom-right corner. A locked emote still shows what it is.</summary>
-    private void DrawLockBadge(SpriteBatch spriteBatch, Rectangle iconBounds)
+    /// <summary>
+    ///     Draws the padlock at the icon's bottom-right corner, cropped to <paramref name="clipRect" /> (the calling
+    ///     cell's own clip, already intersected with the scroll viewport). A locked emote still shows what it is.
+    ///     The badge is drawn scaled, so a partly scrolled row must crop the source too: testing the full badge
+    ///     against the wheel clip and drawing it whole spills it over the surrounding panel.
+    /// </summary>
+    private void DrawLockBadge(SpriteBatch spriteBatch, Rectangle iconBounds, Rectangle clipRect)
     {
         //built late: the device may not exist on the first draw, and a miss rebuilds on the next one
         _lockTexture ??= PixelSprite.ToTexture(LockBadge.Art);
@@ -501,10 +507,10 @@ public sealed class EmoteWheelControl : UIPanel
         var h = LockBadge.Art.Height * LOCK_BADGE_SCALE;
         var dest = new Rectangle(iconBounds.Right - w, iconBounds.Bottom - h, w, h);
 
-        if (!dest.Intersects(ClipRect))
+        if (!DrawClip.ClipScaled(dest, clipRect, LockBadge.Art.Width, LockBadge.Art.Height, out var clipped, out var source))
             return;
 
-        spriteBatch.Draw(_lockTexture, dest, Color.White);
+        spriteBatch.Draw(_lockTexture, clipped, source, Color.White);
     }
 
     /// <summary>
@@ -808,7 +814,7 @@ public sealed class EmoteWheelControl : UIPanel
             DrawEmoteIconCentered(spriteBatch, ClipRect, bounds, _iconTexture, _iconContent, tint);
 
             if (locked)
-                _owner.DrawLockBadge(spriteBatch, bounds);
+                _owner.DrawLockBadge(spriteBatch, bounds, ClipRect);
         }
 
         public override void OnClick(ClickEvent e)
@@ -927,7 +933,7 @@ public sealed class EmoteWheelControl : UIPanel
             DrawEmoteIconCentered(spriteBatch, ClipRect, bounds, _iconTexture, _iconContent, tint);
 
             if (locked)
-                _owner.DrawLockBadge(spriteBatch, bounds);
+                _owner.DrawLockBadge(spriteBatch, bounds, ClipRect);
         }
 
         public override void OnClick(ClickEvent e)

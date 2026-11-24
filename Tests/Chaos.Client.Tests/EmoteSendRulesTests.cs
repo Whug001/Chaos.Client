@@ -6,6 +6,8 @@ using FluentAssertions;
 
 namespace Chaos.Client.Tests;
 
+//the badge test reflects over static PixelArt across the client assembly: keep these out of the parallel run.
+[NotInParallel]
 public sealed class EmoteSendRulesTests
 {
     [Test]
@@ -66,6 +68,49 @@ public sealed class EmoteSendRulesTests
     }
 
     [Test]
+    public async Task The_send_helper_consults_the_unlock_state()
+    {
+        //TrySendEmote is the only sanctioned sender: it must refuse locked emotes itself, so a call site
+        //that forgets the check cannot send. A helper that sends without consulting the unlock state fails here.
+        var text = await File.ReadAllTextAsync(Path.Combine(RepoRoot(), "Chaos.Client/Screens/WorldScreen.InputHandlers.cs"));
+        var helper = ExtractMethodBody(text, "TrySendEmote(BodyAnimation");
+
+        helper.Should().Contain("EmoteSendRules.MaySend", "the helper must consult the unlock state before sending");
+        helper.Should().Contain("Connection.SendEmote(", "the helper is the one place that sends");
+
+        await Task.CompletedTask;
+    }
+
+    [Test]
+    public async Task Local_playback_only_follows_a_successful_send()
+    {
+        //the wheel release plays the emote locally for instant feedback; that call must stay conditional on
+        //TrySendEmote's true return, or a locked emote would play over the refusal line without ever sending
+        var root = RepoRoot();
+
+        foreach (var file in SendSiteFiles(root))
+        {
+            var lines = await File.ReadAllLinesAsync(file);
+
+            for (var i = 0; i < lines.Length; i++)
+            {
+                if (!lines[i].Contains("TryPlayLocalEmote(", StringComparison.Ordinal)
+                    || lines[i].Contains("void TryPlayLocalEmote", StringComparison.Ordinal))
+                    continue;
+
+                //the call sits under a TrySendEmote guard on the same line or the line above
+                var guarded = lines[i].Contains("TrySendEmote", StringComparison.Ordinal)
+                    || ((i > 0) && lines[i - 1].Contains("TrySendEmote", StringComparison.Ordinal));
+
+                guarded.Should()
+                       .BeTrue($"{Path.GetFileName(file)}:{i + 1} plays an emote locally without a TrySendEmote guard");
+            }
+        }
+
+        await Task.CompletedTask;
+    }
+
+    [Test]
     public async Task The_lock_badge_has_no_near_white_and_a_unique_key()
     {
         var art = LockBadge.Art;
@@ -74,7 +119,14 @@ public sealed class EmoteSendRulesTests
         art.Width.Should().Be(7);
         art.Height.Should().Be(8);
 
-        foreach (var color in art.Colors())
+        var opaque = art.Colors().ToList();
+
+        //an all-transparent badge passes the size, key and near-white checks while drawing nothing
+        opaque.Should().NotBeEmpty("the badge must paint visible pixels");
+        opaque.Should()
+              .HaveCountGreaterThanOrEqualTo(2, "the padlock reads as a shackle over a body, not one flat blob");
+
+        foreach (var color in opaque)
             (color is { R: >= 220, G: >= 220, B: >= 220 }).Should()
                                                                 .BeFalse($"a near-white badge would read as unlocked: {color}");
 
@@ -107,6 +159,19 @@ public sealed class EmoteSendRulesTests
         throw new DirectoryNotFoundException($"Could not locate Chaos.Client.slnx above {AppContext.BaseDirectory}");
     }
 
+    //returns one method body (definition anchor through its matching close brace), skipping over
+    //strings, chars and comments so a brace inside them cannot end the scan early
+    private static string ExtractMethodBody(string text, string anchor)
+    {
+        var at = text.IndexOf(anchor, StringComparison.Ordinal);
+        at.Should().BeGreaterThanOrEqualTo(0, $"expected {anchor} to be defined");
+
+        var end = FindBodyEnd(text, at);
+        end.Should().BeGreaterThan(at);
+
+        return text.Substring(at, end - at + 1);
+    }
+
     //removes one method body (definition anchor through its matching close brace), skipping over
     //strings, chars and comments so a brace inside them cannot end the scan early
     private static string RemoveMethodBody(string text, string anchor)
@@ -114,6 +179,16 @@ public sealed class EmoteSendRulesTests
         var at = text.IndexOf(anchor, StringComparison.Ordinal);
         at.Should().BeGreaterThanOrEqualTo(0, $"expected {anchor} to be defined");
 
+        var end = FindBodyEnd(text, at);
+        end.Should().BeGreaterThan(at);
+
+        return text.Remove(at, end - at + 1);
+    }
+
+    //index of the close brace matching the first open brace at or after at, skipping over
+    //strings, chars and comments so a brace inside them cannot end the scan early
+    private static int FindBodyEnd(string text, int at)
+    {
         var open = text.IndexOf('{', at);
         open.Should().BeGreaterThanOrEqualTo(0);
 
@@ -172,13 +247,13 @@ public sealed class EmoteSendRulesTests
                 depth--;
 
                 if (depth == 0)
-                    return text.Remove(at, i - at + 1);
+                    return i;
             }
 
             i++;
         }
 
-        throw new InvalidOperationException($"Could not find the end of {anchor}");
+        throw new InvalidOperationException($"Could not find the end of the body at {at}");
     }
 
     private static IEnumerable<string> AllPixelArtKeys()

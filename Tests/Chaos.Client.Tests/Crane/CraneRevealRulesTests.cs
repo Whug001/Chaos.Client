@@ -146,7 +146,9 @@ public sealed class CraneRevealRulesTests
     public void Prize_type_eight_is_an_emote()
     {
         CraneRevealRules.KindLabel(8).Should().Be("emote");
-        CraneRevealRules.KindLine(8).Should().NotBeNull();
+
+        //the card must name the emote wording, not pass with any non-null line (or the chat-bubble copy)
+        CraneRevealRules.KindLine(8).Should().Be("Emote: a new emote for the wheel");
     }
 
     [Test]

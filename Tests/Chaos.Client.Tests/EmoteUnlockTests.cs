@@ -10,10 +10,18 @@ using FluentAssertions;
 
 namespace Chaos.Client.Tests;
 
+//WorldState is static and shared with every other test class (notably the TCG ranked tests), so these
+//never run beside other tests — same mechanism as WorldStateGuildCloakLookTests.
+[NotInParallel]
 public sealed class EmoteUnlockTests
 {
     //GameClient decodes with the Korean code page, which the test host does not load by default
     static EmoteUnlockTests() => Encoding.RegisterProvider(CodePagesEncodingProvider.Instance);
+
+    //a failed assert must not leak unlocks into the next test: every static-touching test cleans up in a
+    //finally, and this catches the rest
+    [After(Test)]
+    public void Teardown() => WorldState.ResetAll();
 
     private static ServerPacket UnlocksPacket(params byte[] owned)
     {
@@ -109,9 +117,12 @@ public sealed class EmoteUnlockTests
         {
             manager.ProcessPackets([UnlocksPacket(50, 57)]);
 
-            WorldState.EmoteUnlocks.IsLocked(50).Should().BeFalse("the login packet listed it");
-            WorldState.EmoteUnlocks.IsLocked(57).Should().BeFalse("the login packet listed it");
-            WorldState.EmoteUnlocks.IsLocked(48).Should().BeTrue("the login packet did not list it");
+            //pin all ten bytes through the real packet path: a converter that dropped or added a byte
+            //must fail here, not just the two bytes the old test checked
+            for (var bodyAnimation = 48; bodyAnimation <= 57; bodyAnimation++)
+                WorldState.EmoteUnlocks.IsLocked(bodyAnimation)
+                     .Should()
+                     .Be(bodyAnimation != 50 && bodyAnimation != 57, $"byte {bodyAnimation}");
         } finally
         {
             WorldState.ResetAll();
