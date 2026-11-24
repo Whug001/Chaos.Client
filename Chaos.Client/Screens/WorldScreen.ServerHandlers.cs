@@ -1225,6 +1225,8 @@ public sealed partial class WorldScreen
 
     //--- animations / effects / sound ---
 
+    private void HandleEmoteUnlocks(EmoteUnlocksArgs args) => WorldState.EmoteUnlocks.Replace(args.BodyAnimations);
+
     private void HandleBodyAnimation(BodyAnimationArgs args)
     {
         var entity = WorldState.GetEntity(args.SourceId);

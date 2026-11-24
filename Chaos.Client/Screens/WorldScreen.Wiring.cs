@@ -82,6 +82,7 @@ public sealed partial class WorldScreen
 
         //animations / effects / sound
         Game.Connection.OnBodyAnimation += HandleBodyAnimation;
+        Game.Connection.OnEmoteUnlocks += HandleEmoteUnlocks;
         Game.Connection.OnAnimation += HandleAnimation;
         Game.Connection.OnSound += HandleSound;
         Game.Connection.OnCancelCasting += CastingSystem.CancelChant;

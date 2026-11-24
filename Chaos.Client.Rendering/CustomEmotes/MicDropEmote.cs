@@ -123,6 +123,7 @@ public sealed class MicDropEmote : PixelArtEmote
     private MicDropEmote() { }
 
     public override int BodyAnimation => BODY_ANIMATION;
+    public override bool RequiresUnlock => true;
     public override string Name => "Mic Drop";
     public override int PreviewFrame => PREVIEW_FRAME;
     public override float DurationMs => TOTAL_MS;

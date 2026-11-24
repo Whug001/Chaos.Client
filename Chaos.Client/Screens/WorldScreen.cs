@@ -1147,6 +1147,7 @@ public sealed partial class WorldScreen : IScreen
         Game.Connection.OnPortraitPicture -= HandlePortraitPicture;
         Game.Connection.OnPaintedPortraitDisplay -= HandlePaintedPortraitDisplay;
         Game.Connection.OnBodyAnimation -= HandleBodyAnimation;
+        Game.Connection.OnEmoteUnlocks -= HandleEmoteUnlocks;
         Game.Connection.OnAnimation -= HandleAnimation;
         Game.Connection.OnSound -= HandleSound;
         Game.Connection.OnCancelCasting -= CastingSystem.CancelChant;

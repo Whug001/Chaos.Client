@@ -126,6 +126,7 @@ public sealed class TinyViolinEmote : PixelArtEmote
     private TinyViolinEmote() { }
 
     public override int BodyAnimation => BODY_ANIMATION;
+    public override bool RequiresUnlock => true;
     public override string Name => "Tiny Violin";
     public override int PreviewFrame => PREVIEW_FRAME;
     public override float DurationMs => TOTAL_MS;

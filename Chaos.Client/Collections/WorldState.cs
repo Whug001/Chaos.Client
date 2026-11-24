@@ -298,6 +298,11 @@ public static class WorldState
     public static BeautyShop BeautyShop { get; } = new();
 
     /// <summary>
+    ///     Which Crane Arcade prize emotes the current character has won. Empty at login; cleared on logout.
+    /// </summary>
+    public static EmoteUnlockState EmoteUnlocks { get; } = new();
+
+    /// <summary>
     ///     Authoritative dye shop state (items, colours, prices and the player's selection).
     /// </summary>
     public static DyeShop DyeShop { get; } = new();
@@ -598,6 +603,7 @@ public static class WorldState
         NpcInteraction.Close();
         Exchange.Close();
         Bank.Clear();
+        EmoteUnlocks.Clear();
         WorldList.Clear();
         EmblemBook.Clear();
         UserOptions.ClearServerSettings();

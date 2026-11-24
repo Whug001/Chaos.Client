@@ -319,6 +319,11 @@ public delegate void ForceClientPacketHandler(ForceClientPacketArgs args);
 public delegate void HealthBarHandler(HealthBarArgs args);
 
 /// <summary>
+///     Fired when the server reports which prize emotes the character has unlocked.
+/// </summary>
+public delegate void EmoteUnlocksHandler(EmoteUnlocksArgs args);
+
+/// <summary>
 ///     Fired when the ambient light level changes (time of day).
 /// </summary>
 public delegate void LightLevelHandler(LightLevelArgs args);

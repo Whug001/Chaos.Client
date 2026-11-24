@@ -428,6 +428,11 @@ public sealed class ConnectionManager : IDisposable
     public event BodyAnimationHandler? OnBodyAnimation;
 
     /// <summary>
+    ///     Fired when the server reports which prize emotes the character has unlocked.
+    /// </summary>
+    public event EmoteUnlocksHandler? OnEmoteUnlocks;
+
+    /// <summary>
     ///     Fired when a casting animation should be cancelled.
     /// </summary>
     public event CancelCastingHandler? OnCancelCasting;
@@ -2200,6 +2205,7 @@ public sealed class ConnectionManager : IDisposable
         PacketHandlers[(byte)ServerOpCode.HealthBar] = HandleHealthBar;
         PacketHandlers[(byte)ServerOpCode.Sound] = HandleSound;
         PacketHandlers[(byte)ServerOpCode.BodyAnimation] = HandleBodyAnimation;
+        PacketHandlers[(byte)ServerOpCode.EmoteUnlocks] = HandleEmoteUnlocks;
         PacketHandlers[(byte)ServerOpCode.Animation] = HandleAnimation;
         PacketHandlers[(byte)ServerOpCode.Cooldown] = HandleCooldown;
         PacketHandlers[(byte)ServerOpCode.Effect] = HandleEffect;
@@ -3133,6 +3139,12 @@ public sealed class ConnectionManager : IDisposable
     {
         var args = Client.Deserialize<BodyAnimationArgs>(in pkt);
         OnBodyAnimation?.Invoke(args);
+    }
+
+    private void HandleEmoteUnlocks(ServerPacket pkt)
+    {
+        var args = Client.Deserialize<EmoteUnlocksArgs>(in pkt);
+        OnEmoteUnlocks?.Invoke(args);
     }
 
     private void HandleAnimation(ServerPacket pkt)

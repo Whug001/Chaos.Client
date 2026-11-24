@@ -102,6 +102,7 @@ public sealed class PressFEmote : PixelArtEmote
     private PressFEmote() { }
 
     public override int BodyAnimation => BODY_ANIMATION;
+    public override bool RequiresUnlock => true;
     public override string Name => "Press F";
     public override int PreviewFrame => PREVIEW_FRAME;
     public override float DurationMs => TOTAL_MS;
