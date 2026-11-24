@@ -582,7 +582,25 @@ public sealed partial class WorldScreen
         if (player is null || !player.IsAtRest)
             return;
 
-        Game.Connection.SendEmote(GameActions.EmoteAnimation(action));
+        TrySendEmote(GameActions.EmoteAnimation(action));
+    }
+
+    /// <summary>
+    ///     Sends an emote unless it is a locked Crane Arcade prize: then the orange bar says where to win it
+    ///     and nothing is sent or played locally. True when the emote was sent.
+    /// </summary>
+    private bool TrySendEmote(BodyAnimation animation)
+    {
+        if (!EmoteSendRules.MaySend(WorldState.EmoteUnlocks, animation))
+        {
+            WorldState.Chat.AddOrangeBarMessage(EmoteUnlockState.LOCKED_MESSAGE);
+
+            return false;
+        }
+
+        Game.Connection.SendEmote(animation);
+
+        return true;
     }
 
     /// <summary>Records a song note into the live call, and sends the answer once all four are in.</summary>

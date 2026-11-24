@@ -9,8 +9,14 @@ using FluentAssertions;
 
 namespace Chaos.Client.Tests;
 
+//two tests below mutate the static WorldState (the ranked queue survives Clear by design), which other
+//test classes also touch — notably EmoteUnlockTests.ResetAll. Serialise like WorldStateGuildCloakLookTests.
+[NotInParallel]
 public sealed class TcgRankedStateTests
 {
+    [After(Test)]
+    public void Teardown() => WorldState.ResetAll();
+
     private static readonly DateTime Now = new(2026, 10, 17, 12, 0, 0, DateTimeKind.Utc);
 
     private static TcgRankedDisplayArgs Args(

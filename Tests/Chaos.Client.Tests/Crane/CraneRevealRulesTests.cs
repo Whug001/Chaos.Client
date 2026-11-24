@@ -127,7 +127,7 @@ public sealed class CraneRevealRulesTests
     }
 
     //prize type bytes follow the server's CranePrizeType: LoginEffect 0, DeathEffect 1, DeathSound 2, ChatBubble 3,
-    //Mount 4, MountColor 5, Emblem 6, Item 7
+    //Mount 4, MountColor 5, Emblem 6, Item 7, Emote 8
     [Test]
     [Arguments((byte)0, "Login effect: plays when you log in")]
     [Arguments((byte)1, "Death effect: plays when you die")]
@@ -141,6 +141,15 @@ public sealed class CraneRevealRulesTests
 
     [Test]
     public void KindLine_ItemHasNone() => CraneRevealRules.KindLine(7).Should().BeNull();
+
+    [Test]
+    public void Prize_type_eight_is_an_emote()
+    {
+        CraneRevealRules.KindLabel(8).Should().Be("emote");
+
+        //the card must name the emote wording, not pass with any non-null line (or the chat-bubble copy)
+        CraneRevealRules.KindLine(8).Should().Be("Emote: a new emote for the wheel");
+    }
 
     [Test]
     public void WinLine_NewFlagPrize_NamesTheKind()

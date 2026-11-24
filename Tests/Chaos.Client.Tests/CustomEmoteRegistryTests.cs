@@ -12,8 +12,8 @@ public class CustomEmoteRegistryTests
     {
         foreach (var emote in CustomEmoteRegistry.All)
         {
-            //Chaos-Server WorldServer.RelaysEmote passes 1..47 and drops everything else
-            emote.BodyAnimation.Should().BeInRange(1, 47, emote.Name);
+            //Chaos-Server WorldServer.RelaysEmote passes 1..EmoteRelay.MaxBodyAnimation (57) and drops everything else
+            emote.BodyAnimation.Should().BeInRange(1, 57, emote.Name);
 
             Enum.IsDefined(typeof(BodyAnimation), (byte)emote.BodyAnimation)
                 .Should()
@@ -141,12 +141,15 @@ public class CustomEmoteRegistryTests
     }
 
     [Test]
-    public async Task The_registry_lists_all_twelve_in_catalog_order()
+    public async Task The_registry_lists_all_eighteen_in_catalog_order()
     {
         CustomEmoteRegistry.All.Select(e => e.Name)
                            .Should()
                            .Equal("Sunglasses", "Middle Finger", "Heart Eyes", "Halo", "Lightbulb", "Anger Steam", "Party Hat",
-                                  "Zzz Cloud", "Money Eyes", "Crown", "Skull Puff", "Oh Yeah!");
+                                  "Zzz Cloud", "Money Eyes", "Crown", "Skull Puff", "Oh Yeah!",
+                                  "Reverse Card", "Press F", "Popcorn",
+                                  "Mic Drop", "Tiny Violin", "Stonks",
+                                  "Salty", "Tumbleweed", "Red Flag", "Facepalm");
 
         await Task.CompletedTask;
     }
