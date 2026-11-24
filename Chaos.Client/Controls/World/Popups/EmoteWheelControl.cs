@@ -1,11 +1,14 @@
 #region
+using Chaos.Client.Collections;
 using Chaos.Client.Controls.Components;
 using Chaos.Client.Controls.Custom;
 using Chaos.Client.Controls.Generic;
 using Chaos.Client.Controls.Scrolling;
 using Chaos.Client.Definitions;
 using Chaos.Client.Rendering;
+using Chaos.Client.Rendering.CustomEmotes;
 using Chaos.Client.Rendering.Definitions;
+using Chaos.Client.Rendering.Utility;
 using Chaos.Client.Systems;
 using Chaos.Client.Utilities;
 using Chaos.DarkAges.Definitions;
@@ -42,6 +45,10 @@ public sealed class EmoteWheelControl : UIPanel
     private const int CATALOG_PAD = 6;
     private const int CATALOG_SCROLL_STEP = CATALOG_CELL_HEIGHT;
 
+    //a locked prize emote draws at this opacity with the padlock at its icon's bottom-right corner
+    private const float LOCKED_ICON_OPACITY = 0.4f;
+    private const int LOCK_BADGE_SCALE = 2;
+
     private readonly bool[] _slotHasEmote = new bool[EmoteCatalog.SLOT_COUNT];
     private readonly UILabel[] _slotPlaceholders = new UILabel[EmoteCatalog.SLOT_COUNT];
     private readonly BodyAnimation?[] _slots = new BodyAnimation?[EmoteCatalog.SLOT_COUNT];
@@ -56,6 +63,7 @@ public sealed class EmoteWheelControl : UIPanel
     private readonly ScrollViewerControl _catalogScroll;
 
     private Texture2D? _catalogBackground;
+    private Texture2D? _lockTexture;
     private int _centerX;
     private int _wheelCenterX;
     private int _wheelCenterY;
@@ -181,6 +189,9 @@ public sealed class EmoteWheelControl : UIPanel
         IsHitTestVisible = true;
         InputDispatcher.Instance?.PushControl(this);
         StackDepthAtOpen = InputDispatcher.Instance?.ControlStackCount ?? 0;
+        //redraw at once when the unlock packet removes a lock, so a fresh win is usable without relogging
+        WorldState.EmoteUnlocks.Changed -= OnUnlocksChanged;
+        WorldState.EmoteUnlocks.Changed += OnUnlocksChanged;
     }
 
     public void UpdateHover(int mouseX, int mouseY)
@@ -203,6 +214,7 @@ public sealed class EmoteWheelControl : UIPanel
     public void Hide()
     {
         SaveSlotsIfDirty();
+        WorldState.EmoteUnlocks.Changed -= OnUnlocksChanged;
         _mode = WheelMode.Wheel;
         _catalogPanel.Visible = false;
         _catalogScroll.Visible = false;
@@ -211,8 +223,17 @@ public sealed class EmoteWheelControl : UIPanel
         InputDispatcher.Instance?.RemoveControl(this);
     }
 
+    private void OnUnlocksChanged()
+    {
+        RefreshSlotIcons();
+        RefreshCatalogIcons();
+        RefreshSlotPicker();
+    }
+
     public override void Dispose()
     {
+        WorldState.EmoteUnlocks.Changed -= OnUnlocksChanged;
+        _lockTexture?.Dispose();
         _wheelBackground.Dispose();
 
         foreach (var wedge in _wedgeHighlights)
@@ -401,7 +422,7 @@ public sealed class EmoteWheelControl : UIPanel
             var col = i % CATALOG_COLUMNS;
             var row = i / CATALOG_COLUMNS;
 
-            var cell = new CatalogCell(entry, anim => SaveSlot(_editingSlot, anim))
+            var cell = new CatalogCell(this, entry, anim => SaveSlot(_editingSlot, anim))
             {
                 X = CATALOG_PAD + col * CATALOG_CELL_WIDTH,
                 Y = CATALOG_PAD + row * CATALOG_CELL_HEIGHT,
@@ -459,8 +480,37 @@ public sealed class EmoteWheelControl : UIPanel
             var content = cache.GetEmoteHeadContentRect(entry.PreviewFrame, _bodyColor);
             var (ix, iy) = SegmentIconPosition(i);
             var bounds = new Rectangle(ScreenX + ix, ScreenY + iy, ICON_SIZE, ICON_SIZE);
-            DrawEmoteIconCentered(spriteBatch, ClipRect, bounds, texture, content);
+            var locked = WorldState.EmoteUnlocks.IsLocked((int)anim);
+            var tint = locked ? Color.White * LOCKED_ICON_OPACITY : Color.White;
+            DrawEmoteIconCentered(spriteBatch, ClipRect, bounds, texture, content, tint);
+
+            if (locked)
+                DrawLockBadge(spriteBatch, bounds, ClipRect);
         }
+    }
+
+    /// <summary>
+    ///     Draws the padlock at the icon's bottom-right corner, cropped to <paramref name="clipRect" /> (the calling
+    ///     cell's own clip, already intersected with the scroll viewport). A locked emote still shows what it is.
+    ///     The badge is drawn scaled, so a partly scrolled row must crop the source too: testing the full badge
+    ///     against the wheel clip and drawing it whole spills it over the surrounding panel.
+    /// </summary>
+    private void DrawLockBadge(SpriteBatch spriteBatch, Rectangle iconBounds, Rectangle clipRect)
+    {
+        //built late: the device may not exist on the first draw, and a miss rebuilds on the next one
+        _lockTexture ??= PixelSprite.ToTexture(LockBadge.Art);
+
+        if (_lockTexture is null)
+            return;
+
+        var w = LockBadge.Art.Width * LOCK_BADGE_SCALE;
+        var h = LockBadge.Art.Height * LOCK_BADGE_SCALE;
+        var dest = new Rectangle(iconBounds.Right - w, iconBounds.Bottom - h, w, h);
+
+        if (!DrawClip.ClipScaled(dest, clipRect, LockBadge.Art.Width, LockBadge.Art.Height, out var clipped, out var source))
+            return;
+
+        spriteBatch.Draw(_lockTexture, clipped, source, Color.White);
     }
 
     /// <summary>
@@ -471,7 +521,8 @@ public sealed class EmoteWheelControl : UIPanel
         Rectangle clipRect,
         Rectangle bounds,
         Texture2D? texture,
-        Rectangle contentRect)
+        Rectangle contentRect,
+        Color? tint = null)
     {
         if (texture is null || bounds is { Width: <= 0 } or { Height: <= 0 })
             return;
@@ -515,7 +566,7 @@ public sealed class EmoteWheelControl : UIPanel
         if (!dest.Intersects(clipRect))
             return;
 
-        spriteBatch.Draw(actualTexture, dest, sourceRect, Color.White);
+        spriteBatch.Draw(actualTexture, dest, sourceRect, tint ?? Color.White);
     }
 
     private void LayoutWheelIcons()
@@ -683,6 +734,7 @@ public sealed class EmoteWheelControl : UIPanel
         private readonly int _index;
         private readonly UILabel _numberLabel;
         private readonly UILabel _emptyLabel;
+        private BodyAnimation? _animation;
         private Texture2D? _iconTexture;
         private Rectangle _iconContent;
 
@@ -728,11 +780,13 @@ public sealed class EmoteWheelControl : UIPanel
 
             if (slots[_index] is { } anim && EmoteCatalog.TryGet(anim, out var entry) && cache is not null)
             {
+                _animation = anim;
                 _iconTexture = cache.GetEmoteHeadTexture(entry.PreviewFrame, bodyColor);
                 _iconContent = cache.GetEmoteHeadContentRect(entry.PreviewFrame, bodyColor);
                 _emptyLabel.Visible = false;
             } else
             {
+                _animation = null;
                 _iconTexture = null;
                 _iconContent = Rectangle.Empty;
                 _emptyLabel.Visible = true;
@@ -753,9 +807,14 @@ public sealed class EmoteWheelControl : UIPanel
             if ((ClipRect.Width <= 0) || (ClipRect.Height <= 0))
                 return;
 
+            var locked = _animation is { } anim && WorldState.EmoteUnlocks.IsLocked((int)anim);
             var iconY = (Height - SLOT_PICKER_ICON - TextRenderer.CHAR_HEIGHT - 2) / 2;
             var bounds = new Rectangle(ScreenX + (Width - SLOT_PICKER_ICON) / 2, ScreenY + iconY, SLOT_PICKER_ICON, SLOT_PICKER_ICON);
-            DrawEmoteIconCentered(spriteBatch, ClipRect, bounds, _iconTexture, _iconContent);
+            var tint = locked ? Color.White * LOCKED_ICON_OPACITY : Color.White;
+            DrawEmoteIconCentered(spriteBatch, ClipRect, bounds, _iconTexture, _iconContent, tint);
+
+            if (locked)
+                _owner.DrawLockBadge(spriteBatch, bounds, ClipRect);
         }
 
         public override void OnClick(ClickEvent e)
@@ -804,6 +863,7 @@ public sealed class EmoteWheelControl : UIPanel
 
     private sealed class CatalogCell : UIPanel
     {
+        private readonly EmoteWheelControl _owner;
         private readonly BodyAnimation _animation;
         private readonly Action<BodyAnimation> _onPick;
         private readonly int _previewFrame;
@@ -811,8 +871,9 @@ public sealed class EmoteWheelControl : UIPanel
         private Texture2D? _iconTexture;
         private Rectangle _iconContent;
 
-        public CatalogCell(EmoteCatalogEntry entry, Action<BodyAnimation> onPick)
+        public CatalogCell(EmoteWheelControl owner, EmoteCatalogEntry entry, Action<BodyAnimation> onPick)
         {
+            _owner = owner;
             _animation = entry.Animation;
             _onPick = onPick;
             _previewFrame = entry.PreviewFrame;
@@ -834,6 +895,11 @@ public sealed class EmoteWheelControl : UIPanel
 
         public void RefreshIcon(int bodyColor)
         {
+            //a locked cell reads dim: the orange-bar line (not the narrow cell) tells the player where to win it
+            _label.ForegroundColor = WorldState.EmoteUnlocks.IsLocked((int)_animation)
+                ? LegendColors.DimGray
+                : LegendColors.White;
+
             var cache = UiRenderer.Instance;
 
             if (cache is null)
@@ -860,9 +926,14 @@ public sealed class EmoteWheelControl : UIPanel
             if ((ClipRect.Width <= 0) || (ClipRect.Height <= 0))
                 return;
 
+            var locked = WorldState.EmoteUnlocks.IsLocked((int)_animation);
             var iconX = ScreenX + (Width - CATALOG_ICON_SIZE) / 2;
             var bounds = new Rectangle(iconX, ScreenY + 2, CATALOG_ICON_SIZE, CATALOG_ICON_SIZE);
-            DrawEmoteIconCentered(spriteBatch, ClipRect, bounds, _iconTexture, _iconContent);
+            var tint = locked ? Color.White * LOCKED_ICON_OPACITY : Color.White;
+            DrawEmoteIconCentered(spriteBatch, ClipRect, bounds, _iconTexture, _iconContent, tint);
+
+            if (locked)
+                _owner.DrawLockBadge(spriteBatch, bounds, ClipRect);
         }
 
         public override void OnClick(ClickEvent e)

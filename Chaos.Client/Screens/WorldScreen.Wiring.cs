@@ -283,7 +283,7 @@ public sealed partial class WorldScreen
 
         //the emote goes to the world like any other: everyone sees it over the player's head, and the
         //seated players see it on each other's portraits because the panel hides the world behind it.
-        Poker.EmoteRequested += animation => Game.Connection.SendEmote(animation);
+        Poker.EmoteRequested += animation => { TrySendEmote(animation); };
 
         //ordinary public speech: the room hears it, and the bubble the world would have drawn is drawn on
         //the poker table too, because the panel is covering the floor it would have appeared on.

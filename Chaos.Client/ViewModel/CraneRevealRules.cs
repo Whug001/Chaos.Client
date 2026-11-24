@@ -74,7 +74,7 @@ public static class CraneRevealRules
         }
     }
 
-    //prize type bytes follow the server's CranePrizeType
+    //prize type bytes follow the server's CranePrizeType: Item is 7, Emote is 8
     private const byte LOGIN_EFFECT = 0;
     private const byte DEATH_EFFECT = 1;
     private const byte DEATH_SOUND = 2;
@@ -82,6 +82,7 @@ public static class CraneRevealRules
     private const byte MOUNT = 4;
     private const byte MOUNT_COLOR = 5;
     private const byte EMBLEM = 6;
+    private const byte EMOTE = 8;
 
     /// <summary>What a non-item prize is, in the same words the server's room line uses; null for items.</summary>
     public static string? KindLabel(byte prizeType)
@@ -94,6 +95,7 @@ public static class CraneRevealRules
             MOUNT        => "mount",
             MOUNT_COLOR  => "mount color",
             EMBLEM       => "emblem",
+            EMOTE        => "emote",
             _            => null
         };
 
@@ -108,6 +110,7 @@ public static class CraneRevealRules
             MOUNT        => "Mount: a new mount to ride",
             MOUNT_COLOR  => "Mount color: a new color for your mount",
             EMBLEM       => "Emblem: added to your emblems",
+            EMOTE        => "Emote: a new emote for the wheel",
             _            => null
         };
 

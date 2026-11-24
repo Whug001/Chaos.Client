@@ -70,4 +70,53 @@ public sealed class DrawClipTests
 
         await Task.CompletedTask;
     }
+
+    //the lock badge is a 7x8 texture drawn at 2x (14x16) at the icon's bottom-right corner: an icon at
+    //(0, 0, 32, 32) puts the badge at (18, 16, 14, 16)
+    private static readonly Rectangle BadgeDest = new(18, 16, 14, 16);
+
+    [Test]
+    public async Task Scaled_fully_visible_draws_the_whole_badge()
+    {
+        DrawClip.ClipScaled(BadgeDest, new Rectangle(0, 0, 100, 100), 7, 8, out var destination, out var source)
+                .Should()
+                .BeTrue();
+        destination.Should().Be(BadgeDest);
+        source.Should().Be(new Rectangle(0, 0, 7, 8));
+
+        await Task.CompletedTask;
+    }
+
+    [Test]
+    public async Task Scaled_cut_at_top_crops_the_source_top()
+    {
+        DrawClip.ClipScaled(BadgeDest, new Rectangle(0, 20, 100, 80), 7, 8, out var destination, out var source)
+                .Should()
+                .BeTrue();
+        destination.Should().Be(new Rectangle(18, 20, 14, 12));
+        source.Should().Be(new Rectangle(0, 2, 7, 6));
+
+        await Task.CompletedTask;
+    }
+
+    [Test]
+    public async Task Scaled_cut_at_bottom_keeps_the_source_top()
+    {
+        DrawClip.ClipScaled(BadgeDest, new Rectangle(0, 0, 100, 24), 7, 8, out var destination, out var source)
+                .Should()
+                .BeTrue();
+        destination.Should().Be(new Rectangle(18, 16, 14, 8));
+        source.Should().Be(new Rectangle(0, 0, 7, 4));
+
+        await Task.CompletedTask;
+    }
+
+    [Test]
+    public async Task Scaled_fully_outside_draws_nothing()
+    {
+        DrawClip.ClipScaled(BadgeDest, new Rectangle(0, 0, 100, 10), 7, 8, out _, out _).Should().BeFalse();
+        DrawClip.ClipScaled(BadgeDest, new Rectangle(32, 0, 100, 100), 7, 8, out _, out _).Should().BeFalse();
+
+        await Task.CompletedTask;
+    }
 }

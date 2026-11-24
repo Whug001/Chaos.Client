@@ -23,7 +23,17 @@ public static class CustomEmoteRegistry
         MoneyEyesEmote.Instance,
         CrownEmote.Instance,
         SkullPuffEmote.Instance,
-        PotionFlaskEmote.Instance
+        PotionFlaskEmote.Instance,
+        ReverseCardEmote.Instance,
+        PressFEmote.Instance,
+        PopcornEmote.Instance,
+        MicDropEmote.Instance,
+        TinyViolinEmote.Instance,
+        StonksEmote.Instance,
+        SaltyEmote.Instance,
+        TumbleweedEmote.Instance,
+        RedFlagEmote.Instance,
+        FacepalmEmote.Instance
     ];
 
     /// <summary>Finds the custom emote that rides on this body-animation byte.</summary>

@@ -526,11 +526,8 @@ public sealed partial class WorldScreen
             {
                 var emotePlayer = WorldState.GetPlayerEntity();
 
-                if (emotePlayer is not null && emotePlayer.IsAtRest)
-                {
-                    Game.Connection.SendEmote(emote);
+                if ((emotePlayer is not null) && emotePlayer.IsAtRest && TrySendEmote(emote))
                     TryPlayLocalEmote(emote);
-                }
             }
 
             EmoteWheel.Hide();

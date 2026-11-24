@@ -11,6 +11,7 @@ namespace Chaos.Client.Rendering.CustomEmotes;
 public abstract class PixelArtEmote : ICustomEmote
 {
     public abstract int BodyAnimation { get; }
+    public virtual bool RequiresUnlock => false;
     public abstract string Name { get; }
     public abstract int PreviewFrame { get; }
     public virtual int IconSourceFrame => CustomEmoteGeometry.PLAIN_FACE_FRAME;

@@ -28,6 +28,12 @@ public interface ICustomEmote
     /// <summary>The emot01 frame the icon is painted onto.</summary>
     int IconSourceFrame { get; }
 
+    /// <summary>
+    ///     True for the ten Crane Arcade prize emotes, which stay locked until the character wins them.
+    ///     Every other emote is free for everyone.
+    /// </summary>
+    bool RequiresUnlock => false;
+
     /// <summary>Total length. Nothing is drawn from this point on.</summary>
     float DurationMs { get; }
 
