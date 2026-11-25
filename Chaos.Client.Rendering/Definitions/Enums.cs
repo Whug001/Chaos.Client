@@ -66,6 +66,8 @@ public enum LayerSlot
     Acc2G,
     Acc3C,
     Acc3G,
+    Acc4C,
+    Acc4G,
     Emotion,
     Count
 }

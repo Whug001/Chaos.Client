@@ -424,6 +424,8 @@ public static class WorldState
                 Accessory2Color = args.AccessoryColor2,
                 Accessory3Sprite = args.AccessorySprite3,
                 Accessory3Color = args.AccessoryColor3,
+                OverHairSprite = args.OverHairSprite,
+                OverHairColor = args.OverHairColor,
                 PantsColor = args.PantsColor,
                 GuildCloakDesignId = GuildCloakLooks.GetValueOrDefault(args.Id)
             };

@@ -27,6 +27,12 @@ public record struct AislingAppearance
     public int Accessory2Sprite { get; init; }
     public DisplayColor Accessory3Color { get; init; }
     public int Accessory3Sprite { get; init; }
+
+    /// <summary>The color of an over-hair helm (a crown or hat), drawn on its own layer above the accessories.</summary>
+    public DisplayColor OverHairColor { get; init; }
+
+    /// <summary>The accessory sprite of an over-hair helm, drawn above the three accessories (0 = none).</summary>
+    public int OverHairSprite { get; init; }
     public DisplayColor ArmorColor { get; init; }
     public int ArmorSprite { get; init; }
     public int BodyColor { get; init; }
@@ -142,6 +148,7 @@ public sealed class AislingRenderer : IDisposable
         LayerSlot.Acc1G,
         LayerSlot.Acc2G,
         LayerSlot.Acc3G,
+        LayerSlot.Acc4G,
         LayerSlot.Body,
         LayerSlot.Pants,
         LayerSlot.Face,
@@ -156,7 +163,8 @@ public sealed class AislingRenderer : IDisposable
         LayerSlot.Shield,
         LayerSlot.Acc1C,
         LayerSlot.Acc2C,
-        LayerSlot.Acc3C
+        LayerSlot.Acc3C,
+        LayerSlot.Acc4C
     ];
 
     //back-facing composite order
@@ -166,6 +174,7 @@ public sealed class AislingRenderer : IDisposable
         LayerSlot.Acc1G,
         LayerSlot.Acc2G,
         LayerSlot.Acc3G,
+        LayerSlot.Acc4G,
         LayerSlot.Shield,
         LayerSlot.Body,
         LayerSlot.Face,
@@ -180,7 +189,8 @@ public sealed class AislingRenderer : IDisposable
         LayerSlot.WeaponP,
         LayerSlot.Acc1C,
         LayerSlot.Acc2C,
-        LayerSlot.Acc3C
+        LayerSlot.Acc3C,
+        LayerSlot.Acc4C
     ];
 
     private const float GHOST_ALPHA = 0.50f;
@@ -1001,6 +1011,29 @@ public sealed class AislingRenderer : IDisposable
                 idleFallbackFrame,
                 flip);
         }
+
+        if ((appearance.OverHairSprite > 0) && !isMounted)
+        {
+            layers[(int)LayerSlot.Acc4C] = RenderAccessoryLayer(
+                'c',
+                appearance.OverHairSprite,
+                appearance.OverHairColor,
+                in appearance,
+                frameIndex,
+                anim,
+                idleFallbackFrame,
+                flip);
+
+            layers[(int)LayerSlot.Acc4G] = RenderAccessoryLayer(
+                'g',
+                appearance.OverHairSprite,
+                appearance.OverHairColor,
+                in appearance,
+                frameIndex,
+                anim,
+                idleFallbackFrame,
+                flip);
+        }
     }
 
     private void RenderArmorLayers(
@@ -1736,6 +1769,18 @@ public sealed class AislingRenderer : IDisposable
             ref maxFrames,
             'g',
             appearance.Accessory3Sprite,
+            in appearance);
+
+        CheckIdleEpf(
+            ref maxFrames,
+            'c',
+            appearance.OverHairSprite,
+            in appearance);
+
+        CheckIdleEpf(
+            ref maxFrames,
+            'g',
+            appearance.OverHairSprite,
             in appearance);
 
         CheckIdleEpf(
