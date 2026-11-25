@@ -29,13 +29,27 @@ public class EffectSpawnerTests
     {
         //the crane redraws its hovering claw on one tile before the last copy ends; a repeat restarts it, never stacks
         var effects = new List<Animation>();
+        EffectSpawner.CreateEffect(effects, 449, 100, Info(), tileX: 7, tileY: 7, restartOnTile: true);
+        effects[0].CurrentFrame = 3;
+
+        EffectSpawner.CreateEffect(effects, 449, 100, Info(), tileX: 7, tileY: 7, restartOnTile: true);
+
+        effects.Should().ContainSingle();
+        effects[0].CurrentFrame.Should().Be(0);
+    }
+
+    [Test]
+    public void SameEffectOnSameTileTwiceStacksOutsideTheArcade()
+    {
+        //a spell cast again on the same tile (an Elementalist's summon) must not cut the last cast's animation short
+        var effects = new List<Animation>();
         EffectSpawner.CreateEffect(effects, 449, 100, Info(), tileX: 7, tileY: 7);
         effects[0].CurrentFrame = 3;
 
         EffectSpawner.CreateEffect(effects, 449, 100, Info(), tileX: 7, tileY: 7);
 
-        effects.Should().ContainSingle();
-        effects[0].CurrentFrame.Should().Be(0);
+        effects.Should().HaveCount(2);
+        effects[0].CurrentFrame.Should().Be(3);
     }
 
     [Test]

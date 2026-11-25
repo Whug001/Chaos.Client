@@ -17,14 +17,15 @@ public static class EffectSpawner
         uint? targetEntityId = null,
         int? tileX = null,
         int? tileY = null,
-        bool isBackground = false)
+        bool isBackground = false,
+        bool restartOnTile = false)
     {
         var info = EffectInfoResolver(effectId);
 
         if (info is null)
             return;
 
-        CreateEffect(effects, effectId, speed, info.Value, targetEntityId, tileX, tileY, isBackground);
+        CreateEffect(effects, effectId, speed, info.Value, targetEntityId, tileX, tileY, isBackground, restartOnTile);
     }
 
     public static void CreateEffect(
@@ -35,7 +36,8 @@ public static class EffectSpawner
         uint? targetEntityId = null,
         int? tileX = null,
         int? tileY = null,
-        bool isBackground = false)
+        bool isBackground = false,
+        bool restartOnTile = false)
     {
         (var frameCount, var fileIntervalMs, var isEfa, var blendMode) = resolved;
 
@@ -65,9 +67,10 @@ public static class EffectSpawner
             }
         }
 
-        //a ground effect sent again on its own tile restarts there instead of stacking a second copy, so an effect the
-        //server redraws before it ends (the crane's hovering claw) stays on screen without a blink
-        if (!targetEntityId.HasValue && tileX.HasValue && tileY.HasValue)
+        //with restartOnTile, a ground effect sent again on its own tile restarts there instead of stacking a second copy,
+        //so an effect the server redraws before it ends (the crane's hovering claw) stays on screen without a blink.
+        //Elsewhere repeats stack: a spell cast again on the same tile must not cut the last cast's animation short
+        if (restartOnTile && !targetEntityId.HasValue && tileX.HasValue && tileY.HasValue)
             effects.RemoveAll(e => (e.TargetEntityId is null) && (e.TileX == tileX) && (e.TileY == tileY) && (e.EffectId == effectId));
 
         effects.Add(

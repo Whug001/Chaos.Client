@@ -1313,7 +1313,8 @@ public sealed partial class WorldScreen
             targetEntityId,
             targetTileX,
             targetTileY,
-            isBackground);
+            isBackground,
+            restartOnTile: CurrentMapId == CraneCamera.ARCADE_MAP_ID);
 
     private void HandleSound(SoundArgs args)
     {
