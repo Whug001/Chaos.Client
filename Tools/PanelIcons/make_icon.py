@@ -55,18 +55,18 @@ def frame(x0, y0, size):
     px[x1 - 1, y0 + 1] = BRONZE_HI
 
 
-#a 2px margin all round, like the retail ability icons, so it sits inside the slot
-frame(12, 2, 16)  # back frame, up and to the right
-frame(3, 9, 16)  # front frame, overlapping its lower-left corner
+#a 4px margin all round so it sits well inside the slot
+frame(13, 4, 14)  # back frame, up and to the right
+frame(5, 10, 14)  # front frame, overlapping its lower-left corner
 
-# gold arrow pointing right in the bottom-right corner: shaft rows 23-25, a 9px head with its tip at x=28
+# gold arrow pointing right in the bottom-right corner: shaft rows 22-23, a 7px head with its tip at x=26
 arrow = set()
-for x in range(19, 24):
-    for y in range(23, 26):
+for x in range(19, 23):
+    for y in range(22, 24):
         arrow.add((x, y))
-for k in range(5):
-    for y in range(24 - (4 - k), 25 + (4 - k)):
-        arrow.add((24 + k, y))
+for k in range(4):
+    for y in range(22 - (3 - k), 24 + (3 - k)):
+        arrow.add((23 + k, y))
 for x, y in arrow:
     for dx in (-1, 0, 1):
         for dy in (-1, 0, 1):
@@ -74,8 +74,8 @@ for x, y in arrow:
             if 0 <= n[0] < S and 0 <= n[1] < S and n not in arrow:
                 px[n] = OUTLINE
 for x, y in arrow:
-    px[x, y] = GOLD_LIGHT if y <= 23 else GOLD if y <= 25 else GOLD_DARK
-for x, y in [(20, 23), (21, 23), (24, 20), (24, 21)]:
+    px[x, y] = GOLD_LIGHT if y <= 22 else GOLD if y <= 23 else GOLD_DARK
+for x, y in [(20, 22), (21, 22), (23, 20)]:
     px[x, y] = GOLD_HI
 
 OUT.parent.mkdir(parents=True, exist_ok=True)
