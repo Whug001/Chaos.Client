@@ -1,5 +1,6 @@
 #region
 using Chaos.Client.Controls.Components;
+using Chaos.Client.Controls.World.Hud.Panel;
 using Chaos.Client.Models;
 using Chaos.Client.Systems;
 using Microsoft.Xna.Framework;
@@ -52,6 +53,12 @@ public class PanelSlot : UIButton
     public Texture2D? GreyTexture { get; set; }
 
     public bool IsDropTarget { get; set; }
+
+    /// <summary>
+    ///     The swap cell at the end of skill/spell pages 1 and 2 (see <see cref="AbilityPageSwap" />): it shows a fixed icon,
+    ///     takes drops from its own page and is never used, dragged or overwritten by the book.
+    /// </summary>
+    public bool IsPageSwap { get; init; }
 
     public int MaxDurability { get; set; }
 
@@ -215,6 +222,13 @@ public class PanelSlot : UIButton
 
     public override void OnDoubleClick(DoubleClickEvent e)
     {
+        if (IsPageSwap)
+        {
+            e.Handled = true;
+
+            return;
+        }
+
         //cache gate is intentional here (also OnDragStart): a mouse gesture only lands on a visible — therefore
         //freshly-updated — panel, and PanelSlot is book-agnostic (backs inventory too) so it cannot consult the model.
         //The macro/keyboard path in WorldScreen.InputHandlers must gate on WorldState.<Book> instead; do not "unify" these.
@@ -228,7 +242,7 @@ public class PanelSlot : UIButton
 
     public override void OnDragStart(DragStartEvent e)
     {
-        if (NormalTexture is null || (CooldownPercent > 0) || DoubleClickFired)
+        if (IsPageSwap || NormalTexture is null || (CooldownPercent > 0) || DoubleClickFired)
             return;
 
         e.Payload = new SlotDragPayload

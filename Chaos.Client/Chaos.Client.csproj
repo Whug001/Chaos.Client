@@ -19,6 +19,10 @@
         <EmbeddedResource Include="Chat\fantasy-chat-map.json">
             <LogicalName>fantasy-chat-map.json</LogicalName>
         </EmbeddedResource>
+        <!-- The skill/spell page swap cell's icon (Controls/World/Hud/Panel/AbilityPageSwap.cs); drawn by Tools/PageSwapIcon. -->
+        <EmbeddedResource Include="Assets\page-swap.png">
+            <LogicalName>page-swap.png</LogicalName>
+        </EmbeddedResource>
     </ItemGroup>
 
     <!-- Native SDL2_mixer binaries per runtime; copied to bin/.../runtimes/{rid}/native/ so the

@@ -101,7 +101,7 @@ public abstract class AbilitySlotControl : PanelSlot
 
     public override void OnClick(ClickEvent e)
     {
-        if ((e.Button == MouseButton.Right) && NormalTexture is not null)
+        if ((e.Button == MouseButton.Right) && NormalTexture is not null && !IsPageSwap)
         {
             OnRightClick?.Invoke(Slot);
             e.Handled = true;

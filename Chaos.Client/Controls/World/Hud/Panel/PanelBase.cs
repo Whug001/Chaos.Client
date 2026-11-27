@@ -160,7 +160,7 @@ public abstract class PanelBase : ExpandablePanel
     {
         var control = FindSlot(slot);
 
-        if (control is null)
+        if (control is null || control.IsPageSwap)
             return;
 
         control.NormalTexture?.Dispose();
@@ -350,7 +350,7 @@ public abstract class PanelBase : ExpandablePanel
     {
         var control = FindSlot(slot);
 
-        if (control is null)
+        if (control is null || control.IsPageSwap)
             return;
 
         control.NormalTexture?.Dispose();
@@ -361,7 +361,7 @@ public abstract class PanelBase : ExpandablePanel
     {
         var control = FindSlot(slot);
 
-        if (control is null)
+        if (control is null || control.IsPageSwap)
             return;
 
         if (control is AbilitySlotControl ability)

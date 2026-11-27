@@ -52,12 +52,22 @@ public sealed class SkillBookPanel : PanelBase
         WorldState.SkillBook.Cleared += OnCleared;
     }
 
+    //the last cell of pages 1 and 2 is the page swap cell, not a book slot (SlotOffset is set before slots are built)
     protected override PanelSlot CreateSlot(byte slotNumber, string name)
-        => new SkillSlot
-        {
-            Name = name,
-            Slot = slotNumber
-        };
+        => AbilityPageSwap.IsSwapSlot(SlotOffset, slotNumber)
+            ? new SkillSlot
+            {
+                Name = name,
+                Slot = slotNumber,
+                IsPageSwap = true,
+                SlotName = AbilityPageSwap.Label(slotNumber),
+                NormalTexture = AbilityPageSwap.CreateIcon()
+            }
+            : new SkillSlot
+            {
+                Name = name,
+                Slot = slotNumber
+            };
 
     //base.Dispose() walks the children, and PanelSlot.Dispose drops its own cooldown textures
     public override void Dispose()
@@ -77,6 +87,9 @@ public sealed class SkillBookPanel : PanelBase
     {
         foreach (var slot in Slots)
         {
+            if (slot.IsPageSwap)
+                continue;
+
             slot.NormalTexture?.Dispose();
             slot.NormalTexture = null;
             slot.ClearCooldownTextures();
@@ -90,7 +103,7 @@ public sealed class SkillBookPanel : PanelBase
     {
         var control = FindSlot(slot);
 
-        if (control is null)
+        if (control is null || control.IsPageSwap)
             return;
 
         var data = WorldState.SkillBook.GetSlot(slot);
