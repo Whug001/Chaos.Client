@@ -47,6 +47,9 @@ public static class EffectSpawner
                 ? speed
                 : 50;
 
+        if (!restartOnTile && TryLoopPlayingCopy(effects, effectId, targetEntityId, tileX, tileY))
+            return;
+
         if (targetEntityId.HasValue)
         {
             effects.RemoveAll(e => (e.TargetEntityId == targetEntityId) && (e.EffectId == effectId));
@@ -159,6 +162,12 @@ public static class EffectSpawner
                 effect.ElapsedMs -= effect.FrameIntervalMs;
             }
 
+            if (effect.IsComplete && effect.LoopOnce)
+            {
+                effect.CurrentFrame -= effect.FrameCount;
+                effect.LoopOnce = false;
+            }
+
             if (effect.IsComplete)
                 effects.RemoveAt(i);
         }
@@ -263,5 +272,38 @@ public static class EffectSpawner
         return 0;
     }
 
+    /// <summary>
+    ///     A repeat of an effect that lands in the last stretch of a copy already playing on the same entity or tile is the
+    ///     server keeping that art up (a burning player, a hole in the floor, a warning held until the hit lands). The playing
+    ///     copy is told to loop once more rather than a second copy being stacked on it, which draws it twice as bright, or
+    ///     the first being cut short. A repeat earlier than that is a fresh cast and is left to stack or restart as before.
+    /// </summary>
+    private static bool TryLoopPlayingCopy(
+        List<Animation> effects,
+        int effectId,
+        uint? targetEntityId,
+        int? tileX,
+        int? tileY)
+    {
+        if (!targetEntityId.HasValue && (!tileX.HasValue || !tileY.HasValue))
+            return false;
+
+        var playing = effects.FindLast(
+            e => (e.EffectId == effectId)
+                 && (e.TargetEntityId == targetEntityId)
+                 && (targetEntityId.HasValue || ((e.TileX == tileX) && (e.TileY == tileY))));
+
+        if (playing is null || playing.LoopOnce || playing.IsComplete)
+            return false;
+
+        if (playing.RemainingMs > Math.Min(LOOP_WINDOW_MS, playing.LengthMs / 3f))
+            return false;
+
+        playing.LoopOnce = true;
+
+        return true;
+    }
+
     private const float HIT_TINT_FLASH_MS = 100f;
+    private const float LOOP_WINDOW_MS = 300f;
 }

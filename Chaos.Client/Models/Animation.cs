@@ -21,4 +21,16 @@ public sealed class Animation
     public int? TileY { get; init; }
 
     public bool IsComplete => CurrentFrame >= FrameCount;
+
+    /// <summary>
+    ///     Set when the same effect was sent again just as this copy was finishing: instead of ending, it plays once more from
+    ///     its first frame, so art the server keeps up loops without a blink.
+    /// </summary>
+    public bool LoopOnce { get; set; }
+
+    /// <summary>Milliseconds left before this copy plays its last frame out.</summary>
+    public float RemainingMs => ((FrameCount - CurrentFrame) * FrameIntervalMs) - ElapsedMs;
+
+    /// <summary>Milliseconds one full play of this copy takes.</summary>
+    public float LengthMs => FrameCount * FrameIntervalMs;
 }
