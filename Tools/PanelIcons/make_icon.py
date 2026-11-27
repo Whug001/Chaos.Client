@@ -1,85 +1,83 @@
-"""Draws the 32x32 page-swap icon shown in the last cell of skill/spell pages 1 and 2.
+"""Draws the 32x32 page-swap icon (no parchment): two bronze slot frames, the back one up and to the right,
+and a gold arrow pointing right, after the owner's concept art.
 
-Run: python3 Tools/PanelIcons/make_icon.py
-Writes Chaos.Client/Assets/page-swap.png (embedded in the client) and a 6x preview beside this script.
-The look follows the retail ability icons: a torn tan parchment with a dark-brown ink drawing.
+Run: python3 Tools/PanelIcons/make_icon.py [out.png]
 """
+import sys
 from pathlib import Path
 
 from PIL import Image
 
 HERE = Path(__file__).resolve().parent
-OUT = HERE.parents[1] / "Chaos.Client" / "Assets" / "page-swap.png"
+OUT = Path(sys.argv[1]) if len(sys.argv) > 1 else HERE.parents[1] / "Chaos.Client" / "Assets" / "page-swap.png"
 
-OUTLINE = (33, 24, 16, 255)
-SHADOW = (92, 57, 38, 255)
-PAPER_DARK = (149, 98, 68, 255)
-PAPER = (180, 124, 89, 255)
-PAPER_LIGHT = (194, 140, 105, 255)
-PAPER_HI = (210, 163, 124, 255)
-INK = (92, 57, 38, 255)
-INK_DARK = (60, 36, 24, 255)
+OUTLINE = (24, 14, 8, 255)
+BRONZE_HI = (244, 214, 150, 255)
+BRONZE_LIGHT = (226, 170, 92, 255)
+BRONZE = (196, 130, 64, 255)
+BRONZE_DARK = (140, 84, 38, 255)
+INNER_RIM = (122, 86, 58, 255)
+INNER = (76, 50, 34, 255)
+INNER_DARK = (58, 38, 26, 255)
+GOLD_HI = (255, 244, 190, 255)
+GOLD_LIGHT = (252, 214, 90, 255)
+GOLD = (230, 172, 40, 255)
+GOLD_DARK = (176, 112, 20, 255)
 
 S = 32
 img = Image.new("RGBA", (S, S), (0, 0, 0, 0))
 px = img.load()
 
-# parchment body: 2..29 with ragged notches along the edges
-left = [4, 3, 2, 2, 3, 4, 3, 2, 2, 2, 3, 2, 2, 1, 2, 2, 3, 3, 2, 2, 2, 1, 2, 2, 3, 2, 3, 4]
-right = [26, 28, 29, 29, 28, 29, 30, 29, 29, 28, 27, 28, 29, 29, 29, 30, 29, 28, 29, 29, 28, 29, 30, 29, 28, 27, 28, 25]
-top_y, bottom_y = 2, 29
-for i, y in enumerate(range(top_y, bottom_y + 1)):
-    l, r = left[i], right[i]
-    for x in range(l, r + 1):
-        # light from the top-left, darker toward the bottom-right
-        t = (x - 2) / 27 + (y - 2) / 27
-        px[x, y] = PAPER_HI if t < 0.35 else PAPER_LIGHT if t < 0.8 else PAPER if t < 1.45 else PAPER_DARK
-# torn corner, bottom-left, and a dog-eared top-right
-for x, y in [(2, 29), (3, 29), (2, 28), (4, 29)]:
-    px[x, y] = (0, 0, 0, 0)
-for x, y in [(29, 2), (28, 2), (29, 3)]:
-    px[x, y] = (0, 0, 0, 0)
-for x, y in [(27, 2), (28, 3), (29, 4)]:
-    px[x, y] = PAPER_DARK
 
-# outline the parchment, then a drop shadow down and right
-body = {(x, y) for x in range(S) for y in range(S) if px[x, y][3]}
-for x, y in list(body):
-    for dx, dy in ((1, 0), (-1, 0), (0, 1), (0, -1)):
-        n = (x + dx, y + dy)
-        if 0 <= n[0] < S and 0 <= n[1] < S and n not in body and px[n][3] == 0:
-            px[n] = OUTLINE
-for x, y in list(body):
-    n = (x + 1, y + 1)
-    if n[0] < S and n[1] < S and px[n][3] == 0:
-        px[n] = SHADOW
+def frame(x0, y0, size):
+    """A square bronze frame: 1px outline, 2px bevelled rim, 1px inner rim, dark well."""
+    x1, y1 = x0 + size - 1, y0 + size - 1
+    for y in range(y0, y1 + 1):
+        for x in range(x0, x1 + 1):
+            edge = min(x - x0, y - y0, x1 - x, y1 - y)
+            if edge == 0:
+                c = OUTLINE
+            elif edge in (1, 2):
+                # lit from the top-left: top/left rims light, bottom/right rims dark
+                top_left = (x - x0) <= (y1 - y) and (y - y0) <= (x1 - x) if False else ((x - x0) == edge or (y - y0) == edge)
+                c = (BRONZE_LIGHT if edge == 1 else BRONZE) if top_left else (BRONZE if edge == 1 else BRONZE_DARK)
+            elif edge == 3:
+                c = OUTLINE
+            elif edge == 4:
+                c = INNER_RIM
+            else:
+                c = INNER if (x - x0) + (y - y0) < size else INNER_DARK
+            px[x, y] = c
+    # glints on the top-left corner and top edge
+    px[x0 + 1, y0 + 1] = BRONZE_HI
+    px[x0 + 3, y0 + 1] = BRONZE_HI
+    px[x0 + 4, y0 + 1] = BRONZE_HI
+    px[x1 - 1, y0 + 1] = BRONZE_HI
 
 
-def dot(x, y, c=INK):
-    px[x, y] = c
+#a 2px margin all round, like the retail ability icons, so it sits inside the slot
+frame(12, 2, 16)  # back frame, up and to the right
+frame(3, 9, 16)  # front frame, overlapping its lower-left corner
 
-
-def arrow(y0, tip_x, tail_x, direction):
-    """A bold arrow: a 3px shaft on rows y0..y0+2 and a 9px-tall head ending at tip_x."""
-    step = 1 if direction > 0 else -1
-    head_len = 5
-    base = tip_x - step * head_len
-    for x in range(min(tail_x, base), max(tail_x, base) + 1):
-        dot(x, y0, INK)
-        dot(x, y0 + 1, INK)
-        dot(x, y0 + 2, INK_DARK)
-    for k in range(head_len + 1):
-        x = base + step * k
-        half = head_len - k
-        for y in range(y0 + 1 - half - 1, y0 + 2 + half):
-            dot(x, y, INK_DARK if y > y0 + 1 else INK)
-
-
-# upper arrow pointing right, lower arrow pointing left: "move to the other page"
-arrow(8, 25, 6, 1)
-arrow(19, 6, 25, -1)
+# gold arrow pointing right in the bottom-right corner: shaft rows 23-25, a 9px head with its tip at x=28
+arrow = set()
+for x in range(19, 24):
+    for y in range(23, 26):
+        arrow.add((x, y))
+for k in range(5):
+    for y in range(24 - (4 - k), 25 + (4 - k)):
+        arrow.add((24 + k, y))
+for x, y in arrow:
+    for dx in (-1, 0, 1):
+        for dy in (-1, 0, 1):
+            n = (x + dx, y + dy)
+            if 0 <= n[0] < S and 0 <= n[1] < S and n not in arrow:
+                px[n] = OUTLINE
+for x, y in arrow:
+    px[x, y] = GOLD_LIGHT if y <= 23 else GOLD if y <= 25 else GOLD_DARK
+for x, y in [(20, 23), (21, 23), (24, 20), (24, 21)]:
+    px[x, y] = GOLD_HI
 
 OUT.parent.mkdir(parents=True, exist_ok=True)
 img.save(OUT)
-img.resize((S * 6, S * 6), Image.NEAREST).save(HERE / "preview.png")
 print(OUT)
