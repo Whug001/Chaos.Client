@@ -23,6 +23,7 @@ public sealed partial class WorldScreen
         {
             EffectWindow.Chosen -= SendEffectWindowChoose;
             EffectWindow.BubbleChosen -= SendBubbleChoose;
+            EffectWindow.SoundPreviewRequested -= PlayEffectWindowSound;
         }
     }
 
@@ -51,6 +52,7 @@ public sealed partial class WorldScreen
 
             EffectWindow.Chosen += SendEffectWindowChoose;
             EffectWindow.BubbleChosen += SendBubbleChoose;
+            EffectWindow.SoundPreviewRequested += PlayEffectWindowSound;
             Root.AddChild(EffectWindow);
         }
 
@@ -61,6 +63,8 @@ public sealed partial class WorldScreen
     }
 
     private void SendEffectWindowChoose(EffectWindowKind kind, byte effect) => Game.Connection.SendEffectWindowChoose(kind, effect);
+
+    private void PlayEffectWindowSound(int soundId) => Game.SoundSystem.PlaySound(soundId);
 
     private void SendBubbleChoose(byte key, ChatBubbleLook? custom) => Game.Connection.SendEffectWindowChoose(EffectWindowKind.ChatBubble, key, custom);
 }

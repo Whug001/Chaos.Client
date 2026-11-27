@@ -146,4 +146,39 @@ public sealed class EffectWindowStateTests
 
         await Task.CompletedTask;
     }
+
+    [Test]
+    public async Task Death_sound_tab_starts_with_the_default_sound_and_selects_the_current_one()
+    {
+        var args = Open();
+        args.DeathSounds = [E(7), E(8)];
+        args.CurrentDeathSound = 8;
+        args.DefaultDeathSound = 202;
+
+        var state = new EffectWindowState();
+        state.Open(args);
+        state.SetTab(EffectWindowKind.DeathSound);
+
+        state.Entries.Select(e => e.Name).Should().Equal("Default", "E7", "E8");
+        state.Entries[0].Animation.Should().Be(202);
+        state.Selected!.Effect.Should().Be(8);
+        state.StatusText.Should().Be("Current: E8");
+        state.SoundToPreview.Should().Be(408);
+
+        state.Update(new EffectWindowDisplayArgs { Type = EffectWindowDisplayType.Update, CurrentDeathSound = 0 });
+        state.StatusText.Should().Be("Current: Default");
+
+        await Task.CompletedTask;
+    }
+
+    [Test]
+    public async Task Only_the_sound_tab_has_a_sound_to_preview()
+    {
+        var state = new EffectWindowState();
+        state.Open(Open());
+
+        state.SoundToPreview.Should().BeNull();
+
+        await Task.CompletedTask;
+    }
 }

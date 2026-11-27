@@ -19,7 +19,7 @@ public static class AbilityPageSwap
 
     public static string Label(byte slot) => slot == PAGE_SIZE ? "Drop here to move to page 2" : "Drop here to move to page 1";
 
-    /// <summary>A fresh copy of the swap icon (Tools/PageSwapIcon/make_icon.py); each cell owns and disposes its own.</summary>
+    /// <summary>A fresh copy of the swap icon (Tools/PanelIcons/make_icon.py); each cell owns and disposes its own.</summary>
     public static Texture2D CreateIcon()
     {
         using var stream = typeof(AbilityPageSwap).Assembly.GetManifestResourceStream(ICON_RESOURCE)

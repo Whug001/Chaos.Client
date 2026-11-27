@@ -1,6 +1,6 @@
 """Draws the 32x32 page-swap icon shown in the last cell of skill/spell pages 1 and 2.
 
-Run: python3 Tools/PageSwapIcon/make_icon.py
+Run: python3 Tools/PanelIcons/make_icon.py
 Writes Chaos.Client/Assets/page-swap.png (embedded in the client) and a 6x preview beside this script.
 The look follows the retail ability icons: a torn tan parchment with a dark-brown ink drawing.
 """

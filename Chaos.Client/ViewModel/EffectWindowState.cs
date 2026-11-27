@@ -15,13 +15,15 @@ public sealed class EffectWindowState
     /// <summary>The first tile of each tab. Always owned.</summary>
     public static readonly EffectWindowEntry NoneEntry = new() { Effect = 0, Name = "None", Owned = true };
 
-    private readonly IReadOnlyList<EffectWindowEntry>[] Lists = [[NoneEntry], [NoneEntry], [NoneEntry]];
-    private readonly int[] SelectedIndex = new int[3];
-    private readonly int[] Pages = new int[3];
+    //indexed by EffectWindowKind: login, death, chat bubble (drawn by the bubble partial, unused here), death sound
+    private readonly IReadOnlyList<EffectWindowEntry>[] Lists = [[NoneEntry], [NoneEntry], [NoneEntry], [NoneEntry]];
+    private readonly int[] SelectedIndex = new int[4];
+    private readonly int[] Pages = new int[4];
 
     public EffectWindowKind Tab { get; private set; }
     public byte CurrentLogin { get; private set; }
     public byte CurrentDeath { get; private set; }
+    public byte CurrentDeathSound { get; private set; }
 
     /// <summary>Down=0, Right=1, Up=2, Left=3, the order of MountPreview's facing table.</summary>
     public int Facing { get; private set; }
@@ -31,7 +33,16 @@ public sealed class EffectWindowState
     public int PageCount => Math.Max(1, (Entries.Count + PAGE_SIZE - 1) / PAGE_SIZE);
     public IReadOnlyList<EffectWindowEntry> PageItems => Entries.Skip(Page * PAGE_SIZE).Take(PAGE_SIZE).ToList();
     public EffectWindowEntry? Selected => SelectedIndex[(int)Tab] < Entries.Count ? Entries[SelectedIndex[(int)Tab]] : null;
-    public byte Current => Tab == EffectWindowKind.Death ? CurrentDeath : CurrentLogin;
+    public byte Current
+        => Tab switch
+        {
+            EffectWindowKind.Death      => CurrentDeath,
+            EffectWindowKind.DeathSound => CurrentDeathSound,
+            _                           => CurrentLogin
+        };
+
+    /// <summary>On the death sound tab, the sound id of the selected tile (the default sound for its first tile).</summary>
+    public int? SoundToPreview => (Tab == EffectWindowKind.DeathSound) && Selected is { Animation: > 0 } entry ? entry.Animation : null;
     public bool CanChoose => Selected is { Owned: true };
 
     public string StatusText
@@ -41,10 +52,14 @@ public sealed class EffectWindowState
     {
         Lists[(int)EffectWindowKind.LoginLogout] = [NoneEntry, .. args.LoginEffects];
         Lists[(int)EffectWindowKind.Death] = [NoneEntry, .. args.DeathEffects];
+        Lists[(int)EffectWindowKind.DeathSound] =
+            [new EffectWindowEntry { Effect = 0, Name = "Default", Animation = args.DefaultDeathSound, Owned = true }, .. args.DeathSounds];
         CurrentLogin = args.CurrentLogin;
         CurrentDeath = args.CurrentDeath;
+        CurrentDeathSound = args.CurrentDeathSound;
         SelectCurrent(EffectWindowKind.LoginLogout, CurrentLogin);
         SelectCurrent(EffectWindowKind.Death, CurrentDeath);
+        SelectCurrent(EffectWindowKind.DeathSound, CurrentDeathSound);
         Tab = EffectWindowKind.LoginLogout;
         Facing = 0;
     }
@@ -53,6 +68,7 @@ public sealed class EffectWindowState
     {
         CurrentLogin = args.CurrentLogin;
         CurrentDeath = args.CurrentDeath;
+        CurrentDeathSound = args.CurrentDeathSound;
     }
 
     public void SetTab(EffectWindowKind tab) => Tab = tab;

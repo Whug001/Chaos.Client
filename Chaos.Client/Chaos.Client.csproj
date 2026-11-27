@@ -19,9 +19,13 @@
         <EmbeddedResource Include="Chat\fantasy-chat-map.json">
             <LogicalName>fantasy-chat-map.json</LogicalName>
         </EmbeddedResource>
-        <!-- The skill/spell page swap cell's icon (Controls/World/Hud/Panel/AbilityPageSwap.cs); drawn by Tools/PageSwapIcon. -->
+        <!-- The skill/spell page swap cell's icon (Controls/World/Hud/Panel/AbilityPageSwap.cs); drawn by Tools/PanelIcons. -->
         <EmbeddedResource Include="Assets\page-swap.png">
             <LogicalName>page-swap.png</LogicalName>
+        </EmbeddedResource>
+        <!-- The Effects window's death sound tile (Controls/World/Popups/Effects); drawn by Tools/PanelIcons. -->
+        <EmbeddedResource Include="Assets\death-sound.png">
+            <LogicalName>death-sound.png</LogicalName>
         </EmbeddedResource>
     </ItemGroup>
 

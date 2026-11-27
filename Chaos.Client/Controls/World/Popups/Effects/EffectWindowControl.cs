@@ -28,8 +28,8 @@ public sealed partial class EffectWindowControl : GuildCloakDialogBase
     private const int GAP = 10;
     private const int TITLE_TOP = 8;
     private const int TAB_TOP = 28;
-    private const int TAB_WIDTH = 110;
-    private const int TAB_GAP = 6;
+    private const int TAB_COUNT = 4;
+    private const int TAB_GAP = 4;
     private const int TOP = 56;
     private const int PREVIEW_SIZE = 170;
     private const int TURN_WIDTH = 60;
@@ -43,6 +43,7 @@ public sealed partial class EffectWindowControl : GuildCloakDialogBase
     private readonly EffectWindowState State = new();
     private readonly CustomButton LoginTab;
     private readonly CustomButton DeathTab;
+    private readonly CustomButton SoundTab;
     private readonly ThumbnailGrid<EffectWindowEntry> Grid;
     private readonly UILabel PageLabel;
     private readonly EffectPreview Preview;
@@ -56,10 +57,16 @@ public sealed partial class EffectWindowControl : GuildCloakDialogBase
 
     private AislingAppearance BaseLook;
 
+    //the one tile every death sound shows (Tools/PanelIcons/make_sound_tile.py); owned here, not in Thumbs
+    private Texture2D? SoundTile;
+
     /// <summary>Raised with the tab and effect to send to the server.</summary>
     public event Action<EffectWindowKind, byte>? Chosen;
 
     public event Action<byte, ChatBubbleLook?>? BubbleChosen;
+
+    /// <summary>Raised with a sound id to play locally: a death sound tile was picked, or Play was pressed.</summary>
+    public event Action<int>? SoundPreviewRequested;
 
     public EffectWindowControl(AislingRenderer renderer, EffectRenderer effects)
         : base("_nsett", false)
@@ -83,16 +90,26 @@ public sealed partial class EffectWindowControl : GuildCloakDialogBase
 
         Caption("Effects", 0, TITLE_TOP, Width, HorizontalAlignment.Center, LegendColors.Gold);
 
-        LoginTab = AddButton("Login & Logout", TAB_WIDTH, LEFT, TAB_TOP, () => ChooseTab(EffectWindowKind.LoginLogout));
-        DeathTab = AddButton("Death", TAB_WIDTH, LEFT + TAB_WIDTH + TAB_GAP, TAB_TOP, () => ChooseTab(EffectWindowKind.Death));
-        BubbleTab = AddButton("Chat Bubble", TAB_WIDTH, LEFT + (2 * (TAB_WIDTH + TAB_GAP)), TAB_TOP, () => ChooseTab(EffectWindowKind.ChatBubble));
+        //four tabs share the width between the side margins
+        var tabWidth = (Width - (2 * LEFT) - ((TAB_COUNT - 1) * TAB_GAP)) / TAB_COUNT;
+        int TabX(int index) => LEFT + (index * (tabWidth + TAB_GAP));
+
+        LoginTab = AddButton("Login/Logout", tabWidth, TabX(0), TAB_TOP, () => ChooseTab(EffectWindowKind.LoginLogout));
+        DeathTab = AddButton("Death Effect", tabWidth, TabX(1), TAB_TOP, () => ChooseTab(EffectWindowKind.Death));
+        SoundTab = AddButton("Death Sound", tabWidth, TabX(2), TAB_TOP, () => ChooseTab(EffectWindowKind.DeathSound));
+        BubbleTab = AddButton("Chat Bubble", tabWidth, TabX(3), TAB_TOP, () => ChooseTab(EffectWindowKind.ChatBubble));
 
         Grid = new ThumbnailGrid<EffectWindowEntry>(EffectWindowState.COLUMNS, EffectWindowState.ROWS, cellSize: CELL)
         {
             X = LEFT,
             Y = TOP
         };
-        Grid.Selected += e => { State.Select(e); Refresh(); };
+        Grid.Selected += e =>
+        {
+            State.Select(e);
+            Refresh();
+            PlaySelectedSound();
+        };
         Grid.PageStepped += d => { State.StepPage(d); Refresh(); };
         AddChild(Grid);
 
@@ -113,7 +130,19 @@ public sealed partial class EffectWindowControl : GuildCloakDialogBase
             TURN_WIDTH,
             previewLeft + PREVIEW_SIZE - TURN_WIDTH,
             TOP + PREVIEW_SIZE + 2,
-            () => { State.Turn(); Refresh(); });
+            () =>
+            {
+                //on the sound tab this button is Play
+                if (State.Tab == EffectWindowKind.DeathSound)
+                {
+                    PlaySelectedSound();
+
+                    return;
+                }
+
+                State.Turn();
+                Refresh();
+            });
 
         //ends before the Choose button so a long name never slides under it
         StatusLabel = Caption(
@@ -172,7 +201,25 @@ public sealed partial class EffectWindowControl : GuildCloakDialogBase
     {
         ReleaseThumbs();
         ReleaseBubbles();
+        SoundTile?.Dispose();
+        SoundTile = null;
         base.Dispose();
+    }
+
+    private void PlaySelectedSound()
+    {
+        if (State.SoundToPreview is { } sound)
+            SoundPreviewRequested?.Invoke(sound);
+    }
+
+    private Texture2D? LoadSoundTile()
+    {
+        if (SoundTile is not null)
+            return SoundTile;
+
+        using var stream = typeof(EffectWindowControl).Assembly.GetManifestResourceStream("death-sound.png");
+
+        return stream is null ? null : SoundTile = Texture2D.FromStream(ChaosGame.Device, stream, DefaultColorProcessors.PremultiplyAlpha);
     }
 
     public override void OnKeyDown(KeyDownEvent e)
@@ -217,6 +264,7 @@ public sealed partial class EffectWindowControl : GuildCloakDialogBase
     {
         LoginTab.Selected = State.Tab == EffectWindowKind.LoginLogout;
         DeathTab.Selected = State.Tab == EffectWindowKind.Death;
+        SoundTab.Selected = State.Tab == EffectWindowKind.DeathSound;
         BubbleTab.Selected = State.Tab == EffectWindowKind.ChatBubble;
 
         var bubbles = State.Tab == EffectWindowKind.ChatBubble;
@@ -237,12 +285,19 @@ public sealed partial class EffectWindowControl : GuildCloakDialogBase
         StatusLabel.Text = State.StatusText;
         ChooseButton.Enabled = State.CanChoose;
         Preview.SetFacing(State.Facing);
-        Preview.SetEffect(State.Tab, State.Selected);
+
+        //a sound has no animation to preview: the figure stands still and the button plays the sound instead
+        var sounds = State.Tab == EffectWindowKind.DeathSound;
+        Preview.SetEffect(State.Tab, sounds ? null : State.Selected);
+        TurnButton.Caption = sounds ? "Play" : "Turn";
     }
 
     // The player figure is the same for every tile: render it once per refresh and reuse it for each uncached tile.
     private void WarmThumbs()
     {
+        if (State.Tab == EffectWindowKind.DeathSound)
+            return;
+
         var missing = State.PageItems.Where(entry => !Thumbs.ContainsKey((State.Tab, entry.Effect))).ToList();
 
         if (missing.Count == 0)
@@ -270,6 +325,9 @@ public sealed partial class EffectWindowControl : GuildCloakDialogBase
 
     private Texture2D? ThumbFor(EffectWindowEntry entry)
     {
+        if (State.Tab == EffectWindowKind.DeathSound)
+            return LoadSoundTile();
+
         var key = (State.Tab, entry.Effect);
 
         if (Thumbs.TryGetValue(key, out var cached))
