@@ -43,9 +43,11 @@ public static class EmblemBookLayout
 
     /// <summary>
     ///     The line under the description: the guild for the guild emblem, who holds a record, when the player earned it, or
-    ///     Locked.
+    ///     Locked. The earned date is the player's own calendar day, not the UTC one.
     /// </summary>
-    public static string StatusText(EmblemBookEntry entry)
+    public static string StatusText(EmblemBookEntry entry) => StatusText(entry, TimeZoneInfo.Local);
+
+    public static string StatusText(EmblemBookEntry entry, TimeZoneInfo zone)
     {
         if (entry.Guild)
             return $"While you are in {entry.Name}";
@@ -54,7 +56,7 @@ public static class EmblemBookLayout
             return $"Held by {entry.Holder}";
 
         if (entry.Owned && (entry.GrantedUnix > 0))
-            return $"Earned {DateTimeOffset.FromUnixTimeSeconds(entry.GrantedUnix).UtcDateTime:yyyy-MM-dd}";
+            return $"Earned {TimeZoneInfo.ConvertTime(DateTimeOffset.FromUnixTimeSeconds(entry.GrantedUnix), zone):yyyy-MM-dd}";
 
         return entry.Owned ? string.Empty : "Locked";
     }

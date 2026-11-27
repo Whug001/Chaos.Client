@@ -42,8 +42,20 @@ public class EmblemBookLayoutTests
     {
         EmblemBookLayout.StatusText(new EmblemBookEntry { Record = true, Holder = "Aldric" }).Should().Be("Held by Aldric");
         EmblemBookLayout.StatusText(new EmblemBookEntry { Record = true }).Should().Be("Locked");
-        EmblemBookLayout.StatusText(new EmblemBookEntry { Owned = true, GrantedUnix = 1_790_000_000 }).Should().Be("Earned 2026-09-21");
+        EmblemBookLayout.StatusText(new EmblemBookEntry { Owned = true, GrantedUnix = 1_790_000_000 }, TimeZoneInfo.Utc).Should().Be("Earned 2026-09-21");
         EmblemBookLayout.StatusText(new EmblemBookEntry()).Should().Be("Locked");
+        await Task.CompletedTask;
+    }
+
+    [Test]
+    public async Task Earned_date_is_the_players_local_day()
+    {
+        //7:43 PM on Nov 26 in New York is already Nov 27 in UTC
+        var eastern = TimeZoneInfo.CreateCustomTimeZone("Test Eastern", TimeSpan.FromHours(-5), "Test Eastern", "Test Eastern");
+        var entry = new EmblemBookEntry { Owned = true, GrantedUnix = (uint)new DateTimeOffset(2026, 11, 27, 0, 43, 41, TimeSpan.Zero).ToUnixTimeSeconds() };
+
+        EmblemBookLayout.StatusText(entry, eastern).Should().Be("Earned 2026-11-26");
+        EmblemBookLayout.StatusText(entry, TimeZoneInfo.Utc).Should().Be("Earned 2026-11-27");
         await Task.CompletedTask;
     }
 
