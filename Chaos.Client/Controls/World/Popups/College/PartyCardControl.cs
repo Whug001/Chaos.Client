@@ -38,14 +38,19 @@ public sealed class PartyCardControl : GuildCloakDialogBase
     private const int NOTE_LINES = 4;
     private const int VOTE_STEP = CustomButton.HEIGHT + 3;
 
-    //Five vote rows keep the tallest vote card (Sketch Guess with the 2x drawing: chrome, drawing,
-    //prompt, rows, pager, footer) under the 480 px screen when centred.
-    private const int VOTE_PAGE_SIZE = 5;
+    //Two vote columns of five rows show ten answers on one page with no extra height: each row is
+    //still one button tall, so the tallest vote card (Sketch Guess with the 2x drawing: chrome 50,
+    //drawing 150, prompt 40, rows 125, pager 26, footer 30 = 421) stays under the 480 px screen.
+    private const int VOTE_ROWS = 5;
+    private const int VOTE_COLUMNS = 2;
+    private const int VOTE_PAGE_SIZE = VOTE_ROWS * VOTE_COLUMNS;
+    private const int VOTE_COLUMN_GAP = 8;
+    private const int VOTE_BUTTON_WIDTH = (INNER_WIDTH - VOTE_COLUMN_GAP) / VOTE_COLUMNS;
     //The final scores are capped like the Teacher panel's, so a big class can't push the OK button off the screen.
     private const int FINAL_ROWS = 8;
     private const int INFO_STEP = TextRenderer.CHAR_HEIGHT + 3;
     private const int ARROW_WIDTH = 28;
-    private const int PAGE_LABEL_WIDTH = 100;
+    private const int PAGE_LABEL_WIDTH = INNER_WIDTH - ((2 * ARROW_WIDTH) + 8);
     private const int REVEAL_WRAP_LINES = 3;
     private const int SEND_BUTTON_WIDTH = 70;
     private const int OK_RIGHT_MARGIN = 20;
@@ -115,7 +120,7 @@ public sealed class PartyCardControl : GuildCloakDialogBase
         SendButton = AddButton("Send", SEND_BUTTON_WIDTH, 0, 0, SendAnswer);
         PrevButton = AddButton("<", ARROW_WIDTH, LEFT, 0, () => TurnVotePage(-1));
         NextButton = AddButton(">", ARROW_WIDTH, LEFT + ARROW_WIDTH + 4, 0, () => TurnVotePage(1));
-        PageLabel = Caption(string.Empty, LEFT + (2 * ARROW_WIDTH) + 8, 0, PAGE_LABEL_WIDTH, HorizontalAlignment.Left, LegendColors.Gray);
+        PageLabel = Caption(string.Empty, LEFT + (2 * ARROW_WIDTH) + 8, 0, PAGE_LABEL_WIDTH, HorizontalAlignment.Left, LegendColors.Gold);
         CountLabel = Caption(string.Empty, LEFT, 0, INNER_WIDTH, HorizontalAlignment.Center, LegendColors.Gray);
         NoteLabel = Caption(string.Empty, LEFT, 0, INNER_WIDTH, HorizontalAlignment.Center);
         NoteLabel.WordWrap = true;
@@ -450,20 +455,22 @@ public sealed class PartyCardControl : GuildCloakDialogBase
         y = ShowPrompt(info.Prompt, y);
 
         EnsureVoteButtons(VOTE_PAGE_SIZE);
-        var pages = Math.Max(1, (info.Choices.Count + VOTE_PAGE_SIZE - 1) / VOTE_PAGE_SIZE);
+        var pages = VotePages(info.Choices.Count);
         VotePage = Math.Clamp(VotePage, 0, pages - 1);
         var page = VotePageChoices(info);
 
         for (var i = 0; i < page.Count; i++)
         {
+            var (row, column) = VoteCell(i);
             var button = VoteButtons[i];
             button.Caption = page[i].Text;
-            button.Y = y + (i * VOTE_STEP);
+            button.X = LEFT + (column * (VOTE_BUTTON_WIDTH + VOTE_COLUMN_GAP));
+            button.Y = y + (row * VOTE_STEP);
             button.Selected = info.MyChoice == page[i].Id;
             button.Visible = true;
         }
 
-        y += page.Count * VOTE_STEP;
+        y += ((page.Count + VOTE_COLUMNS - 1) / VOTE_COLUMNS) * VOTE_STEP;
 
         return ShowPager(pages, y);
     }
@@ -515,7 +522,7 @@ public sealed class PartyCardControl : GuildCloakDialogBase
         if (info.Event.Length > 0)
             lines.Add((info.Event, LegendColors.Gray));
 
-        var pages = Math.Max(1, (lines.Count + VOTE_PAGE_SIZE - 1) / VOTE_PAGE_SIZE);
+        var pages = VotePages(lines.Count);
         VotePage = Math.Clamp(VotePage, 0, pages - 1);
         var page = lines.Skip(VotePage * VOTE_PAGE_SIZE).Take(VOTE_PAGE_SIZE).ToList();
 
@@ -628,10 +635,22 @@ public sealed class PartyCardControl : GuildCloakDialogBase
         while (VoteButtons.Count < count)
         {
             CustomButton? slot = null;
-            slot = AddButton(string.Empty, INNER_WIDTH, LEFT, 0, () => Pick(VoteButtons.IndexOf(slot!)));
+            slot = AddButton(string.Empty, VOTE_BUTTON_WIDTH, LEFT, 0, () => Pick(VoteButtons.IndexOf(slot!)));
             VoteButtons.Add(slot);
         }
     }
+
+    /// <summary>
+    ///     The vote page count for a choice (or reveal line) total. One page holds
+    ///     <see cref="VOTE_PAGE_SIZE" /> entries, so there is always at least one page.
+    /// </summary>
+    internal static int VotePages(int count) => Math.Max(1, (count + VOTE_PAGE_SIZE - 1) / VOTE_PAGE_SIZE);
+
+    /// <summary>
+    ///     The vote grid cell for a page slot: down the left column first, then the right, so
+    ///     mouse click order (button index order) matches the visual order.
+    /// </summary>
+    internal static (int Row, int Column) VoteCell(int slot) => (slot % VOTE_ROWS, slot / VOTE_ROWS);
 
     private List<CollegePartyChoiceInfo> VotePageChoices(CollegePartyInfo info)
         => info.Choices.Skip(VotePage * VOTE_PAGE_SIZE).Take(VOTE_PAGE_SIZE).ToList();
@@ -653,7 +672,8 @@ public sealed class PartyCardControl : GuildCloakDialogBase
         NextButton.Enabled = VotePage < (pages - 1);
         PrevButton.Visible = true;
         NextButton.Visible = true;
-        PageLabel.Text = $"Page {VotePage + 1} of {pages}";
+        PageLabel.ForegroundColor = LegendColors.Gold;
+        PageLabel.Text = $"More answers: page {VotePage + 1} of {pages} >";
         PageLabel.Y = y + ((CustomButton.HEIGHT - TextRenderer.CHAR_HEIGHT) / 2);
         PageLabel.Visible = true;
 
