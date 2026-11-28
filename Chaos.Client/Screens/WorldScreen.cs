@@ -1242,6 +1242,9 @@ public sealed partial class WorldScreen : IScreen
         WorldState.UserOptions.UserToggled -= HandleUserOptionToggled;
         WorldState.UserOptions.UserChoiceSelected -= HandleUserOptionChoiceSelected;
 
+        //persist the quest watch snapshot before ResetAll() clears it
+        SaveQuestWatchIfDirty();
+
         WorldState.ResetAll();
 
         MapRenderer.Dispose();

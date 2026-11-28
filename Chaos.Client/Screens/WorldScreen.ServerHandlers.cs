@@ -1,4 +1,5 @@
 #region
+using System.Diagnostics;
 using Chaos.Client.Chat;
 using Chaos.Client.Collections;
 using Chaos.Client.Controls.Generic;
@@ -66,6 +67,15 @@ public sealed partial class WorldScreen
 
         //what this character put on their hotbars. The per-character store is initialized just before this is called
         LoadHotbars();
+
+        //the quest badge and pin are per character too: save the previous character's state
+        //(a no-op on first login), then load this one's, so one character's pin never shows on another
+        SaveQuestWatchIfDirty();
+        WorldState.QuestWatch.Reset();
+
+        if (DataContext.LocalPlayerSettings.IsInitialized)
+            WorldState.QuestWatch.Load(
+                QuestWatchStore.Load(DataContext.LocalPlayerSettings.GetFilePath(QuestWatchStore.FILE_NAME)));
 
         //volume is live: the sliders and the mixer were both set from the previous file
         MainOptions.SetSoundVolume(ClientSettings.SoundVolume);
@@ -2007,11 +2017,45 @@ public sealed partial class WorldScreen
     {
         WorldState.QuestLog.Apply(args.Entries);
 
+        var level = WorldState.Attributes.Current?.Level ?? 1;
+        WorldState.QuestWatch.OnEntries(args.Entries, level, ClientSettings.ShowQuestTracker);
+
+        //an open window (or one about to open for this very list) marks each update seen at once,
+        //so the badge never flashes while the player is looking at the log
+        if (QuestLogWindow.Visible || QuestLogOpenPending)
+            WorldState.QuestWatch.MarkSeen();
+
+        WorldHud.SetQuestBadge(WorldState.QuestWatch.HasUnseen);
+        SaveQuestWatchIfDirty();
+
         if (!QuestLogOpenPending)
             return;
 
         QuestLogOpenPending = false;
         QuestLogWindow.Show();
+    }
+
+    /// <summary>
+    ///     Persists the quest watch state when it changed since the last load, reset or save. IO failures are
+    ///     logged and swallowed: a broken snapshot file must never crash the client or break the quest log.
+    /// </summary>
+    private void SaveQuestWatchIfDirty()
+    {
+        if (!WorldState.QuestWatch.Dirty)
+            return;
+
+        try
+        {
+            if (!DataContext.LocalPlayerSettings.IsInitialized)
+                return;
+
+            var path = DataContext.LocalPlayerSettings.GetFilePath(QuestWatchStore.FILE_NAME);
+            QuestWatchStore.Save(path, WorldState.QuestWatch.Export());
+            WorldState.QuestWatch.ClearDirty();
+        } catch (Exception ex)
+        {
+            Debug.WriteLine($"[QuestWatch] failed to save watch state: {ex.Message}");
+        }
     }
 
     /// <summary>

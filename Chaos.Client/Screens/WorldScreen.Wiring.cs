@@ -1282,6 +1282,7 @@ public sealed partial class WorldScreen
         WorldHud = WorldHud == SmallHud ? LargeHud : SmallHud;
         ((UIPanel)WorldHud).Visible = true;
         WorldHud.ShowTab(activeTab);
+        WorldHud.SetQuestBadge(WorldState.QuestWatch.HasUnseen);
 
         var viewport = WorldHud.ViewportBounds;
         Camera.Resize(viewport.Width, viewport.Height);

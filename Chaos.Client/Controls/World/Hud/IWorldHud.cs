@@ -104,6 +104,12 @@ public interface IWorldHud
     /// </summary>
     void SetBarrier(int remaining);
 
+    /// <summary>
+    ///     Blinks the quest log button while the quest log holds unseen changes, the same way the mail button
+    ///     blinks for unread mail. Clearing the badge is the caller's job once the player has seen the list.
+    /// </summary>
+    void SetQuestBadge(bool on);
+
     void SetCoords(int x, int y);
     void SetDescription(string? text);
 

@@ -220,7 +220,7 @@ public sealed class LargeWorldHudControl : PrefabPanel, IWorldHud
             ChangeLayoutButton.NormalTexture = ChangeLayoutButton.PressedTexture;
             ChangeLayoutButton.PressedTexture = null;
         }
-        QuestButton = CreateButton("BTN_HELP");
+        QuestButton = CreateButton<MailButton>("BTN_HELP");
 
         //the Hotkeys slot now opens the quest log; hotkey help moved to Terminus (F1)
         QuestButton?.NormalTexture = UiRenderer.Instance!.GetSpfTexture("q_btm.spf");
@@ -351,6 +351,12 @@ public sealed class LargeWorldHudControl : PrefabPanel, IWorldHud
 
         MailButton?.SetAnimating(attrs.HasUnreadMail);
     }
+
+    /// <summary>
+    ///     Blinks the quest log button while the quest log holds unseen changes. The button is a
+    ///     <see cref="MailButton" />, so this reuses its pulse; a non-mail button simply does nothing.
+    /// </summary>
+    public void SetQuestBadge(bool on) => (QuestButton as MailButton)?.SetAnimating(on);
 
     #region Tab Panel Management
     public void ShowTab(HudTab tab)
