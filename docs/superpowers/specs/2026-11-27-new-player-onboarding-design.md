@@ -1,25 +1,25 @@
-# New-player onboarding: quest badge, quest tracker, ability hints
+# New-player onboarding: quest badge and quest tracker
 
 Date: 2026-11-27
 Source: player feedback PDF "This game sucks... for a brand-new player" (2026-11-24).
 Related, already built on `feat/new-player-onboarding`: tutorial skip hidden from new players (1), Riona points to Kamel (3), exact learn-requirement messages (4).
 
-This spec covers the two remaining picks:
+This spec covers the remaining pick:
 
 - **Item 6:** a quest log badge and one pinned on-screen quest tracker.
-- **Item 8:** short effect text on ability hover, on automatically up to level 41.
+
+Item 8 (ability hover summaries) was dropped by the owner on 2026-11-27.
 
 ## Why
 
-The player and two friends returned on day two and asked "now what?". The quest log existed, but they found it only days later. Hotbar abilities show bare Gaelic names ("Beag Ioc", "Cradh") with no hint of what they do.
+The player and two friends returned on day two and asked "now what?". The quest log existed, but they found it only days later.
 
-Success means three things:
+Success means two things:
 
 - A new player sees that the quest log has something for them.
 - They always have their current step on screen.
-- They can tell what an ability does by hovering it.
 
-Veterans can turn all of it off in F4.
+Veterans can turn the tracker off in F4.
 
 ## Repos
 
@@ -27,7 +27,6 @@ Veterans can turn all of it off in F4.
 |---|---|
 | Server | `Chaos.Client/Chaos-Server` submodule; worktree `worktrees/onboarding-server` |
 | Client | `Chaos.Client` (new worktree) |
-| Content | Unora; worktree `worktrees/onboarding-unora` |
 
 Ship order: the client before the server.
 
@@ -140,72 +139,6 @@ Tests (TUnit, `Tests/Chaos.Tests`):
 
 ---
 
-## Item 8: ability hints on hover
-
-### Data (Unora content plus the Chaos-Server schema)
-
-- Skill and spell templates gain an optional string field, `"summary"`.
-  - The schema change is additive (`SkillTemplateSchema`, `SpellTemplateSchema` and the template models), so forks are unaffected.
-  - Example: `"summary": "Small heal"`.
-- Limit: 28 characters, in plain words.
-  - No color codes, and no trailing period.
-  - Numbers only where they matter, for example "Lowers enemy AC by 20".
-  - At template load, the server logs a warning for a summary over 28 characters and sends it unchanged.
-- Every learnable skill and spell (any template with `learningRequirements`, 927 today) gets a summary.
-  - Ranks or tiers with the same effect share wording, for example `culmination1` to `culmination5`.
-  - Abilities that are not learnable, such as monster and item-granted ones, may leave the field out.
-
-### Getting it to the client
-
-- `Chaos.MetaData/ClassMetaData/AbilityMetaNode.cs` gains a `Summary` property.
-- Its serializer writes the summary as a 7th entry property ([6]) after the description, always, as an empty string when there is no summary.
-- `MetaDataStore` fills it from the template.
-- Client `Chaos.Client.Data/Models/AbilityMetadata.cs` `ParseEntry`: read `props[6]` when present, into a new `AbilityMetadataEntry.Summary` that defaults to empty.
-- Old clients read only [0] to [5] and ignore the rest. New clients facing an old server get an empty summary.
-
-### Display (client)
-
-- `AbilitySlotControl.HoverText` (`Controls/World/Hud/Panel/Slots/AbilitySlotBase.cs`):
-  - When hints are active and the ability's metadata entry has a summary, the text becomes `"{current hover text} - {summary}"`.
-  - The level-suffix rule (`FormatHoverText`) applies first, as today.
-- The summary is looked up by ability name in the player's class ability metadata (`WorldState`'s ability metadata).
-- No metadata entry, or an empty summary, shows the name alone.
-- Both the small HUD description strip (`WorldHudControl.SetDescription`) and the large HUD tooltip (`LargeWorldHudControl`, line ~471) use `HoverText`, so no change is needed there.
-- Check: the longest real result ("name with level" plus " - " plus 28 characters) must fit the `SZ_DESCRIPTION` label in both HUD layouts. If it doesn't, lower the 28-character cap rather than wrapping.
-
-### F4 setting
-
-- **"Ability hints": Auto / On / Off**, in the `Display` section, client-local, default Auto.
-  - Auto shows hints while the character's level is 41 or below.
-  - The level comes from the player attributes the client already receives.
-- If the F4 rows support only checkboxes, use two rows instead:
-  - "Ability hints", on by default.
-  - "Only up to level 41", on by default.
-
-  The plan checks which controls exist.
-
-### Writing the summaries
-
-- Drafts are written from each template's `description`. Ranks are grouped by name stem so one line covers a family.
-- **Review order:**
-  1. A 20-ability sample from the level 41-and-below set goes to the owner first.
-  2. Then the rest of the level 41-and-below set (98 templates).
-  3. Then the remainder.
-- Summaries are batch-edited into the JSON with a script. The script adds only the `"summary"` key next to `"description"` and changes no other formatting.
-
-### Tests
-
-- **Server:**
-  - The metadata node serializes a summary as property [6], and an empty one when there is none.
-  - The warning fires for summaries over 28 characters.
-- **Client:**
-  - `ParseEntry` handles 6- and 7-property entries.
-  - The hover text formats with a summary, without one, and with hints off.
-  - The Auto, On and Off settings behave correctly at levels 41 and 42.
-- **Content check** (a Unora data test or script run in CI or by hand): every template with `learningRequirements` has a non-empty `summary` of 28 characters or fewer.
-
----
-
 ## Out of scope
 
 - The tip bar.
@@ -213,10 +146,8 @@ Tests (TUnit, `Tests/Chaos.Tests`):
 - Cooldowns in the quest log.
 - More than one pinned quest.
 - Server-side pin storage.
-- Tooltips for item-granted abilities.
+- Ability hover summaries (item 8, dropped).
 
 ## Risks
 
-- **Retail DA client:** it may reject the 7th metadata property. Unora players use Chaos.Client, so this is accepted. Check that the launcher ships only Chaos.Client.
 - **Per-second quest builds for every online player:** watch Seq or the profiler after deploy (see the server performance notes). If needed, build every 2 seconds for closed windows.
-- **Summary accuracy:** wrong summaries mislead new players more than none at all. That is why the owner reviews the early set by hand.
