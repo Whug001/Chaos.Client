@@ -218,6 +218,9 @@ public sealed partial class WorldScreen : IScreen
     //set when Open was sent; the window shows on the first QuestLogDisplay after it
     private bool QuestLogOpenPending;
 
+    //pinned-quest tracker — top-right of the viewport, under popups and over the map
+    private QuestTrackerControl QuestTracker = null!;
+
     //poker table window — opened by the server's poker Open display when the player sits at a table's stool
     private PokerTableControl Poker = null!;
 
@@ -445,6 +448,7 @@ public sealed partial class WorldScreen : IScreen
         //outlives this screen, so this is unwired on unload
         userOptions.ValueChanged += HandleMapEffectSettingChanged;
         userOptions.ValueChanged += HandleChatFilterModeChanged;
+        userOptions.ValueChanged += HandleQuestTrackerSettingChanged;
 
         //route user-initiated toggles and dropdown selections for server-controlled settings to the network. UserOptions
         //is static and outlives this screen, so these are unwired on unload too
@@ -889,6 +893,10 @@ public sealed partial class WorldScreen : IScreen
         {
             ZIndex = -1
         };
+        QuestTracker = new QuestTrackerControl
+        {
+            ZIndex = -1
+        };
         WireQuestLog();
 
         Poker = new PokerTableControl(Game.SoundSystem, Game.AislingRenderer, Game.CreatureRenderer)
@@ -1032,6 +1040,7 @@ public sealed partial class WorldScreen : IScreen
         Root.AddChild(FishingWindow);
         Root.AddChild(PumpkinWindow);
         Root.AddChild(QuestLogWindow);
+        Root.AddChild(QuestTracker);
         Root.AddChild(Poker);
         Root.AddChild(BeautyShop);
         Root.AddChild(FittingRoom);
@@ -1082,6 +1091,7 @@ public sealed partial class WorldScreen : IScreen
         Root.AddChild(GroupVitals);
         Root.AddChild(RaidVitals);
         BuildHotbars();
+        AnchorQuestTracker();
         VotePanel.VoteCast += (pollId, index) => Game.Connection.SendVote(pollId, index);
 
         //inventory drop-target registry: each panel owns its eligibility/drop-zone; the paired action owns the networking
@@ -1239,6 +1249,7 @@ public sealed partial class WorldScreen : IScreen
 
         WorldState.UserOptions.ValueChanged -= HandleMapEffectSettingChanged;
         WorldState.UserOptions.ValueChanged -= HandleChatFilterModeChanged;
+        WorldState.UserOptions.ValueChanged -= HandleQuestTrackerSettingChanged;
         WorldState.UserOptions.UserToggled -= HandleUserOptionToggled;
         WorldState.UserOptions.UserChoiceSelected -= HandleUserOptionChoiceSelected;
 

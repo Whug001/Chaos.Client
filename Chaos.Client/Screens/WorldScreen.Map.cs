@@ -363,6 +363,15 @@ public sealed partial class WorldScreen
         SystemMessagePane.ReapplyFilter(mode, FantasyDictionary.Default);
     }
 
+    /// <summary>F4 "Show quest tracker" takes hold straight away: no relog or HUD swap needed.</summary>
+    private void HandleQuestTrackerSettingChanged(SettingKey key, bool value)
+    {
+        if (key != SettingKey.ShowQuestTracker)
+            return;
+
+        QuestTracker.Refresh();
+    }
+
     private void HandleMapEffectSettingChanged(SettingKey key, bool value)
     {
         if (MapEffectFilter.Keys.Contains(key))

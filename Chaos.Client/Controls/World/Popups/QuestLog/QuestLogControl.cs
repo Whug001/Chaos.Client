@@ -1,6 +1,7 @@
 #region
 using Chaos.Client.Collections;
 using Chaos.Client.Controls.Components;
+using Chaos.Client.Controls.Custom;
 using Chaos.Client.Controls.Generic;
 using Chaos.Client.Controls.Scrolling;
 using Chaos.Client.Definitions;
@@ -34,6 +35,7 @@ public sealed class QuestLogControl : UIPanel
     private const int DETAILS_WIDTH = 188;
     private const int DETAILS_HEIGHT = 140;
     private const int BOTTOM_BUTTON_Y = 282;
+    private const int PIN_BUTTON_X = 16;
     private const int GIVE_UP_X = 71;
     private const int CLOSE_X = 135;
     private const int WIDE_BUTTON_WIDTH = 50;
@@ -53,6 +55,7 @@ public sealed class QuestLogControl : UIPanel
     private readonly ScrollViewerControl DetailsViewer;
     private readonly Texture2D FullBackground;
     private readonly UIButton GiveUpButton;
+    private readonly CustomButton PinButton;
     private readonly ScrollViewerControl ListViewer;
     private readonly UIButton MinimizeButton;
     private readonly Texture2D MinimizedBackground;
@@ -71,6 +74,9 @@ public sealed class QuestLogControl : UIPanel
 
     /// <summary>The confirming second GiveUp click, with the quest key.</summary>
     public event Action<string>? GiveUpRequested;
+
+    /// <summary>The Pin/Unpin button, with the selected quest key.</summary>
+    public event Action<string>? PinToggled;
 
     public QuestLogControl()
     {
@@ -132,12 +138,20 @@ public sealed class QuestLogControl : UIPanel
 
         GiveUpButton = AddButton("q_gvp.spf", GIVE_UP_X, BOTTOM_BUTTON_Y, WIDE_BUTTON_WIDTH, WIDE_BUTTON_HEIGHT, OnGiveUpClicked);
         GiveUpButton.DisabledTexture = GiveUpButton.PressedTexture;
+        PinButton = new CustomButton("Pin", WIDE_BUTTON_WIDTH)
+        {
+            X = PIN_BUTTON_X,
+            Y = BOTTOM_BUTTON_Y
+        };
+        PinButton.Clicked += OnPinClicked;
+        AddChild(PinButton);
         CloseButton = AddButton("q_close.spf", CLOSE_X, BOTTOM_BUTTON_Y, WIDE_BUTTON_WIDTH, WIDE_BUTTON_HEIGHT, Close);
         MinimizeButton = AddButton("under_bn.spf", FULL_MINIMIZE_X, TITLE_BUTTON_Y, SMALL_BUTTON_SIZE, SMALL_BUTTON_SIZE, () => SetMinimized(true));
         RestoreButton = AddButton("full_bn.spf", MIN_RESTORE_X, TITLE_BUTTON_Y, SMALL_BUTTON_SIZE, SMALL_BUTTON_SIZE, () => SetMinimized(false));
         CloseXButton = AddButton("x_bn.spf", FULL_X_BUTTON_X, TITLE_BUTTON_Y, SMALL_BUTTON_SIZE, SMALL_BUTTON_SIZE, Close);
 
         state.Changed += Refresh;
+        WorldState.QuestWatch.Changed += Refresh;
         SetMinimized(false);
         this.CenterOnScreen();
         Refresh();
@@ -170,6 +184,7 @@ public sealed class QuestLogControl : UIPanel
         ListViewer.Visible = !minimized;
         DetailsViewer.Visible = !minimized;
         GiveUpButton.Visible = !minimized;
+        PinButton.Visible = !minimized;
         CloseButton.Visible = !minimized;
         MinimizeButton.Visible = !minimized;
         RestoreButton.Visible = minimized;
@@ -234,6 +249,7 @@ public sealed class QuestLogControl : UIPanel
     public override void Dispose()
     {
         WorldState.QuestLog.Changed -= Refresh;
+        WorldState.QuestWatch.Changed -= Refresh;
 
         //the textures belong to UiRenderer's shared cache; drop them so the base Dispose doesn't dispose them
         Background = null;
@@ -280,6 +296,12 @@ public sealed class QuestLogControl : UIPanel
             GiveUpRequested?.Invoke(key);
     }
 
+    private void OnPinClicked()
+    {
+        if (WorldState.QuestLog.SelectedKey is { } key)
+            PinToggled?.Invoke(key);
+    }
+
     private void Refresh()
     {
         var state = WorldState.QuestLog;
@@ -288,6 +310,7 @@ public sealed class QuestLogControl : UIPanel
         RowList.ReplaceItems(DisplayRows);
         DetailsLabel.Text = state.DetailsText();
         GiveUpButton.Enabled = state.CanGiveUp;
+        PinButton.Caption = (state.SelectedKey is not null) && (state.SelectedKey == WorldState.QuestWatch.PinnedKey) ? "Unpin" : "Pin";
 
         //a newly selected quest starts at the top of its text
         if (state.SelectedKey != ShownKey)

@@ -8,6 +8,7 @@ using Chaos.Client.Controls.World.Hud;
 using Chaos.Client.Controls.World.Hud.Panel;
 using Chaos.Client.Controls.World.Hud.Panel.Slots;
 using Chaos.Client.Controls.World.Popups.BugReport;
+using Chaos.Client.Controls.World.Popups.GroupPanels;
 using Chaos.Client.Controls.World.Popups.Options;
 using Chaos.Client.Extensions;
 using Chaos.Client.Networking.Definitions;
@@ -256,6 +257,28 @@ public sealed partial class WorldScreen
         {
             QuestLogOpenPending = false;
             Game.Connection.SendQuestLogClose();
+        };
+
+        QuestLogWindow.PinToggled += key =>
+        {
+            if (key == WorldState.QuestWatch.PinnedKey)
+                WorldState.QuestWatch.Unpin();
+            else
+                WorldState.QuestWatch.Pin(key);
+
+            SaveQuestWatchIfDirty();
+        };
+
+        QuestTracker.UnpinClicked += () =>
+        {
+            WorldState.QuestWatch.Unpin();
+            SaveQuestWatchIfDirty();
+        };
+
+        QuestTracker.TitleClicked += () =>
+        {
+            if (!QuestLogWindow.Visible)
+                ToggleQuestLog();
         };
     }
 
@@ -1270,6 +1293,23 @@ public sealed partial class WorldScreen
 
     private void ResetMailButtonSelection() => WorldHud.MailButton?.IsSelected = false;
 
+    /// <summary>Re-anchors the pinned-quest tracker to the active viewport, clear of any bars docked on the right.</summary>
+    private void AnchorQuestTracker()
+    {
+        var viewport = WorldHud.ViewportBounds;
+        var rightReserved = GroupPanelStack.DEFAULT_LEFT_MARGIN;
+        var gap = 0;
+
+        foreach (var bar in HotbarBars)
+            if ((bar is not null) && bar.IsShown && bar.IsDocked && (bar.Edge == HotbarDock.Right))
+            {
+                rightReserved += bar.Width + gap;
+                gap = HOTBAR_STACK_GAP;
+            }
+
+        QuestTracker.Anchor(viewport, rightReserved);
+    }
+
     private void SwapHudLayout()
     {
         LeaveSeatedUi();
@@ -1283,6 +1323,7 @@ public sealed partial class WorldScreen
         ((UIPanel)WorldHud).Visible = true;
         WorldHud.ShowTab(activeTab);
         WorldHud.SetQuestBadge(WorldState.QuestWatch.HasUnseen);
+        AnchorQuestTracker();
 
         var viewport = WorldHud.ViewportBounds;
         Camera.Resize(viewport.Width, viewport.Height);
