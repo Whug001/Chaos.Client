@@ -68,9 +68,9 @@ public sealed partial class WorldScreen
         //what this character put on their hotbars. The per-character store is initialized just before this is called
         LoadHotbars();
 
-        //the quest badge and pin are per character too: save the previous character's state
-        //(a no-op on first login), then load this one's, so one character's pin never shows on another
-        SaveQuestWatchIfDirty();
+        //the quest badge and pin are per character too: drop whatever the previous character left and load this
+        //one's, so one character's pin never shows on another. No save here: the per-character store already points
+        //at THIS character, and every change was saved when it happened (HandleQuestLogDisplay, pin, unpin)
         WorldState.QuestWatch.Reset();
 
         if (DataContext.LocalPlayerSettings.IsInitialized)
