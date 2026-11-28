@@ -27,6 +27,19 @@
         <EmbeddedResource Include="Assets\death-sound.png">
             <LogicalName>death-sound.png</LogicalName>
         </EmbeddedResource>
+        <!-- The quest log's Pin/Unpin button, normal and pressed (Controls/World/Popups/QuestLog); drawn by Tools/PanelIcons/make_pin_buttons.py. -->
+        <EmbeddedResource Include="Assets\quest-pin_0.png">
+            <LogicalName>quest-pin_0.png</LogicalName>
+        </EmbeddedResource>
+        <EmbeddedResource Include="Assets\quest-pin_1.png">
+            <LogicalName>quest-pin_1.png</LogicalName>
+        </EmbeddedResource>
+        <EmbeddedResource Include="Assets\quest-unpin_0.png">
+            <LogicalName>quest-unpin_0.png</LogicalName>
+        </EmbeddedResource>
+        <EmbeddedResource Include="Assets\quest-unpin_1.png">
+            <LogicalName>quest-unpin_1.png</LogicalName>
+        </EmbeddedResource>
     </ItemGroup>
 
     <!-- Native SDL2_mixer binaries per runtime; copied to bin/.../runtimes/{rid}/native/ so the

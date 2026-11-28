@@ -1,7 +1,6 @@
 #region
 using Chaos.Client.Collections;
 using Chaos.Client.Controls.Components;
-using Chaos.Client.Controls.Custom;
 using Chaos.Client.Controls.Generic;
 using Chaos.Client.Controls.Scrolling;
 using Chaos.Client.Definitions;
@@ -55,7 +54,13 @@ public sealed class QuestLogControl : UIPanel
     private readonly ScrollViewerControl DetailsViewer;
     private readonly Texture2D FullBackground;
     private readonly UIButton GiveUpButton;
-    private readonly CustomButton PinButton;
+    private readonly UIButton PinButton;
+
+    //the Pin/Unpin art (Tools/PanelIcons/make_pin_buttons.py): owned here, unlike the shared spf textures
+    private readonly Texture2D PinNormal = LoadArt("quest-pin_0.png");
+    private readonly Texture2D PinPressed = LoadArt("quest-pin_1.png");
+    private readonly Texture2D UnpinNormal = LoadArt("quest-unpin_0.png");
+    private readonly Texture2D UnpinPressed = LoadArt("quest-unpin_1.png");
     private readonly ScrollViewerControl ListViewer;
     private readonly UIButton MinimizeButton;
     private readonly Texture2D MinimizedBackground;
@@ -138,10 +143,14 @@ public sealed class QuestLogControl : UIPanel
 
         GiveUpButton = AddButton("q_gvp.spf", GIVE_UP_X, BOTTOM_BUTTON_Y, WIDE_BUTTON_WIDTH, WIDE_BUTTON_HEIGHT, OnGiveUpClicked);
         GiveUpButton.DisabledTexture = GiveUpButton.PressedTexture;
-        PinButton = new CustomButton("Pin", WIDE_BUTTON_WIDTH)
+        PinButton = new UIButton
         {
             X = PIN_BUTTON_X,
-            Y = BOTTOM_BUTTON_Y
+            Y = BOTTOM_BUTTON_Y,
+            Width = WIDE_BUTTON_WIDTH,
+            Height = WIDE_BUTTON_HEIGHT,
+            NormalTexture = PinNormal,
+            PressedTexture = PinPressed
         };
         PinButton.Clicked += OnPinClicked;
         AddChild(PinButton);
@@ -254,6 +263,13 @@ public sealed class QuestLogControl : UIPanel
         //the textures belong to UiRenderer's shared cache; drop them so the base Dispose doesn't dispose them
         Background = null;
 
+        PinButton.NormalTexture = null;
+        PinButton.PressedTexture = null;
+        PinNormal.Dispose();
+        PinPressed.Dispose();
+        UnpinNormal.Dispose();
+        UnpinPressed.Dispose();
+
         foreach (var button in new[] { GiveUpButton, CloseButton, MinimizeButton, RestoreButton, CloseXButton })
         {
             button.NormalTexture = null;
@@ -262,6 +278,14 @@ public sealed class QuestLogControl : UIPanel
         }
 
         base.Dispose();
+    }
+
+    private static Texture2D LoadArt(string resource)
+    {
+        using var stream = typeof(QuestLogControl).Assembly.GetManifestResourceStream(resource)
+                           ?? throw new InvalidOperationException($"Missing embedded resource {resource}");
+
+        return Texture2D.FromStream(ChaosGame.Device, stream, DefaultColorProcessors.PremultiplyAlpha);
     }
 
     private UIButton AddButton(string spf, int x, int y, int width, int height, ClickedHandler onClick)
@@ -310,7 +334,9 @@ public sealed class QuestLogControl : UIPanel
         RowList.ReplaceItems(DisplayRows);
         DetailsLabel.Text = state.DetailsText();
         GiveUpButton.Enabled = state.CanGiveUp;
-        PinButton.Caption = (state.SelectedKey is not null) && (state.SelectedKey == WorldState.QuestWatch.PinnedKey) ? "Unpin" : "Pin";
+        var pinned = (state.SelectedKey is not null) && (state.SelectedKey == WorldState.QuestWatch.PinnedKey);
+        PinButton.NormalTexture = pinned ? UnpinNormal : PinNormal;
+        PinButton.PressedTexture = pinned ? UnpinPressed : PinPressed;
 
         //a newly selected quest starts at the top of its text
         if (state.SelectedKey != ShownKey)
