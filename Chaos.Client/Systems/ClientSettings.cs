@@ -87,6 +87,10 @@ public static class ClientSettings
     // Off by default: every ability sits at level 100, so the suffix is noise until the player opts in.
     public static bool ShowAbilityLevels { get; set; }
 
+    // --- Pinned quest tracker (client-local; read by QuestTrackerControl and QuestWatchState's auto-pin) ---
+    // On by default: a new player always has their current step on screen until they turn it off in F4.
+    public static bool ShowQuestTracker { get; set; } = true;
+
     // --- Group member panels down the side of the viewport (client-local; gated in GroupPanelStack) ---
     public static bool GroupPanelEnabled { get; set; } = true;
 
@@ -333,6 +337,11 @@ public static class ClientSettings
 
                     case "ShowAbilityLevels":
                         ShowAbilityLevels = value == "1";
+
+                        break;
+
+                    case "ShowQuestTracker":
+                        ShowQuestTracker = value == "1";
 
                         break;
 
@@ -613,6 +622,7 @@ public static class ClientSettings
             writer.WriteLine($"DamageNumberSize : {(int)DamageNumberSize}");
             writer.WriteLine($"CooldownNumbersEnabled : {(CooldownNumbersEnabled ? 1 : 0)}");
             writer.WriteLine($"ShowAbilityLevels : {(ShowAbilityLevels ? 1 : 0)}");
+            writer.WriteLine($"ShowQuestTracker : {(ShowQuestTracker ? 1 : 0)}");
             writer.WriteLine($"WindowWidth : {WindowWidth}");
             writer.WriteLine($"WindowHeight : {WindowHeight}");
             writer.WriteLine($"GroupPanelEnabled : {(GroupPanelEnabled ? 1 : 0)}");

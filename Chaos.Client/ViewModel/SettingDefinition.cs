@@ -83,6 +83,7 @@ public enum SettingKey
     Resolution,
     CooldownNumbers,
     ShowAbilityLevels,
+    ShowQuestTracker,
     GroupPanel,
     TransparentGroupPanel,
     DamageNumbersEnabled,
@@ -227,6 +228,13 @@ public static class SettingDefinitions
             SettingCategory.ClientLocal,
             Get: () => ClientSettings.ShowAbilityLevels,
             Set: v => ClientSettings.ShowAbilityLevels = v),
+        new(
+            SettingKey.ShowQuestTracker,
+            "Show quest tracker",
+            SettingSection.Display,
+            SettingCategory.ClientLocal,
+            Get: () => ClientSettings.ShowQuestTracker,
+            Set: v => ClientSettings.ShowQuestTracker = v),
         new(
             SettingKey.GroupPanel,
             "Show group panels",

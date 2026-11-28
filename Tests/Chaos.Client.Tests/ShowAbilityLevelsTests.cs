@@ -53,6 +53,50 @@ public sealed class ShowAbilityLevelsTests
     }
 
     [Test]
+    public void ShowQuestTracker_defaults_to_true_and_is_listed_in_F4()
+    {
+        ClientSettings.ShowQuestTracker.Should().BeTrue();
+        SettingDefinitions.All.Should().Contain(d => d.Key == SettingKey.ShowQuestTracker);
+    }
+
+    [Test]
+    public void ShowQuestTracker_entry_is_display_client_local_with_expected_label()
+    {
+        var definition = SettingDefinitions.ByKey(SettingKey.ShowQuestTracker);
+
+        definition.Label.Should().Be("Show quest tracker");
+        definition.Section.Should().Be(SettingSection.Display);
+        definition.Category.Should().Be(SettingCategory.ClientLocal);
+        definition.Choices.Should().BeNull();
+        definition.GetSliderValue.Should().BeNull();
+        definition.Get.Should().NotBeNull();
+        definition.Set.Should().NotBeNull();
+    }
+
+    [Test]
+    public void ShowQuestTracker_round_trips_through_definition_seam()
+    {
+        var wasShowTracker = ClientSettings.ShowQuestTracker;
+
+        try
+        {
+            var definition = SettingDefinitions.ByKey(SettingKey.ShowQuestTracker);
+
+            definition.Set!(false);
+            ClientSettings.ShowQuestTracker.Should().BeFalse();
+            definition.Get!().Should().BeFalse();
+
+            definition.Set!(true);
+            ClientSettings.ShowQuestTracker.Should().BeTrue();
+            definition.Get!().Should().BeTrue();
+        }
+        finally
+        {
+            ClientSettings.ShowQuestTracker = wasShowTracker;
+        }
+    }
+
+    [Test]
     public void Full_level_is_hidden_when_setting_off()
         => AbilitySlotControl.FormatHoverText("Ioc (Lev:100/100)", "Ioc", "100/100", showLevels: false)
             .Should().Be("Ioc");
