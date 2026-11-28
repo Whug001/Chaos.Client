@@ -187,6 +187,13 @@ public static class WorldState
     /// </summary>
     public static QuestLogState QuestLog { get; } = new();
 
+    /// <summary>
+    ///     The quest badge and single pinned quest, derived from the server-sent quest log list. Client-side and per
+    ///     character: loaded from the character's store on world entry, cleared on logout alongside
+    ///     <see cref="QuestLog" />.
+    /// </summary>
+    public static QuestWatchState QuestWatch { get; } = new();
+
     /// <summary>The crafting windows' state.</summary>
     public static CraftingWindowState Crafting { get; } = new();
 
@@ -613,6 +620,7 @@ public static class WorldState
         GildedSpindle.Clear();
         Lockpick.Clear();
         QuestLog.Clear();
+        QuestWatch.Reset();
         Crafting.Clear();
         CommissionBoard.Clear();
         TcgCollection.Clear();
